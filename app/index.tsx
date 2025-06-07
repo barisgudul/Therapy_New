@@ -216,10 +216,6 @@ export default function HomeScreen() {
               <Text style={styles.outlinedText}>Bugün nasıl hissediyorsun?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.buttonUnified} onPress={() => router.push('/achievements' as const)}>
-              <Ionicons name="trophy-outline" size={22} color={Colors.light.tint} style={{ marginRight: 10 }} />
-              <Text style={styles.outlinedText}>Başarılarım</Text>
-            </TouchableOpacity>
             
             <TouchableOpacity style={styles.buttonUnified} onPress={() => router.push('/ai_summary' as const)}>
               <Ionicons name="analytics-outline" size={22} color={Colors.light.tint} style={{ marginRight: 10 }} />
@@ -258,21 +254,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Debug butonu - TESTİ BİTİNCE KALDIR */}
-      <TouchableOpacity 
-        style={{
-          position: 'absolute',
-          bottom: 20,
-          right: 20,
-          backgroundColor: '#ff6b6b',
-          padding: 10,
-          borderRadius: 8,
-          zIndex: 100
-        }}
-        onPress={resetBadges}
-      >
-        <Text style={{ color: '#fff' }}>Rozetleri Sıfırla</Text>
-      </TouchableOpacity>
+      
 
       {modalVisible && <BlurView intensity={60} tint="default" style={StyleSheet.absoluteFill} />}
 

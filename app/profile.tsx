@@ -2,19 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter } from 'expo-router/';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
@@ -23,7 +23,7 @@ import { getProfileData, isProfileComplete } from '../utils/helpers';
 
 type RelationshipStatus = 'single' | 'in_relationship' | 'married' | 'complicated' | '';
 type Gender = 'male' | 'female' | 'other' | '';
-type Orientation = 'straight' | 'gay' | 'bisexual' | 'other' | '';
+
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -35,7 +35,6 @@ export default function ProfileScreen() {
   const [previousTherapy, setPreviousTherapy] = useState('');
   const [relationshipStatus, setRelationshipStatus] = useState<RelationshipStatus>('');
   const [gender, setGender] = useState<Gender>('');
-  const [orientation, setOrientation] = useState<Orientation>('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,12 +51,6 @@ export default function ProfileScreen() {
     { value: 'other', label: 'Diğer' },
   ];
 
-  const orientationOptions = [
-    { value: 'straight', label: 'Heteroseksüel' },
-    { value: 'gay', label: 'Eşcinsel' },
-    { value: 'bisexual', label: 'Biseksüel' },
-    { value: 'other', label: 'Diğer' },
-  ];
 
   useEffect(() => {
     loadProfile();
@@ -75,7 +68,6 @@ export default function ProfileScreen() {
         setPreviousTherapy(parsed.previousTherapy || '');
         setRelationshipStatus(parsed.relationshipStatus || '');
         setGender(parsed.gender || '');
-        setOrientation(parsed.orientation || '');
         setProfileImage(parsed.profileImage || null);
       }
     } catch (error) {
@@ -298,7 +290,6 @@ export default function ProfileScreen() {
               showDatePicker
             )}
             {renderSelector('Cinsiyet', genderOptions, gender, setGender, 'male-outline')}
-            {renderSelector('Cinsel Yönelim', orientationOptions, orientation, setOrientation, 'heart-outline')}
             {renderSelector('İlişki Durumu', relationshipOptions, relationshipStatus, setRelationshipStatus, 'heart-outline')}
 
             <Text style={styles.sectionTitle}>Terapi Bilgileri</Text>

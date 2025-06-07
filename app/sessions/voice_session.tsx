@@ -15,15 +15,23 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
-import { checkAndUpdateBadges } from '../../utils/badges';
 import { getSessionStats } from '../../utils/helpers';
-import { saveToSessionData } from '../../utils/sessionData'; // EKLENDİ
+import { saveToSessionData } from '../../utils/sessionData';
+import { avatars } from '../avatar';
 
 const therapistImages: Record<string, any> = {
   therapist1: require('../../assets/Terapist_1.jpg'),
   therapist2: require('../../assets/Terapist_2.jpg'),
   therapist3: require('../../assets/Terapist_3.jpg'),
   coach1: require('../../assets/coach-can.jpg')
+};
+
+// Terapist adlarını eşleştirmek için bir nesne ekle
+const therapistNames: Record<string, string> = {
+  therapist1: 'Terapist 1',
+  therapist2: 'Terapist 2',
+  therapist3: 'Terapist 3',
+  coach1: 'Koç Can',
 };
 
 export default function VoiceSessionScreen() {
@@ -163,39 +171,39 @@ export default function VoiceSessionScreen() {
       // Rozetleri kontrol et ve güncelle
       const sessionStats = await getSessionStats();
       
-      await checkAndUpdateBadges('session', {
-        textSessions: sessionStats.textSessions,
-        voiceSessions: sessionStats.voiceSessions,
-        videoSessions: sessionStats.videoSessions,
-        totalSessions: sessionStats.totalSessions,
-        diverseSessionCompleted: sessionStats.textSessions > 0 && 
-                                sessionStats.voiceSessions > 0 && 
-                                sessionStats.videoSessions > 0
-      });
     } catch (error) {
       console.error('Seans kaydedilirken hata:', error);
     }
   }
 
+  // Terapist adını avatar.tsx dosyasındaki veriden almak için yardımcı fonksiyon
+  function getTherapistNameByImageId(imageId: string | undefined) {
+    if (!imageId) return '';
+    const avatar = avatars.find((a: any) => a.imageId === imageId);
+    return avatar ? avatar.name : 'Terapist';
+  }
+
   return (
     <LinearGradient colors={isDark ? ['#000000', '#1c2e40'] : ['#F9FAFB', '#ECEFF4']} style={styles.container}>
-      <View style={styles.therapistVideo}>
-        <Image 
-          source={therapistImages[therapistId] || therapistImages.therapist1} 
-          style={styles.therapistImage}
-        />
-      </View>
-
       <TouchableOpacity onPress={handleExit} style={styles.back}>
         <Ionicons name="chevron-back" size={26} color={Colors.light.tint} />
       </TouchableOpacity>
 
+      {/* Terapist küçük avatar ve adı sağ üstte */}
+      <View style={styles.therapistAvatarTopRight}>
+        <Image 
+          source={therapistImages[therapistId] || therapistImages.therapist1} 
+          style={styles.therapistAvatarSmall}
+        />
+        <Text style={[styles.therapistName, { color: isDark ? '#fff' : Colors.light.tint }]}> 
+          {getTherapistNameByImageId(therapistId)}
+        </Text>
+      </View>
+
       <Text style={styles.logo}>
         therapy<Text style={styles.dot}>.</Text>
       </Text>
-      <Text style={[styles.title, { color: isDark ? '#fff' : Colors.light.text }]}>
-        Sesli Terapi
-      </Text>
+      <Text style={[styles.title, { color: isDark ? '#fff' : Colors.light.text }]}>Sesli Terapi</Text>
 
       {permissionGranted ? (
         <>
@@ -308,18 +316,42 @@ const styles = StyleSheet.create({
   btnMuted: {
     backgroundColor: '#9AA5B1',
   },
-  therapistVideo: {
+  therapistAvatarTopRight: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
+    top: 110, // Daha aşağıda görünmesi için artırıldı
+    right: 24,
     alignItems: 'center',
+    zIndex: 20,
   },
-  therapistImage: {
+  therapistAvatarSection: {
+    alignItems: 'center',
+    justifyContent: 'center',
     width: '100%',
-    height: '100%',
+    marginTop: 60, // Geri butonundan sonra gelsin diye artırıldı
+    marginBottom: 8,
+    zIndex: 5,
+  },
+  therapistAvatarSmall: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: Colors.light.tint,
+    backgroundColor: '#fff',
     resizeMode: 'cover',
+    marginBottom: 6,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  therapistName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2E5CFF', // Varsayılan renk, dinamik olarak inline ayarlanacak
+    textAlign: 'center',
+    marginBottom: 2,
+    letterSpacing: 0.1,
   },
 });
