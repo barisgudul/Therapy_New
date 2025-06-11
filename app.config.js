@@ -10,7 +10,7 @@ export default {
     scheme: 'therapynew',
 
     extra: {
-      ...localConfig.extra, // API key buradan geliyor
+      ...localConfig.extra, // API key ve GCP_CONFIG buradan geliyor
     },
   },
 };
