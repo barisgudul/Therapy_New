@@ -59,11 +59,11 @@ export const transcribeAudio = async (audioUri: string): Promise<string> => {
   if (ext === 'm4a' || ext === 'aac') {
     encoding = 'MP3'; // GCP STT için en yakın desteklenen format
     // sampleRateHertz'i değiştirmeye gerek yok, ama isterseniz loglayabilirsiniz
-    console.warn('[GCP STT] Kayıt formatı m4a/aac, encoding MP3 olarak ayarlandı.');
+    // console.warn('[GCP STT] Kayıt formatı m4a/aac, encoding MP3 olarak ayarlandı.');
   }
   const audio64 = await audioToBase64(audioUri);
   const requestBody = { config: { ...STT_CFG, encoding, sampleRateHertz }, audio: { content: audio64 } };
-  console.log('[GCP STT] Request body:', JSON.stringify(requestBody));
+  // console.log('[GCP STT] Request body:', JSON.stringify(requestBody));
   try {
     const res = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}`, {
       method: 'POST',
@@ -71,14 +71,14 @@ export const transcribeAudio = async (audioUri: string): Promise<string> => {
       body: JSON.stringify(requestBody),
     });
     const json = await res.json();
-    console.log('[GCP STT] Response:', JSON.stringify(json));
+    // console.log('[GCP STT] Response:', JSON.stringify(json));
     if (json.error) {
-      console.error('[GCP STT] Error:', json.error);
+      // console.error('[GCP STT] Error:', json.error);
       throw new Error(json.error.message || 'GCP STT hatası');
     }
     return json?.results?.[0]?.alternatives?.[0]?.transcript ?? '';
   } catch (err: any) {
-    console.error('[GCP STT] Exception:', err);
+    // console.error('[GCP STT] Exception:', err);
     throw err;
   }
 };
@@ -86,7 +86,7 @@ export const transcribeAudio = async (audioUri: string): Promise<string> => {
 // Text‑to‑Speech → mp3 URI döner
 export const textToSpeech = async (text: string): Promise<string> => {
   const requestBody = { input: { text }, voice: TTS_CFG, audioConfig: { audioEncoding: 'MP3' } };
-  console.log('[GCP TTS] Request body:', JSON.stringify(requestBody));
+  // console.log('[GCP TTS] Request body:', JSON.stringify(requestBody));
   try {
     const res = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${API_KEY}`, {
       method: 'POST',
@@ -94,9 +94,9 @@ export const textToSpeech = async (text: string): Promise<string> => {
       body: JSON.stringify(requestBody),
     });
     const json = await res.json();
-    console.log('[GCP TTS] Response:', JSON.stringify(json));
+    // console.log('[GCP TTS] Response:', JSON.stringify(json));
     if (json.error) {
-      console.error('[GCP TTS] Error:', json.error);
+      // console.error('[GCP TTS] Error:', json.error);
       throw new Error(json.error.message || 'GCP TTS hatası');
     }
     if (!json.audioContent) throw new Error('audioContent boş');
@@ -107,7 +107,7 @@ export const textToSpeech = async (text: string): Promise<string> => {
     });
     return path;
   } catch (err: any) {
-    console.error('[GCP TTS] Exception:', err);
+    // console.error('[GCP TTS] Exception:', err);
     throw err;
   }
 };

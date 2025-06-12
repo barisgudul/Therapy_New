@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -17,6 +16,7 @@ import {
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useVoiceSession } from '../../hooks/useVoice';
+import { avatars } from '../avatar';
 
 /* -------------------------------------------------------------------------- */
 /* TYPES & CONSTS                                                             */
@@ -31,6 +31,13 @@ const therapistImages: Record<string, any> = {
   coach1: require('../../assets/coach-can.jpg'),
 };
 
+const therapistNames: Record<string, string> = {
+  therapist1: 'Terapist 1',
+  therapist2: 'Terapist 2',
+  therapist3: 'Terapist 3',
+  coach1: 'Koç 1',
+};
+
 export type ChatMessage = {
   id: string;
   sender: 'user' | 'ai';
@@ -43,8 +50,12 @@ export type ChatMessage = {
 
 export default function VoiceSessionScreen() {
   const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
+  const navigation = useNavigation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+
+  // Doğru terapist objesini bul
+  const therapist = avatars.find(a => a.imageId === therapistId);
 
   /* ---------------------------- STATE & REFS ---------------------------- */
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -52,12 +63,9 @@ export default function VoiceSessionScreen() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionDuration, setSessionDuration] = useState(0);
-  const [isSoundCheckComplete, setIsSoundCheckComplete] = useState(false);
-  const [isSoundCheckInProgress, setIsSoundCheckInProgress] = useState(false);
   const [soundLevel, setSoundLevel] = useState(0);
-  const [soundCheckTranscript, setSoundCheckTranscript] = useState("");
-  const [transcriptError, setTranscriptError] = useState<string | null>(null);
-  const [lastTranscript, setLastTranscript] = useState<string>("");
+  const [transcript, setTranscript] = useState("");
+  const [volume, setVolume] = useState(0);
 
   const sessionTimer = useRef<number | null>(null);
 
@@ -67,28 +75,12 @@ export default function VoiceSessionScreen() {
     isProcessing: isSpeechProcessing,
     startRecording,
     stopRecording,
-    speakText,
     cleanup,
   } = useVoiceSession({
-    onTranscriptReceived: async (text) => {
-      if (isSoundCheckInProgress) {
-        setSoundCheckTranscript(text);
-        if (text.trim()) {
-          setIsSoundCheckComplete(true);
-          setIsSoundCheckInProgress(false);
-          Alert.alert('Başarılı', 'Sesiniz algılandı, terapiye başlayabilirsiniz.');
-        } else {
-          setIsSoundCheckInProgress(false);
-          Alert.alert('Başarısız', 'Ses algılanamadı. Lütfen tekrar deneyin.');
-        }
-        return;
-      }
-      setLastTranscript(text); // Sadece transcript'i göster
-      // AI'ya gönderme, mesaj ekleme yok
-    },
-    onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start(),
-    onSpeechEnded: () => Animated.timing(fadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start(),
-    onSoundLevelChange: (level) => setSoundLevel(level),
+    onTranscriptReceived: (text) => setTranscript(text),
+    onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1.1, duration: 400, useNativeDriver: true }).start(),
+    onSpeechEnded: () => Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start(),
+    onSoundLevelChange: (level) => setVolume(level),
   });
 
   /* ------------------------------ EFFECTS ------------------------------- */
@@ -129,10 +121,6 @@ export default function VoiceSessionScreen() {
   // Geri tuşu veya unmount sırasında ses kaydı ve timeout'lar temizlensin
   useEffect(() => {
     const handleBack = () => {
-      if (isSoundCheckInProgress) {
-        setIsSoundCheckInProgress(false);
-        void cleanup();
-      }
       // Sadece temizlik, session kaydı yok
       return false; // Varsayılan geri tuşu davranışı
     };
@@ -145,167 +133,98 @@ export default function VoiceSessionScreen() {
 
     return () => {
       if (subscription && subscription.remove) subscription.remove();
-      if (isSoundCheckInProgress) {
-        setIsSoundCheckInProgress(false);
-        void cleanup();
-      }
     };
-  }, [isSoundCheckInProgress, cleanup]);
+  }, []);
 
   /* ---------------------------- HELPERS --------------------------------- */
   const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-
-  /* ------------------------ SOUND CHECK FLOW ---------------------------- */
-  const startSoundCheck = async () => {
-    setIsSoundCheckInProgress(true);
-    setSoundCheckTranscript("");
-    let timeoutId: NodeJS.Timeout | null = null;
-    let apiTimeoutId: NodeJS.Timeout | null = null;
-    let lastRecordingUri: string | null = null;
-    try {
-      await startRecording();
-      // 3 saniye sonra kaydı durdur
-      timeoutId = setTimeout(async () => {
-        try {
-          // stopRecording fonksiyonunu doğrudan çağırmak yerine, önce kaydın URI ve boyutunu logla
-          if (typeof stopRecording === 'function' && stopRecording.length === 0) {
-            // useVoiceSession içindeki recording.current'e erişim yok, bu yüzden logu orada ekleyeceğiz
-            await stopRecording();
-          } else {
-            await stopRecording();
-          }
-          // API'dan transcript gelmezse 7 saniye sonra hata göster
-          apiTimeoutId = setTimeout(() => {
-            if (!soundCheckTranscript.trim()) {
-              setIsSoundCheckInProgress(false);
-              Alert.alert(
-                'Hata',
-                'Ses kaydı gönderildi fakat Google API’dan yanıt alınamadı. İnternet bağlantınızı, API anahtarınızı ve ses kaydının boş olmadığını kontrol edin. (Kayıt formatı ve boyutu loglanıyor, konsolu inceleyin.)'
-              );
-            }
-          }, 7000);
-        } catch (e) {
-          setIsSoundCheckInProgress(false);
-          Alert.alert(
-            'Kayıt Hatası',
-            'Kayıt durdurulurken bir hata oluştu. Lütfen tekrar deneyin.'
-          );
-        }
-      }, 3000);
-    } catch (e: any) {
-      setIsSoundCheckInProgress(false);
-      if (
-        e?.message?.toLowerCase().includes('permission') ||
-        e?.code === 'E_MISSING_PERMISSION'
-      ) {
-        Alert.alert(
-          'İzin Gerekli',
-          'Mikrofon izni verilmediği için ses kontrolü yapılamıyor. Lütfen ayarlardan mikrofon izni verin.'
-        );
-      } else if (
-        e?.message?.toLowerCase().includes('denied') ||
-        e?.message?.toLowerCase().includes('not granted')
-      ) {
-        Alert.alert(
-          'İzin Reddedildi',
-          'Mikrofon izni reddedildi. Lütfen uygulama ayarlarından mikrofon iznini aktif edin.'
-        );
-      } else {
-        Alert.alert(
-          'Kayıt Başlatılamadı',
-          'Ses kaydı başlatılamadı. Cihazınızda başka bir uygulama mikrofonu kullanıyor olabilir veya donanımsal bir sorun olabilir.'
-        );
-      }
-    }
-    // Temizlik: component unmount olursa timeout'ları temizle
-    useEffect(() => {
-      return () => {
-        if (timeoutId) clearTimeout(timeoutId);
-        if (apiTimeoutId) clearTimeout(apiTimeoutId);
-      };
-    }, []);
-  };
 
   /* ---------------------------------------------------------------------- */
   /* RENDERERS                                                              */
   /* ---------------------------------------------------------------------- */
 
-  if (!isSoundCheckComplete) {
-    return (
-      <LinearGradient colors={isDark ? ['#000', '#1c2e40'] : ['#F9FAFB', '#ECEFF4']} style={styles.container}>
-        <Image source={therapistImages[therapistId] || therapistImages.therapist1} style={styles.bgImage} />
-        <Text style={styles.brand}>therapy<Text style={styles.brandDot}>.</Text></Text>
-        <Text style={[styles.heading, { color: isDark ? '#fff' : Colors.light.text }]}>Ses Kontrolü</Text>
-        <Text style={[styles.desc, { color: isDark ? '#ddd' : Colors.light.text }]}>Terapiye başlamadan önce 3 saniye konuşarak mikrofon testini tamamla.</Text>
-        <TouchableOpacity style={[styles.primaryBtn, isSoundCheckInProgress && { opacity: 0.6 }]} disabled={isSoundCheckInProgress} onPress={startSoundCheck}>
-          <Text style={styles.primaryBtnText}>{isSoundCheckInProgress ? 'Kontrol Yapılıyor…' : 'Ses Kontrolünü Başlat'}</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-    );
-  }
-
-  /* --------------------------- MAIN SESSION ----------------------------- */
   return (
-    <LinearGradient colors={isDark ? ['#000', '#1c2e40'] : ['#F9FAFB', '#ECEFF4']} style={styles.container}>
-      {/* Background therapist image */}
-      <Image source={therapistImages[therapistId] || therapistImages.therapist1} style={styles.bgImage} />
-      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} />
+    <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
+        start={{x: 0, y: 0}} 
+        end={{x: 1, y: 1}} 
+        style={styles.container}>
+      {/* Geri/Kapat butonu */}
+      <TouchableOpacity onPress={() => { stopRecording(); navigation.goBack(); }} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+      </TouchableOpacity>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.brand}>therapy<Text style={styles.brandDot}>.</Text></Text>
-        <Text style={[styles.timer, { color: isDark ? '#fff' : Colors.light.text }]}>{formatDuration(sessionDuration)}</Text>
-      </View>
-
-      {/* Son transcript'i göster */}
-      {lastTranscript ? (
-        <View style={{ alignItems: 'center', marginBottom: 12 }}>
-          <Text style={{ color: isDark ? '#fff' : '#222', fontSize: 16, fontWeight: '500' }}>
-            Son Konuşmanız: {lastTranscript}
+      {/* Terapist avatar ve adı */}
+      <View style={styles.therapistHeaderRow}>
+        <View style={styles.avatarGradientBox}>
+          <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
+              start={{x: 0, y: 0}} 
+              end={{x: 1, y: 1}} 
+              style={styles.avatarGradient}>
+            <Image 
+              source={therapist?.thumbnail || therapistImages[therapistId] || therapistImages.therapist1} 
+              style={styles.therapistAvatarXL}
+            />
+          </LinearGradient>
+        </View>
+        <View style={styles.therapistInfoBoxRow}>
+          <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}> 
+            {therapist?.name || 'Terapist'}
           </Text>
+          <Text style={styles.therapistTitleRow}>{therapist?.title}</Text>
         </View>
-      ) : null}
-
-      {/* Recording indicator */}
-      <Animated.View style={[styles.micCircle, { transform: [{ scale: pulseAnim }] }]}> 
-        {isRecording && (
-          <View style={styles.levelBarWrapper}>
-            <View style={[styles.levelBar, { height: `${Math.min(100, soundLevel * 100)}%` }]} />
-          </View>
-        )}
-      </Animated.View>
-
-      {isSpeechProcessing && (
-        <View style={styles.processingRow}>
-          <ActivityIndicator size="small" color={Colors.light.tint} />
-          <Text style={[styles.processingText, { color: isDark ? '#fff' : Colors.light.text }]}>Düşünüyorum…</Text>
-        </View>
-      )}
-
-      {/* Controls */}
-      <View style={styles.controls}>
-        {/* Sadece mikrofon butonu bırakıldı, kapatma butonu kaldırıldı */}
-        <TouchableOpacity style={[styles.micBtn, isRecording ? styles.btnActive : styles.btnMuted]} onPress={isRecording ? stopRecording : startRecording} disabled={isSpeechProcessing}>
-          <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={22} color="#fff" />
-        </TouchableOpacity>
       </View>
 
-      {/* Transcript error message */}
-      {transcriptError && (
-        <View style={{ alignItems: 'center', marginBottom: 10 }}>
-          <Text style={{ color: '#c00', fontSize: 15, marginBottom: 8, textAlign: 'center' }}>{transcriptError}</Text>
+      {/* Lüks ve premium, kart olmayan, markaya uygun alan */}
+      <View style={styles.premiumSessionArea}>
+        <Text style={styles.logo}>therapy<Text style={styles.dot}>.</Text></Text>
+        <Text style={[styles.title, { color: isDark ? '#222' : Colors.light.text }]}>Sesli Terapi</Text>
+
+        <Animated.View
+          style={[
+            styles.circle,
+            {
+              backgroundColor: isRecording ? '#F8FAFF' : '#fff',
+              borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
+              borderWidth: isRecording ? 2 : 1,
+              shadowColor: isRecording ? Colors.light.tint : '#B0B8C1',
+              shadowOpacity: isRecording ? 0.13 : 0.07,
+              transform: [{ scale: pulseAnim }],
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.brandWave,
+              {
+                borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
+                opacity: isRecording ? 0.18 : 0.10,
+                transform: [{ scale: pulseAnim }],
+              },
+            ]}
+          />
+          <View style={styles.brandDot} />
+        </Animated.View>
+
+        {/* Transcript gösterimi */}
+        {transcript ? (
+          <Text style={styles.transcriptText}>{transcript}</Text>
+        ) : (
+          <Text style={styles.transcriptPlaceholder}>Konuşmaya başlamak için mikrofona dokunun</Text>
+        )}
+
+        <View style={styles.controls}>
           <TouchableOpacity
-            style={[styles.primaryBtn, { paddingHorizontal: 32, paddingVertical: 10 }]}
-            onPress={async () => {
-              setTranscriptError(null);
-              await startRecording();
-            }}
-            disabled={isRecording || isSpeechProcessing}
+            onPress={isRecording ? stopRecording : startRecording}
+            style={[styles.button, isRecording ? styles.btnActive : styles.btnMuted]}
+            activeOpacity={0.85}
           >
-            <Text style={styles.primaryBtnText}>Tekrar Dene</Text>
+            <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { stopRecording(); navigation.goBack(); }} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
+            <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
-      )}
+      </View>
     </LinearGradient>
   );
 }
@@ -317,45 +236,227 @@ export default function VoiceSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 70,
-    paddingHorizontal: 20,
-    paddingBottom: 30,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    minHeight: '100%',
   },
-  bgImage: { ...StyleSheet.absoluteFillObject, resizeMode: 'cover' },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.25)' },
-  backBtn: { position: 'absolute', top: 52, left: 24, zIndex: 10 },
-  brand: { fontSize: 22, fontWeight: '600', color: Colors.light.tint, textTransform: 'lowercase' },
-  brandDot: { color: Colors.light.tint, fontSize: 26, fontWeight: '700' },
-  header: { alignItems: 'center', marginBottom: 8 },
-  timer: { fontSize: 16, fontWeight: '500', marginTop: 4 },
-  /* Mic circle */
-  micCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: Colors.light.tint,
+  back: {
+    position: 'absolute',
+    top: 48,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  therapistHeaderRow: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 62,
+    marginBottom: 20,
+    backgroundColor: 'transparent',
+  },
+  avatarGradientBox: {
+    borderRadius: 70,
+    padding: 3,
+    backgroundColor: 'transparent',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  avatarGradient: {
+    borderRadius: 70,
+    padding: 2.5,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.4)',
+  },
+  therapistAvatarXL: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  therapistInfoBoxRow: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  therapistNameRow: {
+    fontSize: 21,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(255,255,255,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  therapistTitleRow: {
+    fontSize: 15,
+    color: '#8A94A6',
+    fontWeight: '500',
+    marginTop: 4,
+    letterSpacing: 0.2,
+    opacity: 0.9,
+  },
+  logo: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    textTransform: 'lowercase',
+    letterSpacing: 2,
+    marginBottom: 4,
+    opacity: 0.95,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  dot: {
+    color: Colors.light.tint,
+    fontSize: 38,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginVertical: 8,
+    letterSpacing: 0.8,
+    opacity: 0.92,
+    marginBottom: 32,
+    color: '#2D3748',
+  },
+  circle: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
+    marginVertical: 20,
+    backgroundColor: '#FFFFFF',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+  },
+  brandWave: {
+    position: 'absolute',
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    borderWidth: 2,
+    borderColor: 'rgba(93,161,217,0.25)',
+    zIndex: 1,
+    opacity: 0.15,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+  },
+  brandDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.light.tint,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    zIndex: 2,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    alignSelf: 'center',
+  },
+  transcriptText: {
+    color: '#2D3748',
+    fontSize: 17,
+    textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    width: '88%',
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(227,232,240,0.6)',
+    opacity: 0.98,
+    alignSelf: 'center',
+  },
+  transcriptPlaceholder: {
+    color: '#A0AEC0',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    backgroundColor: 'rgba(247,250,252,0.85)',
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    width: '88%',
+    fontWeight: '400',
+    letterSpacing: 0.2,
+    borderWidth: 1,
+    borderColor: 'rgba(227,232,240,0.4)',
+    opacity: 0.92,
+    alignSelf: 'center',
+  },
+  controls: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    marginTop: 36,
+    marginBottom: 32,
+    gap: 40,
+  },
+  button: {
+    padding: 22,
+    borderRadius: 54,
+    backgroundColor: "ffffff",
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+  },
+  btnActive: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
     shadowColor: Colors.light.tint,
     shadowOpacity: 0.25,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 14,
-    marginVertical: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 12,
   },
-  levelBarWrapper: { width: 18, height: 50, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 9, overflow: 'hidden' },
-  levelBar: { width: '100%', backgroundColor: '#fff', position: 'absolute', bottom: 0 },
-  /* Processing */
-  processingRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: 8, marginBottom: 8 },
-  processingText: { fontSize: 14, fontWeight: '500' },
-  /* Controls */
-  controls: { flexDirection: 'row', alignSelf: 'center', gap: 20, marginTop: 6 },
-  micBtn: { padding: 18, borderRadius: 50 },
-  btnActive: { backgroundColor: Colors.light.tint },
-  btnMuted: { backgroundColor: '#9AA5B1' },
-  /* Sound check */
-  heading: { fontSize: 26, fontWeight: '700', textAlign: 'center', marginVertical: 18 },
-  desc: { fontSize: 15, textAlign: 'center', lineHeight: 22, marginHorizontal: 8, marginBottom: 24 },
-  primaryBtn: { backgroundColor: Colors.light.tint, paddingVertical: 16, paddingHorizontal: 40, borderRadius: 30 },
-  primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  btnMuted: {
+    backgroundColor: Colors.light.tint,
+    borderColor: 'rgba(227,232,240,0.6)',
+    shadowColor: '#B0B8C1',
+    shadowOpacity: 0.12,
+  },
+  premiumSessionArea: {
+    backgroundColor: 'transparent',
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 10,
+  },
 });

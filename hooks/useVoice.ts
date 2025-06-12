@@ -68,7 +68,7 @@ export const useVoiceSession = ({
           onSoundLevelChange?.(status.metering);
       }, 120);
     } catch (err) {
-      console.warn('Kayıt başlatılamadı:', err);
+      // console.warn('Kayıt başlatılamadı:', err);
     }
   }, [isRecording, onSoundLevelChange, onSpeechStarted]);
 
@@ -89,7 +89,7 @@ export const useVoiceSession = ({
         // info.size sadece exists:true ise vardır
         const fileSize = info.exists ? info.size : 0;
         const fileExt = uri.split('.').pop();
-        console.log('[VOICE] Kayıt URI:', uri, 'Boyut:', fileSize, 'Format:', fileExt, 'exists:', info.exists);
+        // console.log('[VOICE] Kayıt URI:', uri, 'Boyut:', fileSize, 'Format:', fileExt, 'exists:', info.exists);
       }
       recording.current = null;
       onSpeechEnded?.();
@@ -99,12 +99,12 @@ export const useVoiceSession = ({
           const text = await transcribeAudio(uri);
           onTranscriptReceived?.(text);
         } catch (err) {
-          console.error('[useVoice] transcribeAudio error:', err);
+          // console.error('[useVoice] transcribeAudio error:', err);
           onTranscriptReceived?.('');
         }
       }
     } catch (err) {
-      console.warn('Kayıt durdurulamadı:', err);
+      // console.warn('Kayıt durdurulamadı:', err);
     } finally {
       setIsProcessing(false);
     }
@@ -117,7 +117,7 @@ export const useVoiceSession = ({
       sound.current = s;
       await sound.current.playAsync();
     } catch (err) {
-      console.warn('Ses çalınamadı:', err);
+      // console.warn('Ses çalınamadı:', err);
     }
   }, []);
 
