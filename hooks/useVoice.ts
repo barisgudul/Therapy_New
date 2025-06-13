@@ -10,6 +10,7 @@ interface UseVoiceSessionProps {
   onSpeechStarted?: () => void;
   onSpeechEnded?: () => void;
   onSoundLevelChange?: (level: number) => void;
+  therapistId?: string;
 }
 
 export const useVoiceSession = ({
@@ -17,6 +18,7 @@ export const useVoiceSession = ({
   onSpeechStarted,
   onSpeechEnded,
   onSoundLevelChange,
+  therapistId = 'therapist1',
 }: UseVoiceSessionProps = {}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,12 +51,17 @@ export const useVoiceSession = ({
     if (!ok) return;
 
     try {
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-
-      const { recording: rec } = await Audio.Recording.createAsync({
-        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        isMeteringEnabled: true,
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false
       });
+
+      const { recording: rec } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
 
       recording.current = rec;
       setIsRecording(true);
@@ -112,14 +119,36 @@ export const useVoiceSession = ({
 
   const speakText = useCallback(async (text: string) => {
     try {
-      const url = await textToSpeech(text);
-      const { sound: s } = await Audio.Sound.createAsync({ uri: url });
+      // iOS için ses modunu ayarla
+      if (Platform.OS === 'ios') {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false
+        });
+      }
+
+      const url = await textToSpeech(text, therapistId);
+      const { sound: s } = await Audio.Sound.createAsync(
+        { uri: url },
+        { 
+          shouldPlay: true,
+          volume: 1.0,
+          isMuted: false
+        },
+        (status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            s.unloadAsync();
+          }
+        }
+      );
       sound.current = s;
-      await sound.current.playAsync();
     } catch (err) {
-      // console.warn('Ses çalınamadı:', err);
+      console.warn('Ses çalınamadı:', err);
     }
-  }, []);
+  }, [therapistId]);
 
   const cleanup = useCallback(async () => {
     if (levelTimer.current) clearInterval(levelTimer.current);

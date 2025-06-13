@@ -25,18 +25,6 @@ export const avatars = [
     about: 'Ben Dr. Elif. Duyguların keşfi ve iyileşme yolculuğunda sana şefkatle eşlik ederim. Seanslarda her duygunun güvenle ifade edilebildiği, yargısız bir alan yaratırım. Stres, özgüven ve ilişki sorunlarında destek olurum.'
   },
   {
-    id: '2',
-    name: 'Dr. Deniz',
-    imageId: 'therapist2',
-    thumbnail: require('../assets/Terapist_2.jpg'),
-    title: 'Aile Terapisti',
-    persona: 'Mantıklı ve analitik, çözüm odaklı',
-    style: 'Yapıcı, net, doğrudan; bilişsel teknikler uygular',
-    specialty: 'Aile içi iletişim, ilişki yönetimi, bilişsel davranışçı terapi',
-    motto: '"Her sorunun ardında bir çözüm ve yeni bir başlangıç vardır."',
-    about: 'Merhaba, ben Dr. Deniz. İlişkilerde denge ve anlayışı güçlendirmeye odaklanırım. Analitik yaklaşımım ile sorunun kökenini keşfeder, pratik ve uygulanabilir çözüm yolları sunarım. Özellikle aile içi iletişimde uzmanım.'
-  },
-  {
     id: '3',
     name: 'Dr. Lina',
     imageId: 'therapist3',

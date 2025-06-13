@@ -15,6 +15,7 @@ import {
   useColorScheme
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { generateTherapistReply } from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
 import { avatars } from '../avatar';
 
@@ -76,11 +77,53 @@ export default function VoiceSessionScreen() {
     startRecording,
     stopRecording,
     cleanup,
+    speakText,
   } = useVoiceSession({
-    onTranscriptReceived: (text) => setTranscript(text),
+    onTranscriptReceived: async (text) => {
+      if (text) {
+        // Kullanıcı mesajını ekle
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          sender: 'user',
+          text: text
+        }]);
+        
+        try {
+          // AI cevabını al
+          const aiResponse = await generateTherapistReply(
+            therapistId as string,
+            text,
+            "", // mood hint
+            "", // chat history
+            1 // message count
+          );
+
+          // AI cevabını ekle
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            sender: 'ai',
+            text: aiResponse
+          }]);
+
+          // AI cevabını sesli oku
+          speakText(aiResponse);
+        } catch (error) {
+          console.error('AI yanıt hatası:', error);
+          // Hata durumunda varsayılan mesaj
+          const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.";
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            sender: 'ai',
+            text: errorMessage
+          }]);
+          speakText(errorMessage);
+        }
+      }
+    },
     onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1.1, duration: 400, useNativeDriver: true }).start(),
     onSpeechEnded: () => Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start(),
     onSoundLevelChange: (level) => setVolume(level),
+    therapistId: therapistId as string,
   });
 
   /* ------------------------------ EFFECTS ------------------------------- */
@@ -205,23 +248,16 @@ export default function VoiceSessionScreen() {
           <View style={styles.brandDot} />
         </Animated.View>
 
-        {/* Transcript gösterimi */}
-        {transcript ? (
-          <Text style={styles.transcriptText}>{transcript}</Text>
-        ) : (
-          <Text style={styles.transcriptPlaceholder}>Konuşmaya başlamak için mikrofona dokunun</Text>
-        )}
-
         <View style={styles.controls}>
           <TouchableOpacity
             onPress={isRecording ? stopRecording : startRecording}
             style={[styles.button, isRecording ? styles.btnActive : styles.btnMuted]}
             activeOpacity={0.85}
           >
-            <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color="#fff" />
+            <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color={Colors.light.tint} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => { stopRecording(); navigation.goBack(); }} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
-            <Ionicons name="close" size={22} color="#fff" />
+            <Ionicons name="close" size={22} color={Colors.light.tint} />
           </TouchableOpacity>
         </View>
       </View>
@@ -243,7 +279,7 @@ const styles = StyleSheet.create({
   },
   back: {
     position: 'absolute',
-    top: 48,
+    top: 60,
     left: 24,
     zIndex: 10,
     backgroundColor: 'rgba(255,255,255,0.92)',
@@ -260,7 +296,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     alignSelf: 'center',
-    marginTop: 62,
+    marginTop: 120,
     marginBottom: 20,
     backgroundColor: 'transparent',
   },
@@ -290,7 +326,7 @@ const styles = StyleSheet.create({
   therapistInfoBoxRow: {
     flexDirection: 'column',
     alignItems: 'center',
-    marginTop: 14,
+    marginTop: 10,
   },
   therapistNameRow: {
     fontSize: 21,
@@ -305,7 +341,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#8A94A6',
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: 2,
     letterSpacing: 0.2,
     opacity: 0.9,
   },
@@ -323,7 +359,7 @@ const styles = StyleSheet.create({
   dot: {
     color: Colors.light.tint,
     fontSize: 38,
-    fontWeight: '600',
+    fontWeight: '900',
   },
   title: {
     fontSize: 24,
@@ -379,46 +415,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     alignSelf: 'center',
   },
-  transcriptText: {
-    color: '#2D3748',
-    fontSize: 17,
-    textAlign: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 22,
-    width: '88%',
-    fontWeight: '500',
-    letterSpacing: 0.2,
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(227,232,240,0.6)',
-    opacity: 0.98,
-    alignSelf: 'center',
-  },
-  transcriptPlaceholder: {
-    color: '#A0AEC0',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-    backgroundColor: 'rgba(247,250,252,0.85)',
-    borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 22,
-    width: '88%',
-    fontWeight: '400',
-    letterSpacing: 0.2,
-    borderWidth: 1,
-    borderColor: 'rgba(227,232,240,0.4)',
-    opacity: 0.92,
-    alignSelf: 'center',
-  },
   controls: {
     flexDirection: 'row',
     alignSelf: 'center',
@@ -429,17 +425,17 @@ const styles = StyleSheet.create({
   button: {
     padding: 22,
     borderRadius: 54,
-    backgroundColor: "ffffff",
+    backgroundColor: '#FFFFFF',
     shadowColor: Colors.light.tint,
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 6 },
     shadowRadius: 16,
     elevation: 8,
     borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.3)',
+    borderColor: Colors.light.tint,
   },
   btnActive: {
-    backgroundColor: Colors.light.tint,
+    backgroundColor: '#FFFFFF',
     borderColor: Colors.light.tint,
     shadowColor: Colors.light.tint,
     shadowOpacity: 0.25,
@@ -448,8 +444,8 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   btnMuted: {
-    backgroundColor: Colors.light.tint,
-    borderColor: 'rgba(227,232,240,0.6)',
+    backgroundColor: '#FFFFFF',
+    borderColor: Colors.light.tint,
     shadowColor: '#B0B8C1',
     shadowOpacity: 0.12,
   },
@@ -457,6 +453,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     width: '100%',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 40,
   },
 });
