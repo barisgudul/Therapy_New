@@ -208,7 +208,7 @@ export default function HomeScreen() {
         <View style={styles.contentWrapper}>
           <Image source={require('../assets/therapy-illustration.png')} style={styles.image} resizeMode="contain" />
           <Text style={styles.title}>Zihnine iyi bak.</Text>
-          <Text style={styles.subtitle}>Yapay zekâ destekli terapist ile birebir seans yap.</Text>
+          <Text style={styles.subtitle}>Yapay zekâ destekli terapiyi deneyimle.</Text>
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.buttonUnified} onPress={handleCardPress}>

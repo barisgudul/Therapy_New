@@ -1,27 +1,33 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
-import { CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   Image,
-  PanResponder,
   PermissionsAndroid,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  useColorScheme
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { generateTherapistReply } from '../../hooks/useGemini';
+import { useVoiceSession } from '../../hooks/useVoice';
 import { checkAndUpdateBadges } from '../../utils/badges';
 import { getSessionStats } from '../../utils/helpers';
-import { saveToSessionData } from '../../utils/sessionData'; // EKLENDİ
+import { saveToSessionData } from '../../utils/sessionData';
+import { avatars } from '../avatar';
 
 const { width, height } = Dimensions.get('window');
 const PIP_SIZE = 100;
+const BOUNDARY_TOP = 40;
+const BOUNDARY_BOTTOM = 200;
+const BOUNDARY_SIDE = 0;
 
 const therapistImages: Record<string, any> = {
   therapist1: require('../../assets/Terapist_1.jpg'),
@@ -30,122 +36,183 @@ const therapistImages: Record<string, any> = {
   coach1: require('../../assets/coach-can.jpg')
 };
 
+export type ChatMessage = {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+};
+
 export default function SessionScreen() {
   const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
   const router = useRouter();
-  const [cameraVisible, setCameraVisible] = useState(true);
-  const [micOn, setMicOn] = useState(false);
-  const [volume, setVolume] = useState<number>(0);
-  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const [permission, requestPermission] = useCameraPermissions();
 
-  const pan = useRef(new Animated.ValueXY({ x: width - PIP_SIZE - 10, y: 100 })).current;
+  // Doğru terapist objesini bul
+  const therapist = avatars.find(a => a.imageId === therapistId);
+
+  const [cameraVisible, setCameraVisible] = useState(true);
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessionDuration, setSessionDuration] = useState(0);
+  const [volume, setVolume] = useState<number>(0);
+  const [pipPosition, setPipPosition] = useState({ x: width - PIP_SIZE - BOUNDARY_SIDE, y: 120 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastTouch = useRef({ x: 0, y: 0 });
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const sessionTimer = useRef<number | null>(null);
+
+  const handleTouchStart = (event: any) => {
+    const { pageX, pageY } = event.nativeEvent;
+    lastTouch.current = { x: pageX, y: pageY };
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (event: any) => {
+    if (!isDragging) return;
+
+    const { pageX, pageY } = event.nativeEvent;
+    const deltaX = pageX - lastTouch.current.x;
+    const deltaY = pageY - lastTouch.current.y;
+
+    const maxX = width - PIP_SIZE - BOUNDARY_SIDE;
+    const minX = BOUNDARY_SIDE;
+    const maxY = height - PIP_SIZE - BOUNDARY_BOTTOM;
+    const minY = BOUNDARY_TOP;
+
+    const newX = Math.min(Math.max(pipPosition.x + deltaX, minX), maxX);
+    const newY = Math.min(Math.max(pipPosition.y + deltaY, minY), maxY);
+
+    setPipPosition({ x: newX, y: newY });
+    lastTouch.current = { x: pageX, y: pageY };
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  /* ---------------------------- VOICE HOOK ------------------------------ */
+  const {
+    isRecording,
+    isProcessing: isSpeechProcessing,
+    startRecording,
+    stopRecording,
+    cleanup,
+    speakText,
+  } = useVoiceSession({
+    onTranscriptReceived: async (text) => {
+      if (text) {
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          sender: 'user',
+          text: text
+        }]);
+        
+        try {
+          const aiResponse = await generateTherapistReply(
+            therapistId as string,
+            text,
+            "",
+            "",
+            1
+          );
+
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            sender: 'ai',
+            text: aiResponse
+          }]);
+
+          speakText(aiResponse);
+        } catch (error) {
+          console.error('AI yanıt hatası:', error);
+          const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.";
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            sender: 'ai',
+            text: errorMessage
+          }]);
+          speakText(errorMessage);
+        }
+      }
+    },
+    onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1.1, duration: 400, useNativeDriver: true }).start(),
+    onSpeechEnded: () => Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start(),
+    onSoundLevelChange: (level) => setVolume(level),
+    therapistId: therapistId as string,
+  });
 
   useEffect(() => {
-    requestMicrophonePermission();
+    requestPermissions();
     return () => {
-      stopListening();
+      cleanup();
     };
   }, []);
 
-  const requestMicrophonePermission = async () => {
+  // Pulsing circle anim
+  useEffect(() => {
+    pulseAnim.setValue(1);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: isRecording ? 1.1 : 1.2,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+  }, [isRecording]);
+
+  // session timer
+  useEffect(() => {
+    sessionTimer.current = setInterval(() => setSessionDuration((p) => p + 1), 1000) as unknown as number;
+    return () => {
+      if (sessionTimer.current !== null) clearInterval(sessionTimer.current);
+    };
+  }, []);
+
+  const requestPermissions = async () => {
+    // Kamera izni
     if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      const cameraGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
         {
-          title: 'Mikrofon İzni',
-          message: 'Uygulamanın sesinizi tanıyabilmesi için mikrofona erişimi gerekiyor.',
+          title: 'Kamera İzni',
+          message: 'Görüntülü görüşme için kameraya erişim gerekiyor',
           buttonPositive: 'Tamam',
         }
       );
-      setMicPermissionGranted(granted === PermissionsAndroid.RESULTS.GRANTED);
+
+      const micGranted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'Mikrofon İzni',
+          message: 'Sesli terapi için mikrofona erişim gerekiyor',
+          buttonPositive: 'Tamam',
+        }
+      );
+      setMicPermissionGranted(micGranted === PermissionsAndroid.RESULTS.GRANTED);
     } else {
+      await requestPermission();
       setMicPermissionGranted(true);
     }
   };
 
-  const startListening = async () => {
-    if (!micPermissionGranted || recordingRef.current) return;
-
-    try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync({
-        android: {
-          extension: '.m4a',
-          outputFormat: 2,
-          audioEncoder: 3,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: '.caf',
-          audioQuality: 2,
-          sampleRate: 44100,
-          numberOfChannels: 1,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        isMeteringEnabled: true,
-      });
-
-      await recording.startAsync();
-      recordingRef.current = recording;
-      setMicOn(true);
-
-      intervalRef.current = setInterval(async () => {
-        if (!recordingRef.current) return;
-        const status = await recordingRef.current.getStatusAsync();
-        if (status.metering) setVolume(status.metering);
-      }, 500);
-    } catch (e) {
-      console.error('Mikrofon başlatılamadı:', e);
-    }
-  };
-
-  const stopListening = async () => {
-    setMicOn(false);
-
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-
-    if (recordingRef.current) {
-      try {
-        const status = await recordingRef.current.getStatusAsync();
-        if (status.canRecord) {
-          await recordingRef.current.stopAndUnloadAsync();
-        }
-      } catch (e) {
-        console.warn('Kayıt zaten durdurulmuş olabilir.');
-      }
-      recordingRef.current = null;
-    }
-  };
-
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => pan.extractOffset(),
-    onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-    onPanResponderRelease: () => pan.flattenOffset(),
-  });
-
   async function saveSession() {
     try {
-      await stopListening();
+      await stopRecording();
       await saveToSessionData({
         sessionType: "video",
-        newMessages: [], // İleride transcript/mesaj vs. gelirse buraya eklersin
+        newMessages: messages,
       });
 
-      // Rozetleri kontrol et ve güncelle
       const sessionStats = await getSessionStats();
       
       await checkAndUpdateBadges('session', {
@@ -165,61 +232,179 @@ export default function SessionScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.therapistVideo}>
+    <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
+        start={{x: 0, y: 0}} 
+        end={{x: 1, y: 1}} 
+        style={styles.container}>
+      {/* Geri/Kapat butonu */}
+      <TouchableOpacity onPress={() => { stopRecording(); router.back(); }} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+      </TouchableOpacity>
+
+      <View style={styles.modalContainer}>
         <Image 
           source={therapistImages[therapistId] || therapistImages.therapist1} 
           style={styles.therapistImage}
         />
+        <View style={styles.therapistInfoBox}>
+          <Text style={styles.therapistName}> 
+            {therapist?.name || 'Terapist'}
+          </Text>
+          <Text style={styles.therapistTitle}>{therapist?.title}</Text>
+        </View>
       </View>
-      {cameraVisible && (
-        <Animated.View
-          style={[styles.pipWrapper, { transform: pan.getTranslateTransform() }]}
-          {...panResponder.panHandlers}
-        >
-          <CameraView facing="front" style={styles.camera} />
-        </Animated.View>
-      )}
+
+      {/* Görünmez sınır alanı */}
+      <View style={styles.boundaryArea}>
+        {cameraVisible && permission?.granted && (
+          <View
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={handleTouchStart}
+            onResponderMove={handleTouchMove}
+            onResponderRelease={handleTouchEnd}
+            onResponderTerminate={handleTouchEnd}
+            style={[
+              styles.pipWrapper,
+              {
+                left: pipPosition.x,
+                top: pipPosition.y,
+              }
+            ]}
+          >
+            <CameraView 
+              facing="front" 
+              style={styles.camera}
+            />
+          </View>
+        )}
+      </View>
+
       <View style={styles.controls}>
         <TouchableOpacity
           onPress={() => setCameraVisible(prev => !prev)}
-          style={[styles.iconBtn, cameraVisible ? styles.btnActive : styles.btnMuted]}
+          style={[styles.button, cameraVisible ? styles.btnActive : styles.btnMuted]}
+          activeOpacity={0.85}
         >
-          <Ionicons name={cameraVisible ? 'videocam' : 'videocam-off'} size={22} color="#fff" />
+          <Ionicons name={cameraVisible ? 'videocam' : 'videocam-off'} size={24} color={Colors.light.tint} />
         </TouchableOpacity>
+
         <TouchableOpacity
-          onPress={micOn ? stopListening : startListening}
-          style={[styles.iconBtn, micOn ? styles.btnActive : styles.btnMuted]}
+          onPress={isRecording ? stopRecording : startRecording}
+          style={[styles.button, isRecording ? styles.btnActive : styles.btnMuted]}
+          activeOpacity={0.85}
         >
-          <Ionicons name={micOn ? 'mic' : 'mic-off'} size={22} color="#fff" />
+          <Ionicons name={isRecording ? 'mic' : 'mic-off'} size={24} color={Colors.light.tint} />
         </TouchableOpacity>
+
         <TouchableOpacity
           onPress={saveSession}
-          style={[styles.iconBtn, styles.btnEnd]}
+          style={[styles.button, styles.btnMuted]}
+          activeOpacity={0.85}
         >
-          <Ionicons name="close" size={22} color="#fff" />
+          <Ionicons name="close" size={24} color={Colors.light.tint} />
         </TouchableOpacity>
       </View>
-      <View style={styles.textBox}>
-        <Text style={styles.text}>🎙️ Ses Seviyesi: {volume.toFixed(1)} dB</Text>
-      </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    minHeight: '100%',
   },
-  therapistVideo: {
-    width: '100%',
-    height: '100%',
+  back: {
     position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 20,
+    padding: 12,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(227,232,240,0.6)',
+  },
+  modalContainer: {
+    width: '92%',
+    height: '72%',
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    borderRadius: 32,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 12 },
+    shadowRadius: 32,
+    elevation: 16,
+    marginTop: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(227,232,240,0.8)',
   },
   therapistImage: {
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
+  },
+  therapistInfoBox: {
+    position: 'absolute',
+    bottom: -20,
+    left: 0,
+    right: 0,
+    backgroundColor: `${Colors.light.tint}17`,
+    padding: 36,
+    borderBottomLeftRadius: 72,
+    borderBottomRightRadius: 72,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.6)',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: -14 },
+    shadowOpacity: 0.35,
+    shadowRadius: 32,
+    elevation: 28,
+  },
+  therapistName: {
+    fontSize: 48,
+    fontWeight: '400',
+    color: 'rgb(255, 255, 255)',
+    letterSpacing: 3,
+    textShadowColor: 'rgba(0,0,0,0.15)',
+    textShadowOffset: { width: 0, height: 5 },
+    textShadowRadius: 10,
+    marginBottom: 14,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif-thin',
+    textTransform: 'capitalize',
+    opacity: 1,
+  },
+  therapistTitle: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '300',
+    letterSpacing: 4.5,
+    opacity: 0.9,
+    textTransform: 'uppercase',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'sans-serif-thin',
+    marginTop: 4,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  boundaryArea: {
+    position: 'absolute',
+    top: BOUNDARY_TOP,
+    left: BOUNDARY_SIDE,
+    right: BOUNDARY_SIDE,
+    bottom: BOUNDARY_BOTTOM,
+    zIndex: 5,
   },
   pipWrapper: {
     position: 'absolute',
@@ -243,49 +428,37 @@ const styles = StyleSheet.create({
   },
   controls: {
     position: 'absolute',
-    bottom: 100,
-    width: '100%',
+    bottom: 40,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 28,
+    alignSelf: 'center',
+    gap: 40,
   },
-  iconBtn: {
-    padding: 18,
-    borderRadius: 40,
-    backgroundColor: '#DEE4EA',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: Platform.OS === 'android' ? 2 : 0,
+  button: {
+    padding: 24,
+    borderRadius: 60,
+    backgroundColor: '#FFFFFF',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.light.tint,
   },
   btnActive: {
-    backgroundColor: Colors.light.tint,
+    backgroundColor: '#FFFFFF',
+    borderColor: Colors.light.tint,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 24,
+    elevation: 16,
   },
   btnMuted: {
-    backgroundColor: '#B0B8C3',
-  },
-  btnEnd: {
-    backgroundColor: '#B0B8C3',
-  },
-  textBox: {
-    position: 'absolute',
-    bottom: 180,
-    left: 24,
-    right: 24,
-    backgroundColor: '#ffffffcc',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-  },
-  text: {
-    color: Colors.light.tint,
-    fontSize: 15,
-    fontWeight: '500',
-    textAlign: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: Colors.light.tint,
+    shadowColor: '#B0B8C1',
+    shadowOpacity: 0.15,
   },
 });
+
