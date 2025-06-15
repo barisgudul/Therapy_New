@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,8 +19,7 @@ import {
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
-import { checkAndUpdateBadges } from '../utils/badges';
-import { getProfileData, isProfileComplete } from '../utils/helpers';
+import { getProfileData } from '../utils/helpers';
 
 type RelationshipStatus = 'single' | 'in_relationship' | 'married' | 'complicated' | '';
 type Gender = 'male' | 'female' | 'other' | '';
@@ -37,6 +37,9 @@ export default function ProfileScreen() {
   const [gender, setGender] = useState<Gender>('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [permissionMessage, setPermissionMessage] = useState('');
 
   const relationshipOptions = [
     { value: 'single', label: 'Bekarım' },
@@ -92,7 +95,6 @@ export default function ProfileScreen() {
         previousTherapy,
         relationshipStatus,
         gender,
-        orientation,
         profileImage
       };
       await AsyncStorage.setItem('userProfile', JSON.stringify(data));
@@ -100,19 +102,14 @@ export default function ProfileScreen() {
       // Rozetleri kontrol et ve güncelle
       const profileData = await getProfileData(); // Profil verilerini al
       
-      await checkAndUpdateBadges('profile', {
-        hasPhoto: !!profileData.profileImage,
-        hasBio: !!(profileData.expectation || profileData.therapyGoals || profileData.previousTherapy),
-        hasGoals: !!profileData.therapyGoals,
-        profileComplete: isProfileComplete(profileData),
-        customizedProfile: !!profileData.profileImage || !!profileData.nickname || !!profileData.birthDate
-      });
+      
 
       Alert.alert('Başarılı', 'Profil kaydedildi.', [
         { text: 'Tamam', onPress: () => router.replace('/') }
       ]);
     } catch (error) {
-      Alert.alert('Hata', 'Profil kaydedilemedi.');
+      console.error('Profil kaydetme hatası:', error);
+      Alert.alert('Hata', 'Profil kaydedilemedi. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
     }
@@ -137,11 +134,17 @@ export default function ProfileScreen() {
     hideDatePicker();
   };
 
+  const showImagePickerOptions = () => {
+    setShowImagePickerModal(true);
+  };
+
   const pickImage = async () => {
     try {
+      setShowImagePickerModal(false);
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('İzin Gerekli', 'Kamera izni gereklidir.');
+        setPermissionMessage('Profil fotoğrafı çekebilmek için kamera izni gereklidir.');
+        setShowPermissionModal(true);
         return;
       }
 
@@ -156,25 +159,35 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.error('Fotoğraf çekilirken hata oluştu:', error);
-      Alert.alert('Hata', 'Fotoğraf çekilirken bir hata oluştu.');
+      setPermissionMessage('Fotoğraf çekilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      setShowPermissionModal(true);
     }
   };
 
-  const showImagePickerOptions = () => {
-    Alert.alert(
-      'Fotoğraf Çek',
-      'Profil fotoğrafı için yeni bir fotoğraf çekin',
-      [
-        {
-          text: 'Fotoğraf Çek',
-          onPress: () => pickImage(),
-        },
-        {
-          text: 'İptal',
-          style: 'cancel',
-        },
-      ]
-    );
+  const pickFromGallery = async () => {
+    try {
+      setShowImagePickerModal(false);
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setPermissionMessage('Galeriden fotoğraf seçebilmek için galeri izni gereklidir.');
+        setShowPermissionModal(true);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Galeriden fotoğraf seçilirken hata oluştu:', error);
+      setPermissionMessage('Galeriden fotoğraf seçilirken bir hata oluştu. Lütfen tekrar deneyin.');
+      setShowPermissionModal(true);
+    }
   };
 
   const renderInput = (
@@ -248,11 +261,15 @@ export default function ProfileScreen() {
   );
 
   return (
-    <LinearGradient colors={['#F8F9FF', '#ECEFF4']} style={styles.container}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+        start={{x: 0, y: 0}} 
+        end={{x: 1, y: 1}} 
+        style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+      </TouchableOpacity>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
         <Text style={styles.title}>Terapi Profili</Text>
       </View>
 
@@ -262,22 +279,30 @@ export default function ProfileScreen() {
       >
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.profileImageContainer}>
-            <TouchableOpacity 
-              style={styles.profileImage}
-              onPress={showImagePickerOptions}
-            >
-              {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.profileImageContent} />
-              ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Ionicons name="person" size={36} color={Colors.light.tint} />
-                  <Text style={styles.profileImageText}>Fotoğraf Ekle</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            <View style={styles.avatarGradientBox}>
+              <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
+                  start={{x: 0, y: 0}} 
+                  end={{x: 1, y: 1}} 
+                  style={styles.avatarGradient}>
+                <TouchableOpacity 
+                  style={styles.profileImage}
+                  onPress={showImagePickerOptions}
+                >
+                  {profileImage ? (
+                    <Image source={{ uri: profileImage }} style={styles.profileImageContent} />
+                  ) : (
+                    <View style={styles.profileImagePlaceholder}>
+                      <Ionicons name="person" size={36} color={Colors.light.tint} />
+                      <Text style={styles.profileImageText}>Fotoğraf Ekle</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
           </View>
 
           <View style={styles.form}>
+            <Text style={styles.logo}>therapy<Text style={styles.dot}>.</Text></Text>
             <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
             {renderInput('Terapide Kullanmak İstediğiniz İsim', nickname, setNickname, 'Size nasıl hitap etmemi istersiniz?', 'person-outline')}
             {renderInput(
@@ -324,7 +349,7 @@ export default function ProfileScreen() {
               disabled={!nickname}
             >
               <Text style={styles.buttonText}>
-                {nickname ? 'Terapiye Başla' : 'İsim Girin'}
+                {nickname ? 'Kaydet' : 'İsim Girin'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -341,6 +366,117 @@ export default function ProfileScreen() {
         cancelTextIOS="İptal"
         confirmTextIOS="Tamam"
       />
+
+      <Modal
+        visible={showImagePickerModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowImagePickerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.modalGradient}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.logo}>therapy<Text style={styles.dot}>.</Text></Text>
+                <View style={styles.modalTitleContainer}>
+                  <Text style={styles.modalTitle}>Profil Fotoğrafı</Text>
+                  <Text style={styles.modalSubtitle}>Profil fotoğrafınızı nasıl eklemek istersiniz?</Text>
+                </View>
+              </View>
+              
+              <View style={styles.modalButtons}>
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.modalButtonPrimary]} 
+                  onPress={pickImage}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[Colors.light.tint, Colors.light.tint]}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.modalButtonGradient}
+                  >
+                    <View style={styles.modalButtonContent}>
+                      <View style={styles.modalButtonIconContainer}>
+                        <LinearGradient
+                          colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                          start={{x: 0, y: 0}}
+                          end={{x: 1, y: 1}}
+                          style={styles.modalButtonIconGradient}
+                        >
+                          <Ionicons name="camera" size={24} color="#fff" />
+                        </LinearGradient>
+                      </View>
+                      <Text style={styles.modalButtonText}>Fotoğraf Çek</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.modalButtonPrimary]} 
+                  onPress={pickFromGallery}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={[Colors.light.tint, Colors.light.tint]}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.modalButtonGradient}
+                  >
+                    <View style={styles.modalButtonContent}>
+                      <View style={styles.modalButtonIconContainer}>
+                        <LinearGradient
+                          colors={['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)']}
+                          start={{x: 0, y: 0}}
+                          end={{x: 1, y: 1}}
+                          style={styles.modalButtonIconGradient}
+                        >
+                          <Ionicons name="images" size={24} color="#fff" />
+                        </LinearGradient>
+                      </View>
+                      <Text style={styles.modalButtonText}>Galeriden Seç</Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.modalButton, styles.modalButtonSecondary]} 
+                  onPress={() => setShowImagePickerModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.modalButtonText, styles.modalButtonTextSecondary]}>İptal</Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPermissionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPermissionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Bilgi</Text>
+            <Text style={styles.modalSubtitle}>{permissionMessage}</Text>
+            
+            <TouchableOpacity 
+              style={[styles.modalButton, styles.modalButtonPrimary]} 
+              onPress={() => setShowPermissionModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Tamam</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -350,32 +486,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FF',
   },
+  back: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingTop: 60,
     paddingHorizontal: 24,
     marginBottom: 24,
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
-  },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: '600',
     color: '#1A1F36',
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(0,0,0,0.08)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   content: {
     flex: 1,
@@ -385,20 +526,33 @@ const styles = StyleSheet.create({
   },
   profileImageContainer: {
     alignItems: 'center',
-    marginBottom: 28,
-    paddingTop: 20,
+    marginBottom: 36,
+    paddingTop: 24,
+  },
+  avatarGradientBox: {
+    borderRadius: 80,
+    padding: 3,
+    backgroundColor: 'transparent',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  avatarGradient: {
+    borderRadius: 80,
+    padding: 2.5,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.4)',
   },
   profileImage: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: '#fff',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   profileImageContent: {
     width: '100%',
@@ -412,50 +566,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FF',
   },
   profileImageText: {
-    marginTop: 6,
-    fontSize: 13,
+    marginTop: 10,
+    fontSize: 15,
     color: Colors.light.tint,
     fontWeight: '500',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   form: {
-    padding: 20,
+    padding: 28,
+  },
+  logo: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    textTransform: 'lowercase',
+    letterSpacing: 2,
+    marginBottom: 4,
+    opacity: 0.95,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  dot: {
+    color: Colors.light.tint,
+    fontSize: 38,
+    fontWeight: '900',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '600',
-    color: '#1A1F36',
-    marginTop: 28,
-    marginBottom: 16,
-    letterSpacing: -0.3,
+    textAlign: 'center',
+    marginVertical: 8,
+    letterSpacing: 0.8,
+    opacity: 0.92,
+    marginBottom: 32,
+    color: '#2D3748',
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 28,
   },
   inputHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 10,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#2D3748',
-    marginLeft: 6,
-    letterSpacing: -0.2,
+    marginLeft: 10,
+    letterSpacing: -0.3,
   },
   input: {
     backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 12,
-    fontSize: 14,
+    borderRadius: 20,
+    padding: 16,
+    fontSize: 16,
     color: '#1A1F36',
-    borderWidth: 1,
-    borderColor: '#E8ECF4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.02,
-    shadowRadius: 4,
-    elevation: 1,
+    borderWidth: 1.5,
+    borderColor: 'rgba(227,232,240,0.9)',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
   },
   inputTouchable: {
     flexDirection: 'row',
@@ -464,71 +638,180 @@ const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
     color: '#1A1F36',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   inputTextTouchable: {
     color: '#1A1F36',
   },
   multilineInput: {
-    height: 100,
+    height: 140,
     textAlignVertical: 'top',
   },
   selectorContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 10,
   },
   selectorOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 24,
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E8ECF4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.01,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1.5,
+    borderColor: 'rgba(227,232,240,0.9)',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   selectorOptionSelected: {
     backgroundColor: Colors.light.tint,
     borderColor: Colors.light.tint,
     shadowColor: Colors.light.tint,
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.2,
   },
   selectorOptionText: {
-    fontSize: 13,
+    fontSize: 15,
     color: '#4A5568',
     fontWeight: '500',
+    letterSpacing: -0.3,
   },
   selectorOptionTextSelected: {
     color: '#fff',
   },
   button: {
     backgroundColor: Colors.light.tint,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 24,
+    padding: 18,
     alignItems: 'center',
-    marginTop: 32,
-    marginBottom: 20,
+    marginTop: 44,
+    marginBottom: 28,
     shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
   },
   buttonDisabled: {
     backgroundColor: '#CBD5E1',
     opacity: 0.7,
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.1,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
+    textTransform: 'uppercase',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  modalGradient: {
+    padding: 28,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 36,
+  },
+  modalTitleContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  modalTitle: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#4A5568',
+    textAlign: 'center',
+    lineHeight: 22,
+    letterSpacing: -0.3,
+    paddingHorizontal: 20,
+  },
+  modalButtons: {
+    gap: 16,
+  },
+  modalButton: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalButtonGradient: {
+    padding: 18,
+  },
+  modalButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginRight: 14,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  modalButtonIconGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonPrimary: {
+    backgroundColor: 'transparent',
+  },
+  modalButtonSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: Colors.light.tint,
+    padding: 18,
+    marginTop: 12,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+    textShadowColor: 'rgba(0,0,0,0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  modalButtonTextSecondary: {
+    color: Colors.light.tint,
+    textAlign: 'center',
   },
 });

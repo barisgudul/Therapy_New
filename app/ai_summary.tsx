@@ -257,8 +257,8 @@ export default function AISummaryScreen() {
 
   return (
     <LinearGradient colors={['#FFFFFF', '#F4F7FC']} style={commonStyles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={commonStyles.backButton}>
-        <Ionicons name="chevron-back" size={26} color={Colors.light.tint} />
+      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 
       <Text style={commonStyles.brand}>therapy<Text style={commonStyles.brandDot}>.</Text></Text>
@@ -382,5 +382,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 13,
+  },
+  back: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
   },
 });

@@ -1,18 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router/';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Keyboard,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { analyzeDiaryEntry } from '../hooks/useGemini';
@@ -20,21 +21,49 @@ import { checkAndUpdateBadges } from '../utils/badges';
 import { deleteDiaryEntry, DiaryEntry, getDiaryEntries, saveDiaryEntry } from '../utils/diaryStorage';
 import { saveSessionData } from '../utils/sessionStorage';
 
+interface Message {
+  text: string;
+  isUser: boolean;
+  timestamp: number;
+}
+
 export default function DiaryScreen() {
   const router = useRouter();
   const [isWritingMode, setIsWritingMode] = useState(false);
   const [isViewingDiary, setIsViewingDiary] = useState(false);
   const [selectedDiary, setSelectedDiary] = useState<DiaryEntry | null>(null);
-  const [messages, setMessages] = useState<Array<{text: string, isUser: boolean}>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [analysisCount, setAnalysisCount] = useState(0);
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveModalVisible, setSaveModalVisible] = useState(false);
+  const spinAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadDiaryEntries();
   }, []);
+
+  useEffect(() => {
+    if (isSaving) {
+      Animated.loop(
+        Animated.timing(spinAnim, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+        })
+      ).start();
+    }
+  }, [isSaving]);
+
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg']
+  });
 
   const loadDiaryEntries = async () => {
     try {
@@ -50,6 +79,15 @@ export default function DiaryScreen() {
     }
   };
 
+  const addMessage = (text: string, isUser: boolean) => {
+    const newMessage: Message = {
+      text,
+      isUser,
+      timestamp: Date.now()
+    };
+    setMessages(prev => [...prev, newMessage]);
+  };
+
   // AI analiz fonksiyonu
   const analyzeDiary = async () => {
     if (!currentInput.trim() || analysisCount >= 3) return;
@@ -57,12 +95,12 @@ export default function DiaryScreen() {
     setIsAnalyzing(true);
     try {
       // Kullanıcı mesajını ekle
-      setMessages(prev => [...prev, { text: currentInput, isUser: true }]);
+      addMessage(currentInput, true);
       
       const analysis = await analyzeDiaryEntry(currentInput);
       
       // AI yanıtını ekle
-      setMessages(prev => [...prev, { text: analysis.feedback, isUser: false }]);
+      addMessage(analysis.feedback, false);
       
       setSuggestedQuestions(analysis.questions);
       setAnalysisCount(prev => prev + 1);
@@ -78,14 +116,21 @@ export default function DiaryScreen() {
   const saveDiary = async () => {
     if (messages.length === 0) return;
     
+    setSaveModalVisible(true);
+    setIsSaving(true);
+    
     try {
-      const diaryEntry = {
-        messages: messages,
-        date: new Date().toISOString(),
+      const newEntry: DiaryEntry = {
+        id: Date.now().toString(),
+        messages,
+        date: new Date().toISOString()
       };
-      
-      // Günlüğü kaydet
-      await saveDiaryEntry(diaryEntry);
+      await saveDiaryEntry(newEntry);
+      await loadDiaryEntries();
+      setIsWritingMode(false);
+      setMessages([]);
+      setCurrentInput('');
+      setSuggestedQuestions([]);
       
       // AI özeti oluştur
       const userMessages = messages
@@ -106,7 +151,6 @@ export default function DiaryScreen() {
       });
       
       // Rozet kontrolü
-      // Tüm günlük girdilerini say
       const diaryEntriesCount = await getDiaryEntries().then(entries => entries.length);
       
       // AI destekli günlük rozet kontrolü
@@ -120,26 +164,25 @@ export default function DiaryScreen() {
         aiSummaries: diaryEntriesCount
       });
       
-      await loadDiaryEntries(); // Günlükleri yeniden yükle
-      Alert.alert('Başarılı', 'Günlük kaydınız ve AI özeti oluşturuldu.');
+      // Başarılı kayıt animasyonu
+      setTimeout(() => {
+        setIsSaving(false);
+        setSaveModalVisible(false);
+        Alert.alert('Başarılı', 'Günlük başarıyla kaydedildi.');
+      }, 1500);
       
-      // Yazma modundan çık
-      setIsWritingMode(false);
-      setMessages([]);
-      setCurrentInput('');
-      setSuggestedQuestions([]);
-      setAnalysisCount(0);
     } catch (error) {
-      console.error('Kaydetme hatası:', error);
+      console.error('Günlük kaydetme hatası:', error);
+      setIsSaving(false);
+      setSaveModalVisible(false);
       Alert.alert('Hata', 'Günlük kaydedilirken bir hata oluştu.');
     }
   };
 
   // Soru seçildiğinde
   const handleQuestionSelect = (question: string) => {
-    // Soruyu direkt olarak AI yanıtı olarak ekle
-    setMessages(prev => [...prev, { text: question, isUser: false }]);
-    setSuggestedQuestions([]);
+    setSelectedQuestion(question);
+    setIsModalVisible(true);
   };
 
   const startNewDiary = async () => {
@@ -155,9 +198,14 @@ export default function DiaryScreen() {
         if (hoursDiff < 18) {
           const remainingHours = Math.ceil(18 - hoursDiff);
           Alert.alert(
-            'Yeni Günlük',
-            `Bir sonraki günlüğü ${remainingHours} saat sonra yazabilirsin.`,
-            [{ text: 'Tamam' }]
+            'Günlük Yazma Zamanı',
+            `Bugün duygularını ve düşüncelerini günlüğüne aktardın. Bu, kendini ifade etmek ve içsel yolculuğuna devam etmek için harika bir başlangıç!\n\nDüşüncelerinin olgunlaşması ve yeni deneyimler biriktirmen için biraz zamana ihtiyacın var. Bir sonraki günlüğünü yarın yazabilirsin.\n\nBu süre, düşüncelerini derinleştirmen ve yeni perspektifler kazanman için bir fırsat. Seni bekliyor olacağım!`,
+            [
+              {
+                text: 'Anladım',
+                style: 'default'
+              }
+            ]
           );
           return;
         }
@@ -182,138 +230,184 @@ export default function DiaryScreen() {
     setIsWritingMode(false);
   };
 
+  const handleDeleteDiary = async (date: string) => {
+    Alert.alert(
+      'Günlüğü Sil',
+      'Bu günlüğü silmek istediğinizden emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDiaryEntry(date);
+              await loadDiaryEntries();
+              setSelectedDiary(null);
+              Alert.alert('Başarılı', 'Günlük başarıyla silindi.');
+            } catch (error) {
+              console.error('Silme hatası:', error);
+              Alert.alert('Hata', 'Günlük silinirken bir hata oluştu.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderDiaryList = () => (
-    <View style={styles.diaryListContainer}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+        start={{x: 0, y: 0}} 
+        end={{x: 1, y: 1}} 
+        style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+      </TouchableOpacity>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Günlüklerim</Text>
-        <TouchableOpacity
-          style={styles.newDiaryButton}
-          onPress={startNewDiary}
-        >
-          <Ionicons name="add-circle" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
+        <Text style={styles.logo}>therapy<Text style={styles.dot}>.</Text></Text>
+        <Text style={styles.title}>Günlüklerim</Text>
+        <Text style={styles.subtitle}>Duygularını ve düşüncelerini kaydet.</Text>
       </View>
 
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.diaryContainer}>
-          {diaryEntries.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="journal-outline" size={48} color={Colors.light.tint} />
-              <Text style={styles.emptyStateText}>Henüz günlük yazmamışsın</Text>
-              <Text style={styles.emptyStateSubtext}>Yeni bir günlük yazarak başla</Text>
+      <View style={styles.content}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.diaryContainer}>
+            {diaryEntries.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyStateIconContainer}>
+                  <LinearGradient
+                    colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
+                    start={{x: 0, y: 0}} 
+                    end={{x: 1, y: 1}} 
+                    style={styles.emptyStateIconGradient}
+                  >
+                    <Ionicons name="journal-outline" size={48} color={Colors.light.tint} />
+                  </LinearGradient>
+                </View>
+                <Text style={styles.emptyStateText}>Henüz günlük yazmamışsın</Text>
+                <Text style={styles.emptyStateSubtext}>Yeni bir günlük yazarak başla</Text>
+              </View>
+            ) : (
+              diaryEntries.map((entry, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.diaryCard}
+                  onPress={() => viewDiary(entry)}
+                >
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F8FAFF']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.diaryCardGradient}
+                  >
+                    <View style={styles.diaryCardHeader}>
+                      <View style={styles.diaryCardDateContainer}>
+                        <Ionicons name="calendar" size={20} color={Colors.light.tint} />
+                        <Text style={styles.diaryDate}>
+                          {new Date(entry.date).toLocaleDateString('tr-TR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })}
+                        </Text>
+                      </View>
+                      <Text style={styles.diaryTime}>
+                        {new Date(entry.date).toLocaleTimeString('tr-TR', {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </Text>
+                    </View>
+                    <View style={styles.diaryPreview}>
+                      <Text style={styles.diaryPreviewText} numberOfLines={2}>
+                        {entry.messages[0]?.text || 'Boş günlük'}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </View>
+
+      <TouchableOpacity
+        style={styles.newDiaryButton}
+        onPress={startNewDiary}
+      >
+        <LinearGradient
+          colors={['#F8FAFF', '#FFFFFF']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+          style={styles.newDiaryButtonGradient}
+        >
+          <View style={styles.newDiaryButtonContent}>
+            <View style={styles.newDiaryButtonIconCircle}>
+              <Ionicons name="add" size={28} color={Colors.light.tint} />
             </View>
-          ) : (
-            diaryEntries.map((entry, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.diaryCard}
-                onPress={() => viewDiary(entry)}
-              >
-                <View style={styles.diaryCardHeader}>
-                  <Text style={styles.diaryDate}>
-                    {new Date(entry.date).toLocaleDateString('tr-TR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    })}
-                  </Text>
-                  <Text style={styles.diaryTime}>
-                    {new Date(entry.date).toLocaleTimeString('tr-TR', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Text>
-                </View>
-                <View style={styles.diaryPreview}>
-                  <Text style={styles.diaryPreviewText} numberOfLines={2}>
-                    {entry.messages[0]?.text || 'Boş günlük'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </View>
+            <Text style={styles.newDiaryButtonText}>Yeni Günlük</Text>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    </LinearGradient>
   );
 
   const renderDiaryView = () => (
     <View style={styles.diaryViewContainer}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setIsViewingDiary(false)} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Günlük Detayı</Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
+      <View style={styles.writingHeader}>
+        <TouchableOpacity 
           onPress={() => {
-            Alert.alert(
-              'Günlüğü Sil',
-              'Bu günlüğü silmek istediğinizden emin misiniz?',
-              [
-                {
-                  text: 'İptal',
-                  style: 'cancel'
-                },
-                {
-                  text: 'Sil',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      if (selectedDiary) {
-                        await deleteDiaryEntry(selectedDiary.date);
-                        await loadDiaryEntries();
-                        setIsViewingDiary(false);
-                        Alert.alert('Başarılı', 'Günlük başarıyla silindi.');
-                      }
-                    } catch (error) {
-                      console.error('Silme hatası:', error);
-                      Alert.alert('Hata', 'Günlük silinirken bir hata oluştu.');
-                    }
-                  }
-                }
-              ]
-            );
-          }}
+            setSelectedDiary(null);
+            setIsViewingDiary(false);
+          }} 
+          style={styles.writingBack}
         >
-          <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+          <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Günlük</Text>
+        <TouchableOpacity 
+          style={styles.deleteButton}
+          onPress={() => handleDeleteDiary(selectedDiary?.date)}
+        >
+          <Ionicons name="trash-outline" size={24} color="#E53E3E" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.diaryContainer}>
-          <View style={styles.pageSection}>
-            <View style={styles.pageHeader}>
-              <View style={styles.pageInfo}>
+          <View style={styles.writingPageSection}>
+            <View style={styles.writingPageHeader}>
+              <View style={styles.writingPageInfo}>
                 <Ionicons name="document-text" size={24} color={Colors.light.tint} />
-                <Text style={styles.pageTitle}>Günlük Sayfası</Text>
+                <Text style={styles.writingPageTitle}>Günlük Sayfası</Text>
               </View>
-              <Text style={styles.pageDate}>
-                {selectedDiary && new Date(selectedDiary.date).toLocaleDateString('tr-TR')}
+              <Text style={styles.writingPageDate}>
+                {new Date(selectedDiary?.date).toLocaleDateString('tr-TR')}
               </Text>
             </View>
-            <View style={styles.pageContent}>
+            <View style={styles.writingPageContent}>
               {selectedDiary?.messages.map((message, index) => (
-                <View key={index} style={styles.messageBlock}>
-                  <View style={styles.messageHeader}>
+                <View key={index} style={styles.writingMessageBlock}>
+                  <View style={styles.writingMessageHeader}>
                     <Ionicons 
                       name={message.isUser ? "person-circle" : "sparkles"} 
                       size={20} 
                       color={Colors.light.tint} 
                     />
-                    <Text style={styles.messageTitle}>
+                    <Text style={styles.writingMessageTitle}>
                       {message.isUser ? "Sen" : "AI Asistan"}
                     </Text>
-                    <Text style={styles.messageTime}>
-                      {new Date(selectedDiary.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    <Text style={styles.writingMessageTime}>
+                      {new Date(message.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
                   <Text style={[
-                    styles.messageText,
-                    !message.isUser && styles.aiMessageText
+                    styles.writingMessageText,
+                    !message.isUser && styles.writingAiMessageText
                   ]}>
                     {message.text}
                   </Text>
@@ -327,56 +421,68 @@ export default function DiaryScreen() {
   );
 
   const renderWritingMode = () => (
-    <LinearGradient colors={['#FFE5F1', '#E0ECFD']} style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setIsWritingMode(false)} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+        start={{x: 0, y: 0}} 
+        end={{x: 1, y: 1}} 
+        style={styles.container}>
+      <View style={styles.writingHeader}>
+        <TouchableOpacity onPress={() => setIsWritingMode(false)} style={styles.writingBack}>
+          <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>AI Destekli Günlük</Text>
-        <TouchableOpacity
-          style={[styles.saveButton, messages.length === 0 && styles.buttonDisabled]}
-          onPress={saveDiary}
-          disabled={messages.length === 0}
-        >
-          <Ionicons name="save" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Yeni Günlük</Text>
+        {messages.length > 0 && (
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={saveDiary}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#F8FAFF', '#FFFFFF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.saveButtonGradient}
+            >
+              <View style={styles.saveButtonContent}>
+                <Ionicons name="save" size={24} color={Colors.light.tint} />
+                <Text style={styles.saveButtonText}>Kaydet</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        <ScrollView style={styles.scrollView}>
+      <View style={styles.content}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.diaryContainer}>
-            <View style={styles.pageSection}>
-              <View style={styles.pageHeader}>
-                <View style={styles.pageInfo}>
+            <View style={styles.writingPageSection}>
+              <View style={styles.writingPageHeader}>
+                <View style={styles.writingPageInfo}>
                   <Ionicons name="document-text" size={24} color={Colors.light.tint} />
-                  <Text style={styles.pageTitle}>Günlük Sayfası</Text>
+                  <Text style={styles.writingPageTitle}>Günlük Sayfası</Text>
                 </View>
-                <Text style={styles.pageDate}>
+                <Text style={styles.writingPageDate}>
                   {new Date().toLocaleDateString('tr-TR')}
                 </Text>
               </View>
-              <View style={styles.pageContent}>
+              <View style={styles.writingPageContent}>
                 {messages.map((message, index) => (
-                  <View key={index} style={styles.messageBlock}>
-                    <View style={styles.messageHeader}>
+                  <View key={index} style={styles.writingMessageBlock}>
+                    <View style={styles.writingMessageHeader}>
                       <Ionicons 
                         name={message.isUser ? "person-circle" : "sparkles"} 
                         size={20} 
                         color={Colors.light.tint} 
                       />
-                      <Text style={styles.messageTitle}>
+                      <Text style={styles.writingMessageTitle}>
                         {message.isUser ? "Sen" : "AI Asistan"}
                       </Text>
-                      <Text style={styles.messageTime}>
-                        {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                      <Text style={styles.writingMessageTime}>
+                        {new Date(message.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </View>
                     <Text style={[
-                      styles.messageText,
-                      !message.isUser && styles.aiMessageText
+                      styles.writingMessageText,
+                      !message.isUser && styles.writingAiMessageText
                     ]}>
                       {message.text}
                     </Text>
@@ -384,51 +490,127 @@ export default function DiaryScreen() {
                 ))}
 
                 {isAnalyzing && (
-                  <View style={styles.analyzingContainer}>
+                  <View style={styles.writingAnalyzingContainer}>
                     <ActivityIndicator color={Colors.light.tint} />
-                    <Text style={styles.analyzingText}>Düşüncelerin analiz ediliyor...</Text>
+                    <Text style={styles.writingAnalyzingText}>Düşüncelerin analiz ediliyor...</Text>
                   </View>
+                )}
+
+                {messages.length === 0 && (
+                  <TouchableOpacity 
+                    style={styles.writingDiaryInputPlaceholder}
+                    onPress={() => setIsModalVisible(true)}
+                  >
+                    <Text style={styles.writingDiaryInputPlaceholderText}>Düşüncelerini yazmaya başla...</Text>
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
 
             {suggestedQuestions.length > 0 && (
-              <View style={styles.questionsContainer}>
-                <Text style={styles.questionsTitle}>Düşünmek İster misin?</Text>
+              <View style={styles.writingQuestionsContainer}>
+                <Text style={styles.writingQuestionsTitle}>Düşünmek İster misin?</Text>
                 {suggestedQuestions.map((question, index) => (
                   <TouchableOpacity
                     key={index}
-                    style={styles.questionButton}
+                    style={styles.writingQuestionButton}
                     onPress={() => handleQuestionSelect(question)}
                   >
-                    <Text style={styles.questionText}>{question}</Text>
+                    <Text style={styles.writingQuestionText}>{question}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             )}
           </View>
         </ScrollView>
+      </View>
 
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.input}
-              placeholder="Sayfana yazmaya başla..."
-              value={currentInput}
-              onChangeText={setCurrentInput}
-              placeholderTextColor="#9CA3AF"
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.writeButton, (!currentInput.trim() || analysisCount >= 3) && styles.buttonDisabled]}
-              onPress={analyzeDiary}
-              disabled={!currentInput.trim() || isAnalyzing || analysisCount >= 3}
+      <Modal
+        visible={isModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => {
+          setIsModalVisible(false);
+          setSelectedQuestion('');
+          Keyboard.dismiss();
+        }}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.modalGradient}
             >
-              <Ionicons name="create" size={24} color={Colors.light.tint} />
-            </TouchableOpacity>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderLeft}>
+                  <Ionicons name="document-text" size={24} color={Colors.light.tint} />
+                  <Text style={styles.modalTitle}>Yeni Günlük</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.modalCloseButton}
+                  onPress={() => {
+                    setIsModalVisible(false);
+                    setSelectedQuestion('');
+                    Keyboard.dismiss();
+                  }}
+                >
+                  <Ionicons name="close" size={24} color={Colors.light.tint} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                {selectedQuestion ? (
+                  <View style={styles.selectedQuestionContainer}>
+                    <View style={styles.selectedQuestionHeader}>
+                      <Ionicons name="sparkles" size={20} color={Colors.light.tint} />
+                      <Text style={styles.selectedQuestionTitle}>AI Asistan Sorusu</Text>
+                    </View>
+                    <Text style={styles.selectedQuestionText}>{selectedQuestion}</Text>
+                  </View>
+                ) : null}
+                <TextInput
+                  style={[styles.modalInput, selectedQuestion && styles.modalInputWithQuestion]}
+                  placeholder=""
+                  value={currentInput}
+                  onChangeText={setCurrentInput}
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  autoFocus
+                  blurOnSubmit={true}
+                  onBlur={() => Keyboard.dismiss()}
+                  returnKeyType="done"
+                  onSubmitEditing={() => Keyboard.dismiss()}
+                />
+              </View>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={[styles.modalButton, (!currentInput.trim() || analysisCount >= 3) && styles.buttonDisabled]}
+                  onPress={() => {
+                    analyzeDiary();
+                    setIsModalVisible(false);
+                    setSelectedQuestion('');
+                    Keyboard.dismiss();
+                  }}
+                  disabled={!currentInput.trim() || isAnalyzing || analysisCount >= 3}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F8FAFF']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.modalButtonGradient}
+                  >
+                    <Text style={styles.modalButtonText}>Günlüğü Onayla</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </Modal>
     </LinearGradient>
   );
 
@@ -444,259 +626,96 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  diaryListContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
+    paddingTop: 120,
+    paddingBottom: 32,
+    paddingHorizontal: 24,
+  },
+  writingHeader: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 48,
+    alignItems: 'center',
+    paddingTop: 40,
     paddingHorizontal: 24,
     paddingBottom: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4FF',
-    zIndex: 1,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#2C3E50',
-    letterSpacing: -0.5,
+    backgroundColor: 'transparent',
   },
   content: {
     flex: 1,
+    paddingHorizontal: 24,
+  },
+  writingContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 100,
+  },
+  back: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  writingBack: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  logo: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    textTransform: 'lowercase',
+    letterSpacing: 2,
+    marginBottom: 4,
+    opacity: 0.95,
+    textAlign: 'center',
+  },
+  dot: {
+    color: Colors.light.tint,
+    fontSize: 38,
+    fontWeight: '900',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#4A5568',
+    textAlign: 'center',
+    lineHeight: 22,
+    letterSpacing: -0.3,
+    paddingHorizontal: 20,
   },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: 80,
   },
   diaryContainer: {
-    padding: 16,
-  },
-  pageSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4FF',
-    paddingBottom: 20,
-  },
-  pageInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pageTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#2C3E50',
-    marginLeft: 12,
-  },
-  pageDate: {
-    fontSize: 14,
-    color: '#5D6D7E',
-    fontWeight: '500',
-  },
-  pageContent: {
-    backgroundColor: '#F8FAFF',
-    borderRadius: 16,
-    padding: 24,
-    minHeight: 300,
-  },
-  messageBlock: {
-    marginBottom: 28,
-    paddingBottom: 28,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F4FF',
-  },
-  messageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  messageTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2C3E50',
-    marginLeft: 12,
-  },
-  messageTime: {
-    fontSize: 14,
-    color: '#5D6D7E',
-    marginLeft: 'auto',
-    fontWeight: '500',
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 26,
-    color: '#2C3E50',
-  },
-  aiMessageText: {
-    color: '#5D6D7E',
-    fontStyle: 'italic',
-  },
-  bottomContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F4FF',
-  },
-  inputContainer: {
-    padding: 16,
-    paddingBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#F8FAFF',
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  input: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 120,
-    fontSize: 16,
-    color: '#2C3E50',
-  },
-  writeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#4A90E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  footer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  button: {
-    height: 52,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#2C3E50',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  analyzingContainer: {
-    alignItems: 'center',
-    padding: 24,
-  },
-  analyzingText: {
-    marginTop: 16,
-    color: '#5D6D7E',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  questionsContainer: {
-    marginTop: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  questionsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2C3E50',
-    marginBottom: 20,
-  },
-  questionButton: {
-    backgroundColor: '#F8FAFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  questionText: {
-    fontSize: 15,
-    color: '#2C3E50',
-    fontWeight: '500',
-    lineHeight: 22,
-  },
-  diaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  diaryCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  diaryDate: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#2C3E50',
-  },
-  diaryTime: {
-    fontSize: 14,
-    color: '#5D6D7E',
-    fontWeight: '500',
-  },
-  diaryPreview: {
-    backgroundColor: '#F8FAFF',
-    borderRadius: 16,
-    padding: 20,
-  },
-  diaryPreviewText: {
-    fontSize: 15,
-    color: '#5D6D7E',
-    lineHeight: 22,
+    paddingVertical: 24,
   },
   emptyState: {
     alignItems: 'center',
@@ -704,34 +723,150 @@ const styles = StyleSheet.create({
     padding: 40,
     marginTop: 40,
   },
+  emptyStateIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    padding: 3,
+    backgroundColor: 'transparent',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  emptyStateIconGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    padding: 2.5,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyStateText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
-    color: '#2C3E50',
-    marginTop: 20,
+    color: '#1A1F36',
+    marginTop: 24,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   emptyStateSubtext: {
-    fontSize: 15,
-    color: '#5D6D7E',
+    fontSize: 16,
+    color: '#4A5568',
     marginTop: 12,
+    textAlign: 'center',
+    lineHeight: 22,
+    letterSpacing: -0.3,
+  },
+  diaryCard: {
+    marginBottom: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  diaryCardGradient: {
+    padding: 24,
+  },
+  diaryCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  diaryCardDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  diaryDate: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginLeft: 12,
+    letterSpacing: -0.3,
+  },
+  diaryTime: {
+    fontSize: 15,
+    color: '#4A5568',
     fontWeight: '500',
+    letterSpacing: -0.3,
+  },
+  diaryPreview: {
+    backgroundColor: 'rgba(248,250,255,0.8)',
+    borderRadius: 16,
+    padding: 20,
+  },
+  diaryPreviewText: {
+    fontSize: 16,
+    color: '#4A5568',
+    lineHeight: 24,
+    letterSpacing: -0.3,
+  },
+  newDiaryButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 24,
+    width: 180,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+    transform: [{ scale: 1.05 }],
+  },
+  newDiaryButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newDiaryButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newDiaryButtonIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.4)',
+  },
+  newDiaryButtonText: {
+    color: Colors.light.tint,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.3,
   },
   diaryViewContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  newDiaryButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4A90E2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    letterSpacing: -0.5,
   },
   deleteButton: {
     width: 44,
@@ -747,18 +882,370 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#fff',
+    width: 120,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+  },
+  saveButtonGradient: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF69B4',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
+  },
+  saveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    color: Colors.light.tint,
+    fontSize: 15,
+    fontWeight: '600',
+    marginLeft: 6,
+    letterSpacing: -0.3,
+  },
+  writingPageSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    marginTop: 24,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
     borderWidth: 1,
-    borderColor: '#FFE5F1',
+    borderColor: 'rgba(93,161,217,0.15)',
+  },
+  writingPageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(93,161,217,0.1)',
+    paddingBottom: 20,
+  },
+  writingPageInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  writingPageTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginLeft: 12,
+    letterSpacing: -0.3,
+  },
+  writingPageDate: {
+    fontSize: 14,
+    color: '#5D6D7E',
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  writingPageContent: {
+    backgroundColor: 'rgba(248,250,255,0.8)',
+    borderRadius: 20,
+    padding: 24,
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.1)',
+  },
+  writingMessageBlock: {
+    marginBottom: 28,
+    paddingBottom: 28,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(93,161,217,0.1)',
+  },
+  writingMessageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  writingMessageTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginLeft: 12,
+    letterSpacing: -0.3,
+  },
+  writingMessageTime: {
+    fontSize: 14,
+    color: '#5D6D7E',
+    marginLeft: 'auto',
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  writingMessageText: {
+    fontSize: 16,
+    lineHeight: 26,
+    color: '#2C3E50',
+    letterSpacing: -0.2,
+  },
+  writingAiMessageText: {
+    color: '#5D6D7E',
+    fontStyle: 'italic',
+  },
+  writingAnalyzingContainer: {
+    alignItems: 'center',
+    padding: 24,
+  },
+  writingAnalyzingText: {
+    marginTop: 16,
+    color: '#5D6D7E',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.2,
+  },
+  writingQuestionsContainer: {
+    marginTop: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)',
+  },
+  writingQuestionsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginBottom: 20,
+    letterSpacing: -0.3,
+  },
+  writingQuestionButton: {
+    backgroundColor: 'rgba(248,250,255,0.8)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.1)',
+  },
+  writingQuestionText: {
+    fontSize: 15,
+    color: '#2C3E50',
+    fontWeight: '500',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  writingDiaryInputPlaceholder: {
+    minHeight: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.2)',
+    borderRadius: 16,
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  writingDiaryInputPlaceholderText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+    letterSpacing: -0.2,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 500,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  modalGradient: {
+    padding: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(93,161,217,0.1)',
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginLeft: 12,
+    letterSpacing: -0.5,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.2)',
+  },
+  modalBody: {
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 16,
+    padding: 20,
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  modalInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#2C3E50',
+    lineHeight: 24,
+    textAlignVertical: 'top',
+    minHeight: 260,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(93,161,217,0.1)',
+  },
+  modalButton: {
+    width: 180,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+    transform: [{ scale: 1.05 }],
+  },
+  modalButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonText: {
+    color: Colors.light.tint,
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  selectedQuestionContainer: {
+    backgroundColor: 'rgba(93,161,217,0.05)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.1)',
+  },
+  selectedQuestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  selectedQuestionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginLeft: 8,
+  },
+  selectedQuestionText: {
+    fontSize: 15,
+    color: '#2C3E50',
+    lineHeight: 22,
+  },
+  modalInputWithQuestion: {
+    minHeight: 200,
+  },
+  questionsContainer: {
+    marginTop: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)',
+  },
+  questionsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    marginBottom: 20,
+    letterSpacing: -0.3,
+  },
+  questionButton: {
+    backgroundColor: 'rgba(248,250,255,0.8)',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.1)',
+  },
+  questionText: {
+    fontSize: 15,
+    color: '#2C3E50',
+    fontWeight: '500',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  diaryInputPlaceholder: {
+    minHeight: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.2)',
+    borderRadius: 16,
+    borderStyle: 'dashed',
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  diaryInputPlaceholderText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+    letterSpacing: -0.2,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  writingGradient: {
+    flex: 1,
   },
 }); 

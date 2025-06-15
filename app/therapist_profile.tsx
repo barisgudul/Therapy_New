@@ -107,19 +107,19 @@ export default function TherapistProfileScreen() {
   }
 
   return (
-    <LinearGradient colors={['#F8F9FF', '#ECEFF4']} style={styles.container}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+      start={{x: 0, y: 0}} 
+      end={{x: 1, y: 1}} 
+      style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+      </TouchableOpacity>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Terapist Profili</Text>
       </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
           <Image 
             source={therapist.photo} 
@@ -128,21 +128,6 @@ export default function TherapistProfileScreen() {
           <Text style={styles.name}>{therapist.name}</Text>
           <Text style={styles.title}>{therapist.title}</Text>
           
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>500+</Text>
-              <Text style={styles.statLabel}>Seans</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4.9</Text>
-              <Text style={styles.statLabel}>Puan</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>8+</Text>
-              <Text style={styles.statLabel}>Yıl</Text>
-            </View>
-          </View>
-
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Uzmanlık Alanları</Text>
             <View style={styles.specialtiesContainer}>
@@ -191,90 +176,71 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FF',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    marginBottom: 24,
+  back: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#fff',
+  header: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    paddingTop: 80,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '600',
     color: '#1A1F36',
-    letterSpacing: -0.4,
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   scrollView: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
+    paddingHorizontal: 24,
   },
   profileCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
+    marginBottom: 24,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)',
+    alignItems: 'center',
   },
   profileImage: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    alignSelf: 'center',
     marginBottom: 16,
   },
   name: {
     fontSize: 24,
     fontWeight: '600',
     color: '#1A1F36',
+    marginBottom: 8,
     textAlign: 'center',
-    marginBottom: 4,
   },
   title: {
     fontSize: 16,
     color: '#4A5568',
-    textAlign: 'center',
     marginBottom: 24,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 32,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#E8ECF4',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: Colors.light.tint,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#4A5568',
+    textAlign: 'center',
   },
   section: {
     marginBottom: 24,
@@ -331,24 +297,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.tint,
     borderRadius: 28,
     paddingVertical: 16,
+    paddingHorizontal: 32,
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'center',
     marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    position: 'relative',
-    zIndex: 1,
-    minHeight: 56,
+    marginBottom: 32,
+    width: '100%',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
   },
   startButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '600',
+    letterSpacing: -0.3,
   },
 });

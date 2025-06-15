@@ -1,7 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export interface Message {
+  text: string;
+  isUser: boolean;
+  timestamp: number;
+}
+
 export interface DiaryEntry {
-  messages: Array<{text: string, isUser: boolean}>;
+  id: string;
+  messages: Message[];
   date: string;
 }
 

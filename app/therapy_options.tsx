@@ -62,11 +62,15 @@ export default function TherapyOptionsScreen() {
   };
 
   return (
-    <LinearGradient colors={['#F8F9FF', '#ECEFF4']} style={styles.container}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+      start={{x: 0, y: 0}} 
+      end={{x: 1, y: 1}} 
+      style={styles.container}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+      </TouchableOpacity>
+
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Terapi Türü</Text>
       </View>
 
@@ -126,32 +130,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8F9FF',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    marginBottom: 24,
+  back: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#fff',
+  header: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    paddingTop: 80,
+    paddingBottom: 24,
+    paddingHorizontal: 24,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '600',
     color: '#1A1F36',
-    letterSpacing: -0.4,
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   scrollView: {
     flex: 1,

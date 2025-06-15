@@ -65,9 +65,12 @@ export default function AvatarScreen() {
   };
 
   return (
-    <LinearGradient colors={['#F9FAFB', '#ECEFF4']} style={styles.container}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+      start={{x: 0, y: 0}} 
+      end={{x: 1, y: 1}} 
+      style={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-        <Ionicons name="chevron-back" size={26} color={Colors.light.tint} />
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 
       <Text style={styles.brand}>
@@ -107,9 +110,18 @@ const styles = StyleSheet.create({
   },
   back: {
     position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 5,
+    top: 60,
+    left: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
   },
   brand: {
     textAlign: 'center',

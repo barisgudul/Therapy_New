@@ -168,16 +168,49 @@ export default function HomeScreen() {
 
   /* DEMO reset (gelistirmede) */
   const clearDemoData = async () => {
-    const keys = await AsyncStorage.getAllKeys();
-    const toRemove = keys.filter(
-      k =>
-        k.startsWith('mood-') ||
-        ['todayDate', 'lastReflectionAt', 'todayMessage', 'userProfile', 'nickname'].includes(k)
-    );
-    await AsyncStorage.multiRemove(toRemove);
-    setAiMessage(null);
-    setRefreshStreak(Date.now());
-    Alert.alert('Demo verisi temizlendi.');
+    try {
+      // Tüm AsyncStorage anahtarlarını al
+      const keys = await AsyncStorage.getAllKeys();
+      
+      // Silinecek anahtarlar
+      const keysToRemove = keys.filter(k => 
+        k.startsWith('mood-') || 
+        k.startsWith('activity-') ||
+        k.startsWith('diary-') ||
+        k.startsWith('session-') ||
+        k.startsWith('badge-') ||
+        k.startsWith('streak-') ||
+        [
+          'todayDate',
+          'lastReflectionAt',
+          'todayMessage',
+          'userProfile',
+          'nickname',
+          'lastEntryDate',
+          'currentStreak',
+          'user_badges',
+          'diary_entries',
+          'session_data',
+          'ai_summaries'
+        ].includes(k)
+      );
+
+      // Tüm verileri sil
+      await AsyncStorage.multiRemove(keysToRemove);
+      
+      // State'leri sıfırla
+      setAiMessage(null);
+      setRefreshStreak(Date.now());
+      
+      Alert.alert(
+        'Veriler Sıfırlandı',
+        'Tüm günlük, terapi ve aktivite verileriniz başarıyla silindi.',
+        [{ text: 'Tamam' }]
+      );
+    } catch (error) {
+      console.error('Veri temizleme hatası:', error);
+      Alert.alert('Hata', 'Veriler temizlenirken bir hata oluştu.');
+    }
   };
 
   const resetBadges = async () => {
