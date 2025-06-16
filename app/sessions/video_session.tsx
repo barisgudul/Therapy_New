@@ -4,7 +4,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
+  BackHandler,
   Dimensions,
   Image,
   PermissionsAndroid,
@@ -18,7 +20,6 @@ import {
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
-import { checkAndUpdateBadges } from '../../utils/badges';
 import { getSessionStats } from '../../utils/helpers';
 import { saveToSessionData } from '../../utils/sessionData';
 import { avatars } from '../avatar';
@@ -42,7 +43,7 @@ export type ChatMessage = {
   text: string;
 };
 
-export default function SessionScreen() {
+export default function VideoSessionScreen() {
   const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -215,21 +216,44 @@ export default function SessionScreen() {
 
       const sessionStats = await getSessionStats();
       
-      await checkAndUpdateBadges('session', {
-        textSessions: sessionStats.textSessions,
-        voiceSessions: sessionStats.voiceSessions,
-        videoSessions: sessionStats.videoSessions,
-        totalSessions: sessionStats.totalSessions,
-        diverseSessionCompleted: sessionStats.textSessions > 0 && 
-                               sessionStats.voiceSessions > 0 && 
-                               sessionStats.videoSessions > 0
-      });
 
-      router.back();
+      router.replace('/');
     } catch (error) {
       console.error('Seans kaydedilirken hata:', error);
     }
   }
+
+  const handleBack = () => {
+    Alert.alert(
+      'Seansı Sonlandır',
+      'Seansı sonlandırmak istediğinizden emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Sonlandır',
+          style: 'destructive',
+          onPress: async () => {
+            await stopRecording();
+            await saveSession();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
+  // Geri tuşu için
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   return (
     <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
@@ -237,7 +261,7 @@ export default function SessionScreen() {
         end={{x: 1, y: 1}} 
         style={styles.container}>
       {/* Geri/Kapat butonu */}
-      <TouchableOpacity onPress={() => { stopRecording(); router.back(); }} style={styles.back}>
+      <TouchableOpacity onPress={handleBack} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 
@@ -298,7 +322,7 @@ export default function SessionScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={saveSession}
+          onPress={handleBack}
           style={[styles.button, styles.btnMuted]}
           activeOpacity={0.85}
         >

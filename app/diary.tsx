@@ -358,26 +358,26 @@ export default function DiaryScreen() {
 
   const renderDiaryView = () => (
     <View style={styles.diaryViewContainer}>
-      <View style={styles.writingHeader}>
-        <TouchableOpacity 
-          onPress={() => {
-            setSelectedDiary(null);
-            setIsViewingDiary(false);
-          }} 
-          style={styles.writingBack}
-        >
-          <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Günlük</Text>
-        <TouchableOpacity 
-          style={styles.deleteButton}
-          onPress={() => handleDeleteDiary(selectedDiary?.date)}
-        >
-          <Ionicons name="trash-outline" size={24} color="#E53E3E" />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        onPress={() => {
+          setSelectedDiary(null);
+          setIsViewingDiary(false);
+        }} 
+        style={styles.back}
+      >
+        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+      </TouchableOpacity>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <TouchableOpacity 
+        style={styles.deleteButton}
+        onPress={() => handleDeleteDiary(selectedDiary?.date)}
+      >
+        <Ionicons name="trash-outline" size={24} color="#E53E3E" />
+      </TouchableOpacity>
+
+      <Text style={styles.diaryViewTitle}>Günlük</Text>
+
+      <ScrollView style={styles.diaryViewScrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.diaryContainer}>
           <View style={styles.writingPageSection}>
             <View style={styles.writingPageHeader}>
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     left: 24,
-    zIndex: 10,
+    zIndex: 30,
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 16,
     padding: 8,
@@ -766,13 +766,16 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
   },
   diaryCardGradient: {
     padding: 24,
+    backgroundColor: '#FFFFFF',
   },
   diaryCardHeader: {
     flexDirection: 'row',
@@ -798,9 +801,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   diaryPreview: {
-    backgroundColor: 'rgba(248,250,255,0.8)',
+    backgroundColor: 'rgba(248,250,255,0.9)',
     borderRadius: 16,
     padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)',
   },
   diaryPreviewText: {
     fontSize: 16,
@@ -869,17 +874,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   deleteButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#4A90E2',
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    zIndex: 30,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
   },
   saveButton: {
     width: 120,
@@ -1247,5 +1254,25 @@ const styles = StyleSheet.create({
   },
   writingGradient: {
     flex: 1,
+  },
+  diaryViewTitle: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    letterSpacing: -0.5,
+    zIndex: 20,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingVertical: 8,
+  },
+  diaryViewScrollView: {
+    flex: 1,
+    marginTop: 70,
+    paddingHorizontal: 24,
+    paddingTop: 20,
   },
 }); 

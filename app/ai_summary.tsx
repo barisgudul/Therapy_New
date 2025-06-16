@@ -138,6 +138,10 @@ export default function AISummaryScreen() {
       await checkAndUpdateBadges('ai', {
         aiInsights: true
       });
+
+      // Analiz tamamlandığında modalı aç
+      setActiveSummary(result.trim());
+      setModalVisible(true);
     } catch (e) {
       const newSummaries = ["AI özet üretilemedi, lütfen tekrar deneyin.", ...summaries];
       setSummaries(newSummaries);
@@ -256,18 +260,19 @@ export default function AISummaryScreen() {
   ) : null;
 
   return (
-    <LinearGradient colors={['#FFFFFF', '#F4F7FC']} style={commonStyles.container}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+      start={{x: 0, y: 0}} 
+      end={{x: 1, y: 1}} 
+      style={styles.container}>
       <TouchableOpacity onPress={() => router.back()} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 
-      <Text style={commonStyles.brand}>therapy<Text style={commonStyles.brandDot}>.</Text></Text>
-      <Text style={commonStyles.title}>AI Ruh Hâli Analizi</Text>
-      <Text style={commonStyles.subtitle}>Duygu geçmişini analizle keşfet.</Text>
+      <Text style={styles.headerTitle}>AI Ruh Hâli Analizi</Text>
 
-      <View style={commonStyles.contentContainer}>
-        <View style={commonStyles.controlsBox}>
-          <Text style={commonStyles.inputLabel}>Kaç günlük veriyi analiz edelim?</Text>
+      <View style={styles.content}>
+        <View style={styles.controlsBox}>
+          <Text style={styles.inputLabel}>Kaç günlük veriyi analiz edelim?</Text>
           <Slider
             minimumValue={1}
             maximumValue={maxDays}
@@ -282,70 +287,122 @@ export default function AISummaryScreen() {
               <View style={styles.thumbInner}><Text style={styles.thumbText}>{selectedDays}</Text></View>
             )}
           />
-          <TouchableOpacity style={[commonStyles.button, loading && { opacity: 0.6 }]} disabled={loading} onPress={fetchSummary}>
-            <Text style={commonStyles.buttonText}>Analiz Oluştur</Text>
+          <TouchableOpacity 
+            style={[styles.analyzeButton, loading && { opacity: 0.6 }]} 
+            disabled={loading} 
+            onPress={fetchSummary}
+          >
+            <LinearGradient
+              colors={['#F8FAFF', '#FFFFFF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.analyzeButtonGradient}
+            >
+              <View style={styles.analyzeButtonContent}>
+                <Ionicons name="analytics-outline" size={24} color={Colors.light.tint} />
+                <Text style={styles.analyzeButtonText}>Analiz Oluştur</Text>
+              </View>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {summaries.length === 0 && !loading ? (
-          <View style={commonStyles.placeholderContainer}>
-            <Ionicons name="information-circle-outline" size={22} color="#9CA3AF" style={{ marginBottom: 6 }} />
-            <Text style={commonStyles.placeholderText}>Henüz analiz oluşturulmadı</Text>
+          <View style={styles.emptyState}>
+            <View style={styles.emptyStateIconContainer}>
+              <LinearGradient
+                colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
+                start={{x: 0, y: 0}} 
+                end={{x: 1, y: 1}} 
+                style={styles.emptyStateIconGradient}
+              >
+                <Ionicons name="analytics-outline" size={48} color={Colors.light.tint} />
+              </LinearGradient>
+            </View>
+            <Text style={styles.emptyStateText}>Henüz analiz oluşturulmadı</Text>
+            <Text style={styles.emptyStateSubtext}>Duygu geçmişini analiz etmeye başla</Text>
           </View>
         ) : (
           <FlatList
             data={summaries}
-            renderItem={({ item, index }) => <SummaryCard text={item} index={index} />}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={styles.summaryCard}
+                activeOpacity={0.9}
+                onPress={() => {
+                  setActiveSummary(item);
+                  setModalVisible(true);
+                }}
+              >
+                <LinearGradient
+                  colors={['#FFFFFF', '#F8FAFF']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={styles.summaryCardGradient}
+                >
+                  <View style={styles.summaryCardHeader}>
+                    <View style={styles.summaryCardIconContainer}>
+                      <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
+                    </View>
+                    <Text style={styles.summaryCardDate}>
+                      {new Date().toLocaleDateString('tr-TR', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                  <Text style={styles.summaryCardText} numberOfLines={3}>{item}</Text>
+                  <TouchableOpacity
+                    onPress={() => deleteSummary(index)}
+                    style={styles.deleteButton}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#E53E3E" />
+                  </TouchableOpacity>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
             keyExtractor={(_, i) => i.toString()}
-            contentContainerStyle={commonStyles.listContainer}
+            contentContainerStyle={styles.listContainer}
             ListHeaderComponent={loadingHeader}
           />
         )}
       </View>
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={commonStyles.modalContainer}>
-          <View style={commonStyles.modalContent}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
             <TouchableOpacity 
               onPress={() => setModalVisible(false)} 
-              style={{
-                position: 'absolute',
-                top: 20,
-                left: 20,
-                zIndex: 5,
-              }}>
+              style={styles.modalBackButton}
+            >
               <Ionicons name="chevron-back" size={26} color={Colors.light.tint} />
             </TouchableOpacity>
 
-            <View style={commonStyles.modalIcon}>
+            <View style={styles.modalIcon}>
               <LinearGradient
                 colors={['#E0ECFD', '#F4E6FF']}
-                style={{ ...StyleSheet.absoluteFillObject, borderRadius: 37 }}
+                style={styles.modalIconGradient}
               />
               <Ionicons name="document-text-outline" size={32} color={Colors.light.tint} />
             </View>
-            <Text style={commonStyles.modalTitle}>AI Duygu Analizi</Text>
-            <View style={commonStyles.modalDivider} />
-            <ScrollView style={{ maxHeight: 350, marginBottom: 26 }} showsVerticalScrollIndicator={false}>
-              <Text style={commonStyles.cardText}>
+            <Text style={styles.modalTitle}>AI Duygu Analizi</Text>
+            <View style={styles.modalDivider} />
+            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalText}>
                 {activeSummary || "Analiz yüklenemedi."}
               </Text>
             </ScrollView>
             <TouchableOpacity
               onPress={exportToPDF}
-              style={[commonStyles.buttonSecondary, { 
-                width: '100%', 
-                justifyContent: 'center',
-                borderWidth: 0,
-                backgroundColor: 'transparent',
-                overflow: 'hidden'
-              }]}>
+              style={styles.exportButton}
+            >
               <LinearGradient
                 colors={['#E0ECFD', '#F4E6FF']}
-                style={{ ...StyleSheet.absoluteFillObject, borderRadius: 12 }}
-              />
-              <Ionicons name="download-outline" size={20} color={Colors.light.tint} style={{ marginRight: 6 }} />
-              <Text style={[commonStyles.buttonSecondaryText, { color: Colors.light.tint }]}>PDF İndir & Paylaş</Text>
+                style={styles.exportButtonGradient}
+              >
+                <Ionicons name="download-outline" size={20} color={Colors.light.tint} style={styles.exportButtonIcon} />
+                <Text style={styles.exportButtonText}>PDF İndir & Paylaş</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
@@ -355,8 +412,64 @@ export default function AISummaryScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  back: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    zIndex: 30,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  headerTitle: {
+    position: 'absolute',
+    top: 70,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    letterSpacing: -0.5,
+    zIndex: 20,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    marginTop: 120,
+  },
+  controlsBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)',
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
   sliderContainer: {
-    marginBottom: 14,
+    marginBottom: 24,
   },
   sliderTrack: {
     height: 6,
@@ -383,19 +496,214 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 13,
   },
-  back: {
-    position: 'absolute',
-    top: 60,
-    left: 24,
-    zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 16,
-    padding: 8,
+  analyzeButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
     shadowColor: Colors.light.tint,
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(227,232,240,0.4)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+  },
+  analyzeButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyzeButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  analyzeButtonText: {
+    color: Colors.light.tint,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: -0.3,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    marginTop: 40,
+  },
+  emptyStateIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    padding: 3,
+    backgroundColor: 'transparent',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  emptyStateIconGradient: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    padding: 2.5,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyStateText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginTop: 24,
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  emptyStateSubtext: {
+    fontSize: 16,
+    color: '#4A5568',
+    marginTop: 12,
+    textAlign: 'center',
+    lineHeight: 22,
+    letterSpacing: -0.3,
+  },
+  summaryCard: {
+    marginBottom: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+  },
+  summaryCardGradient: {
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+  },
+  summaryCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  summaryCardIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(93,161,217,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  summaryCardDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1F36',
+    letterSpacing: -0.3,
+  },
+  summaryCardText: {
+    fontSize: 15,
+    color: '#4A5568',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 8,
+  },
+  listContainer: {
+    paddingVertical: 24,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  modalBackButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 5,
+  },
+  modalIcon: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    marginBottom: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    overflow: 'hidden',
+  },
+  modalIconGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 37,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(93,161,217,0.1)',
+    marginBottom: 24,
+  },
+  modalScrollView: {
+    maxHeight: 350,
+    marginBottom: 26,
+  },
+  modalText: {
+    fontSize: 15,
+    color: '#4A5568',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  exportButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+  },
+  exportButtonGradient: {
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  exportButtonIcon: {
+    marginRight: 8,
+  },
+  exportButtonText: {
+    color: Colors.light.tint,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.3,
   },
 });

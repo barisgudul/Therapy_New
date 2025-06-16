@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams } from 'expo-router/';
+import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -54,9 +56,27 @@ export default function VoiceSessionScreen() {
   const navigation = useNavigation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const router = useRouter();
+  const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
 
-  // Doğru terapist objesini bul
-  const therapist = avatars.find(a => a.imageId === therapistId);
+  // Terapist bilgisini yükle
+  useEffect(() => {
+    const loadTherapist = async () => {
+      try {
+        const savedTherapist = await AsyncStorage.getItem('selectedTherapist');
+        if (savedTherapist) {
+          setSelectedTherapist(JSON.parse(savedTherapist));
+        } else {
+          // Eğer kayıtlı terapist yoksa, avatars'dan bul
+          const therapist = avatars.find(a => a.imageId === therapistId);
+          setSelectedTherapist(therapist);
+        }
+      } catch (error) {
+        console.error('Terapist yüklenirken hata:', error);
+      }
+    };
+    loadTherapist();
+  }, [therapistId]);
 
   /* ---------------------------- STATE & REFS ---------------------------- */
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -161,22 +181,35 @@ export default function VoiceSessionScreen() {
     };
   }, [cleanup]);
 
-  // Geri tuşu veya unmount sırasında ses kaydı ve timeout'lar temizlensin
+  const handleBack = () => {
+    Alert.alert(
+      'Seansı Sonlandır',
+      'Seansı sonlandırmak istediğinizden emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel'
+        },
+        {
+          text: 'Sonlandır',
+          style: 'destructive',
+          onPress: () => {
+            stopRecording();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
+  // Geri tuşu için
   useEffect(() => {
-    const handleBack = () => {
-      // Sadece temizlik, session kaydı yok
-      return false; // Varsayılan geri tuşu davranışı
-    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBack();
+      return true;
+    });
 
-    // Android donanım geri tuşu için event listener
-    const subscription =
-      typeof BackHandler !== 'undefined' && BackHandler.addEventListener
-        ? BackHandler.addEventListener('hardwareBackPress', handleBack)
-        : null;
-
-    return () => {
-      if (subscription && subscription.remove) subscription.remove();
-    };
+    return () => backHandler.remove();
   }, []);
 
   /* ---------------------------- HELPERS --------------------------------- */
@@ -192,7 +225,7 @@ export default function VoiceSessionScreen() {
         end={{x: 1, y: 1}} 
         style={styles.container}>
       {/* Geri/Kapat butonu */}
-      <TouchableOpacity onPress={() => { stopRecording(); navigation.goBack(); }} style={styles.back}>
+      <TouchableOpacity onPress={handleBack} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 
@@ -204,16 +237,16 @@ export default function VoiceSessionScreen() {
               end={{x: 1, y: 1}} 
               style={styles.avatarGradient}>
             <Image 
-              source={therapist?.thumbnail || therapistImages[therapistId] || therapistImages.therapist1} 
+              source={selectedTherapist?.thumbnail || therapistImages[therapistId] || therapistImages.therapist1} 
               style={styles.therapistAvatarXL}
             />
           </LinearGradient>
         </View>
         <View style={styles.therapistInfoBoxRow}>
           <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}> 
-            {therapist?.name || 'Terapist'}
+            {selectedTherapist?.name || 'Terapist'}
           </Text>
-          <Text style={styles.therapistTitleRow}>{therapist?.title}</Text>
+          <Text style={styles.therapistTitleRow}>{selectedTherapist?.title}</Text>
         </View>
       </View>
 
@@ -256,7 +289,7 @@ export default function VoiceSessionScreen() {
           >
             <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color={Colors.light.tint} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { stopRecording(); navigation.goBack(); }} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
+          <TouchableOpacity onPress={handleBack} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
             <Ionicons name="close" size={22} color={Colors.light.tint} />
           </TouchableOpacity>
         </View>
