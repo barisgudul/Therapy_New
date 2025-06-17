@@ -238,14 +238,7 @@ export default function HomeScreen() {
           </Text>
           <View style={styles.topButtons}>
             <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileButton}>
-              <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.profileButtonGradient}
-              >
-                <Ionicons name="person-circle-outline" size={24} color={Colors.light.tint} />
-              </LinearGradient>
+              <Ionicons name="person-circle-outline" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
           </View>
         </View>
@@ -455,22 +448,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   profileButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
     shadowColor: Colors.light.tint,
     shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.2)',
-  },
-  profileButtonGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
   },
   button: {
     width: '100%',
