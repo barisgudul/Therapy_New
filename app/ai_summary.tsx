@@ -6,16 +6,16 @@ import { useRouter } from 'expo-router/';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 // @ts-ignore
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
@@ -30,7 +30,7 @@ export default function AISummaryScreen() {
 
   const [maxDays, setMaxDays] = useState(7);
   const [selectedDays, setSelectedDays] = useState(7);
-  const [summaries, setSummaries] = useState<string[]>([]);
+  const [summaries, setSummaries] = useState<{text: string, date: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
@@ -82,7 +82,7 @@ export default function AISummaryScreen() {
   };
 
   // Özetleri kaydetme fonksiyonu
-  const saveSummaries = async (newSummaries: string[]) => {
+  const saveSummaries = async (newSummaries: {text: string, date: string}[]) => {
     try {
       await AsyncStorage.setItem('ai-summaries', JSON.stringify(newSummaries));
     } catch (e) {
@@ -114,7 +114,7 @@ export default function AISummaryScreen() {
     }
 
     if (entries.length === 0) {
-      const newSummaries = ["Hiç veri bulunamadı.", ...summaries];
+      const newSummaries = [{text: "Hiç veri bulunamadı.", date: new Date().toISOString()}, ...summaries];
       setSummaries(newSummaries);
       await saveSummaries(newSummaries);
       setLoading(false);
@@ -123,7 +123,11 @@ export default function AISummaryScreen() {
 
     try {
       const result = await generateDetailedMoodSummary(entries, selectedDays);
-      const newSummaries = [result.trim(), ...summaries];
+      const newSummary = {
+        text: result.trim(),
+        date: new Date().toISOString()
+      };
+      const newSummaries = [newSummary, ...summaries];
       setSummaries(newSummaries);
       await saveSummaries(newSummaries);
 
@@ -143,7 +147,11 @@ export default function AISummaryScreen() {
       setActiveSummary(result.trim());
       setModalVisible(true);
     } catch (e) {
-      const newSummaries = ["AI özet üretilemedi, lütfen tekrar deneyin.", ...summaries];
+      const newSummary = {
+        text: "AI özet üretilemedi, lütfen tekrar deneyin.",
+        date: new Date().toISOString()
+      };
+      const newSummaries = [newSummary, ...summaries];
       setSummaries(newSummaries);
       await saveSummaries(newSummaries);
     }
@@ -157,7 +165,7 @@ export default function AISummaryScreen() {
     await saveSummaries(newSummaries);
   };
 
-  const SummaryCard = ({ text, index }: { text: string; index: number }) => (
+  const SummaryCard = ({ text, date, index }: { text: string; date: string; index: number }) => (
     <TouchableOpacity
       style={commonStyles.card}
       activeOpacity={0.9}
@@ -170,6 +178,13 @@ export default function AISummaryScreen() {
         <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
       </View>
       <Text numberOfLines={3} style={commonStyles.cardText}>{text}</Text>
+      <Text style={styles.summaryCardDate}>
+        {new Date(date).toLocaleDateString('tr-TR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}
+      </Text>
       <TouchableOpacity
         onPress={() => deleteSummary(index)}
         style={{
@@ -329,7 +344,7 @@ export default function AISummaryScreen() {
                 style={styles.summaryCard}
                 activeOpacity={0.9}
                 onPress={() => {
-                  setActiveSummary(item);
+                  setActiveSummary(item.text);
                   setModalVisible(true);
                 }}
               >
@@ -344,14 +359,14 @@ export default function AISummaryScreen() {
                       <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
                     </View>
                     <Text style={styles.summaryCardDate}>
-                      {new Date().toLocaleDateString('tr-TR', {
+                      {new Date(item.date).toLocaleDateString('tr-TR', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
                       })}
                     </Text>
                   </View>
-                  <Text style={styles.summaryCardText} numberOfLines={3}>{item}</Text>
+                  <Text style={styles.summaryCardText} numberOfLines={3}>{item.text}</Text>
                   <TouchableOpacity
                     onPress={() => deleteSummary(index)}
                     style={styles.deleteButton}

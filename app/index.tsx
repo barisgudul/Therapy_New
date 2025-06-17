@@ -158,6 +158,8 @@ export default function HomeScreen() {
       router.push('/daily_write' as const);
     }
   };
+  
+  
 
   /* Terapistini Seç */
   const handleStart = async () => {
@@ -234,16 +236,18 @@ export default function HomeScreen() {
           <Text style={styles.brand}>
             therapy<Text style={styles.dot}>.</Text>
           </Text>
-          <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileButton}>
-            <LinearGradient
-              colors={['#FFFFFF', '#F8FAFF']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.profileButtonGradient}
-            >
-              <Ionicons name="person-circle-outline" size={24} color={Colors.light.tint} />
-            </LinearGradient>
-          </TouchableOpacity>
+          <View style={styles.topButtons}>
+            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileButton}>
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.profileButtonGradient}
+              >
+                <Ionicons name="person-circle-outline" size={24} color={Colors.light.tint} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Ana İçerik */}
@@ -419,6 +423,36 @@ const styles = StyleSheet.create({
     color: Colors.light.tint,
     fontSize: 32,
     fontWeight: '900',
+  },
+  topButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  devButton: {
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  devButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    height: '100%',
+  },
+  devButtonText: {
+    color: Colors.light.tint,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+    letterSpacing: -0.2,
   },
   profileButton: {
     width: 44,

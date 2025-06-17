@@ -18,6 +18,7 @@ import {
 import { Colors } from '../constants/Colors';
 import { analyzeDiaryEntry } from '../hooks/useGemini';
 import { checkAndUpdateBadges } from '../utils/badges';
+import { canWriteDiary } from '../utils/diaryControl';
 import { deleteDiaryEntry, DiaryEntry, getDiaryEntries, saveDiaryEntry } from '../utils/diaryStorage';
 import { saveSessionData } from '../utils/sessionStorage';
 
@@ -202,40 +203,20 @@ export default function DiaryScreen() {
 
   const startNewDiary = async () => {
     try {
-      // Son günlük kaydını kontrol et
-      const entries = await getDiaryEntries();
-      if (entries.length > 0) {
-        const lastEntry = entries[0]; // En son kayıt
-        const lastEntryDate = new Date(lastEntry.date);
-        const now = new Date();
-        const hoursDiff = (now.getTime() - lastEntryDate.getTime()) / (1000 * 60 * 60);
-
-        if (hoursDiff < 18) {
-          const remainingHours = Math.ceil(18 - hoursDiff);
-          Alert.alert(
-            'Günlük Yazma Zamanı',
-            `Bugün duygularını ve düşüncelerini günlüğüne aktardın. Bu, kendini ifade etmek ve içsel yolculuğuna devam etmek için harika bir başlangıç!\n\nDüşüncelerinin olgunlaşması ve yeni deneyimler biriktirmen için biraz zamana ihtiyacın var. Bir sonraki günlüğünü yarın yazabilirsin.\n\nBu süre, düşüncelerini derinleştirmen ve yeni perspektifler kazanman için bir fırsat. Seni bekliyor olacağım!`,
-            [
-              {
-                text: 'Anladım',
-                style: 'default'
-              }
-            ]
-          );
-          return;
-        }
+      const { canWrite, message } = await canWriteDiary();
+      
+      if (!canWrite) {
+        Alert.alert('Uyarı', message);
+        return;
       }
 
       setIsWritingMode(true);
-      setIsViewingDiary(false);
-      setSelectedDiary(null);
       setMessages([]);
       setCurrentInput('');
       setSuggestedQuestions([]);
-      setAnalysisCount(0);
     } catch (error) {
-      console.error('Günlük başlatma hatası:', error);
-      Alert.alert('Hata', 'Günlük başlatılırken bir hata oluştu.');
+      console.error('Yeni günlük başlatma hatası:', error);
+      Alert.alert('Hata', 'Yeni günlük başlatılırken bir hata oluştu.');
     }
   };
 
