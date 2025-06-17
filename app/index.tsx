@@ -19,7 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DailyStreak from '../components/DailyStreak';
 import { Colors } from '../constants/Colors';
 
 const todayISO = () => new Date().toISOString().split('T')[0];
@@ -225,47 +224,120 @@ export default function HomeScreen() {
 
   /* ------------- UI ------------- */
   return (
-    <LinearGradient colors={['#F9FAFB', '#ECEFF4']} style={styles.flex}>
+    <LinearGradient colors={['#F8F9FC', '#FFFFFF']} 
+      start={{x: 0, y: 0}} 
+      end={{x: 1, y: 1}} 
+      style={styles.flex}>
       <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
-        {/* başlık + profil */}
-        <View style={styles.headerWrapper}>
-          <View style={styles.headerRow}>
-            <Text style={styles.brand}>therapy</Text>
-            <Text style={styles.dot}>.</Text>
-            <TouchableOpacity onPress={() => router.push('/profile' as const)} style={styles.profileButton}>
-              <Ionicons name="person-circle-outline" size={40} color={Colors.light.tint} />
-            </TouchableOpacity>
-          </View>
+        {/* Üst Bar */}
+        <View style={styles.topBar}>
+          <Text style={styles.brand}>
+            therapy<Text style={styles.dot}>.</Text>
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileButton}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F8FAFF']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
+              style={styles.profileButtonGradient}
+            >
+              <Ionicons name="person-circle-outline" size={24} color={Colors.light.tint} />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.contentWrapper}>
-          <Image source={require('../assets/therapy-illustration.png')} style={styles.image} resizeMode="contain" />
-          <Text style={styles.title}>Zihnine iyi bak.</Text>
-          <Text style={styles.subtitle}>Yapay zekâ destekli terapiyi deneyimle.</Text>
+        {/* Ana İçerik */}
+        <View style={styles.mainContent}>
+          <View style={styles.illustrationContainer}>
+            <Image 
+              source={require('../assets/therapy-illustration.png')} 
+              style={styles.illustration} 
+              resizeMode="contain" 
+            />
+          </View>
+
+          <View style={styles.textContainer}>
+            <Text style={styles.title}>Zihnine İyi Bak</Text>
+            <Text style={styles.subtitle}>Yapay zekâ destekli terapiyi deneyimle</Text>
+          </View>
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity style={styles.buttonUnified} onPress={handleCardPress}>
-              <Ionicons name="sparkles-outline" size={22} color={Colors.light.tint} style={{ marginRight: 10 }} />
-              <Text style={styles.outlinedText}>Bugün nasıl hissediyorsun?</Text>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={handleCardPress}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="sparkles-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>Bugün Nasıl Hissediyorsun?</Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
 
-            
-            <TouchableOpacity style={styles.buttonUnified} onPress={() => router.push('/ai_summary' as const)}>
-              <Ionicons name="analytics-outline" size={22} color={Colors.light.tint} style={{ marginRight: 10 }} />
-              <Text style={styles.outlinedText}>AI Ruh Hâli Özeti</Text>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/ai_summary' as const)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="analytics-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>AI Ruh Hâli Özeti</Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.buttonUnified} onPress={() => router.push('/diary' as const)}>
-              <Ionicons name="book-outline" size={22} color={Colors.light.tint} style={{ marginRight: 10 }} />
-              <Text style={styles.outlinedText}>AI Destekli Günlük</Text>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/diary' as const)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="book-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>AI Destekli Günlük</Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.buttonUnified} onPress={handleStart}>
-              <Ionicons name="people-outline" size={20} color={Colors.light.tint} style={{ marginRight: 8 }} />
-              <Text style={styles.secondaryText}>Terapistini Seç</Text>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={handleStart}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="heart-circle-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>Terapistini Seç</Text>
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.linkButton} onPress={() => router.push('/how_it_works' as const)}>
+            <TouchableOpacity 
+              style={styles.linkButton} 
+              onPress={() => router.push('/how_it_works' as const)}
+            >
               <Text style={styles.linkText}>Terapiler nasıl işler?</Text>
             </TouchableOpacity>
           </View>
@@ -287,29 +359,33 @@ export default function HomeScreen() {
         </View>
       )}
 
-      
-
       {modalVisible && <BlurView intensity={60} tint="default" style={StyleSheet.absoluteFill} />}
 
-      {/* Modal: streak + AI sözü */}
+      {/* Modal */}
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <DailyStreak refreshKey={refreshStreak} />
-
-            <Ionicons name="chatbox-ellipses-outline" size={28} color={Colors.light.tint} style={{ marginBottom: 8 }} />
-            <Text style={styles.modalTitle}>AI Terapist</Text>
-            <Text style={styles.modalMessage}>{aiMessage}</Text>
-
-            <TouchableOpacity
-              style={styles.closeButton}
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
               onPress={() => {
                 setModalVisible(false);
                 animateBg(false);
-              }}
+              }} 
+              style={styles.modalBackButton}
             >
-              <Text style={styles.closeText}>Kapat</Text>
+              <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
             </TouchableOpacity>
+
+            <View style={styles.modalIcon}>
+              <LinearGradient
+                colors={['#E8EEF7', '#F0F4F9']}
+                style={styles.modalIconGradient}
+              />
+              <Ionicons name="sparkles-outline" size={28} color={Colors.light.tint} />
+            </View>
+
+            <Text style={styles.modalTitle}>Günün Mesajı</Text>
+            <View style={styles.modalDivider} />
+            <Text style={styles.modalText}>{aiMessage}</Text>
           </View>
         </View>
       </Modal>
@@ -319,53 +395,125 @@ export default function HomeScreen() {
 
 /* ---------------- styles ---------------- */
 const styles = StyleSheet.create({
-  buttonUnified: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1.4,
-    borderColor: Colors.light.tint,
-    borderRadius: 24,
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    alignSelf: 'center',
-    minWidth: 260,
-  },
-  buttonText: {
-    fontSize: 15.5,
-    color: Colors.light.tint,
-    fontWeight: '600',
-  },
   flex: { flex: 1 },
   container: { 
     flex: 1, 
-    paddingHorizontal: 22, 
-    paddingTop: 50 
+    paddingHorizontal: 20, 
+    paddingTop: 50,
   },
-  headerWrapper: { 
-    marginBottom: 24 
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  headerRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    gap: 8 
+  brand: {
+    fontSize: 28,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    textTransform: 'lowercase',
+    letterSpacing: 1.5,
+    opacity: 0.95,
   },
-  profileButton: { 
-    marginLeft: 200 
+  dot: {
+    color: Colors.light.tint,
+    fontSize: 32,
+    fontWeight: '900',
   },
-  contentWrapper: {
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.2)',
+  },
+  profileButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  button: {
+    width: '100%',
+    height: 52,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.3)',
+  },
+  buttonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: Colors.light.tint,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+    letterSpacing: -0.2,
+  },
+  mainContent: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 16,
+  },
+  illustrationContainer: {
+    width: width * 0.85,
+    height: width * 0.6,
+    marginBottom: 32,
+  },
+  illustration: {
+    width: '100%',
+    height: '100%',
+  },
+  textContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#4A5568',
+    textAlign: 'center',
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
   buttonContainer: {
     width: '100%',
-    alignItems: 'center',
-    marginTop: 16,
     gap: 12,
+  },
+  linkButton: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  linkText: {
+    fontSize: 14,
+    color: Colors.light.tint,
+    textDecorationLine: 'underline',
+    letterSpacing: -0.2,
   },
   debugContainer: {
     position: 'absolute',
@@ -374,50 +522,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  brand: { textAlign: 'center', fontSize: 22, fontWeight: '600', color: Colors.light.tint, textTransform: 'lowercase' },
-  dot: { color: '#5DA1D9', fontSize: 26, fontWeight: '700' },
-  image: { 
-    width: '100%', 
-    height: 200, 
-    marginBottom: 16 
-  },
-  outlinedCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1.5, borderColor: Colors.light.tint, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 18, marginBottom: 18, alignSelf: 'center' },
-  outlinedText: { fontSize: 15, color: Colors.light.tint, fontWeight: '500' },
-  secondaryButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderWidth: 1.5, borderColor: Colors.light.tint, borderRadius: 30, paddingVertical: 16, paddingHorizontal: 44, marginBottom: 18, alignSelf: 'center' },
-  secondaryText: { fontSize: 17, color: Colors.light.tint, fontWeight: '700' },
-  linkButton: { alignItems: 'center' },
-  linkText: { fontSize: 14, color: Colors.light.tint, textDecorationLine: 'underline' },
-  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalCard: { backgroundColor: '#fff', borderRadius: 22, padding: 26, width: width - 48, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: Platform.OS === 'android' ? 5 : 0 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.light.tint, marginBottom: 8 },
-  modalMessage: { fontSize: 15, color: '#333', textAlign: 'center', lineHeight: 22, marginBottom: 18 },
-  closeButton: { backgroundColor: Colors.light.tint, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 },
-  closeText: { color: '#fff', fontWeight: '600' },
-  streakWrapper: { alignItems: 'center', marginBottom: 12 },
-  streakTitle: { fontSize: 16, fontWeight: '700', color: Colors.light.tint, marginBottom: 6 },
-  streakRow: { flexDirection: 'row', columnGap: 10 },
-  streakDot: { width: 18, height: 18, borderRadius: 9 },
-  dotActive: { backgroundColor: Colors.light.tint },
-  dotInactive: { backgroundColor: '#fff', borderWidth: 1.2, borderColor: '#E5E7EB' },
   resetBtn: {
     backgroundColor: '#e11d48',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 26,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     ...(Platform.OS === 'ios'
-      ? { shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6 }
-      : { elevation: 4 }),
+      ? { shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4 }
+      : { elevation: 2 }),
   },
-  resetTxt: { color: '#fff', fontWeight: '600' },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  resetTxt: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  modalBackButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    zIndex: 5,
+  },
+  modalIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    overflow: 'hidden',
+  },
+  modalIconGradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 30,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
     color: Colors.light.tint,
-    marginBottom: 8,
+    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: -0.3,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
+  modalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(93,161,217,0.1)',
+    marginBottom: 20,
+  },
+  modalText: {
+    fontSize: 15,
+    color: '#4A5568',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    textAlign: 'center',
   },
 });
