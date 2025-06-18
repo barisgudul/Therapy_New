@@ -13,12 +13,8 @@ const therapyOptions = [
     icon: 'videocam-outline',
     colors: ['#E0ECFD', '#F4E6FF'] as const,
     route: '/sessions/video_session',
-    stats: [
-      { value: '98%', label: 'Memnuniyet' },
-      { value: '40dk', label: 'Seans' },
-      { value: '25K+', label: 'Kullanıcı' }
-    ],
-    benefits: ['Güvenli Görüşme', 'Profesyonel Destek', 'Yüz Yüze İletişim']
+    duration: '30 dakika',
+    features: ['Yüz Yüze İletişim', 'Güvenli Platform', 'Profesyonel Destek']
   },
   {
     id: 'voice',
@@ -27,12 +23,8 @@ const therapyOptions = [
     icon: 'mic-outline',
     colors: ['#F4E6FF', '#E0ECFD'] as const,
     route: '/sessions/voice_session',
-    stats: [
-      { value: '95%', label: 'Memnuniyet' },
-      { value: '30dk', label: 'Seans' },
-      { value: '30K+', label: 'Kullanıcı' }
-    ],
-    benefits: ['Sesli İletişim', 'Hızlı Destek', 'Pratik Çözüm']
+    duration: '30 dakika',
+    features: ['Sesli İletişim', 'Hızlı Destek', 'Pratik Çözüm']
   },
   {
     id: 'text',
@@ -41,12 +33,8 @@ const therapyOptions = [
     icon: 'chatbubble-ellipses-outline',
     colors: ['#E0ECFD', '#F4E6FF'] as const,
     route: '/sessions/text_session',
-    stats: [
-      { value: '99%', label: 'Memnuniyet' },
-      { value: '7/24', label: 'Destek' },
-      { value: '45K+', label: 'Kullanıcı' }
-    ],
-    benefits: ['Esnek Zaman', 'Kolay İletişim', 'Hızlı Yanıt']
+    duration: '30 dakika',
+    features: ['Yazılı İletişim', 'Detaylı Analiz', 'Düşünce Paylaşımı']
   }
 ];
 
@@ -98,20 +86,16 @@ export default function TherapyOptionsScreen() {
                 <Text style={styles.optionTitle}>{option.title}</Text>
                 <Text style={styles.optionDescription}>{option.description}</Text>
                 
-                <View style={styles.statsContainerClean}>
-                  {option.stats.map((stat, idx) => (
-                    <View key={idx} style={styles.statItemClean}>
-                      <Text style={styles.statValueClean}>{stat.value}</Text>
-                      <Text style={styles.statLabelClean}>{stat.label}</Text>
-                    </View>
-                  ))}
+                <View style={styles.durationContainer}>
+                  <Ionicons name="time-outline" size={16} color={Colors.light.tint} />
+                  <Text style={styles.durationText}>{option.duration}</Text>
                 </View>
 
-                <View style={styles.benefitsContainer}>
-                  {option.benefits.map((benefit, index) => (
-                    <View key={index} style={styles.benefitTag}>
-                      <Ionicons name="checkmark-circle" size={14} color={Colors.light.tint} style={styles.benefitIcon} />
-                      <Text style={styles.benefitText}>{benefit}</Text>
+                <View style={styles.featuresContainer}>
+                  {option.features.map((feature, index) => (
+                    <View key={index} style={styles.featureTag}>
+                      <Ionicons name="checkmark-circle" size={14} color={Colors.light.tint} style={styles.featureIcon} />
+                      <Text style={styles.featureText}>{feature}</Text>
                     </View>
                   ))}
                 </View>
@@ -219,50 +203,38 @@ const styles = StyleSheet.create({
   arrowIcon: {
     marginLeft: 8,
   },
-  statsContainerClean: {
+  durationContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
     marginBottom: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8ECF4',
   },
-  statItemClean: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValueClean: {
-    fontSize: 18,
+  durationText: {
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.light.tint,
-    marginBottom: 2,
+    marginLeft: 6,
   },
-  statLabelClean: {
-    fontSize: 12,
-    color: '#4A5568',
-    opacity: 0.8,
-  },
-  benefitsContainer: {
+  featuresContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
     marginTop: 8,
   },
-  benefitTag: {
+  featureTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: 'rgba(93,161,217,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  benefitIcon: {
-    marginRight: 4,
+  featureIcon: {
+    marginRight: 6,
   },
-  benefitText: {
+  featureText: {
     fontSize: 12,
     color: Colors.light.tint,
+    fontWeight: '500',
   },
 });

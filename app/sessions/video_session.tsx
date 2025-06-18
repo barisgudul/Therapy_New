@@ -17,6 +17,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
+import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
@@ -56,14 +57,12 @@ export default function VideoSessionScreen() {
   const [cameraVisible, setCameraVisible] = useState(true);
   const [micPermissionGranted, setMicPermissionGranted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionDuration, setSessionDuration] = useState(0);
   const [volume, setVolume] = useState<number>(0);
   const [pipPosition, setPipPosition] = useState({ x: width - PIP_SIZE - BOUNDARY_SIDE, y: 120 });
   const [isDragging, setIsDragging] = useState(false);
   const lastTouch = useRef({ x: 0, y: 0 });
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const sessionTimer = useRef<number | null>(null);
 
   const handleTouchStart = (event: any) => {
     const { pageX, pageY } = event.nativeEvent;
@@ -171,14 +170,6 @@ export default function VideoSessionScreen() {
     ).start();
   }, [isRecording]);
 
-  // session timer
-  useEffect(() => {
-    sessionTimer.current = setInterval(() => setSessionDuration((p) => p + 1), 1000) as unknown as number;
-    return () => {
-      if (sessionTimer.current !== null) clearInterval(sessionTimer.current);
-    };
-  }, []);
-
   const requestPermissions = async () => {
     // Kamera izni
     if (Platform.OS === 'android') {
@@ -223,6 +214,28 @@ export default function VideoSessionScreen() {
     }
   }
 
+  const handleSessionEnd = async () => {
+    Alert.alert(
+      'Seans Süresi Doldu',
+      '10 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
+      [
+        {
+          text: 'Devam Et',
+          style: 'cancel'
+        },
+        {
+          text: 'Sonlandır',
+          style: 'default',
+          onPress: async () => {
+            await stopRecording();
+            await saveSession();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
   const handleBack = () => {
     Alert.alert(
       'Seansı Sonlandır',
@@ -264,6 +277,9 @@ export default function VideoSessionScreen() {
       <TouchableOpacity onPress={handleBack} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
+
+      {/* Session Timer */}
+      <SessionTimer onSessionEnd={handleSessionEnd} />
 
       <View style={styles.modalContainer}>
         <Image 

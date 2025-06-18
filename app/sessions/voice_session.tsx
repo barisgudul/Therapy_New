@@ -16,6 +16,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
+import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
@@ -83,12 +84,9 @@ export default function VoiceSessionScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionDuration, setSessionDuration] = useState(0);
   const [soundLevel, setSoundLevel] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [volume, setVolume] = useState(0);
-
-  const sessionTimer = useRef<number | null>(null);
 
   /* ---------------------------- VOICE HOOK ------------------------------ */
   const {
@@ -166,14 +164,6 @@ export default function VoiceSessionScreen() {
     ).start();
   }, [isRecording]);
 
-  // session timer
-  useEffect(() => {
-    sessionTimer.current = setInterval(() => setSessionDuration((p) => p + 1), 1000) as unknown as number;
-    return () => {
-      if (sessionTimer.current !== null) clearInterval(sessionTimer.current);
-    };
-  }, []);
-
   // cleanup on unmount
   useEffect(() => {
     return () => {
@@ -193,6 +183,27 @@ export default function VoiceSessionScreen() {
         {
           text: 'Sonlandır',
           style: 'destructive',
+          onPress: () => {
+            stopRecording();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSessionEnd = async () => {
+    Alert.alert(
+      'Seans Süresi Doldu',
+      '10 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
+      [
+        {
+          text: 'Devam Et',
+          style: 'cancel'
+        },
+        {
+          text: 'Sonlandır',
+          style: 'default',
           onPress: () => {
             stopRecording();
             router.replace('/');
@@ -228,6 +239,9 @@ export default function VoiceSessionScreen() {
       <TouchableOpacity onPress={handleBack} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
+
+      {/* Session Timer */}
+      <SessionTimer onSessionEnd={handleSessionEnd} />
 
       {/* Terapist avatar ve adı */}
       <View style={styles.therapistHeaderRow}>

@@ -18,6 +18,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
+import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
 import { getSessionStats } from '../../utils/helpers';
@@ -193,6 +194,27 @@ export default function TextSessionScreen() {
     }
   }
 
+  const handleSessionEnd = async () => {
+    Alert.alert(
+      'Seans Süresi Doldu',
+      '10 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
+      [
+        {
+          text: 'Devam Et',
+          style: 'cancel'
+        },
+        {
+          text: 'Sonlandır',
+          style: 'default',
+          onPress: async () => {
+            await saveSession();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
   const handleBack = () => {
     Alert.alert(
       'Seansı Sonlandır',
@@ -251,6 +273,9 @@ export default function TextSessionScreen() {
       <TouchableOpacity onPress={handleBack} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
+
+      {/* Session Timer */}
+      <SessionTimer onSessionEnd={handleSessionEnd} />
 
       {/* Terapist avatar ve adı */}
       <View style={styles.therapistHeaderRow}>
