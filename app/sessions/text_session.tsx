@@ -157,8 +157,12 @@ export default function TextSessionScreen() {
 
   try {
     // --- 3. Fonksiyona messageCount parametresi ekleniyor
+    const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+      ? therapistId as "therapist1" | "therapist3" | "coach1" 
+      : "therapist1";
+    
     const aiReply = await generateTherapistReply(
-      therapistId ?? "therapist1",
+      validTherapistId,
       trimmed,
       "",
       chatHistory,
@@ -197,7 +201,7 @@ export default function TextSessionScreen() {
   const handleSessionEnd = async () => {
     Alert.alert(
       'Seans Süresi Doldu',
-      '10 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
+      '30 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
       [
         {
           text: 'Devam Et',

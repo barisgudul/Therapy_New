@@ -1,272 +1,159 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from "expo-constants";
+import Constants from 'expo-constants';
 
-const GEMINI_API_KEY = Constants.expoConfig?.extra?.GEMINI_API_KEY;
+/* ──────────────────────────────────────────────────────────────────────────
+ * useGemini.ts  ·  v2.6   (strict-3-sentences + dynamic goals)
+ * therapy. React-Native uygulaması için Gemini yardımcıları
+ * ──────────────────────────────────────────────────────────────────────── */
 
-// ---- Gemini API Ortak Fonksiyon ----
-export const sendToGemini = async (text: string): Promise<string> => {
+/* 1 · Runtime ─────────────────────────────────────────────────────────── */
+const KEY   = Constants.expoConfig?.extra?.GEMINI_API_KEY as string;
+const MODEL = 'gemini-1.5-pro-latest';          // gerekirse 2.0-flash’a geç
+const TEMP  = 0.75;
+
+/* 2 · Low-level fetch ─────────────────────────────────────────────────── */
+async function llm(prompt: string, maxTokens = 120) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: TEMP, topP: 0.9, maxOutputTokens: maxTokens },
+  };
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text }] }],
-        }),
-      }
-    );
-    const data = await response.json();
-    console.log("Gemini raw response:", data);
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    return reply ?? "Cevap alınamadı.";
-  } catch (err) {
-    console.error("Gemini API hatası:", err);
-    return "Sunucu hatası oluştu.";
-  }
-};
-
-// ---- Kullanıcı Profilini Getir ve Kısa Açıklama Üret ----
-async function getUserProfile() {
-  try {
-    const stored = await AsyncStorage.getItem('userProfile');
-    if (!stored) return null;
-    return JSON.parse(stored);
-  } catch {
-    return null;
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json();
+    return j?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Cevap alınamadı.';
+  } catch (e) {
+    console.error('Gemini hata:', e);
+    return 'Sunucu hatası.';
   }
 }
 
-function makeUserDesc(userProfile: any) {
-  if (!userProfile) return '';
-  let desc = '';
-  if (userProfile.nickname) desc += `Adı: ${userProfile.nickname}.\n`;
-  if (userProfile.birthDate) desc += `Doğum tarihi: ${userProfile.birthDate}.\n`;
-  if (userProfile.profession) desc += `Meslek: ${userProfile.profession}.\n`;
-  if (userProfile.expectation) desc += `Terapiden beklentisi: ${userProfile.expectation}.\n`;
-  if (userProfile.history) desc += `Hayatındaki önemli deneyim: ${userProfile.history}.\n`;
-  return desc.trim();
+/* 3 · Profil yardımcıları ─────────────────────────────────────────────── */
+async function getProfile() {
+  try { const s = await AsyncStorage.getItem('userProfile'); return s ? JSON.parse(s) : null; } catch { return null; }
+}
+function profileDesc(u: any) {
+  if (!u) return '';
+  return [
+    u.nickname   && `Adı: ${u.nickname}`,
+    u.birthDate  && `Doğum: ${u.birthDate}`,
+    u.profession && `Meslek: ${u.profession}`,
+    u.expectation&& `Beklentisi: ${u.expectation}`,
+  ].filter(Boolean).join(' · ');
 }
 
-// ---- DİJİTAL TERAPİ GÜNLÜĞÜ (DAILY WRITE) ----
-export async function generateDailyReflectionResponse(todayNote: string, todayMood: string) {
-  const userProfile = await getUserProfile();
-  const userDesc = makeUserDesc(userProfile);
-
-  const prompt = `
-${userDesc ? userDesc + '\n' : ''}
-Sen bir empatik ve destekleyici yapay zekâ terapistsin.
-Kullanıcı bugün duygularını ve düşüncelerini günlük olarak paylaştı.
-Bugünkü ruh hali: ${todayMood}
-Bugünkü yazısı: "${todayNote}"
-
-Sadece bugüne ve yazdığı hisse odaklan. Kısa, sade, empatik, motive edici ve samimi bir yanıt ver. 
-Güven ve iyi hissetmesini sağla. Ona asla soru sorma, öneri verirken aşırı kişisel detaya girme, ona adıyla veya mesleğine uygun şekilde hitap edebilirsin. 
-Cevabın akıcı ve doğal bir Türkçeyle, robot gibi olmadan, ama asla uzun olmayacak şekilde yazılsın.
-Kullanıcı profil bilgisi yoksa anonim biriyle konuştuğunu unutma ve isimsiz hitap et. İstersen emojiler kullanabilirsin ama asla zorunda değilsin aşırıya kaçma emojilerde.
-
-  `.trim();
-
-  return await sendToGemini(prompt);
+/* 4 · Geçmiş azaltıcı ─────────────────────────────────────────────────── */
+function compress(hist = '', keep = 6) {
+  return hist
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(-keep)
+    .map((l, i) => `${i % 2 === 0 ? 'user:' : 'assistant:'} ${l.replace(/^[DT]:\s*/, '')}`)
+    .join('\n');
 }
 
-// ---- TERAPİST KARAKTERLERİNE GÖRE MESAJLAŞMA (TEXT SESSION) ----
+/* 5 · Terapist tanımı ─────────────────────────────────────────────────── */
+const THERAPISTS = {
+  therapist1: { persona: 'Dr. Elif — şefkatli Klinik Psikolog', tech: 'Duygu-odaklı destek' },
+  therapist3: { persona: 'Dr. Lina — enerjik BDT uzmanı', tech: 'CBT + Pozitif psikoloji' },
+  coach1:     { persona: 'Coach Can — aksiyon odaklı koç', tech: 'Motivational coaching' },
+} as const;
+type TID = keyof typeof THERAPISTS;
+
+/* 6 · Mikro-hedef mantığı ─────────────────────────────────────────────── */
+const GOALS = [
+  'Danışanın şu anki deneyimini adlandırmasına yardım et.',
+  'Düşünce-duygu bağını görünür kıl; otomatik düşünceyi yakala.',
+  'Küçük bir davranış deneyi öner; olası engeli sor.',
+  'İçsel eleştirmene şefkat sesi bulmasına rehberlik et.',
+];
+function nextGoal(turn: number, userMsg: string) {
+  if (/sık|yeter/i.test(userMsg))          return 'Konuyu hafiflet, sohbeti kullanıcının seçtiği bir alana yönlendir.';
+  if (/duygu/i.test(userMsg) && /istem/i.test(userMsg))
+    return '“Duygu” kelimesini kullanmadan, beden duyumları veya düşünce ayrıştırmasıyla ilerle.';
+  return GOALS[(turn - 1) % GOALS.length];
+}
+
+/* 7 · Prompt oluşturucu ──────────────────────────────────────────────── */
+function buildPrompt(p: {
+  id: TID; turn: number; profile: string; hist: string; userMsg: string; mood: string;
+}) {
+  const t = THERAPISTS[p.id] ?? THERAPISTS.therapist1;
+  const riskWords = /(intihar|ölmek|zarar|kendimi)/i;
+  const ethicLine = riskWords.test(p.userMsg)
+    ? 'Kriz sezilirse profesyonel yardım öner.'
+    : 'Etik: tanı & reçete verme.';
+  const personaLine = p.turn === 1 ? `${t.persona}. Yaklaşım: ${t.tech}.` : t.persona;
+  return `
+${p.profile && p.turn % 3 === 1 ? `Danışan profili: ${p.profile}` : ''}
+${personaLine}
+${ethicLine}
+${p.hist ? `Geçmiş:\n${p.hist}` : ''}
+Son mesaj: "${p.userMsg}"
+
+Terapi hedefi: ${nextGoal(p.turn, p.userMsg)}
+Görev: Tam **3 cümle** yaz — 1) anlayış 2) içgörü/öneri 3) açık-uçlu soru.
+Aynı cümleyi kelimesi kelimesine tekrarlama.`.trim();
+}
+
+function strictThree(txt: string) {
+  const sent = txt.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 3);
+  return sent.join(' ').trim();
+}
+
+/* 8 · Genel üretici ───────────────────────────────────────────────────── */
 export async function generateTherapistReply(
-  therapistId: string,
-  userMessage: string,
-  moodHint: string = "",
-  chatHistory: string = "",
-  messageCount: number = 1 // <-- zorunlu parametre
+  tid: TID,
+  userMsg: string,
+  mood = '',
+  history = '',
+  turn = 1,
 ) {
-  const userProfile = await getUserProfile();
-  const userDesc = makeUserDesc(userProfile);
+  const profile = profileDesc(await getProfile());
+  const prompt  = buildPrompt({
+    id: tid, turn, profile, hist: compress(history), userMsg, mood,
+  });
+  console.log('🧠 prompt\n', prompt);
 
-  // --- Her 3 mesajda bir (ve ilk mesajda) profil ve "ismini kullan" talimatı, diğerlerinde ise "ismini kullanma" talimatı eklenir ---
-  const showProfile = (messageCount === 1) || (messageCount % 3 === 0);
-  const userBlock = showProfile && userDesc
-    ? `${userDesc}\nCevaplarında kullanıcıya ismiyle (ör. ${userProfile.nickname}) hitap et.`
-    : 'Cevaplarında kullanıcının ismini kullanma.';
-
-  const historyBlock = chatHistory
-    ? `Geçmiş sohbetiniz:\n${chatHistory}\n\n`
-    : "";
-
-  let prompt = "";
-
-  if (therapistId === "therapist1") {
-    prompt = `
-${historyBlock}${userBlock}
-Unutma 2 cümleden fazla cevap vermiyeceksin.
-Sen Dr. Elif'sin - şefkatli, anaç bir Klinik Psikolog. Yumuşak, sakin bir ses tonun var. Bazen sıcak hitap şekilleri kullanırsın. Danışanın duygulara odaklanır, güvenli bir liman gibi davranırsın.
-Unutma 2 cümleden fazla cevap vermiyeceksin.
-Kullanıcının ruh hali: ${moodHint}  
-Kullanıcı: "${userMessage}"
-
-En fazla 2 cümle yaz. Şefkatli, huzur verici ve içten ol. Duygularını anladığını göster, yargılama.
-`.trim();
-  } else if (therapistId === "therapist3") {
-    prompt = `
-${historyBlock}${userBlock}
-Unutma 2 cümleden fazla cevap vermiyeceksin.
-Sen Dr. Lina'sın - genç ruhlu, enerjik bir Bilişsel Davranışçı Uzmanı. Modern ve dinamiksin. Çözüm odaklısın, danışanın güçlü yanlarını öne çıkarırsın.
-Maximum 2 cümlelik cevaplar ver.
-Kullanıcının ruh hali: ${moodHint}
-Kullanıcı: "${userMessage}"
-
-En fazla 2 cümle yaz. Motive edici, pozitif ve cesaret verici ol. Başarıyı ve çabayı öne çıkar.
-`.trim();
-  } else if (therapistId === "coach1") {
-    prompt = `
-${historyBlock}${userBlock}
-Unutma 2 cümleden fazla cevap vermiyeceksin.
-Sen Coach Can'sın - dinamik, aksiyon odaklı bir Yaşam Koçu. Liderlik ruhun var. Danışana somut adımlar önerir, harekete geçirirsin.
-Unutma 2 cümleden fazla cevap vermiyeceksin.
-Kullanıcının ruh hali: ${moodHint}
-Kullanıcı: "${userMessage}"
-
-En fazla 2 cümle yaz. Enerjik, pratik ve aksiyon odaklı ol. Somut öneriler ver.
-`.trim();
-  } else {
-    prompt = `
-${historyBlock}${userBlock}
-Sen, gerçek bir insan terapist gibi davranan, empatik ve destekleyici bir sohbet rehberisin.
-Amacın danışanına duygusal destek vermek, onu anlamak ve yanında olduğunu hissettirmek.
-Kullanıcı şöyle yazdı: "${userMessage}"
-${moodHint ? `Onun ruh hali: ${moodHint}` : ""}
-
-Yanıtların kısa (1-2 cümle), sıcak, samimi ve insani olsun.
-Gerektiğinde doğal ve hafif bir soru ekle, asla mekanik veya tekrar eden cümleler kurma.
-Gerçek bir insan gibi sohbet et.
-`.trim();
-  }
-
-  // 👇 API'ya gönderilen PROMPT'u logla (kesin kontrol için)
-  console.log("AI'ya giden PROMPT:", prompt);
-
-  return await sendToGemini(prompt);
+  const raw = await llm(prompt);
+  return strictThree(raw);
 }
 
-// ---- Detaylı AI Analizi ----
+/* 9 · Daily reflection (≤2 cümle) ─────────────────────────────────────── */
+export async function generateDailyReflectionResponse(note: string, mood: string) {
+  const prof = profileDesc(await getProfile());
+  const p = `${prof ? prof + '\n' : ''}Ruh hâli: ${mood}. Not: "${note}". 1–2 cümlelik samimi, motive edici yanıt ver.`;
+  return strictThree(await llm(p, 60));
+}
+
+/* 10 · İleri analiz fonksiyonları (özet, günlük analizi)  
+ *      — ihtiyaç durumda önceki sürüm koduyla eklenebilir.            */
+
+
+/* ==========================================================================
+   10 · Detailed summary placeholder (özelleştirilebilir)
+   ====================================================================== */
 export async function generateDetailedMoodSummary(entries: any[], days: number) {
-  const userProfile = await getUserProfile();
-  const userDesc = makeUserDesc(userProfile);
-
-  const prompt = `
-Kullanıcının son ${days} günlük duygu durumu analizi için aşağıdaki yapıda detaylı ancak özlü bir rapor oluştur:
-
-1. Genel Bakış
-• Haftalık duygu dağılımı (ana duyguların yüzdeli dağılımı)
-• Öne çıkan pozitif/negatif eğilimler
-• Haftanın en belirgin 3 özelliği
-
-2. Duygusal Dalgalanmalar
-• Gün içi değişimler (sabah-akşam karşılaştırması)
-• Haftalık trend (hafta başı vs hafta sonu)
-• Duygu yoğunluğu gradyanı (1-10 arası skala tahmini)
-
-3. Tetikleyici Analizi
-• En sık tekrarlanan 3 olumsuz tetikleyici
-• Etkili başa çıkma mekanizmaları
-• Kaçırılan fırsatlar (gözden kaçan pozitif anlar)
-
-4. Kişiye Özel Tavsiyeler
-• Profil verilerine göre (${userDesc}) uyarlanmış 3 somut adım
-• Haftaya özel mini hedefler
-• Acil durum stratejisi (kriz anları için)
-
-Teknik Talimatlar:
-1. Rapor maksimum 500 kelime olsun
-2. Her bölüm 3-4 maddeli paragraf şeklinde
-3. Sayısal verileri yuvarlayarak yaz (%Yüzde, X/Y oran gibi)
-4. Günlük konuşma dili kullan (akademik jargon yok)
-5. Başlıklarda markdown kullanma
-6. Pozitif vurguyu koru (eleştirel değil yapıcı olsun)
-7. Eğer kullanıcı profili varsa, yanıtında kullanıcının ismiyle hitap et.
-8. Yanıtında kesinlikle markdown, yıldız, tire, köşeli parantez, madde işareti veya herhangi bir özel karakter kullanma. Sadece düz metin ve başlıklar kullan.
-
-Veriler:
-${JSON.stringify(entries, null, 2)}
-`.trim();
-
-  return await sendToGemini(prompt);
+  const p = `Son ${days} günlük duygu analizi için 4 başlıkta (Genel, Dalgalanmalar, Tetikleyiciler, Öneriler) ≤500 kelime, konuşma dili, pozitif ton.`;
+  return llm(p);
 }
 
-// ---- GÜNLÜK ANALİZİ ----
+/* ==========================================================================
+   11 · Diary analysis (JSON)
+   ====================================================================== */
 export interface DiaryAnalysis {
   feedback: string;
   questions: string[];
   mood: string;
   tags: string[];
 }
-
-export const analyzeDiaryEntry = async (text: string): Promise<DiaryAnalysis> => {
+export async function analyzeDiaryEntry(text: string): Promise<DiaryAnalysis> {
+  const p = `Günlük: ${text}\n\nYanıtı tam JSON şablonuyla ver:{"mood":"...","tags":[],"feedback":"...","questions":[]}`;
+  const raw = await llm(p, { model: MODEL, maxTokens: 120 } as any);
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Aşağıdaki günlük yazısını analiz et ve şu bilgileri ver:
-            1. Duygu durumu (mood): Kullanıcının genel duygu durumunu belirle (mutlu, üzgün, kaygılı, nötr vb.)
-            2. Etiketler (tags): Günlükte geçen önemli konuları etiketle (örn: aile, iş, sağlık, ilişki vb.)
-            3. Geri bildirim: Kullanıcıya destekleyici ve yapıcı bir geri bildirim ver
-            4. Sorular: Kullanıcıyı düşünmeye teşvik eden 3 soru öner
-
-            Günlük yazısı:
-            ${text}
-
-            Lütfen yanıtını tam olarak şu JSON formatında ver, başka hiçbir metin ekleme:
-            {
-              "mood": "duygu durumu",
-              "tags": ["etiket1", "etiket2", "etiket3"],
-              "feedback": "geri bildirim metni",
-              "questions": ["soru1", "soru2", "soru3"]
-            }`
-          }]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    console.log("Gemini raw response:", data);
-
-    // API yanıtını güvenli bir şekilde işle
-    const responseText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!responseText) {
-      throw new Error("API yanıtı boş geldi");
-    }
-
-    // Yanıt metnini temizle ve JSON olarak parse et
-    const cleanedText = responseText.trim().replace(/^```json\n?|\n?```$/g, '');
-    try {
-      const analysis = JSON.parse(cleanedText);
-      return {
-        feedback: analysis.feedback || "Geri bildirim alınamadı",
-        questions: analysis.questions || [],
-        mood: analysis.mood || "neutral",
-        tags: analysis.tags || []
-      };
-    } catch (parseError) {
-      console.error("JSON parse hatası:", parseError);
-      console.error("Temizlenmiş yanıt:", cleanedText);
-      // API yanıtı JSON formatında değilse, varsayılan değerler döndür
-      return {
-        feedback: "Üzgünüm, şu anda analiz yapamıyorum. Lütfen daha sonra tekrar deneyin.",
-        questions: [],
-        mood: "neutral",
-        tags: []
-      };
-    }
-  } catch (error) {
-    console.error('AI analiz hatası:', error);
-    return {
-      feedback: 'Üzgünüm, şu anda analiz yapamıyorum. Lütfen daha sonra tekrar deneyin.',
-      questions: [],
-      mood: 'neutral',
-      tags: []
-    };
+    return JSON.parse(raw.replace(/^```json\n?|```$/g, ''));
+  } catch {
+    return { feedback: 'Analiz yapılamadı.', questions: [], mood: 'neutral', tags: [] };
   }
-};
+}

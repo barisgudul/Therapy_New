@@ -9,8 +9,8 @@ interface SessionTimerProps {
   isVisible?: boolean;
 }
 
-const SESSION_DURATION = 1 * 60; // 1 minute in seconds (for testing)
-const WARNING_TIME = 30; // 30 seconds (for testing)
+const SESSION_DURATION = 30 * 60; // 30 minutes in seconds
+const WARNING_TIME = 5 * 60; // 5 minutes in seconds
 
 export default function SessionTimer({ onSessionEnd, isVisible = true }: SessionTimerProps) {
   const [timeLeft, setTimeLeft] = useState(SESSION_DURATION);
