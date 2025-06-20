@@ -337,6 +337,25 @@ export default function HomeScreen() {
             >
               <Text style={styles.linkText}>Terapiler nasıl işler?</Text>
             </TouchableOpacity>
+
+            {/* Deneme Butonu - Herkese Açık */}
+            <TouchableOpacity 
+              style={[styles.button, { marginTop: 16, backgroundColor: '#6366f1', borderColor: '#6366f1' }]}
+              onPress={() => router.push('/denem' as const)}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#7f9cf5', '#6366f1']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="flask-outline" size={20} color="#fff" />
+                  <Text style={[styles.buttonText, { color: '#fff' }]}>Deneme</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </View>
       </Animated.View>

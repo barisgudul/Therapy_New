@@ -6,7 +6,7 @@ export default {
     slug: 'Therapy_New',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
+    icon: './assets/therapy.png',
     scheme: 'therapynew',
 
     extra: {

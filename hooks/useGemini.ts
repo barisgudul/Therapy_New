@@ -2,17 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 /* ──────────────────────────────────────────────────────────────────────────
- * useGemini.ts  ·  v2.6   (strict-3-sentences + dynamic goals)
+ * useGemini.ts  ·  v3.0   (intelligent-goals + flexible-response)
  * therapy. React-Native uygulaması için Gemini yardımcıları
  * ──────────────────────────────────────────────────────────────────────── */
 
 /* 1 · Runtime ─────────────────────────────────────────────────────────── */
 const KEY   = Constants.expoConfig?.extra?.GEMINI_API_KEY as string;
-const MODEL = 'gemini-1.5-pro-latest';          // gerekirse 2.0-flash’a geç
-const TEMP  = 0.75;
+const MODEL = 'gemini-1.5-pro-latest';
+const TEMP  = 0.8; // Biraz daha yaratıcılık için sıcaklığı hafifçe artırabiliriz.
 
 /* 2 · Low-level fetch ─────────────────────────────────────────────────── */
-async function llm(prompt: string, maxTokens = 120) {
+async function llm(prompt: string, maxTokens = 150) { // Max token'ı biraz artıralım, esneklik olsun.
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
   const body = {
     contents: [{ parts: [{ text: prompt }] }],
@@ -20,15 +20,20 @@ async function llm(prompt: string, maxTokens = 120) {
   };
   try {
     const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (!r.ok) { // Hata durumunu daha iyi yönetelim
+      const errorText = await r.text();
+      console.error('Gemini API Hatası:', r.status, errorText);
+      return 'Sunucu tarafında bir sorun oluştu.';
+    }
     const j = await r.json();
-    return j?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'Cevap alınamadı.';
+    return j?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? 'Cevap alınamadı, lütfen tekrar deneyin.';
   } catch (e) {
-    console.error('Gemini hata:', e);
-    return 'Sunucu hatası.';
+    console.error('Gemini Fetch Hatası:', e);
+    return 'İletişim hatası, internet bağlantınızı kontrol edin.';
   }
 }
 
-/* 3 · Profil yardımcıları ─────────────────────────────────────────────── */
+/* 3 · Profil yardımcıları (Aynı kalabilir) ────────────────────────────── */
 async function getProfile() {
   try { const s = await AsyncStorage.getItem('userProfile'); return s ? JSON.parse(s) : null; } catch { return null; }
 }
@@ -42,89 +47,121 @@ function profileDesc(u: any) {
   ].filter(Boolean).join(' · ');
 }
 
-/* 4 · Geçmiş azaltıcı ─────────────────────────────────────────────────── */
-function compress(hist = '', keep = 6) {
+/* 4 · Geçmiş azaltıcı (Aynı kalabilir) ─────────────────────────────────── */
+function compress(hist = '', keep = 8) { // Biraz daha fazla geçmiş tutabiliriz
   return hist
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
     .slice(-keep)
-    .map((l, i) => `${i % 2 === 0 ? 'user:' : 'assistant:'} ${l.replace(/^[DT]:\s*/, '')}`)
-    .join('\n');
+    .join('\n'); // Prefix'leri (user:, assistant:) prompt içinde halledeceğiz
 }
 
-/* 5 · Terapist tanımı ─────────────────────────────────────────────────── */
+/* 5 · Terapist tanımı (Aynı kalabilir) ─────────────────────────────────── */
 const THERAPISTS = {
-  therapist1: { persona: 'Dr. Elif — şefkatli Klinik Psikolog', tech: 'Duygu-odaklı destek' },
-  therapist3: { persona: 'Dr. Lina — enerjik BDT uzmanı', tech: 'CBT + Pozitif psikoloji' },
-  coach1:     { persona: 'Coach Can — aksiyon odaklı koç', tech: 'Motivational coaching' },
+  therapist1: { persona: 'Dr. Elif — şefkatli ve anlayışlı bir Klinik Psikolog', tech: 'Duygu-odaklı ve Bilişsel Davranışçı Terapi (BDT) tekniklerini harmanlayan' },
+  therapist3: { persona: 'Dr. Lina — enerjik ve çözüm odaklı bir BDT uzmanı', tech: 'BDT ve Pozitif Psikoloji odaklı' },
+  coach1:     { persona: 'Coach Can — motive edici ve aksiyon odaklı bir yaşam koçu', tech: 'Hedef belirleme ve motivasyonel koçluk' },
 } as const;
 type TID = keyof typeof THERAPISTS;
 
-/* 6 · Mikro-hedef mantığı ─────────────────────────────────────────────── */
-const GOALS = [
-  'Danışanın şu anki deneyimini adlandırmasına yardım et.',
-  'Düşünce-duygu bağını görünür kıl; otomatik düşünceyi yakala.',
-  'Küçük bir davranış deneyi öner; olası engeli sor.',
-  'İçsel eleştirmene şefkat sesi bulmasına rehberlik et.',
+
+// ==========================================================================
+// YENİ: AKILLI HEDEF BELİRLEME SİSTEMİ
+// ==========================================================================
+/* 6 · Akıllı hedef seçici ──────────────────────────────────────────────── */
+const GOAL_OPTIONS = [
+  'Danışanın ifade ettiği duyguyu yansıtarak geçerli kılmak.',
+  'Bir düşünce tuzağını (otomatik düşünceyi) nazikçe sorgulamak.',
+  'Konuyu derinleştirmek için güçlü, açık uçlu bir soru sormak.',
+  'Pratik, küçük bir başa çıkma stratejisi veya bakış açısı önermek.',
+  'Konuşmanın gidişatını danışanın belirlemesine izin vermek, alanı ona bırakmak.',
+  'Bedensel duyumlara veya "şimdi ve burada" anına odaklanmasını teşvik etmek.',
+  'Danışanın kendi gücünü veya başa çıkma becerisini fark etmesini sağlamak.',
 ];
-function nextGoal(turn: number, userMsg: string) {
-  if (/sık|yeter/i.test(userMsg))          return 'Konuyu hafiflet, sohbeti kullanıcının seçtiği bir alana yönlendir.';
-  if (/duygu/i.test(userMsg) && /istem/i.test(userMsg))
-    return '“Duygu” kelimesini kullanmadan, beden duyumları veya düşünce ayrıştırmasıyla ilerle.';
-  return GOALS[(turn - 1) % GOALS.length];
+
+async function selectNextGoal(history: string, userMsg: string): Promise<string> {
+  const goalPrompt = `
+Bir terapi seansının bir bölümü aşağıdadır.
+Konuşma Geçmişi:
+${history}
+
+Danışanın Son Mesajı: "${userMsg}"
+
+Aşağıdaki terapi hedeflerinden, bu konuşma için **en uygun olan BİR TANESİNİ** seç ve sadece o cümlenin kendisini yaz.
+
+Seçenekler:
+${GOAL_OPTIONS.join('\n- ')}
+  `.trim();
+
+  // Hedef seçimi için daha az yaratıcı, daha odaklı bir model çağrısı yapalım.
+  const goal = await llm(goalPrompt, 40); 
+  // Gelen cevabın listedeki seçeneklerden biri olduğundan emin olalım.
+  return GOAL_OPTIONS.find(o => goal.includes(o)) || GOAL_OPTIONS[2]; // Bulamazsa varsayılan olarak soru sorsun.
 }
 
-/* 7 · Prompt oluşturucu ──────────────────────────────────────────────── */
-function buildPrompt(p: {
-  id: TID; turn: number; profile: string; hist: string; userMsg: string; mood: string;
+
+/* 7 · Yeni Prompt Oluşturucu ───────────────────────────────────────────── */
+async function buildPrompt(p: {
+  id: TID; profile: string; hist: string; userMsg:string;
 }) {
   const t = THERAPISTS[p.id] ?? THERAPISTS.therapist1;
-  const riskWords = /(intihar|ölmek|zarar|kendimi)/i;
+  const riskWords = /(intihar|ölmek|zarar|kendimi kesmek)/i;
   const ethicLine = riskWords.test(p.userMsg)
-    ? 'Kriz sezilirse profesyonel yardım öner.'
-    : 'Etik: tanı & reçete verme.';
-  const personaLine = p.turn === 1 ? `${t.persona}. Yaklaşım: ${t.tech}.` : t.persona;
+    ? 'ÖNEMLİ: Danışanın güvenliği risk altında olabilir. Sakin kalarak profesyonel bir uzmana (psikolog, psikiyatrist) veya acil yardım hatlarına (örn: 112) ulaşmasını şiddetle tavsiye et. Bu uygulamanın bir kriz müdahale aracı olmadığını belirt.'
+    : 'Etik Kural: Asla tıbbi tanı koyma veya ilaç reçete etme. Sen bir terapi asistanısın.';
+
+  // YENİ: Hedefi artık dinamik olarak modelin kendisi seçecek!
+  const therapyGoal = await selectNextGoal(p.hist, p.userMsg);
+
   return `
-${p.profile && p.turn % 3 === 1 ? `Danışan profili: ${p.profile}` : ''}
-${personaLine}
+Senin Kimliğin: ${t.persona}. Yaklaşımın: ${t.tech}.
+${p.profile ? `Danışan Profili: ${p.profile}` : ''}
 ${ethicLine}
-${p.hist ? `Geçmiş:\n${p.hist}` : ''}
-Son mesaj: "${p.userMsg}"
 
-Terapi hedefi: ${nextGoal(p.turn, p.userMsg)}
-Görev: Tam **3 cümle** yaz — 1) anlayış 2) içgörü/öneri 3) açık-uçlu soru.
-Aynı cümleyi kelimesi kelimesine tekrarlama.`.trim();
+Konuşma Geçmişi:
+${p.hist}
+Danışan: "${p.userMsg}"
+
+Gizli Görevin (Danışana Belli Etme): ${therapyGoal}
+
+Yanıt Kuralları:
+- Cevabın akıcı, samimi ve doğal bir dilde olsun. Robot gibi konuşma.
+- 2 ila 4 cümle arasında, dengeli bir uzunlukta cevap ver.
+- Asla danışanın son söylediğini kelimesi kelimesine tekrar etme (papağanlaşma).
+- Cevabın sonunda her zaman açık uçlu bir soruyla topu danışana at.
+`.trim();
 }
 
-function strictThree(txt: string) {
-  const sent = txt.split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 3);
-  return sent.join(' ').trim();
-}
-
-/* 8 · Genel üretici ───────────────────────────────────────────────────── */
+/* 8 · Genel üretici (ARTIK ÇOK DAHA AKILLI) ────────────────────────────── */
 export async function generateTherapistReply(
   tid: TID,
   userMsg: string,
-  mood = '',
   history = '',
-  turn = 1,
+  turn = 1, // turn'ü hâlâ profil göstermek için kullanabiliriz.
 ) {
   const profile = profileDesc(await getProfile());
-  const prompt  = buildPrompt({
-    id: tid, turn, profile, hist: compress(history), userMsg, mood,
+  const compressedHistory = compress(history);
+  
+  // DEĞİŞİKLİK: buildPrompt artık asenkron, bu yüzden await kullanmalıyız.
+  const prompt = await buildPrompt({
+    id: tid,
+    profile: turn % 4 === 1 ? profile : '', // Profili her 4 turda bir hatırlatalım
+    hist: compressedHistory,
+    userMsg,
   });
-  console.log('🧠 prompt\n', prompt);
+  console.log('🧠 YENİ AKILLI PROMPT\n', prompt);
 
-  const raw = await llm(prompt);
-  return strictThree(raw);
+  // DEĞİŞİKLİK: Artık `strictThree` yok! Modelin doğal çıktısını kullanıyoruz.
+  return await llm(prompt);
 }
+
 
 /* 9 · Daily reflection (≤2 cümle) ─────────────────────────────────────── */
 export async function generateDailyReflectionResponse(note: string, mood: string) {
   const prof = profileDesc(await getProfile());
   const p = `${prof ? prof + '\n' : ''}Ruh hâli: ${mood}. Not: "${note}". 1–2 cümlelik samimi, motive edici yanıt ver.`;
-  return strictThree(await llm(p, 60));
+  return llm(p, 60);
 }
 
 /* 10 · İleri analiz fonksiyonları (özet, günlük analizi)  

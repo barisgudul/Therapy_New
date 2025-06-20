@@ -1,19 +1,30 @@
-// app/DailyWriteScreen.tsx
+// app/DailyWriteScreen.tsx (Noise/Gren Dosyası Olmadan Tam ve Eksiksiz Kod)
+// -----------------------------------------------------------------------
+// Expo deps: expo-blur expo-haptics expo-linear-gradient expo-font
+//            @react-native-async-storage/async-storage
+//            @react-native-community/slider
+
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Slider from '@react-native-community/slider';
+import { BlurView } from 'expo-blur';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
+  Easing,
+  Image,
   Modal,
   Pressable,
+  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { generateDailyReflectionResponse } from '../hooks/useGemini';
@@ -21,37 +32,69 @@ import { checkAndUpdateBadges } from '../utils/badges';
 import { calculateStreak, getTotalEntries } from '../utils/helpers';
 import { statisticsManager } from '../utils/statisticsManager';
 
-const moods = [
-  '😊', '😔', '😡',
-  '😟', '😍', '😴',
-  '😐', '🤯', '🤩'
-];
-const { width } = Dimensions.get('window');
 
+//-------------------------------------------------------------
+//  Tasarım Sabitleri & Yardımcıları
+//-------------------------------------------------------------
+const tokens = {
+  radiusLg: 28,
+  radiusMd: 22,
+  tintMain: Colors.light.tint, // Marka ana rengi
+  glassBg: 'rgba(246, 248, 250, 0.85)', // Açık tema için cam efekti
+  shadow: {
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+};
+
+const MOOD_LEVELS = [
+    { label: 'Çok Kötü', icon: 'cloudy-night-outline', color: '#B0BEC5' },
+    { label: 'Kötü',      icon: 'rainy-outline',       color: '#7FB3D5' },
+    { label: 'Üzgün',     icon: 'sad-outline',         color: '#6B7280' },
+    { label: 'Nötr',      icon: 'remove-outline',      color: Colors.light.tint },
+    { label: 'İyi',       icon: 'leaf-outline',        color: '#3E6B89' },
+    { label: 'Harika',    icon: 'happy-outline',       color: '#2C3E50' },
+    { label: 'Mükemmel',  icon: 'sparkles-outline',    color: '#7FB3D5' },
+];
+
+const { width, height } = Dimensions.get('window');
+
+//-------------------------------------------------------------
 export default function DailyWriteScreen() {
   const router = useRouter();
-  const [selectedMood, setSelectedMood] = useState('');
+  const [moodValue, setMoodValue] = useState(3);
   const [note, setNote] = useState('');
   const [inputVisible, setInputVisible] = useState(false);
   const [feedbackVisible, setFeedbackVisible] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
   const [saving, setSaving] = useState(false);
-  const [scaleAnim] = useState(new Animated.Value(1));
 
-  const animatePress = (scale: number) => {
-    Animated.sequence([
-      Animated.timing(scaleAnim, {
-        toValue: scale,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+  const entryAnim = useRef(new Animated.Value(0)).current;
+  const lightAnim1 = useRef(new Animated.Value(0)).current;
+  const lightAnim2 = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Yaşayan Arka Plan Animasyonu
+  useEffect(() => {
+      const createLoop = (anim: Animated.Value) => Animated.loop(
+          Animated.sequence([
+              Animated.timing(anim, { toValue: 1, duration: 8000, useNativeDriver: true }),
+              Animated.timing(anim, { toValue: 0, duration: 8000, useNativeDriver: true }),
+              Animated.timing(anim, { toValue: 0.5, duration: 6000, useNativeDriver: true }),
+          ])
+      );
+      createLoop(lightAnim1).start();
+      setTimeout(() => createLoop(lightAnim2).start(), 5000);
+      
+      Animated.timing(entryAnim, {
+        toValue: 1, duration: 800, easing: Easing.out(Easing.exp), useNativeDriver: true,
+      }).start();
+  }, [entryAnim, lightAnim1, lightAnim2]);
+
+  const animatePress = () => { Animated.sequence([ Animated.timing(scaleAnim, { toValue: 0.96, duration: 120, useNativeDriver: true }), Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }), ]).start(); };
 
   async function appendActivity(activityKey: string, newEntry: any) {
     let prev: any[] = [];
@@ -67,45 +110,45 @@ export default function DailyWriteScreen() {
   }
 
   async function saveSession() {
-    if (!note || !selectedMood || saving) return;
+    if (!note || saving) return;
     setSaving(true);
-    animatePress(0.95);
+    setAiMessage('AI analiz ediyor...');
+    setFeedbackVisible(true);
+    try {
+      const personalized = await generateDailyReflectionResponse(note, MOOD_LEVELS[moodValue].label);
+      setAiMessage(personalized);
+    } catch (err) {
+      setAiMessage('Sunucu hatası, lütfen tekrar deneyin.');
+    }
+    setSaving(false);
+  }
 
+  async function closeFeedback() {
+    setFeedbackVisible(false);
+    // Kayıt işlemleri burada yapılacak (AI yanıtı okunduktan sonra kaydet)
     const now = Date.now();
     const today = new Date(now).toISOString().split('T')[0];
-    setAiMessage('AI analiz ediyor...');
-
-    setFeedbackVisible(true);
-
     try {
-      const personalized = await generateDailyReflectionResponse(note, selectedMood);
-      setAiMessage(personalized);
-
       await AsyncStorage.multiSet([
         [
           `mood-${today}`,
-          JSON.stringify({ mood: selectedMood, reflection: note, timestamp: now })
+          JSON.stringify({ mood: MOOD_LEVELS[moodValue].label, reflection: note, timestamp: now })
         ],
         ['todayDate', today],
-        ['todayMessage', personalized],
+        ['todayMessage', aiMessage],
         ['lastReflectionAt', String(now)],
       ]);
-
       const activityKey = `activity-${today}`;
       const newEntry = { type: 'daily_write', time: now };
       await appendActivity(activityKey, newEntry);
-
-      await statisticsManager.updateStatistics({ text: note, mood: selectedMood, date: today, source: 'daily_write' });
+      await statisticsManager.updateStatistics({ text: note, mood: MOOD_LEVELS[moodValue].label, date: today, source: 'daily_write' });
       await AsyncStorage.removeItem('mood-stats-initialized');
-
       const streak = await calculateStreak();
       const totalEntries = await getTotalEntries();
-      
       await checkAndUpdateBadges('daily', {
         totalEntries: totalEntries,
         streak: streak.currentStreak
       });
-
       if (totalEntries >= 3) {
         await checkAndUpdateBadges('daily', {
           totalEntries: totalEntries,
@@ -119,125 +162,82 @@ export default function DailyWriteScreen() {
         });
       }
     } catch (err) {
-      setAiMessage('Sunucu hatası, lütfen tekrar deneyin.');
+      // hata durumunda sessizce geç
     }
-    setSaving(false);
+    setNote('');
+    setInputVisible(false);
+    setAiMessage('');
+    router.replace('/');
   }
 
-  const closeFeedback = () => {
-    setFeedbackVisible(false);
-    setNote('');
-    setSelectedMood('');
-    router.replace('/');
+  // Animasyon stilleri
+  const light1Style = {
+    transform: [
+      { translateX: lightAnim1.interpolate({ inputRange: [0, 1], outputRange: [-width / 2, width / 2] }) },
+      { translateY: lightAnim1.interpolate({ inputRange: [0, 1], outputRange: [height / 3, -height / 3] }) }
+    ]
   };
+  const light2Style = {
+    transform: [
+      { translateX: lightAnim2.interpolate({ inputRange: [0, 1], outputRange: [width / 2, -width / 2] }) },
+      { translateY: lightAnim2.interpolate({ inputRange: [0, 1], outputRange: [-height / 4, height / 4] }) }
+    ]
+  };
+  const fadeIn = { opacity: entryAnim, transform: [{ scale: entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] };
+  const currentMood = MOOD_LEVELS[moodValue];
 
   return (
-    <LinearGradient 
-      colors={['#F8FAFF', '#FFFFFF']} 
-      start={{x: 0, y: 0}} 
-      end={{x: 1, y: 1}} 
-      style={styles.container}
-    >
-      <Text style={styles.headerTitle}>Duygu Günlüğü</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <LinearGradient colors={['#F6F8FA', '#FFFFFF']} style={StyleSheet.absoluteFill} />
+      
+      {/* Yaşayan Arka Plan Işıkları */}
+      <Animated.View style={[styles.light, styles.light1, light1Style]} />
+      <Animated.View style={[styles.light, styles.light2, light2Style]} />
 
-      <View style={styles.content}>
-        <View style={styles.introSection}>
-          <LinearGradient
-            colors={['#E0ECFD', '#F4E6FF']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}
-            style={styles.titleGradient}
-          >
+      <Text style={styles.header}>Duygu Günlüğü</Text>
+
+      <Animated.View style={[styles.container, fadeIn]}>
+        <View style={styles.mainContent}>
+          <BlurView intensity={50} tint="light" style={[styles.card, styles.moodCard, {borderColor: currentMood.color}]}>
             <Text style={styles.title}>Bugün nasıl hissediyorsun?</Text>
-            <Text style={styles.subtitle}>Emojini seç ve hislerini paylaş</Text>
-          </LinearGradient>
-        </View>
-
-        <View style={styles.moodCard}>
-          <LinearGradient
-            colors={['#FFFFFF', '#F8FAFF']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}
-            style={styles.moodGradient}
-          >
-            <View style={styles.moodGrid}>
-              {moods.map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.moodBtn, selectedMood === m && styles.selectedMood]}
-                  onPress={() => {
-                    animatePress(0.95);
-                    setSelectedMood((p) => (p === m ? '' : m));
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <LinearGradient
-                    colors={selectedMood === m ? ['#E0ECFD', '#F4E6FF'] : ['#FFFFFF', '#F8FAFF']}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 1}}
-                    style={styles.moodBtnGradient}
-                  >
-                    <Text style={styles.moodIcon}>{m}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.moodBlock}>
+              <Image source={require('../assets/therapy.png')} style={[styles.moodImage, { tintColor: currentMood.color }]} />
+              <Text style={[styles.moodLabel, { color: currentMood.color }]}>{currentMood.label}</Text>
             </View>
-          </LinearGradient>
-        </View>
-
-        <TouchableOpacity 
-          style={styles.promptCard} 
-          onPress={() => {
-            animatePress(0.95);
-            setInputVisible(true);
-          }}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={['#FFFFFF', '#F8FAFF']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}
-            style={styles.promptGradient}
-          >
-            <View style={styles.promptContent}>
-              <LinearGradient
-                colors={['#E0ECFD', '#F4E6FF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.promptIconGradient}
-              >
-                <Ionicons name="create-outline" size={24} color={Colors.light.tint} />
-              </LinearGradient>
-              <Text style={[styles.promptText, note && styles.promptFilled]} numberOfLines={1}>
-                {note || 'Bugünü bir cümleyle anlatmak ister misin?'}
-              </Text>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <Animated.View style={[styles.saveBtnContainer, { transform: [{ scale: scaleAnim }] }]}>
-          <TouchableOpacity
-            style={[styles.saveBtn, (!selectedMood || !note || saving) && styles.saveDisabled]}
-            onPress={saveSession}
-            disabled={!selectedMood || !note || saving}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={['#E0ECFD', '#F4E6FF']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.saveGradient}
-            >
-              <View style={styles.saveContent}>
-                <Ionicons name="checkmark-circle-outline" size={24} color={Colors.light.tint} />
-                <Text style={styles.saveText}>{saving ? 'Kaydediliyor...' : 'Günlüğü Tamamla'}</Text>
-              </View>
-            </LinearGradient>
+          </BlurView>
+          <View style={{marginTop: -16, marginBottom: 16, paddingHorizontal: 10}}>
+            <Slider
+              style={styles.slider} minimumValue={0} maximumValue={6} step={1}
+              value={moodValue}
+              onValueChange={v => setMoodValue(v)}
+              onSlidingComplete={() => Haptics.selectionAsync()}
+              minimumTrackTintColor={currentMood.color}
+              maximumTrackTintColor="rgba(93,161,217,0.15)"
+              thumbTintColor={currentMood.color}
+            />
+          </View>
+          
+          <TouchableOpacity onPress={() => { animatePress(); setInputVisible(true); }} activeOpacity={0.8}>
+            <BlurView intensity={50} tint="light" style={[styles.card, styles.promptCard]}>
+                <Ionicons name="create-outline" size={24} color={tokens.tintMain} />
+                <Text numberOfLines={1} style={[styles.promptText, note && styles.promptFilled]}>
+                  {note || 'Aklından geçenleri mısralara dök...'}
+                </Text>
+            </BlurView>
           </TouchableOpacity>
+        </View>
+        <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+           <TouchableOpacity disabled={!note || saving} activeOpacity={0.85} onPress={saveSession}>
+                <LinearGradient start={{x:0, y:0}} end={{x:1, y:1}} colors={[currentMood.color, tokens.tintMain]} style={[styles.saveBtn, (!note || saving) && { opacity: 0.5 }] }>
+                  <Ionicons name="checkmark-circle-outline" size={24} color="#fff" />
+                  <Text style={styles.saveText}>{saving ? 'Kaydediliyor...' : 'Günlüğü Tamamla'}</Text>
+                </LinearGradient>
+           </TouchableOpacity>
         </Animated.View>
-      </View>
+      </Animated.View>
 
-      <Modal visible={inputVisible} transparent animationType="fade">
+      {/* Modal: Not yazma */}
+      <Modal visible={inputVisible} transparent animationType="fade" onRequestClose={() => setInputVisible(false)}>
         <Pressable style={styles.overlay} onPress={() => setInputVisible(false)}>
           <View style={styles.modalCard}>
             <LinearGradient
@@ -248,12 +248,12 @@ export default function DailyWriteScreen() {
             >
               <View style={styles.modalHeader}>
                 <LinearGradient
-                  colors={['#E0ECFD', '#F4E6FF']}
+                  colors={['#3E6B89', '#7FB3D5']}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 1}}
                   style={styles.modalIconGradient}
                 >
-                  <Ionicons name="chatbubble-ellipses-outline" size={24} color={Colors.light.tint} />
+                  <Ionicons name="chatbubble-ellipses-outline" size={24} color="#fff" />
                 </LinearGradient>
                 <Text style={styles.modalTitle}>Bugün nasılsın?</Text>
               </View>
@@ -273,7 +273,7 @@ export default function DailyWriteScreen() {
                 activeOpacity={0.7}
               >
                 <LinearGradient
-                  colors={['#E0ECFD', '#F4E6FF']}
+                  colors={['#3E6B89', '#7FB3D5']}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 1}}
                   style={styles.closeGradient}
@@ -285,7 +285,7 @@ export default function DailyWriteScreen() {
           </View>
         </Pressable>
       </Modal>
-
+      {/* Modal: AI Analizi */}
       <Modal visible={feedbackVisible} transparent animationType="fade" onRequestClose={closeFeedback}>
         <Pressable style={styles.overlay} onPress={closeFeedback}>
           <View style={styles.modalCard}>
@@ -297,12 +297,12 @@ export default function DailyWriteScreen() {
             >
               <View style={styles.modalHeader}>
                 <LinearGradient
-                  colors={['#E0ECFD', '#F4E6FF']}
+                  colors={['#3E6B89', '#7FB3D5']}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 1}}
                   style={styles.modalIconGradient}
                 >
-                  <Ionicons name="sparkles-outline" size={24} color={Colors.light.tint} />
+                  <Ionicons name="sparkles-outline" size={24} color="#fff" />
                 </LinearGradient>
                 <Text style={styles.modalTitle}>AI Analizi</Text>
               </View>
@@ -313,7 +313,7 @@ export default function DailyWriteScreen() {
                 activeOpacity={0.7}
               >
                 <LinearGradient
-                  colors={['#E0ECFD', '#F4E6FF']}
+                  colors={['#3E6B89', '#7FB3D5']}
                   start={{x: 0, y: 0}}
                   end={{x: 1, y: 1}}
                   style={styles.closeGradient}
@@ -325,187 +325,56 @@ export default function DailyWriteScreen() {
           </View>
         </Pressable>
       </Modal>
-    </LinearGradient>
+
+    </SafeAreaView>
   );
 }
 
+//-------------------------------------------------------------
+// Eksiksiz Stil Sayfası (noise.png olmadan)
+//-------------------------------------------------------------
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
+  safeArea: { flex: 1, backgroundColor: '#F6F8FA' },
+  header: {
+    paddingTop: 50, textAlign: 'center', fontSize: 22, fontWeight: 'bold',
+    color: Colors.light.tint, opacity: 0.95,
   },
-  headerTitle: {
-    position: 'absolute',
-    top: 70,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.light.tint,
-    letterSpacing: -0.5,
-    zIndex: 20,
+  light: {
+    position: 'absolute', width: 600, height: 600, borderRadius: 300, opacity: 0.25,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 120,
-    paddingBottom: 40,
-    justifyContent: 'space-between',
+  light1: { backgroundColor: Colors.light.tint, top: -100, left: -150 },
+  light2: { backgroundColor: '#7FB3D5', bottom: -150, right: -200 },
+  container: { flex: 1, paddingHorizontal: 24, paddingTop: 30, justifyContent: 'space-between', paddingBottom: 40 },
+  mainContent: { justifyContent: 'center', flex: 1 },
+  card: {
+    borderRadius: tokens.radiusLg, paddingVertical: 24, paddingHorizontal: 20,
+    backgroundColor: tokens.glassBg, overflow: 'hidden', borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.15)', ...tokens.shadow,
   },
-  introSection: {
-    marginBottom: 16,
-  },
-  titleGradient: {
-    borderRadius: 24,
-    padding: 16,
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.15)',
-  },
+  moodCard: { marginBottom: 30 },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.light.tint,
-    marginBottom: 8,
-    textAlign: 'center',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#4A5568',
-    textAlign: 'center',
-    lineHeight: 20,
-    letterSpacing: -0.3,
-  },
-  moodCard: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.15)',
-    marginBottom: 16,
-  },
-  moodGradient: {
-    padding: 16,
-  },
-  moodGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 1,
-    paddingHorizontal: 4,
-    width: width - 48,
-    alignSelf: 'center',
-  },
-  moodBtn: {
-    width: (width - 64) / 3,
-    aspectRatio: 1,
-    borderRadius: 4,
-    overflow: 'hidden',
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.02,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 1,
-    elevation: 1,
-    borderWidth: 0.5,
-    borderColor: 'rgba(93,161,217,0.1)',
-    marginBottom: 1,
-  },
-  moodBtnGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 1,
-  },
-  selectedMood: {
-    borderColor: Colors.light.tint,
-    borderWidth: 1,
-    transform: [{ scale: 1.02 }],
-  },
-  moodIcon: {
-    fontSize: 32,
-  },
-  promptCard: {
+    fontSize: 22, fontWeight: '600', color: Colors.light.text, textAlign: 'center',
     marginBottom: 24,
-    borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.15)',
   },
-  promptGradient: {
-    padding: 24,
+  moodBlock: { alignItems: 'center' },
+  moodImage: { width: 100, height: 100, resizeMode: 'contain', marginBottom: 16 },
+  moodLabel: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, minHeight: 32 },
+  slider: { width: '100%', height: 40 },
+  thumb: {
+    width: 22, height: 22, borderRadius: 11, borderWidth: 3, borderColor: '#fff',
+    shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
   },
-  promptContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  promptIconGradient: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  promptText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#9CA3AF',
-    letterSpacing: -0.2,
-  },
-  promptFilled: {
-    color: '#1A1F36',
-  },
-  saveBtnContainer: {
-    marginTop: 8,
-  },
+  promptCard: { flexDirection: 'row', alignItems: 'center' },
+  promptText: { flex: 1, fontSize: 16, color: Colors.light.softText, marginLeft: 16 },
+  promptFilled: { color: Colors.light.text, fontWeight: '500' },
   saveBtn: {
-    height: 56,
-    borderRadius: 28,
-    overflow: 'hidden',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.3)',
-  },
-  saveGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    height: 56, borderRadius: tokens.radiusLg, marginTop: 24,
+    shadowColor: Colors.light.tint, shadowOpacity: 0.15, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12,
   },
   saveText: {
-    color: Colors.light.tint,
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
-    letterSpacing: -0.3,
-  },
-  saveDisabled: {
-    opacity: 0.5,
+    color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 10,
   },
   overlay: {
     flex: 1,
@@ -519,7 +388,7 @@ const styles = StyleSheet.create({
     maxWidth: 500,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: Colors.light.tint,
+    shadowColor: '#3E6B89',
     shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.2,
     shadowRadius: 30,
@@ -545,7 +414,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#1A1F36',
+    color: '#3E6B89',
     letterSpacing: -0.3,
   },
   input: {
@@ -557,7 +426,7 @@ const styles = StyleSheet.create({
     minHeight: 120,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.15)',
+    borderColor: '#7FB3D5',
     marginBottom: 20,
   },
   closeBtn: {
@@ -572,7 +441,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeText: {
-    color: Colors.light.tint,
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.3,
@@ -583,5 +452,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: -0.2,
     marginBottom: 20,
+  },
+  saveDisabled: {
+    opacity: 0.5,
   },
 });
