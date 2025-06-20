@@ -136,51 +136,60 @@ export default function TextSessionScreen() {
   }, []);
 
   const sendMessage = async () => {
-  const trimmed = input.trim();
-  if (!trimmed || isTyping) return;
+    const trimmed = input.trim();
+    if (!trimmed || isTyping) return;
 
-  // --- 1. Tüm geçmişi chatHistory olarak oluştur
-  const fullHistory = [
-    ...messages,
-    { sender: 'user', text: trimmed }
-  ];
-  const chatHistory = fullHistory
-    .map(m => m.sender === 'user' ? `Kullanıcı: ${m.text}` : `Terapist: ${m.text}`)
-    .join('\n');
+    // --- 1. Tüm geçmişi ve yeni mesajı birleştir
+    const fullHistoryWithNewMessage = [
+      ...messages,
+      { sender: 'user', text: trimmed }
+    ];
 
-  // --- 2. Mesaj sayısı (yeni mesajla toplam mesaj)
-  const messageCount = fullHistory.length;
+    const chatHistory = fullHistoryWithNewMessage
+      // Not: Geçmişi gönderirken "Kullanıcı:" "Terapist:" gibi etiketler eklemek faydalıdır.
+      // useGemini'daki compress fonksiyonu bunu temizlediği için burada bıraktım.
+      // Eğer compress'i değiştirirseniz burayı da güncelleyin.
+      .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+      .join('\n');
 
-  setMessages(prev => [...prev, { sender: 'user', text: trimmed }]);
-  setInput('');
-  setIsTyping(true);
+    // --- 2. DEĞİŞİKLİK: 'turn' sayısını doğru hesapla
+    // Bir tur = 1 kullanıcı + 1 AI. Başlangıç mesajını (AI) saymazsak:
+    // (toplam mesaj - 1) / 2 + 1 = tur sayısı
+    const turnCount = Math.floor((fullHistoryWithNewMessage.length -1) / 2) + 1;
 
-  try {
-    // --- 3. Fonksiyona messageCount parametresi ekleniyor
-    const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-      ? therapistId as "therapist1" | "therapist3" | "coach1" 
-      : "therapist1";
-    
-    const aiReply = await generateTherapistReply(
-      validTherapistId,
-      trimmed,
-      "",
-      chatHistory,
-      messageCount      // 👈 5. parametre olarak gönder
-    );
-    setMessages(prev => [
-      ...prev,
-      { sender: 'ai', text: aiReply }
-    ]);
-  } catch (err) {
-    setMessages(prev => [
-      ...prev,
-      { sender: 'ai', text: "Şu anda bir sorun oluştu, lütfen tekrar dene." }
-    ]);
-  } finally {
-    setIsTyping(false);
-  }
-};
+    setMessages(prev => [...prev, { sender: 'user', text: trimmed }]);
+    setInput('');
+    setIsTyping(true);
+
+    try {
+      const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+        ? therapistId as "therapist1" | "therapist3" | "coach1" 
+        : "therapist1";
+      
+      const aiReply = await generateTherapistReply(
+        validTherapistId,
+        trimmed,
+        chatHistory,
+        turnCount      // 👈 DOĞRU HESAPLANMIŞ 'turn' SAYISI
+      );
+
+      // Cevap boş veya hatalı gelirse diye bir kontrol
+      const replyText = aiReply || "Kusura bakma, şu anda bir yanıt oluşturamadım. Başka bir şeyden bahsetmek ister misin?";
+
+      setMessages(prev => [
+        ...prev,
+        { sender: 'ai', text: replyText }
+      ]);
+    } catch (err) {
+      console.error("generateTherapistReply hatası:", err);
+      setMessages(prev => [
+        ...prev,
+        { sender: 'ai', text: "Üzgünüm, beklenmedik bir sorunla karşılaştım. Lütfen biraz sonra tekrar dene." }
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   async function saveSession() {
     try {
