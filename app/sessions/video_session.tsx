@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
@@ -50,6 +51,7 @@ export default function VideoSessionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [permission, requestPermission] = useCameraPermissions();
+  const [currentMood, setCurrentMood] = useState<string>('');
 
   // Doğru terapist objesini bul
   const therapist = avatars.find(a => a.imageId === therapistId);
@@ -93,6 +95,21 @@ export default function VideoSessionScreen() {
     setIsDragging(false);
   };
 
+  // Mood'u yükle
+  useEffect(() => {
+    const loadMood = async () => {
+      try {
+        const mood = await AsyncStorage.getItem('currentSessionMood');
+        if (mood) {
+          setCurrentMood(mood);
+        }
+      } catch (error) {
+        console.error('Mood yüklenirken hata:', error);
+      }
+    };
+    loadMood();
+  }, []);
+
   /* ---------------------------- VOICE HOOK ------------------------------ */
   const {
     isRecording,
@@ -111,10 +128,14 @@ export default function VideoSessionScreen() {
         }]);
         
         try {
+          const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+            ? therapistId as "therapist1" | "therapist3" | "coach1" 
+            : "therapist1";
+            
           const aiResponse = await generateTherapistReply(
-            therapistId as string,
+            validTherapistId,
             text,
-            "",
+            currentMood,
             "",
             1
           );
@@ -207,8 +228,8 @@ export default function VideoSessionScreen() {
 
       const sessionStats = await getSessionStats();
       
-
-      router.replace('/');
+      // After feeling ekranına yönlendir
+      router.replace('/feel/after_feeling');
     } catch (error) {
       console.error('Seans kaydedilirken hata:', error);
     }
@@ -229,7 +250,6 @@ export default function VideoSessionScreen() {
           onPress: async () => {
             await stopRecording();
             await saveSession();
-            router.replace('/');
           }
         }
       ]
@@ -251,7 +271,6 @@ export default function VideoSessionScreen() {
           onPress: async () => {
             await stopRecording();
             await saveSession();
-            router.replace('/');
           }
         }
       ]

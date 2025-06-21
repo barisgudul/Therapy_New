@@ -43,9 +43,13 @@ export default function TherapyOptionsScreen() {
   const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
 
   const handleOptionPress = (route: string) => {
+    const sessionType = route.split('/').pop()?.replace('_session', '');
     router.push({
-      pathname: route,
-      params: { therapistId }
+      pathname: '/feel/before_feeling',
+      params: { 
+        sessionType: sessionType || 'text',
+        therapistId 
+      }
     });
   };
 

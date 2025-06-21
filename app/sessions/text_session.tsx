@@ -47,6 +47,7 @@ export default function TextSessionScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
+  const [currentMood, setCurrentMood] = useState<string>('');
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
@@ -135,6 +136,21 @@ export default function TextSessionScreen() {
     // useRef sayesinde messages'ın en güncel halini kullanır.
   }, []);
 
+  useEffect(() => {
+    // Mood'u yükle
+    const loadMood = async () => {
+      try {
+        const mood = await AsyncStorage.getItem('currentSessionMood');
+        if (mood) {
+          setCurrentMood(mood);
+        }
+      } catch (error) {
+        console.error('Mood yüklenirken hata:', error);
+      }
+    };
+    loadMood();
+  }, []);
+
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || isTyping) return;
@@ -169,6 +185,7 @@ export default function TextSessionScreen() {
       const aiReply = await generateTherapistReply(
         validTherapistId,
         trimmed,
+        currentMood, // YENİ: Mood'u gönder
         chatHistory,
         turnCount      // 👈 DOĞRU HESAPLANMIŞ 'turn' SAYISI
       );
@@ -201,7 +218,8 @@ export default function TextSessionScreen() {
       // Rozetleri kontrol et ve güncelle
       const stats = await getSessionStats();
 
-      router.back();
+      // After feeling ekranına yönlendir
+      router.replace('/feel/after_feeling');
     } catch (error) {
       console.error('Seans kaydedilirken hata:', error);
     }
@@ -221,7 +239,6 @@ export default function TextSessionScreen() {
           style: 'default',
           onPress: async () => {
             await saveSession();
-            router.replace('/');
           }
         }
       ]
@@ -242,7 +259,6 @@ export default function TextSessionScreen() {
           style: 'destructive',
           onPress: async () => {
             await saveSession();
-            router.replace('/');
           }
         }
       ]

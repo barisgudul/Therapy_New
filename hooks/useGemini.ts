@@ -103,7 +103,7 @@ ${GOAL_OPTIONS.join('\n- ')}
 
 /* 7 · Yeni Prompt Oluşturucu ───────────────────────────────────────────── */
 async function buildPrompt(p: {
-  id: TID; profile: string; hist: string; userMsg:string;
+  id: TID; profile: string; hist: string; userMsg:string; mood: string;
 }) {
   const t = THERAPISTS[p.id] ?? THERAPISTS.therapist1;
   const riskWords = /(intihar|ölmek|zarar|kendimi kesmek)/i;
@@ -114,10 +114,19 @@ async function buildPrompt(p: {
   // YENİ: Hedefi artık dinamik olarak modelin kendisi seçecek!
   const therapyGoal = await selectNextGoal(p.hist, p.userMsg);
 
+  // Mood bilgisini daha etkili kullan
+  const moodContext = p.mood ? `
+Mood Bilgisi: Danışan seans öncesi "${p.mood}" ruh halinde olduğunu belirtti. Bu bilgiyi göz önünde bulundurarak:
+- Eğer olumsuz bir mood ise, daha destekleyici ve anlayışlı ol
+- Eğer olumlu bir mood ise, bu pozitifliği korumaya yardımcı ol
+- Mood değişimlerini takip et ve gerekirse konuşmaya dahil et
+` : '';
+
   return `
 Senin Kimliğin: ${t.persona}. Yaklaşımın: ${t.tech}.
 ${p.profile ? `Danışan Profili: ${p.profile}` : ''}
 ${ethicLine}
+${moodContext}
 
 Konuşma Geçmişi:
 ${p.hist}
@@ -137,6 +146,7 @@ Yanıt Kuralları:
 export async function generateTherapistReply(
   tid: TID,
   userMsg: string,
+  mood = '',
   history = '',
   turn = 1, // turn'ü hâlâ profil göstermek için kullanabiliriz.
 ) {
@@ -149,6 +159,7 @@ export async function generateTherapistReply(
     profile: turn % 4 === 1 ? profile : '', // Profili her 4 turda bir hatırlatalım
     hist: compressedHistory,
     userMsg,
+    mood,
   });
   console.log('🧠 YENİ AKILLI PROMPT\n', prompt);
 

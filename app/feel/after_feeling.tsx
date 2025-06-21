@@ -1,4 +1,4 @@
-// app/DailyWriteScreen.tsx (Nefes Alan Işık Küresi - Nihai Premium Versiyon)
+// app/after_feeling.tsx (Seans Sonrası Ruh Hali)
 // -----------------------------------------------------------------------
 // Expo deps: expo-haptics expo-linear-gradient @react-native-async-storage/async-storage react-native-reanimated
 
@@ -34,16 +34,20 @@ const MOOD_LEVELS = [
     { label: 'Mükemmel', color: '#9B2C2C', shadow: '#F56565' },
 ];
 
-const saveMood = async (moodLabel: string) => {
+const saveAfterMood = async (moodLabel: string) => {
     try {
-        const entry = { mood: moodLabel, timestamp: Date.now() };
-        await AsyncStorage.setItem(`mood_${Date.now()}`, JSON.stringify(entry));
-        console.log('Mood saved:', entry);
-    } catch (e) { console.error('Failed to save mood.', e); }
+        const entry = { 
+            mood: moodLabel, 
+            timestamp: Date.now(),
+            type: 'after'
+        };
+        await AsyncStorage.setItem(`after_mood_${Date.now()}`, JSON.stringify(entry));
+        console.log('After mood saved:', entry);
+    } catch (e) { console.error('Failed to save after mood.', e); }
 };
 
 // --- Ana Bileşen ---
-export default function DailyWriteScreen() {
+export default function AfterFeelingScreen() {
     const router = useRouter();
     const [moodIndex, setMoodIndex] = useState(3);
 
@@ -119,7 +123,7 @@ export default function DailyWriteScreen() {
     // Kaydetme İşlemi
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        await saveMood(currentMoodLabel);
+        await saveAfterMood(currentMoodLabel);
         opacity.value = withTiming(0, { duration: 400 });
         setTimeout(() => router.replace('/'), 400);
     };
@@ -130,7 +134,7 @@ export default function DailyWriteScreen() {
 
             <Animated.View style={[styles.contentContainer, { opacity }]}>
                 <View style={styles.header}>
-                    <Text style={styles.title}>Ruh Hali</Text>
+                    <Text style={styles.title}>Seans Sonrası Ruh Hali</Text>
                     <Text style={styles.moodLabel}>{MOOD_LEVELS[moodIndex].label}</Text>
                 </View>
                 
@@ -149,7 +153,7 @@ export default function DailyWriteScreen() {
 
                 <TouchableOpacity style={styles.button} onPress={handleSave}>
                      <Ionicons name="checkmark" size={24} color="#1A202C" />
-                    <Text style={styles.buttonText}>Onayla</Text>
+                    <Text style={styles.buttonText}>Tamamla</Text>
                 </TouchableOpacity>
             </Animated.View>
         </View>

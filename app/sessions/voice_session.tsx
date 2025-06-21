@@ -59,6 +59,7 @@ export default function VoiceSessionScreen() {
   const isDark = colorScheme === 'dark';
   const router = useRouter();
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
+  const [currentMood, setCurrentMood] = useState<string>('');
 
   // Terapist bilgisini yükle
   useEffect(() => {
@@ -78,6 +79,21 @@ export default function VoiceSessionScreen() {
     };
     loadTherapist();
   }, [therapistId]);
+
+  // Mood'u yükle
+  useEffect(() => {
+    const loadMood = async () => {
+      try {
+        const mood = await AsyncStorage.getItem('currentSessionMood');
+        if (mood) {
+          setCurrentMood(mood);
+        }
+      } catch (error) {
+        console.error('Mood yüklenirken hata:', error);
+      }
+    };
+    loadMood();
+  }, []);
 
   /* ---------------------------- STATE & REFS ---------------------------- */
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -108,12 +124,16 @@ export default function VoiceSessionScreen() {
         
         try {
           // AI cevabını al
+          const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+            ? therapistId as "therapist1" | "therapist3" | "coach1" 
+            : "therapist1";
+            
           const aiResponse = await generateTherapistReply(
-            therapistId as string,
+            validTherapistId,
             text,
-            "", // mood hint
-            "", // chat history
-            1 // message count
+            currentMood,
+            "",
+            1
           );
 
           // AI cevabını ekle
@@ -183,9 +203,10 @@ export default function VoiceSessionScreen() {
         {
           text: 'Sonlandır',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             stopRecording();
-            router.replace('/');
+            // After feeling ekranına yönlendir
+            router.replace('/feel/after_feeling');
           }
         }
       ]
@@ -204,9 +225,10 @@ export default function VoiceSessionScreen() {
         {
           text: 'Sonlandır',
           style: 'default',
-          onPress: () => {
+          onPress: async () => {
             stopRecording();
-            router.replace('/');
+            // After feeling ekranına yönlendir
+            router.replace('/feel/after_feeling');
           }
         }
       ]
