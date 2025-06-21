@@ -42,6 +42,8 @@ const saveAfterMood = async (moodLabel: string) => {
             type: 'after'
         };
         await AsyncStorage.setItem(`after_mood_${Date.now()}`, JSON.stringify(entry));
+        // En son after mood'u da ayrıca kaydet (mood_comparison için)
+        await AsyncStorage.setItem('after_mood_latest', JSON.stringify(entry));
         console.log('After mood saved:', entry);
     } catch (e) { console.error('Failed to save after mood.', e); }
 };
@@ -125,7 +127,10 @@ export default function AfterFeelingScreen() {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
         await saveAfterMood(currentMoodLabel);
         opacity.value = withTiming(0, { duration: 400 });
-        setTimeout(() => router.replace('/'), 400);
+        setTimeout(() => {
+            // Mood comparison sayfasına yönlendir
+            router.replace('/feel/mood_comparison');
+        }, 400);
     };
 
     return (
