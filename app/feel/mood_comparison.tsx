@@ -1,7 +1,7 @@
-// app/feel/mood_comparison.tsx (Klavyenin Otomatik Açılması Devre Dışı Bırakılmış Final Kod)
-// -----------------------------------------------------------------------------------------
-// Bu sürüm, kullanıcının yazma alanına kendisinin dokunmasını sağlayarak
-// klavyenin otomatik açılmasını engeller.
+// app/feel/mood_comparison.tsx (Hook Hatası Düzeltilmiş Nihai Stabil Kod)
+// --------------------------------------------------------------------------
+// Bu sürüm, "Rules of Hooks" ihlalini gidermek için JSX içindeki
+// inline useAnimatedStyle çağrısını en üst seviyeye taşır.
 // Expo deps: expo-linear-gradient, expo-haptics, @react-native-async-storage/async-storage, react-native-reanimated
 
 import { Ionicons } from '@expo/vector-icons';
@@ -43,19 +43,22 @@ const { width, height } = Dimensions.get('window');
 const LOTUS_SIZE = width * 0.7;
 const TOP_LOTUS_SIZE = width * 0.18;
 
-type MoodLevel = { id: number; label: string; color: string; bg: [string, string]; particleColor: string };
+type MoodLevel = { id: number; label: string; color: string; bg: [string, string]; particleColor: string; umutRengi: string; };
 type Step = 'loading' | 'reveal' | 'writing' | 'synthesis';
 type ThemeType = { bg: [string, string]; tint: string; particleColor: string };
 type DataType = { before: MoodLevel; after: MoodLevel; question: string; response: string; answer: string; };
 
+// DİĞER SAYFALARLA UYUMLU, GÜNCELLENMİŞ RENK PALETİ
 const MOOD_LEVELS: MoodLevel[] = [
-    { id: 0, label: 'Çok Kötü', color: '#A0AEC0', bg: ['#1A202C', '#2D3748'], particleColor: '#4A5568' },
-    { id: 1, label: 'Kötü', color: '#CBD5E0', bg: ['#2D3748', '#4A5568'], particleColor: '#718096' },
-    { id: 2, label: 'Üzgün', color: '#90CDF4', bg: ['#2A4365', '#2C5282'], particleColor: '#63B3ED' },
-    { id: 3, label: 'Nötr', color: '#81E6D9', bg: ['#285E61', '#2C7A7B'], particleColor: '#4FD1C5' },
-    { id: 4, label: 'İyi', color: '#9AE6B4', bg: ['#25855A', '#2F855A'], particleColor: '#68D391' },
-    { id: 5, label: 'Harika', color: '#F6E05E', bg: ['#975A16', '#B7791F'], particleColor: '#ECC94B' },
-    { id: 6, label: 'Mükemmel', color: '#FBB6CE', bg: ['#97266D', '#B83280'], particleColor: '#ED64A6' },
+    // Her bir renk için 'bg', 'particleColor' ve 'umutRengi' değerleri,
+    // ana 'color'a uyumlu olacak şekilde yeniden düzenlendi.
+    { id: 0, label: 'Çok Kötü', color: '#0D1B2A', bg: ['#02040F', '#0D1B2A'], particleColor: '#415A77', umutRengi: '#3B82F6' },
+    { id: 1, label: 'Kötü',     color: '#1B263B', bg: ['#0D1B2A', '#1B263B'], particleColor: '#778DA9', umutRengi: '#60A5FA' },
+    { id: 2, label: 'Üzgün',    color: '#415A77', bg: ['#1B263B', '#415A77'], particleColor: '#778DA9', umutRengi: '#60A5FA' },
+    { id: 3, label: 'Nötr',     color: '#778DA9', bg: ['#415A77', '#778DA9'], particleColor: '#415A77', umutRengi: '#06B6D4' },
+    { id: 4, label: 'İyi',      color: '#3B82F6', bg: ['#2B6CB0', '#3182CE'], particleColor: '#60A5FA', umutRengi: '#3B82F6' },
+    { id: 5, label: 'Harika',   color: '#60A5FA', bg: ['#3182CE', '#63B3ED'], particleColor: '#3B82F6', umutRengi: '#60A5FA' },
+    { id: 6, label: 'Mükemmel', color: '#06B6D4', bg: ['#155E75', '#0891B2'], particleColor: '#22D3EE', umutRengi: '#06B6D4' },
 ];
 
 const defaultMood = MOOD_LEVELS[3];
@@ -85,12 +88,27 @@ export default function MoodComparisonScreen() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                const beforeMoodLabel = await AsyncStorage.getItem('currentSessionMood') || defaultMood.label;
+                // 'currentSessionMood' adını 'before_mood_latest' olarak değiştirdim, diğer sayfalardaki yapıya uyumlu olsun diye
+                const beforeMoodRaw = await AsyncStorage.getItem('before_mood_latest');
+                const beforeMoodLabel = beforeMoodRaw ? JSON.parse(beforeMoodRaw).mood : defaultMood.label;
+                
                 const afterMoodRaw = await AsyncStorage.getItem('after_mood_latest');
                 const afterMoodLabel = afterMoodRaw ? JSON.parse(afterMoodRaw).mood : defaultMood.label;
                 const before = MOOD_LEVELS.find(m => m.label === beforeMoodLabel) || defaultMood;
                 const after = MOOD_LEVELS.find(m => m.label === afterMoodLabel) || defaultMood;
-                setTheme({ initial: { bg: before.bg, tint: before.color, particleColor: before.particleColor }, final: { bg: after.bg, tint: after.color, particleColor: after.particleColor } });
+
+                const initialTheme: ThemeType = { bg: before.bg, tint: before.color, particleColor: before.particleColor };
+                let finalTheme: ThemeType;
+
+                if (after.id > before.id) {
+                    finalTheme = { bg: after.bg, tint: after.color, particleColor: after.particleColor };
+                } else if (after.id < before.id) {
+                    finalTheme = { bg: after.bg, tint: after.umutRengi, particleColor: after.umutRengi };
+                } else {
+                    finalTheme = { bg: after.bg, tint: after.color, particleColor: after.particleColor };
+                }
+                
+                setTheme({ initial: initialTheme, final: finalTheme });
                 setData({ before, after, question: "Bu değişimi nasıl yorumlarsın?", response: "Bu derin düşünceleri paylaştığın için teşekkürler. Her yansıma, yolculuğumuzu daha da aydınlatıyor.", answer: '' });
                 setStep('reveal');
                 transitionProgress.value = withDelay(500, withTiming(1, { duration: 4000, easing: Easing.bezier(0.25, 1, 0.5, 1) }));
@@ -106,26 +124,40 @@ export default function MoodComparisonScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             lotusProgress.value = withSpring(1, { damping: 18, stiffness: 120 });
             setStep('writing');
-            // DÜZELTME: Klavyenin otomatik açılmasını sağlayan timeout kaldırıldı.
-            // setTimeout(() => { textInputRef.current?.focus(); }, 400); 
         }
     };
 
-    const handleSubmitReflection = () => {
+    const handleSubmitReflection = async () => {
         if (!data?.answer.trim()) return;
         Keyboard.dismiss();
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setStep('synthesis');
+
+        // Kullanıcının notunu ve karşılaştırmayı kalıcı olarak kaydet
+        try {
+            const comparisonEntry = {
+                beforeMood: data.before.label,
+                afterMood: data.after.label,
+                note: data.answer,
+                timestamp: Date.now()
+            };
+            await AsyncStorage.setItem(`mood_comparison_${Date.now()}`, JSON.stringify(comparisonEntry));
+            console.log("Karşılaştırma ve not kaydedildi.");
+        } catch (e) {
+            console.error("Not kaydedilirken hata oluştu: ", e);
+        }
     };
 
     const animatedBackgroundStyle = useAnimatedStyle(() => ({ opacity: transitionProgress.value }));
-    const animatedFinalParticlesStyle = useAnimatedStyle(() => ({ opacity: transitionProgress.value }));
+    const animatedFinalParticlesContainerStyle = useAnimatedStyle(() => ({ opacity: transitionProgress.value }));
+    const animatedLotusTintStyle = useAnimatedStyle(() => ({
+        tintColor: theme ? interpolateColor(transitionProgress.value, [0, 1], [theme.initial.tint, theme.final.tint]) : defaultMood.color
+    }));
     const animatedLotusContainerStyle = useAnimatedStyle(() => {
         const size = interpolate(lotusProgress.value, [0, 1], [LOTUS_SIZE, TOP_LOTUS_SIZE]);
         const translateY = interpolate(lotusProgress.value, [0, 1], [0, -(height / 2) + (Platform.OS === "ios" ? 110 : 80)]);
         return { width: size, height: size, transform: [{ translateY }] };
     });
-    const animatedLotusTintStyle = useAnimatedStyle(() => ({ tintColor: theme ? interpolateColor(transitionProgress.value, [0, 1], [theme.initial.tint, theme.final.tint]) : defaultMood.color }));
 
     if (!data || !theme) return <View style={styles.loadingContainer}><ActivityIndicator color="#A0AEC0" size="large" /></View>;
 
@@ -134,7 +166,10 @@ export default function MoodComparisonScreen() {
             <LinearGradient colors={theme.initial.bg} style={StyleSheet.absoluteFill} />
             <CosmicParticles color={theme.initial.particleColor} />
             <Animated.View style={[StyleSheet.absoluteFill, animatedBackgroundStyle]}><LinearGradient colors={theme.final.bg} style={StyleSheet.absoluteFill} /></Animated.View>
-            <Animated.View style={[StyleSheet.absoluteFill, animatedFinalParticlesStyle]}><CosmicParticles color={theme.final.particleColor} /></Animated.View>
+            
+            <Animated.View style={[StyleSheet.absoluteFill, animatedFinalParticlesContainerStyle]}>
+                <CosmicParticles color={theme.final.particleColor} />
+            </Animated.View>
 
             <View style={styles.flexContainer}>
                 <View style={styles.lotusPositioner}>
@@ -174,10 +209,7 @@ export default function MoodComparisonScreen() {
                             <View style={{ justifyContent: 'center', alignItems: 'center' }}>
                                 <Animated.View
                                     entering={FadeIn.duration(400).delay(100).springify().damping(15).stiffness(100)}
-                                    style={[styles.centeredModalContainer, {
-                                        shadowColor: theme.final.tint,
-                                        borderColor: theme.final.tint
-                                    }]}>
+                                    style={[styles.centeredModalContainer, { shadowColor: theme.final.tint, borderColor: theme.final.tint }]}>
                                     <Text style={[styles.questionText, { color: theme.final.tint }]}>{data.question}</Text>
                                     <TextInput
                                         ref={textInputRef}
@@ -209,14 +241,11 @@ const styles = StyleSheet.create({
     particle: { position: 'absolute' },
     lotusPositioner: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 5 },
     lotusImage: { width: '100%', height: '100%', resizeMode: 'contain' },
-    
     mainContent: { flex: 1, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
     footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === 'ios' ? 50 : 30, alignItems: 'center', zIndex: 15 },
     centeredModalBackdrop: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(10,10,20,0.7)', zIndex: 20 },
-    
     revealContainer: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 120 : 100, paddingBottom: height * 0.15 },
     synthesisContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, paddingTop: TOP_LOTUS_SIZE },
-    
     headerText: { fontSize: 18, fontWeight: '500', color: '#E2E8F0' },
     reflectionButton: { paddingVertical: 18, paddingHorizontal: 35, borderRadius: 30, },
     reflectionButtonText: { fontSize: 16, fontWeight: 'bold' },
@@ -225,7 +254,6 @@ const styles = StyleSheet.create({
     finishButton: { padding: 16 },
     finishButtonText: { fontSize: 16, color: '#A0AEC0', fontWeight: '500' },
     kavContainer: { width: '100%', justifyContent: 'center', alignItems: 'center' },
-    
     centeredModalContainer: {
         width: width * 0.9,
         maxWidth: 400,

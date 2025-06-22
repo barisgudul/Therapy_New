@@ -198,3 +198,17 @@ export function isProfileComplete(profile: any): boolean {
     profile.bio
   );
 } 
+
+// utils/helpers.js veya benzeri bir dosyada
+
+// Bir rengin (hex) koyu mu açık mı olduğunu kontrol eder
+export function isColorDark(hexColor) {
+  const color = hexColor.charAt(0) === '#' ? hexColor.substring(1, 7) : hexColor;
+  const r = parseInt(color.substring(0, 2), 16); // Red
+  const g = parseInt(color.substring(2, 4), 16); // Green
+  const b = parseInt(color.substring(4, 6), 16); // Blue
+  // Renk parlaklığı formülü
+  return (r * 0.299 + g * 0.587 + b * 0.114) < 186;
+}
+
+// ... diğer helper fonksiyonlarınız
