@@ -20,6 +20,7 @@ import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
+import { logEvent } from '../../utils/eventLogger';
 import { avatars } from '../avatar';
 
 /* -------------------------------------------------------------------------- */
@@ -60,6 +61,7 @@ export default function VoiceSessionScreen() {
   const router = useRouter();
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
   const [currentMood, setCurrentMood] = useState<string>('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   // Terapist bilgisini yükle
   useEffect(() => {
@@ -84,9 +86,10 @@ export default function VoiceSessionScreen() {
   useEffect(() => {
     const loadMood = async () => {
       try {
-        const mood = await AsyncStorage.getItem('currentSessionMood');
-        if (mood) {
-          setCurrentMood(mood);
+        const moodRaw = await AsyncStorage.getItem('before_mood_latest');
+        if (moodRaw) {
+          const moodData = JSON.parse(moodRaw);
+          setCurrentMood(moodData.mood || '');
         }
       } catch (error) {
         console.error('Mood yüklenirken hata:', error);
@@ -99,7 +102,6 @@ export default function VoiceSessionScreen() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [soundLevel, setSoundLevel] = useState(0);
   const [transcript, setTranscript] = useState("");
   const [volume, setVolume] = useState(0);
@@ -115,45 +117,36 @@ export default function VoiceSessionScreen() {
   } = useVoiceSession({
     onTranscriptReceived: async (text) => {
       if (text) {
-        // Kullanıcı mesajını ekle
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          sender: 'user',
-          text: text
-        }]);
-        
+        // Mesaj geçmişini güncel şekilde oluştur
+        const newMessages: ChatMessage[] = [...messages, { id: Date.now().toString(), sender: 'user', text: text }];
+        const chatHistory = newMessages
+          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+          .join('\n');
+        const turnCount = Math.floor((newMessages.length - 1) / 2) + 1;
         try {
-          // AI cevabını al
           const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
             ? therapistId as "therapist1" | "therapist3" | "coach1" 
             : "therapist1";
-            
           const aiResponse = await generateTherapistReply(
             validTherapistId,
             text,
             currentMood,
-            "",
-            1
+            chatHistory,
+            turnCount
           );
-
-          // AI cevabını ekle
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            sender: 'ai',
-            text: aiResponse
-          }]);
-
-          // AI cevabını sesli oku
+          // Hem kullanıcı hem AI mesajını birlikte ekle
+          setMessages(prev => [...prev,
+            { id: Date.now().toString(), sender: 'user', text: text },
+            { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse }
+          ]);
           speakText(aiResponse);
         } catch (error) {
           console.error('AI yanıt hatası:', error);
-          // Hata durumunda varsayılan mesaj
           const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.";
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            sender: 'ai',
-            text: errorMessage
-          }]);
+          setMessages(prev => [...prev,
+            { id: Date.now().toString(), sender: 'user', text: text },
+            { id: (Date.now() + 1).toString(), sender: 'ai', text: errorMessage }
+          ]);
           speakText(errorMessage);
         }
       }
@@ -191,59 +184,44 @@ export default function VoiceSessionScreen() {
     };
   }, [cleanup]);
 
-  const handleBack = () => {
+  // Move onBackPress and handleSessionEnd to top-level
+  const handleSessionEnd = async () => {
+    await stopRecording?.();
+    if (messages.length > 2) {
+      await logEvent({
+        type: 'voice_session',
+        mood: currentMood,
+        data: { therapistId, messages },
+      });
+      await AsyncStorage.removeItem('before_mood_latest');
+    }
+    router.replace('/feel/after_feeling');
+  };
+
+  const onBackPress = () => {
     Alert.alert(
       'Seansı Sonlandır',
-      'Seansı sonlandırmak istediğinizden emin misiniz?',
+      'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
       [
-        {
-          text: 'İptal',
-          style: 'cancel'
-        },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sonlandır',
           style: 'destructive',
           onPress: async () => {
-            stopRecording();
-            // After feeling ekranına yönlendir
-            router.replace('/feel/after_feeling');
-          }
-        }
-      ]
-    );
-  };
-
-  const handleSessionEnd = async () => {
-    Alert.alert(
-      'Seans Süresi Doldu',
-      '10 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
-      [
-        {
-          text: 'Devam Et',
-          style: 'cancel'
+            await handleSessionEnd();
+          },
         },
-        {
-          text: 'Sonlandır',
-          style: 'default',
-          onPress: async () => {
-            stopRecording();
-            // After feeling ekranına yönlendir
-            router.replace('/feel/after_feeling');
-          }
-        }
       ]
     );
+    return true;
   };
 
-  // Geri tuşu için
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleBack();
-      return true;
-    });
-
-    return () => backHandler.remove();
-  }, []);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => {
+      subscription.remove();
+    };
+  }, [messages, router, therapistId, currentMood]);
 
   /* ---------------------------- HELPERS --------------------------------- */
   const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -258,7 +236,7 @@ export default function VoiceSessionScreen() {
         end={{x: 1, y: 1}} 
         style={styles.container}>
       {/* Geri/Kapat butonu */}
-      <TouchableOpacity onPress={handleBack} style={styles.back}>
+      <TouchableOpacity onPress={onBackPress} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 
@@ -325,7 +303,7 @@ export default function VoiceSessionScreen() {
           >
             <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color={Colors.light.tint} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleBack} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
+          <TouchableOpacity onPress={onBackPress} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
             <Ionicons name="close" size={22} color={Colors.light.tint} />
           </TouchableOpacity>
         </View>

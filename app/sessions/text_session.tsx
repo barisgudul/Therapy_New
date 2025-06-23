@@ -21,7 +21,7 @@ import {
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
-import { getSessionStats } from '../../utils/helpers';
+import { logEvent } from '../../utils/eventLogger';
 import { saveToSessionData } from '../../utils/sessionData';
 import { avatars } from '../avatar';
 
@@ -102,47 +102,56 @@ export default function TextSessionScreen() {
     }, 100);
   };
 
-  // --- Geri tuşuna basınca ve ekrandan çıkarken sohbeti kaydet (merkezi olarak) --- //
-  // ! Doğru kullanım için: aboneyi kaydet ve .remove() ile temizle !
-  const latestMessages = useRef(messages);
-  latestMessages.current = messages;
+  // Move onBackPress and handleSessionEnd to top-level
+  const handleSessionEnd = async () => {
+    if (messages.length > 2) {
+      await logEvent({
+        type: 'text_session',
+        mood: currentMood,
+        data: {
+          therapistId: therapistId,
+          messages: messages
+        }
+      });
+      await AsyncStorage.removeItem('before_mood_latest');
+    }
+    router.replace('/feel/after_feeling');
+  };
+
+  const onBackPress = () => {
+    Alert.alert(
+      'Seansı Sonlandır',
+      'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
+      [
+        { text: 'İptal', style: 'cancel' },
+        {
+          text: 'Sonlandır',
+          style: 'destructive',
+          onPress: async () => {
+            await handleSessionEnd();
+          },
+        },
+      ]
+    );
+    return true;
+  };
 
   useEffect(() => {
-    const saveSession = async () => {
-      if (latestMessages.current.length > 0 && typeof saveToSessionData === "function") {
-        await saveToSessionData({
-          sessionType: "text",
-          newMessages: latestMessages.current,
-        });
-        
-        // Seans tamamlandığında rozet kontrolü
-        const stats = await getSessionStats();
-      } else {
-        console.error("saveToSessionData fonksiyonu YOK veya geçersiz!");
-      }
-    };
-
-    const onBackPress = () => {
-      saveSession();
-      return false;
-    };
-
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-
     return () => {
-      saveSession();
-      subscription.remove(); // <-- Doğru kullanım!
+      subscription.remove();
     };
-    // useRef sayesinde messages'ın en güncel halini kullanır.
-  }, []);
+  }, [messages, router, therapistId, currentMood]);
 
+  // Mood'u yükle
   useEffect(() => {
-    // Mood'u yükle
     const loadMood = async () => {
       try {
-        const mood = await AsyncStorage.getItem('currentSessionMood');
-        if (mood) {
-          setCurrentMood(mood);
+        // "currentSessionMood" yerine artık standart olan "before_mood_latest"i kullanıyoruz
+        const moodRaw = await AsyncStorage.getItem('before_mood_latest');
+        if (moodRaw) {
+          const moodData = JSON.parse(moodRaw);
+          setCurrentMood(moodData.mood || '');
         }
       } catch (error) {
         console.error('Mood yüklenirken hata:', error);
@@ -151,129 +160,59 @@ export default function TextSessionScreen() {
     loadMood();
   }, []);
 
-  const sendMessage = async () => {
-    const trimmed = input.trim();
-    if (!trimmed || isTyping) return;
+  // text_session.tsx içindeki sendMessage fonksiyonunu bununla değiştirin.
+const sendMessage = async () => {
+  const trimmedInput = input.trim();
+  if (!trimmedInput || isTyping) return;
 
-    // --- 1. Tüm geçmişi ve yeni mesajı birleştir
-    const fullHistoryWithNewMessage = [
-      ...messages,
-      { sender: 'user', text: trimmed }
-    ];
+  setInput(''); // Input'u hemen temizle
 
-    const chatHistory = fullHistoryWithNewMessage
-      // Not: Geçmişi gönderirken "Kullanıcı:" "Terapist:" gibi etiketler eklemek faydalıdır.
-      // useGemini'daki compress fonksiyonu bunu temizlediği için burada bıraktım.
-      // Eğer compress'i değiştirirseniz burayı da güncelleyin.
-      .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-      .join('\n');
+  const userMessage = { sender: 'user' as const, text: trimmedInput };
+  const newMessagesForUI = [...messages, userMessage];
+  
+  // UI'ı anında kullanıcı mesajıyla güncelle
+  setMessages(newMessagesForUI);
+  setIsTyping(true);
 
-    // --- 2. DEĞİŞİKLİK: 'turn' sayısını doğru hesapla
-    // Bir tur = 1 kullanıcı + 1 AI. Başlangıç mesajını (AI) saymazsak:
-    // (toplam mesaj - 1) / 2 + 1 = tur sayısı
-    const turnCount = Math.floor((fullHistoryWithNewMessage.length -1) / 2) + 1;
+  // AI'a gönderilecek geçmişi oluştur
+  const chatHistory = newMessagesForUI
+    .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+    .join('\n');
+  
+  const turnCount = Math.floor((newMessagesForUI.length - 1) / 2) + 1;
 
-    setMessages(prev => [...prev, { sender: 'user', text: trimmed }]);
-    setInput('');
-    setIsTyping(true);
+  try {
+    const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+      ? therapistId as "therapist1" | "therapist3" | "coach1" 
+      : "therapist1";
+    
+    const aiReplyText = await generateTherapistReply(
+      validTherapistId,
+      trimmedInput,
+      currentMood,
+      chatHistory,
+      turnCount
+    );
 
-    try {
-      const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-        ? therapistId as "therapist1" | "therapist3" | "coach1" 
-        : "therapist1";
-      
-      const aiReply = await generateTherapistReply(
-        validTherapistId,
-        trimmed,
-        currentMood, // YENİ: Mood'u gönder
-        chatHistory,
-        turnCount      // 👈 DOĞRU HESAPLANMIŞ 'turn' SAYISI
-      );
+    const aiMessage = { 
+      sender: 'ai' as const, 
+      text: aiReplyText || "Kusura bakma, bir yanıt oluşturamadım."
+    };
+    
+    // Şimdi de AI'ın yanıtını ekleyerek UI'ı tekrar güncelle
+    setMessages(prev => [...prev, aiMessage]);
 
-      // Cevap boş veya hatalı gelirse diye bir kontrol
-      const replyText = aiReply || "Kusura bakma, şu anda bir yanıt oluşturamadım. Başka bir şeyden bahsetmek ister misin?";
-
-      setMessages(prev => [
-        ...prev,
-        { sender: 'ai', text: replyText }
-      ]);
-    } catch (err) {
-      console.error("generateTherapistReply hatası:", err);
-      setMessages(prev => [
-        ...prev,
-        { sender: 'ai', text: "Üzgünüm, beklenmedik bir sorunla karşılaştım. Lütfen biraz sonra tekrar dene." }
-      ]);
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
-  async function saveSession() {
-    try {
-      await saveToSessionData({
-        sessionType: "text",
-        newMessages: messages,
-      });
-
-      // Rozetleri kontrol et ve güncelle
-      const stats = await getSessionStats();
-
-      // After feeling ekranına yönlendir
-      router.replace('/feel/after_feeling');
-    } catch (error) {
-      console.error('Seans kaydedilirken hata:', error);
-    }
+  } catch (err) {
+    console.error("generateTherapistReply hatası:", err);
+    const errorMessage = { 
+      sender: 'ai' as const, 
+      text: "Üzgünüm, bir sorunla karşılaştım."
+    };
+    setMessages(prev => [...prev, errorMessage]);
+  } finally {
+    setIsTyping(false);
   }
-
-  const handleSessionEnd = async () => {
-    Alert.alert(
-      'Seans Süresi Doldu',
-      '30 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
-      [
-        {
-          text: 'Devam Et',
-          style: 'cancel'
-        },
-        {
-          text: 'Sonlandır',
-          style: 'default',
-          onPress: async () => {
-            await saveSession();
-          }
-        }
-      ]
-    );
-  };
-
-  const handleBack = () => {
-    Alert.alert(
-      'Seansı Sonlandır',
-      'Seansı sonlandırmak istediğinizden emin misiniz?',
-      [
-        {
-          text: 'İptal',
-          style: 'cancel'
-        },
-        {
-          text: 'Sonlandır',
-          style: 'destructive',
-          onPress: async () => {
-            await saveSession();
-          }
-        }
-      ]
-    );
-  };
-
-  // Geri tuşu için
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleBack();
-      return true;
-    });
-
-    return () => backHandler.remove();
-  }, []);
+};
 
   // Terapist bilgisini yükle
   useEffect(() => {
@@ -299,7 +238,7 @@ export default function TextSessionScreen() {
         start={{x: 0, y: 0}} 
         end={{x: 1, y: 1}} 
         style={styles.container}>
-      <TouchableOpacity onPress={handleBack} style={styles.back}>
+      <TouchableOpacity onPress={onBackPress} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 

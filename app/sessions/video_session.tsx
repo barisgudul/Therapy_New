@@ -22,8 +22,7 @@ import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { generateTherapistReply } from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
-import { getSessionStats } from '../../utils/helpers';
-import { saveToSessionData } from '../../utils/sessionData';
+import { logEvent } from '../../utils/eventLogger';
 import { avatars } from '../avatar';
 
 const { width, height } = Dimensions.get('window');
@@ -99,9 +98,10 @@ export default function VideoSessionScreen() {
   useEffect(() => {
     const loadMood = async () => {
       try {
-        const mood = await AsyncStorage.getItem('currentSessionMood');
-        if (mood) {
-          setCurrentMood(mood);
+        const moodRaw = await AsyncStorage.getItem('before_mood_latest');
+        if (moodRaw) {
+          const moodData = JSON.parse(moodRaw);
+          setCurrentMood(moodData.mood || '');
         }
       } catch (error) {
         console.error('Mood yüklenirken hata:', error);
@@ -121,40 +121,36 @@ export default function VideoSessionScreen() {
   } = useVoiceSession({
     onTranscriptReceived: async (text) => {
       if (text) {
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          sender: 'user',
-          text: text
-        }]);
-        
+        // Mesaj geçmişini güncel şekilde oluştur
+        const newMessages: ChatMessage[] = [...messages, { id: Date.now().toString(), sender: 'user', text: text }];
+        const chatHistory = newMessages
+          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+          .join('\n');
+        const turnCount = Math.floor((newMessages.length - 1) / 2) + 1;
         try {
           const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
             ? therapistId as "therapist1" | "therapist3" | "coach1" 
             : "therapist1";
-            
           const aiResponse = await generateTherapistReply(
             validTherapistId,
             text,
             currentMood,
-            "",
-            1
+            chatHistory,
+            turnCount
           );
-
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            sender: 'ai',
-            text: aiResponse
-          }]);
-
+          // Hem kullanıcı hem AI mesajını birlikte ekle
+          setMessages(prev => [...prev,
+            { id: Date.now().toString(), sender: 'user', text: text },
+            { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse }
+          ]);
           speakText(aiResponse);
         } catch (error) {
           console.error('AI yanıt hatası:', error);
           const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.";
-          setMessages(prev => [...prev, {
-            id: (Date.now() + 1).toString(),
-            sender: 'ai',
-            text: errorMessage
-          }]);
+          setMessages(prev => [...prev,
+            { id: Date.now().toString(), sender: 'user', text: text },
+            { id: (Date.now() + 1).toString(), sender: 'ai', text: errorMessage }
+          ]);
           speakText(errorMessage);
         }
       }
@@ -218,74 +214,44 @@ export default function VideoSessionScreen() {
     }
   };
 
-  async function saveSession() {
-    try {
-      await stopRecording();
-      await saveToSessionData({
-        sessionType: "video",
-        newMessages: messages,
-      });
-
-      const sessionStats = await getSessionStats();
-      
-      // After feeling ekranına yönlendir
-      router.replace('/feel/after_feeling');
-    } catch (error) {
-      console.error('Seans kaydedilirken hata:', error);
-    }
-  }
-
+  // Move onBackPress and handleSessionEnd to top-level
   const handleSessionEnd = async () => {
-    Alert.alert(
-      'Seans Süresi Doldu',
-      '10 dakikalık seans süreniz doldu. Seansı sonlandırmak istiyor musunuz?',
-      [
-        {
-          text: 'Devam Et',
-          style: 'cancel'
-        },
-        {
-          text: 'Sonlandır',
-          style: 'default',
-          onPress: async () => {
-            await stopRecording();
-            await saveSession();
-          }
-        }
-      ]
-    );
+    await stopRecording?.();
+    if (messages.length > 2) {
+      await logEvent({
+        type: 'video_session',
+        mood: currentMood,
+        data: { therapistId, messages },
+      });
+      await AsyncStorage.removeItem('before_mood_latest');
+    }
+    router.replace('/feel/after_feeling');
   };
 
-  const handleBack = () => {
+  const onBackPress = () => {
     Alert.alert(
       'Seansı Sonlandır',
-      'Seansı sonlandırmak istediğinizden emin misiniz?',
+      'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
       [
-        {
-          text: 'İptal',
-          style: 'cancel'
-        },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sonlandır',
           style: 'destructive',
           onPress: async () => {
-            await stopRecording();
-            await saveSession();
-          }
-        }
+            await handleSessionEnd();
+          },
+        },
       ]
     );
+    return true;
   };
 
-  // Geri tuşu için
   useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      handleBack();
-      return true;
-    });
-
-    return () => backHandler.remove();
-  }, []);
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => {
+      subscription.remove();
+    };
+  }, [messages, router, therapistId, currentMood]);
 
   return (
     <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
@@ -293,7 +259,7 @@ export default function VideoSessionScreen() {
         end={{x: 1, y: 1}} 
         style={styles.container}>
       {/* Geri/Kapat butonu */}
-      <TouchableOpacity onPress={handleBack} style={styles.back}>
+      <TouchableOpacity onPress={onBackPress} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 
@@ -357,7 +323,7 @@ export default function VideoSessionScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={handleBack}
+          onPress={onBackPress}
           style={[styles.button, styles.btnMuted]}
           activeOpacity={0.85}
         >

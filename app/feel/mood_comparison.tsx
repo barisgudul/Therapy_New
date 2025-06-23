@@ -37,6 +37,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
+import { logEvent } from '../../utils/eventLogger';
 
 // Sabitler ve Tipler
 const { width, height } = Dimensions.get('window');
@@ -64,15 +65,57 @@ const MOOD_LEVELS: MoodLevel[] = [
 const defaultMood = MOOD_LEVELS[3];
 const defaultData: DataType = { before: defaultMood, after: defaultMood, question: '', response: '', answer: '' };
 
+const Particle = ({ particle, color }: { particle: any, color: string }) => {
+    // @ts-expect-error reanimated transform type mismatch
+    const animatedParticleStyle = useAnimatedStyle(() => {
+        return {
+            opacity: particle.opacity.value,
+            transform: [
+                { translateX: particle.x.value },
+                { translateY: particle.y.value },
+            ],
+        };
+    });
+
+    return (
+        <Animated.View
+            style={[
+                styles.particle,
+                {
+                    backgroundColor: color,
+                    width: particle.size,
+                    height: particle.size,
+                    borderRadius: particle.size / 2,
+                },
+                animatedParticleStyle as any,
+            ]}
+        />
+    );
+};
+
 const CosmicParticles = memo(({ color }: { color: string }) => {
-    const particles = Array.from({ length: 15 }).map(() => ({ size: Math.random() * 4 + 2, x: useSharedValue(Math.random() * width), y: useSharedValue(Math.random() * height), opacity: useSharedValue(Math.random() * 0.5 + 0.2), duration: Math.random() * 20000 + 15000, }));
+    const particles = Array.from({ length: 15 }).map(() => ({
+        size: Math.random() * 4 + 2,
+        x: useSharedValue(Math.random() * width),
+        y: useSharedValue(Math.random() * height),
+        opacity: useSharedValue(Math.random() * 0.5 + 0.2),
+        duration: Math.random() * 20000 + 15000,
+    }));
+
     useEffect(() => {
         particles.forEach(p => {
             p.y.value = withRepeat(withTiming(p.y.value - height * 1.2, { duration: p.duration }), -1, false);
             p.x.value = withRepeat(withTiming(p.x.value + (Math.random() - 0.5) * 100, { duration: p.duration }), -1, true);
         });
     }, []);
-    return <View style={StyleSheet.absoluteFill}>{particles.map((p, i) => <Animated.View key={i} style={[styles.particle, { backgroundColor: color, width: p.size, height: p.size, borderRadius: p.size / 2 }, useAnimatedStyle(() => ({ opacity: p.opacity.value, transform: [{ translateX: p.x.value }, { translateY: p.y.value }] }))]} />)}</View>;
+
+    return (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            {particles.map((p, i) => (
+                <Particle key={i} particle={p} color={color} />
+            ))}
+        </View>
+    );
 });
 
 export default function MoodComparisonScreen() {
@@ -133,15 +176,16 @@ export default function MoodComparisonScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setStep('synthesis');
 
-        // Kullanıcının notunu ve karşılaştırmayı kalıcı olarak kaydet
+        // Merkezi olay kaydı
         try {
-            const comparisonEntry = {
-                beforeMood: data.before.label,
-                afterMood: data.after.label,
-                note: data.answer,
-                timestamp: Date.now()
-            };
-            await AsyncStorage.setItem(`mood_comparison_${Date.now()}`, JSON.stringify(comparisonEntry));
+            await logEvent({
+                type: 'mood_comparison_note',
+                data: {
+                    beforeMood: data.before.label,
+                    afterMood: data.after.label,
+                    note: data.answer
+                }
+            });
             console.log("Karşılaştırma ve not kaydedildi.");
         } catch (e) {
             console.error("Not kaydedilirken hata oluştu: ", e);
@@ -189,7 +233,7 @@ export default function MoodComparisonScreen() {
                     )}
                     {step === 'synthesis' && (
                         <Animated.View style={styles.synthesisContainer} entering={FadeInDown.duration(1000)}>
-                            <Text style={styles.synthesisFinalText}>“{data.answer}”</Text>
+                            <Text style={styles.synthesisFinalText}>"{data.answer}"</Text>
                             <Text style={[styles.synthesisAI, { color: theme.final.tint }]}>{data.response}</Text>
                         </Animated.View>
                     )}

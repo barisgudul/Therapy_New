@@ -19,6 +19,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
+import { logEvent } from '../../utils/eventLogger';
 
 // --- TASARIM SABİTLERİ ---
 const { width } = Dimensions.get('window');
@@ -91,7 +92,15 @@ export default function AfterFeelingScreen() {
 
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        await saveAfterMood(currentMoodLabel);
+        // Merkezi olay kaydı
+        await logEvent({
+            type: 'session_end',
+            mood: currentMoodLabel,
+            data: {}
+        });
+        // En son moodu karşılaştırma için saklamaya devam
+        const latestEntry = { mood: currentMoodLabel, timestamp: Date.now() };
+        await AsyncStorage.setItem('after_mood_latest', JSON.stringify(latestEntry));
         opacity.value = withTiming(0, { duration: 400 });
         setTimeout(() => { router.replace('/feel/mood_comparison'); }, 400);
     };

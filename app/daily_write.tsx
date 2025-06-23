@@ -19,7 +19,6 @@ import {
   Easing,
   Image,
   Modal,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -30,6 +29,7 @@ import {
 import { Colors } from '../constants/Colors';
 import { generateDailyReflectionResponse } from '../hooks/useGemini';
 import { checkAndUpdateBadges } from '../utils/badges';
+import { logEvent } from '../utils/eventLogger';
 import { calculateStreak, getTotalEntries, isColorDark } from '../utils/helpers';
 import { statisticsManager } from '../utils/statisticsManager';
 
@@ -141,26 +141,32 @@ export default function DailyWriteScreen() {
 
   async function closeFeedback() {
     setFeedbackVisible(false);
-    const now = Date.now();
-    const today = new Date(now).toISOString().split('T')[0];
+    const now = new Date();
+    const mood = MOOD_LEVELS[moodValue].label;
+
     try {
+      // Merkezi olay kaydı
+      await logEvent({
+        type: 'daily_reflection',
+        mood: mood,
+        data: {
+          reflection: note,
+        }
+      });
+      // Eski meta kayıtlar devam
       await AsyncStorage.multiSet([
-        [`mood-${today}`, JSON.stringify({ mood: MOOD_LEVELS[moodValue].label, reflection: note, timestamp: now })],
-        ['todayDate', today],
+        ['todayDate', now.toISOString().split('T')[0]],
         ['todayMessage', aiMessage],
-        ['lastReflectionAt', String(now)],
+        ['lastReflectionAt', String(now.getTime())],
       ]);
-      const activityKey = `activity-${today}`;
-      const newEntry = { type: 'daily_write', time: now };
-      await appendActivity(activityKey, newEntry);
-      await statisticsManager.updateStatistics({ text: note, mood: MOOD_LEVELS[moodValue].label, date: today, source: 'daily_write' });
-      await AsyncStorage.removeItem('mood-stats-initialized');
+      // Eski istatistik ve rozet sistemleri
       const streak = await calculateStreak();
       const totalEntries = await getTotalEntries();
-      await checkAndUpdateBadges('daily', { totalEntries: totalEntries, streak: streak.currentStreak });
-      if (totalEntries >= 3) await checkAndUpdateBadges('daily', { totalEntries: totalEntries, dailyWriterNovice: true });
-      if (totalEntries >= 15) await checkAndUpdateBadges('daily', { totalEntries: totalEntries, dailyWriterExpert: true });
-    } catch (err) {}
+      await statisticsManager.updateStatistics({ text: note, mood: mood, date: now.toISOString().split('T')[0], source: 'daily_write' });
+      await checkAndUpdateBadges('daily', { totalEntries, streak: streak.currentStreak, dailyWriterNovice: totalEntries >= 3, dailyWriterExpert: totalEntries >= 15 });
+    } catch (err) {
+      console.error("closeFeedback hatası:", err);
+    }
     setNote('');
     setInputVisible(false);
     setAiMessage('');
@@ -185,7 +191,7 @@ export default function DailyWriteScreen() {
   const isCurrentMoodDark = isColorDark(currentMood.color);
 
   // Gradient renklerini belirle
-  const gradientColors =
+  const gradientColors: [string, string] =
     currentMood.color === tokens.tintMain
       ? [currentMood.color, lightenColor(currentMood.color, 0.18)]
       : [currentMood.color, tokens.tintMain];
@@ -245,8 +251,8 @@ export default function DailyWriteScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={['#F6F8FA', '#FFFFFF']} style={StyleSheet.absoluteFill} />
-      <Animated.View style={[styles.light, styles.light1, light1Style]} />
-      <Animated.View style={[styles.light, styles.light2, light2Style]} />
+      <Animated.View style={[styles.light, styles.light1, light1Style as any]} />
+      <Animated.View style={[styles.light, styles.light2, light2Style as any]} />
 
       <GradientHeader text="Duygu Günlüğü" />
 
@@ -290,75 +296,89 @@ export default function DailyWriteScreen() {
         </Animated.View>
       </Animated.View>
 
-      {/* DİNAMİK RENKLİ NOT YAZMA MODALI */}
+      {/* ZARIF MODAL TASARIMI */}
       <Modal visible={inputVisible} transparent animationType="fade" onRequestClose={() => setInputVisible(false)}>
-        <Pressable style={styles.overlay} onPress={() => setInputVisible(false)}>
-          <View style={[styles.modalCard, { shadowColor: currentMood.color }]}>
-            <LinearGradient colors={['#FFFFFF', '#F8FAFF']} style={styles.modalGradient}>
-              <View style={styles.modalHeader}>
-                <LinearGradient
-                  colors={[currentMood.color, tokens.tintMain]}
-                  start={{ x: 0, y: 1 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.modalIconContainer}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={24} color={isCurrentMoodDark ? '#fff' : '#1A202C'} />
-                </LinearGradient>
-                <Text style={[styles.modalTitle, { color: currentMood.color }]}>Bugün nasılsın?</Text>
-              </View>
-              <TextInput
-                style={[styles.input, { borderColor: currentMood.color }]}
-                value={note}
-                onChangeText={setNote}
-                placeholder="Düşüncelerini buraya yaz..."
-                placeholderTextColor="#9CA3AF"
-                multiline autoFocus
+        <BlurView intensity={25} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              onPress={() => setInputVisible(false)} 
+              style={styles.modalBackButton}
+            >
+              <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+            </TouchableOpacity>
+
+            <View style={styles.modalIcon}>
+              <LinearGradient
+                colors={['#F3F4F8', '#FFFFFF']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.modalIconGradient}
               />
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setInputVisible(false)} activeOpacity={0.7}>
-                <LinearGradient
-                  colors={[currentMood.color, tokens.tintMain]}
-                  start={{ x: 0, y: 1 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.closeGradient}
-                >
-                  <Text style={[styles.closeText, { color: isCurrentMoodDark ? '#fff' : '#1A202C' }]}>Tamam</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </LinearGradient>
+              <Ionicons name="chatbubble-ellipses-outline" size={26} color={Colors.light.tint} />
+            </View>
+
+            <Text style={styles.modalTitle}>Bugün Nasılsın?</Text>
+            <Text style={styles.modalSubtitle}>Duygularını ve düşüncelerini güvenle paylaşabilirsin...</Text>
+            <View style={styles.modalDivider} />
+            
+            <View style={styles.inputWrapper}>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={note}
+                  onChangeText={setNote}
+                  placeholder="İçinden geçenleri anlatmak ister misin?"
+                  placeholderTextColor="rgba(74, 85, 104, 0.5)"
+                  multiline
+                  autoFocus
+                />
+                <View style={styles.inputDecoration} />
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.elegantButton} 
+              onPress={() => setInputVisible(false)} 
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.elegantButtonGradient}
+              >
+                <Text style={styles.elegantButtonText}>Tamam</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
-      {/* DİNAMİK RENKLİ AI ANALİZ MODALI */}
+      {/* AI ANALİZ MODALI - index.tsx ile aynı yapıda */}
       <Modal visible={feedbackVisible} transparent animationType="fade" onRequestClose={closeFeedback}>
-        <Pressable style={styles.overlay} onPress={closeFeedback}>
-          <View style={[styles.modalCard, { shadowColor: currentMood.color }]}>
-            <LinearGradient colors={['#FFFFFF', '#F8FAFF']} style={styles.modalGradient}>
-              <View style={styles.modalHeader}>
-                <LinearGradient
-                  colors={[currentMood.color, tokens.tintMain]}
-                  start={{ x: 0, y: 1 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.modalIconContainer}
-                >
-                  <Ionicons name="sparkles-outline" size={24} color={isCurrentMoodDark ? '#fff' : '#1A202C'} />
-                </LinearGradient>
-                <Text style={[styles.modalTitle, { color: currentMood.color }]}>AI Analizi</Text>
-              </View>
-              <Text style={styles.aiMessage}>{aiMessage}</Text>
-              <TouchableOpacity style={styles.closeBtn} onPress={closeFeedback} activeOpacity={0.7}>
-                <LinearGradient
-                  colors={[currentMood.color, tokens.tintMain]}
-                  start={{ x: 0, y: 1 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.closeGradient}
-                >
-                  <Text style={[styles.closeText, { color: isCurrentMoodDark ? '#fff' : '#1A202C' }]}>Anladım</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </LinearGradient>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              onPress={closeFeedback} 
+              style={styles.modalBackButton}
+            >
+              <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
+            </TouchableOpacity>
+
+            <View style={styles.modalIcon}>
+              <LinearGradient
+                colors={['#E8EEF7', '#F0F4F9']}
+                style={styles.modalIconGradient}
+              />
+              <Ionicons name="sparkles-outline" size={28} color={Colors.light.tint} />
+            </View>
+
+            <Text style={styles.modalTitle}>AI Analizi</Text>
+            <View style={styles.modalDivider} />
+            <Text style={styles.modalText}>{aiMessage}</Text>
           </View>
-        </Pressable>
+        </View>
       </Modal>
 
     </SafeAreaView>
@@ -400,15 +420,150 @@ const styles = StyleSheet.create({
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: tokens.radiusLg, marginTop: 24, shadowColor: tokens.tintMain, shadowOpacity: 0.15, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 12, },
   saveText: { color: '#fff', fontSize: 18, fontWeight: 'bold', marginLeft: 10, },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-start', alignItems: 'center', paddingTop: 120, },
-  modalCard: { width: '90%', maxWidth: 500, borderRadius: 24, overflow: 'hidden', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.2, shadowRadius: 30, elevation: 20, marginTop: 20, },
-  modalGradient: { padding: 24, },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, },
-  modalIconContainer: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16, },
-  modalTitle: { fontSize: 20, fontWeight: '600', letterSpacing: -0.3, },
-  input: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, fontSize: 16, color: '#1A1F36', minHeight: 120, textAlignVertical: 'top', borderWidth: 1.5, marginBottom: 20, },
-  closeBtn: { height: 48, borderRadius: 24, overflow: 'hidden', },
-  closeGradient: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', },
-  closeText: { fontSize: 16, fontWeight: '600', letterSpacing: -0.3, },
-  aiMessage: { fontSize: 16, color: '#4A5568', lineHeight: 24, letterSpacing: -0.2, marginBottom: 20, },
-  saveDisabled: { opacity: 0.5, },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    paddingTop: 28,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.12,
+    shadowRadius: 30,
+    elevation: 12,
+  },
+  modalBackButton: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 30,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  modalIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.08)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  modalIconGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#1A202C',
+    textAlign: 'center',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 20,
+    letterSpacing: -0.1,
+    lineHeight: 20,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: 'rgba(93,161,217,0.06)',
+    marginBottom: 20,
+    width: '25%',
+    alignSelf: 'center',
+  },
+  inputWrapper: {
+    marginBottom: 20,
+  },
+  inputContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 2,
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(93,161,217,0.1)',
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
+    fontSize: 15,
+    color: '#1A1F36',
+    minHeight: 110,
+    textAlignVertical: 'top',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+  },
+  inputDecoration: {
+    position: 'absolute',
+    bottom: 0,
+    left: '15%',
+    right: '15%',
+    height: 1,
+    backgroundColor: 'rgba(93,161,217,0.08)',
+  },
+  elegantButton: {
+    height: 52,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: 'rgba(93,161,217,0.25)',
+  },
+  elegantButtonGradient: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  elegantButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.tint,
+    letterSpacing: -0.3,
+  },
+  modalText: {
+    fontSize: 15,
+    color: '#4A5568',
+    lineHeight: 22,
+    letterSpacing: -0.2,
+    textAlign: 'center',
+  },
 });

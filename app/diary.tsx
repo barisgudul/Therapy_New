@@ -17,10 +17,8 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { analyzeDiaryEntry } from '../hooks/useGemini';
-import { checkAndUpdateBadges } from '../utils/badges';
 import { canWriteDiary } from '../utils/diaryControl';
-import { deleteDiaryEntry, DiaryEntry, getDiaryEntries, saveDiaryEntry } from '../utils/diaryStorage';
-import { saveSessionData } from '../utils/sessionStorage';
+import { AppEvent, getEventsForLast, logEvent } from '../utils/eventLogger';
 
 interface Message {
   text: string;
@@ -32,13 +30,13 @@ export default function DiaryScreen() {
   const router = useRouter();
   const [isWritingMode, setIsWritingMode] = useState(false);
   const [isViewingDiary, setIsViewingDiary] = useState(false);
-  const [selectedDiary, setSelectedDiary] = useState<DiaryEntry | null>(null);
+  const [selectedDiary, setSelectedDiary] = useState<AppEvent | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
   const [analysisCount, setAnalysisCount] = useState(0);
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
+  const [diaryEvents, setDiaryEvents] = useState<AppEvent[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +45,7 @@ export default function DiaryScreen() {
   const modalPosition = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    loadDiaryEntries();
+    loadDiaryEvents();
   }, []);
 
   useEffect(() => {
@@ -67,17 +65,14 @@ export default function DiaryScreen() {
     outputRange: ['0deg', '360deg']
   });
 
-  const loadDiaryEntries = async () => {
+  const loadDiaryEvents = async () => {
     try {
-      const entries = await getDiaryEntries();
-      // Günlükleri tarihe göre sırala (en yeniden en eskiye)
-      const sortedEntries = entries.sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      setDiaryEntries(sortedEntries);
+      const allEvents = await getEventsForLast(365); // last 1 year
+      const diaryOnlyEvents = allEvents.filter(event => event.type === 'diary_entry');
+      setDiaryEvents(diaryOnlyEvents);
     } catch (error) {
-      console.error('Günlükler yüklenirken hata:', error);
-      Alert.alert('Hata', 'Günlükler yüklenirken bir hata oluştu.');
+      console.error('Günlük olayları yüklenirken hata:', error);
+      Alert.alert('Hata', 'Günlük olayları yüklenirken bir hata oluştu.');
     }
   };
 
@@ -116,65 +111,58 @@ export default function DiaryScreen() {
 
   // Günlük kaydetme fonksiyonu
   const saveDiary = async () => {
-    if (messages.length === 0) return;
-    
+    if (messages.length === 0 || isSaving) return;
     setSaveModalVisible(true);
     setIsSaving(true);
     
+    let analysisResult: { mood?: string; summary?: string; tags?: string[] } = {};
+
     try {
-      const newEntry: DiaryEntry = {
-        id: Date.now().toString(),
-        messages,
-        date: new Date().toISOString()
-      };
-      await saveDiaryEntry(newEntry);
-      await loadDiaryEntries();
-      setIsWritingMode(false);
-      setMessages([]);
-      setCurrentInput('');
-      setSuggestedQuestions([]);
-      
-      // AI özeti oluştur
-      const userMessages = messages
-        .filter(msg => msg.isUser)
-        .map(msg => msg.text)
-        .join('\n');
-      
-      const analysis = await analyzeDiaryEntry(userMessages);
-      
-      // Session verilerini kaydet
-      await saveSessionData({
-        date: new Date().toISOString(),
-        type: 'diary',
-        content: userMessages,
-        summary: analysis.feedback,
-        mood: analysis.mood || 'neutral',
-        tags: analysis.tags || [],
-      });
-      
-      // Rozet kontrolü
-      const diaryEntriesCount = await getDiaryEntries().then(entries => entries.length);
-      
-      // AI destekli günlük rozet kontrolü
-      await checkAndUpdateBadges('diary', {
-        aiDiaryCompleted: diaryEntriesCount,
-        diaryAnalysis: analysisCount
-      });
-      
-      // AI özet rozetlerini kontrol et
-      await checkAndUpdateBadges('ai', {
-        aiSummaries: diaryEntriesCount
-      });
-      
-      // Sessizce kaydetme işlemini tamamla
-      setIsSaving(false);
-      setSaveModalVisible(false);
-      
+        const userMessagesText = messages.filter(msg => msg.isUser).map(msg => msg.text).join('\n');
+        
+        // Eğer hiç kullanıcı mesajı yoksa AI'ı boşuna çağırma
+        if (userMessagesText) {
+          const analysis = await analyzeDiaryEntry(userMessagesText);
+          analysisResult = {
+              mood: analysis.mood,
+              summary: analysis.feedback,
+              tags: analysis.tags,
+          };
+        }
     } catch (error) {
-      console.error('Günlük kaydetme hatası:', error);
-      setIsSaving(false);
-      setSaveModalVisible(false);
-      Alert.alert('Hata', 'Günlük kaydedilirken bir hata oluştu.');
+        // Bu blok API hatasını yakalar. Hata olsa bile devam ederiz.
+        console.error('Günlük analizi sırasında API hatası (ama yola devam edilecek):', error);
+        // İsteğe bağlı olarak kullanıcıya bilgi verebiliriz ama sessiz kalmak daha iyi bir deneyim olabilir.
+        // Alert.alert('AI Analizi Başarısız', 'Günlüğünüz kaydedildi ancak AI analizi yapılamadı.');
+    } finally {
+        // API başarılı olsa da, başarısız olsa da GÜNLÜK KAYDEDİLECEK.
+        try {
+            await logEvent({
+                type: 'diary_entry',
+                mood: analysisResult.mood || 'belirsiz', // API'dan cevap geldiyse onu, gelmediyse 'belirsiz' kullan
+                data: {
+                    messages: messages, // Kullanıcının yazdığı her şey burada, bu en önemlisi
+                    summary: analysisResult.summary || 'AI analizi yapılamadı.', // API özeti veya hata mesajı
+                    tags: analysisResult.tags || [],
+                }
+            });
+
+            // Geri kalanı başarılı kayıt senaryosuyla aynı
+            await loadDiaryEvents();
+            
+            setIsSaving(false);
+            setSaveModalVisible(false);
+            setIsWritingMode(false);
+            setMessages([]);
+            setCurrentInput('');
+            setSuggestedQuestions([]);
+            setAnalysisCount(0);
+        } catch(saveError) {
+             console.error('Günlük kaydetme (logEvent) hatası:', saveError);
+             Alert.alert('Kritik Hata', 'Günlüğünüz kaydedilirken bir sorun oluştu.');
+             setIsSaving(false);
+             setSaveModalVisible(false);
+        }
     }
   };
 
@@ -220,42 +208,14 @@ export default function DiaryScreen() {
     }
   };
 
-  const viewDiary = (diary: DiaryEntry) => {
-    setSelectedDiary(diary);
+  const viewDiary = (event: AppEvent) => {
+    setSelectedDiary(event);
     setIsViewingDiary(true);
     setIsWritingMode(false);
   };
 
-  const handleDeleteDiary = async (date: string) => {
-    Alert.alert(
-      'Günlüğü Sil',
-      'Bu günlüğü silmek istediğinizden emin misiniz?',
-      [
-        {
-          text: 'İptal',
-          style: 'cancel'
-        },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteDiaryEntry(date);
-              await loadDiaryEntries();
-              setIsWritingMode(false);
-              setIsViewingDiary(false);
-              setSelectedDiary(null);
-              setMessages([]);
-              setCurrentInput('');
-              setSuggestedQuestions([]);
-            } catch (error) {
-              console.error('Günlük silinirken hata:', error);
-              Alert.alert('Hata', 'Günlük silinirken bir hata oluştu.');
-            }
-          }
-        }
-      ]
-    );
+  const handleDeleteDiary = async (timestamp: number | undefined) => {
+    Alert.alert('Silme Desteği Yok', 'Günlük silme şu anda desteklenmiyor.');
   };
 
   const renderDiaryList = () => (
@@ -276,7 +236,7 @@ export default function DiaryScreen() {
       <View style={styles.content}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.diaryContainer}>
-            {diaryEntries.length === 0 ? (
+            {diaryEvents.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyStateIconContainer}>
                   <LinearGradient
@@ -292,11 +252,11 @@ export default function DiaryScreen() {
                 <Text style={styles.emptyStateSubtext}>Yeni bir günlük yazarak başla</Text>
               </View>
             ) : (
-              diaryEntries.map((entry, index) => (
+              diaryEvents.map((event) => (
                 <TouchableOpacity
-                  key={index}
+                  key={event.id}
                   style={styles.diaryCard}
-                  onPress={() => viewDiary(entry)}
+                  onPress={() => viewDiary(event)}
                 >
                   <LinearGradient
                     colors={['#FFFFFF', '#F8FAFF']}
@@ -308,7 +268,7 @@ export default function DiaryScreen() {
                       <View style={styles.diaryCardDateContainer}>
                         <Ionicons name="calendar" size={20} color={Colors.light.tint} />
                         <Text style={styles.diaryDate}>
-                          {new Date(entry.date).toLocaleDateString('tr-TR', {
+                          {new Date(event.timestamp).toLocaleDateString('tr-TR', {
                             year: 'numeric',
                             month: 'long',
                             day: 'numeric'
@@ -316,7 +276,7 @@ export default function DiaryScreen() {
                         </Text>
                       </View>
                       <Text style={styles.diaryTime}>
-                        {new Date(entry.date).toLocaleTimeString('tr-TR', {
+                        {new Date(event.timestamp).toLocaleTimeString('tr-TR', {
                           hour: '2-digit',
                           minute: '2-digit'
                         })}
@@ -324,7 +284,7 @@ export default function DiaryScreen() {
                     </View>
                     <View style={styles.diaryPreview}>
                       <Text style={styles.diaryPreviewText} numberOfLines={2}>
-                        {entry.messages[0]?.text || 'Boş günlük'}
+                        {event.data?.messages?.[0]?.text || 'Boş günlük'}
                       </Text>
                     </View>
                   </LinearGradient>
@@ -370,7 +330,7 @@ export default function DiaryScreen() {
 
       <TouchableOpacity 
         style={styles.deleteButton}
-        onPress={() => handleDeleteDiary(selectedDiary?.date)}
+        onPress={() => handleDeleteDiary(selectedDiary?.timestamp)}
       >
         <Ionicons name="trash-outline" size={24} color="#E53E3E" />
       </TouchableOpacity>
@@ -386,11 +346,11 @@ export default function DiaryScreen() {
                 <Text style={styles.writingPageTitle}>Günlük Sayfası</Text>
               </View>
               <Text style={styles.writingPageDate}>
-                {new Date(selectedDiary?.date).toLocaleDateString('tr-TR')}
+                {selectedDiary ? new Date(selectedDiary.timestamp).toLocaleDateString('tr-TR') : ''}
               </Text>
             </View>
             <View style={styles.writingPageContent}>
-              {selectedDiary?.messages.map((message, index) => (
+              {selectedDiary?.data?.messages?.map((message: any, index: number) => (
                 <View key={index} style={styles.writingMessageBlock}>
                   <View style={styles.writingMessageHeader}>
                     <Ionicons 
@@ -425,8 +385,7 @@ export default function DiaryScreen() {
       start={{x: 0, y: 0}} 
       end={{x: 1, y: 1}} 
       style={styles.container}>
-      <View style={styles.topBar}>
-      </View>
+      <View style={styles.topBar}></View>
 
       <Text style={styles.headerTitle}>Yeni Günlük</Text>
 

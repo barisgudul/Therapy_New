@@ -19,6 +19,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
+import { logEvent } from '../../utils/eventLogger';
 
 // --- TASARIM SABİTLERİ ---
 const { width } = Dimensions.get('window');
@@ -101,8 +102,18 @@ export default function BeforeFeelingScreen() {
 
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        await saveBeforeMood(currentMoodLabel, sessionType, therapistId);
-        
+        // Merkezi olay kaydı
+        await logEvent({
+            type: 'session_start',
+            mood: currentMoodLabel,
+            data: {
+                sessionType: sessionType,
+                therapistId: therapistId
+            }
+        });
+        // En son moodu karşılaştırma için saklamaya devam
+        const latestEntry = { mood: currentMoodLabel, timestamp: Date.now() };
+        await AsyncStorage.setItem('before_mood_latest', JSON.stringify(latestEntry));
         opacity.value = withTiming(0, { duration: 400 });
         setTimeout(() => {
             if (!sessionType || !therapistId) {

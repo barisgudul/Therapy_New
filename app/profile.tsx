@@ -87,6 +87,7 @@ export default function ProfileScreen() {
     try {
       setIsLoading(true);
       
+      const goalsArray = therapyGoals.split(',').map(g => g.trim()).filter(Boolean);
       const data = {
         nickname,
         birthDate,
@@ -95,7 +96,9 @@ export default function ProfileScreen() {
         previousTherapy,
         relationshipStatus,
         gender,
-        profileImage
+        profileImage,
+        goals: goalsArray,
+        interests: [],
       };
       await AsyncStorage.setItem('userProfile', JSON.stringify(data));
 

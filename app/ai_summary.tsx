@@ -6,16 +6,16 @@ import { useRouter } from 'expo-router/';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 // @ts-ignore
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
@@ -24,6 +24,7 @@ import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
 import { generateDetailedMoodSummary } from '../hooks/useGemini';
 import { checkAndUpdateBadges } from '../utils/badges';
+import { getEventsForLast } from '../utils/eventLogger';
 
 export default function AISummaryScreen() {
   const router = useRouter();
@@ -90,73 +91,47 @@ export default function AISummaryScreen() {
     }
   };
 
-  const fetchSummary = async () => {
-    if (loading) return;
-    setLoading(true);
+  // ai_summary.tsx dosyasındaki mevcut fetchSummary fonksiyonunu bununla değiştirin.
 
-    // Bütün anahtarları al
-    const keys = await AsyncStorage.getAllKeys();
-
-    // Sadece session- ile başlayanları bul ve tarihe göre yeni > eski sırala
-    const sessionKeys = keys
-      .filter(k => k.startsWith('session-'))
-      .sort((a, b) => b.localeCompare(a)); // Yeni tarihler başta
-
-    // Seçili gün kadar en güncel kayıtları al
-    const selectedSessionKeys = sessionKeys.slice(0, selectedDays);
-
-    const entries: any[] = [];
-    for (const key of selectedSessionKeys) {
-      const val = await AsyncStorage.getItem(key);
-      if (val) {
-        entries.push({ date: key.replace('session-', ''), ...JSON.parse(val) });
+const fetchSummary = async () => {
+  if (loading) return;
+  setLoading(true);
+  
+  try {
+      // Yeni ve basit veri çekme
+      const events = await getEventsForLast(selectedDays);
+      if (events.length < 3) {
+          Alert.alert(
+            "Yetersiz Veri",
+            `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı. Lütfen uygulamayı kullanmaya devam edin.`
+          );
+          setLoading(false);
+          return;
       }
-    }
-
-    if (entries.length === 0) {
-      const newSummaries = [{text: "Hiç veri bulunamadı.", date: new Date().toISOString()}, ...summaries];
-      setSummaries(newSummaries);
-      await saveSummaries(newSummaries);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const result = await generateDetailedMoodSummary(entries, selectedDays);
+      // Artık veriyi doğrudan AI'a gönderebiliriz.
+      const result = await generateDetailedMoodSummary(events, selectedDays);
+      
       const newSummary = {
         text: result.trim(),
         date: new Date().toISOString()
       };
       const newSummaries = [newSummary, ...summaries];
+      
       setSummaries(newSummaries);
       await saveSummaries(newSummaries);
 
-      // Rozetleri kontrol et ve güncelle
-      const totalSummaries = newSummaries.length; // Yeni toplam sayıyı al
-      
-      await checkAndUpdateBadges('ai', {
-        aiSummaries: totalSummaries // Yeni toplam sayıyı kullan
-      });
-      
-      // Farklı özet türleri için ek rozetler
-      await checkAndUpdateBadges('ai', {
-        aiInsights: true
-      });
+      await checkAndUpdateBadges('ai', { aiSummaries: newSummaries.length, aiInsights: true });
 
-      // Analiz tamamlandığında modalı aç
       setActiveSummary(result.trim());
       setModalVisible(true);
-    } catch (e) {
-      const newSummary = {
-        text: "AI özet üretilemedi, lütfen tekrar deneyin.",
-        date: new Date().toISOString()
-      };
-      const newSummaries = [newSummary, ...summaries];
-      setSummaries(newSummaries);
-      await saveSummaries(newSummaries);
-    }
+
+  } catch (e) {
+    console.error("AI özet oluşturma hatası:", e);
+    Alert.alert("Hata", "AI özeti oluşturulurken bir hata oluştu, lütfen tekrar deneyin.");
+  } finally {
     setLoading(false);
-  };
+  }
+};
 
   // Özeti silme fonksiyonu
   const deleteSummary = async (index: number) => {
@@ -318,6 +293,35 @@ export default function AISummaryScreen() {
                 <Text style={styles.analyzeButtonText}>Analiz Oluştur</Text>
               </View>
             </LinearGradient>
+          </TouchableOpacity>
+
+          {/* HAFIZA KONTROL BUTONU (TEST) */}
+          <TouchableOpacity
+            style={{ margin: 20, padding: 15, backgroundColor: '#E53E3E', borderRadius: 10 }}
+            onPress={async () => {
+              try {
+                console.log('--- ASYNCSTORAGE KONTROLÜ BAŞLADI ---');
+                const allKeys = await AsyncStorage.getAllKeys();
+                console.log('BULUNAN TÜM ANAHTARLAR:', allKeys);
+
+                const moodKeys = allKeys.filter(key => key.startsWith('mood-'));
+                console.log(`--- mood- ile başlayan ${moodKeys.length} adet anahtar bulundu ---`);
+                
+                const sessionKeys = allKeys.filter(key => key.startsWith('session-'));
+                console.log(`--- session- ile başlayan ${sessionKeys.length} adet anahtar bulundu ---`);
+
+                // Ayrıca içeriği de görmek isterseniz:
+                // const allData = await AsyncStorage.multiGet(allKeys);
+                // console.log("TÜM VERİLER:", allData);
+
+              } catch (e) {
+                console.error('Hafıza kontrol hatası:', e);
+              }
+            }}
+          >
+            <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+              HAFIZAYI KONTROL ET (TEST)
+            </Text>
           </TouchableOpacity>
         </View>
 
