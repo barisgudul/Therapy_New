@@ -1,24 +1,40 @@
+import Anthropic from '@anthropic-ai/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 import { AppEvent } from '../utils/eventLogger';
 
 /* ==========================================================================
- * useGemini.ts  ·  v4.0 Final (Comprehensive & Robust)
+ * useAI.ts  ·  v6.6 (Focused Dynamic Persona Reply)
  *
- * Bu dosya, Therapy uygulamasının tüm Gemini AI etkileşimlerini yönetir.
- * Her fonksiyon, maksimum kalite ve tutarlılık için özel olarak tasarlanmış
- * prompt mühendisliği tekniklerini kullanır.
+ * Bu modül, AsyncStorage'dan seçilen terapist profiline göre
+ * dinamik olarak yapay zeka cevapları üretir. Diğer fonksiyonlar
+ * genel amaçlıdır.
  * ======================================================================= */
 
 // -----------------------------------------------------------------------------
-// 1. TEMEL YAPILANDIRMA VE ARAYÜZLER
+// 1. API YAPILANDIRMASI ve TİPLER
 // -----------------------------------------------------------------------------
 
-const KEY   = Constants.expoConfig?.extra?.GEMINI_API_KEY as string;
-const MODEL = 'gemini-1.5-pro-latest';
-const TEMP  = 0.75; // Dengeli ve tutarlı yanıtlar için ideal bir sıcaklık.
+const GEMINI_API_KEY = Constants.expoConfig?.extra?.GEMINI_API_KEY as string;
+const OPENAI_API_KEY = Constants.expoConfig?.extra?.OPENAI_API_KEY as string;
+const ANTHROPIC_API_KEY = Constants.expoConfig?.extra?.ANTHROPIC_API_KEY as string;
+const GROQ_API_KEY = Constants.expoConfig?.extra?.GROQ_API_KEY as string;
 
-/** Kullanıcı profilinin yapısını tanımlar. */
+const MODELS = {
+  openai_4o: 'gpt-4o',
+  gemini_1_5: 'gemini-1.5-pro-latest',
+  gemini_1_0: 'gemini-1.0-pro',
+  claude_haiku: 'claude-3-haiku-20240307',
+  groq_mixtral: 'mixtral-8x7b-32768',
+  openai_gpt3_5: 'gpt-3.5-turbo'
+};
+
+const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
+const groq = new Groq({ apiKey: GROQ_API_KEY });
+
 export interface UserProfile {
   nickname?: string;
   birthDate?: string;
@@ -28,16 +44,6 @@ export interface UserProfile {
   interests?: string[];
 }
 
-/** Bir günlük girişinin yapısını tanımlar. */
-export interface LogEntry {
-  timestamp: number;
-  mood: string;
-  reflection: string;
-  activities?: string[];
-  sleepHours?: number;
-}
-
-/** Yapılandırılmış günlük analizi çıktısının formatını tanımlar. */
 export interface DiaryAnalysis {
   feedback: string;
   questions: string[];
@@ -45,52 +51,152 @@ export interface DiaryAnalysis {
   tags: string[];
 }
 
+class AIError extends Error {
+  constructor(message: string, public service: string) {
+    super(message);
+    this.name = 'AIError';
+  }
+}
+
 // -----------------------------------------------------------------------------
-// 2. DÜŞÜK SEVİYE API VE YARDIMCI FONKSİYONLAR
+// TERAPİST PROFİLLERİ (generateTherapistReply için)
 // -----------------------------------------------------------------------------
 
-/**
- * Gemini API'sine ham bir prompt gönderir ve metin yanıtını alır.
- * @param prompt AI'a gönderilecek olan görev tanımı.
- * @param maxTokens Üretilecek maksimum token sayısı.
- * @returns AI tarafından üretilen metin.
- */
-async function llm(prompt: string, maxTokens = 200): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: { temperature: TEMP, topP: 0.95, maxOutputTokens: maxTokens },
-  };
+const THERAPIST_PROFILES = {
+  therapist1: {
+    id: 'therapist1',
+    name: 'Dr. Elif',
+    title: 'AI Klinik Psikolog',
+    specialties: ['Duygusal zorluklar', 'Özşefkat', 'İlişki terapisi'],
+    approach: 'Şefkatli ve duygusal, anaç tavırlı bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
+    philosophy: 'Duygularını onurlandırmak, kendini iyileştirmenin ilk adımıdır.',
+    style: 'Empati ve dinleme öncelikli, duygulara odaklanır',
+    about: 'Ben Dr. Elif. Duyguların keşfi ve iyileşme yolculuğunda sana şefkatle eşlik ederim. Seanslarda her duygunun güvenle ifade edilebildiği, yargısız bir alan yaratırım. Stres, özgüven ve ilişki sorunlarında destek olurum.',
+  },
+  therapist3: {
+    id: 'therapist3',
+    name: 'Dr. Lina',
+    title: 'AI Bilişsel Davranışçı Uzmanı',
+    specialties: ['Öz güven', 'Motivasyon', 'Yaşam hedefleri'],
+    approach: 'Genç ruhlu ve motive edici bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
+    philosophy: 'Bugün küçük bir adım, yarın büyük bir değişimin başlangıcıdır.',
+    style: 'Enerjik ve pozitif yaklaşımım, danışanlarımı cesaretlendirir ve değişim için motive eder.',
+    about: 'Selam! Ben Dr. Lina. Hayata pozitif bakışımla, güçlü yönlerini keşfetmen ve hedeflerine ulaşman için seni desteklerim. Seanslarımda motive edici, pratik ve genç bir enerji sunarım. Hedef belirleme ve değişim konularında yanındayım.',
+  },
+  coach1: {
+    id: 'coach1',
+    name: 'Coach Can',
+    title: 'AI Yaşam Koçu',
+    specialties: ['Kişisel gelişim', 'Hedef belirleme', 'Performans artırma'],
+    approach: 'Dinamik ve ilham verici bir koç olarak, danışanlarımın potansiyellerini ortaya çıkarmalarına ve hedeflerine ulaşmalarına yardımcı oluyorum. Her bireyin içinde keşfedilmeyi bekleyen bir güç olduğuna inanırım.',
+    philosophy: 'Başarı, küçük adımların tutarlı bir şekilde atılmasıyla gelir.',
+    style: 'Enerjik ve pratik yaklaşımım, danışanlarımı harekete geçirir ve hedeflerine ulaşmalarını sağlar.',
+    about: 'Merhaba! Ben Coach Can. Yaşam koçluğu alanında uzmanlaşmış bir AI koçuyum. Dinamik ve ilham verici yaklaşımımla, potansiyelinizi ortaya çıkarmanıza ve hedeflerinize ulaşmanıza rehberlik ediyorum. Kişisel gelişim, kariyer planlaması ve performans artırma konularında yanınızdayım.',
+  }
+};
+
+type TherapistID = keyof typeof THERAPIST_PROFILES;
+
+// -----------------------------------------------------------------------------
+// 2. Düşük Seviye API Çağrı Fonksiyonları
+// -----------------------------------------------------------------------------
+
+async function fetchFromGemini(prompt: string, model: string, maxTokens: number): Promise<string> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+    const body = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.75, maxOutputTokens: maxTokens } };
+    try {
+        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? 'Modelden boş yanıt geldi.';
+    } catch (e) { throw new AIError((e as Error).message, `Gemini (${model})`); }
+}
+
+async function fetchFromOpenAI(prompt: string, model: string, maxTokens: number): Promise<string> {
   try {
-    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini API Hatası:', response.status, errorText);
-      return 'Üzgünüm, şu an sunucuya ulaşmakta zorlanıyorum. Lütfen daha sonra tekrar deneyin.';
+      const completion = await openai.chat.completions.create({ model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
+      return completion.choices[0].message.content?.trim() ?? 'Modelden boş yanıt geldi.';
+  } catch (e) { throw new AIError((e as Error).message, `OpenAI (${model})`); }
+}
+
+async function fetchFromAnthropic(prompt: string, maxTokens: number): Promise<string> {
+    try {
+        const msg = await anthropic.messages.create({ model: MODELS.claude_haiku, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] });
+        return msg.content[0].type === "text" ? msg.content[0].text : 'Modelden metin yanıtı alınamadı.';
+    } catch (e) { throw new AIError((e as Error).message, "Anthropic"); }
+}
+
+async function fetchFromGroq(prompt: string, maxTokens: number): Promise<string> {
+    try {
+        const chatCompletion = await groq.chat.completions.create({ messages: [{ role: 'user', content: prompt }], model: MODELS.groq_mixtral, max_tokens: maxTokens });
+        return chatCompletion.choices[0]?.message?.content || 'Modelden boş yanıt geldi.';
+    } catch (e) { throw new AIError((e as Error).message, "Groq/Mixtral"); }
+}
+
+// -----------------------------------------------------------------------------
+// 3. ÖZELLEŞMİŞ, GÖREV BAZLI LLM YÖNETİCİLERİ
+// -----------------------------------------------------------------------------
+
+type Plan = { name: string; fn: () => Promise<string>; };
+
+async function executeFallbackChain(plans: Plan[]): Promise<string> {
+  for (const plan of plans) {
+    try {
+      console.log(`▶️ Plan deneniyor: ${plan.name}`);
+      return await plan.fn();
+    } catch (error) {
+      console.warn(`🟡 Plan (${plan.name}) başarısız. Sonraki deneniyor... Hata:`, (error as Error).message);
     }
-    const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? 'Anlaşılır bir yanıt alınamadı. Farklı bir şekilde sormayı deneyin.';
-  } catch (error) {
-    console.error('Gemini Fetch Hatası:', error);
-    return 'İnternet bağlantınızda bir sorun olabilir. Lütfen kontrol edip tekrar deneyin.';
   }
+  console.error("🔴 TÜM AI PLANLARI BAŞARISIZ OLDU.");
+  return "Üzgünüm, AI asistanlarımız şu anda yanıt vermiyor. Lütfen daha sonra tekrar deneyin.";
 }
 
-/** Cihaz hafızasından kullanıcı profilini alır. */
+async function llmForDailyReflection(prompt: string, maxTokens: number): Promise<string> {
+    const plans: Plan[] = [
+        { name: "Groq (Mixtral)", fn: () => fetchFromGroq(prompt, maxTokens) },
+        { name: "Gemini 1.0", fn: () => fetchFromGemini(prompt, MODELS.gemini_1_0, maxTokens) },
+        { name: "Claude Haiku", fn: () => fetchFromAnthropic(prompt, maxTokens) },
+        { name: "OpenAI GPT-3.5", fn: () => fetchFromOpenAI(prompt, MODELS.openai_gpt3_5, maxTokens) },
+        { name: "Gemini 1.5 (Yedek)", fn: () => fetchFromGemini(prompt, MODELS.gemini_1_5, maxTokens) },
+    ];
+    return executeFallbackChain(plans);
+}
+
+async function llmForDiaryAnalysis(prompt: string, maxTokens: number): Promise<string> {
+    const plans: Plan[] = [
+        { name: "Gemini 1.0", fn: () => fetchFromGemini(prompt, MODELS.gemini_1_0, maxTokens) },
+        { name: "Claude Haiku", fn: () => fetchFromAnthropic(prompt, maxTokens) },
+        { name: "Groq (Mixtral)", fn: () => fetchFromGroq(prompt, maxTokens) },
+        { name: "OpenAI GPT-3.5", fn: () => fetchFromOpenAI(prompt, MODELS.openai_gpt3_5, maxTokens) },
+        { name: "Gemini 1.5 (Yedek)", fn: () => fetchFromGemini(prompt, MODELS.gemini_1_5, maxTokens) },
+    ];
+    return executeFallbackChain(plans);
+}
+
+async function llmForSmartestTasks(prompt: string, maxTokens: number): Promise<string> {
+  const plans: Plan[] = [
+      { name: "OpenAI GPT-4o", fn: () => fetchFromOpenAI(prompt, MODELS.openai_4o, maxTokens) },
+      { name: "Gemini 1.5 Pro", fn: () => fetchFromGemini(prompt, MODELS.gemini_1_5, maxTokens) },
+      { name: "Claude Haiku", fn: () => fetchFromAnthropic(prompt, maxTokens) },
+      { name: "Gemini 1.0", fn: () => fetchFromGemini(prompt, MODELS.gemini_1_0, maxTokens) },
+      { name: "Groq (Mixtral)", fn: () => fetchFromGroq(prompt, maxTokens) },
+      { name: "OpenAI GPT-3.5", fn: () => fetchFromOpenAI(prompt, MODELS.openai_gpt3_5, maxTokens) },
+  ];
+  return executeFallbackChain(plans);
+}
+
+// -----------------------------------------------------------------------------
+// 4. UYGULAMA SEVİYESİ YARDIMCI FONKSİYONLAR
+// -----------------------------------------------------------------------------
+
 async function getUserProfile(): Promise<UserProfile | null> {
-  try {
-    const profileString = await AsyncStorage.getItem('userProfile');
-    return profileString ? JSON.parse(profileString) : null;
-  } catch {
-    return null;
-  }
+    try {
+      const profileString = await AsyncStorage.getItem('userProfile');
+      return profileString ? JSON.parse(profileString) : null;
+    } catch { return null; }
 }
 
-/**
- * Kullanıcı profilini, AI'ın anlayacağı zengin ve anlatısal bir metne dönüştürür.
- * @param profile Kullanıcı profili nesnesi.
- * @returns AI için hazırlanmış profil özeti.
- */
 function createUserDescription(profile: UserProfile | null): string {
   if (!profile) return 'Kullanıcı profili mevcut değil.';
   const parts = [
@@ -104,191 +210,107 @@ function createUserDescription(profile: UserProfile | null): string {
   return parts.filter(Boolean).join(' ');
 }
 
-/** Uzun bir konuşma geçmişini, sadece son kısımlarını alarak kısaltır. */
 function compress(history = '', keep = 8): string {
-  return history.split('\n').map(l => l.trim()).filter(Boolean).slice(-keep).join('\n');
+    return history.split('\n').map(l => l.trim()).filter(Boolean).slice(-keep).join('\n');
 }
 
 // -----------------------------------------------------------------------------
-// 3. TERAPİST SOHBETİ FONKSİYONLARI
+// 5. ÖZEL PROMPT OLUŞTURUCU (Sadece Terapist Cevabı için)
 // -----------------------------------------------------------------------------
 
-const THERAPISTS = {
-  therapist1: { persona: 'Dr. Elif', tech: 'şefkatli ve anlayışlı bir yaklaşımla, Duygu Odaklı Terapi ve Bilişsel Davranışçı Terapi tekniklerini kullanır' },
-  therapist3: { persona: 'Dr. Lina', tech: 'enerjik ve çözüm odaklı bir dille, BDT ve Pozitif Psikoloji tekniklerini uygular' },
-  coach1:     { persona: 'Koç Can', tech: 'motive edici ve eylem odaklı bir üslupla, hedef belirleme ve başa çıkma stratejileri üzerine odaklanır' },
-} as const;
-type TID = keyof typeof THERAPISTS;
+async function buildTherapistPrompt(p: { id: TherapistID; profileDesc: string; history: string; userMsg: string; mood: string; }): Promise<string> {
+    const therapist = THERAPIST_PROFILES[p.id];
 
-const GOAL_OPTIONS = [
-  'Kullanıcının ifade ettiği duyguyu yansıtarak geçerli kılmak.',
-  'Bir düşünce tuzağını (otomatik düşünceyi) nazikçe sorgulamak.',
-  'Konuyu derinleştirmek için güçlü, açık uçlu bir soru sormak.',
-  'Pratik, küçük bir başa çıkma stratejisi veya bakış açısı önermek.',
-  'Konuşmanın gidişatını kullanıcının belirlemesine izin vermek, alanı ona bırakmak.',
-  'Bedensel duyumlara veya "şimdi ve burada" anına odaklanmasını teşvik etmek.',
-  'Kullanıcının kendi gücünü veya başa çıkma becerisini fark etmesini sağlamak.',
-];
+    const personaPrompt = `
+SENİN KİMLİĞİN VE ROLÜN:
+- Adın: ${therapist.name}
+- Unvanın: ${therapist.title}
+- Hakkında: ${therapist.about}
+- Uzmanlık Alanların: ${therapist.specialties.join(', ')}.
 
-/** Konuşmanın gidişatına göre en uygun bir sonraki terapötik hedefi seçer. */
-async function selectNextGoal(history: string, userMsg: string): Promise<string> {
-  const goalPrompt = `Bir terapi seansının bir bölümü aşağıdadır.\nGeçmiş: ${history}\nKullanıcı: "${userMsg}"\n\nAşağıdaki terapi hedeflerinden bu konuşma için en uygun olan BİR TANESİNİ seç ve sadece o cümlenin kendisini yaz.\n\nSeçenekler:\n- ${GOAL_OPTIONS.join('\n- ')}`.trim();
-  const goal = await llm(goalPrompt, 40);
-  return GOAL_OPTIONS.find(o => goal.includes(o)) || GOAL_OPTIONS[2];
-}
+İLETİŞİM TARZIN VE FELSEFEN:
+- Yaklaşımın: ${therapist.approach}
+- İletişim Tarzın: ${therapist.style}
+- Ana Felsefen: "${therapist.philosophy}"
+    `.trim();
 
-/**
- * Terapist yanıtı için tüm bileşenleri birleştirerek son prompt'u oluşturur.
- */
-async function buildTherapistPrompt(p: { id: TID; profileDesc: string; history: string; userMsg: string; mood: string; }): Promise<string> {
-  const therapist = THERAPISTS[p.id] ?? THERAPISTS.therapist1;
-  const safetyCheck = /(intihar|ölmek|zarar|kendimi kesmek)/i.test(p.userMsg)
-    ? 'ACİL DURUM KURALI: Kullanıcının güvenliği risk altında olabilir. Sakin kalarak profesyonel bir uzmana (psikolog, psikiyatrist) veya acil yardım hatlarına (örn: 112) ulaşmasını şiddetle tavsiye et. Bu uygulamanın bir kriz müdahale aracı olmadığını belirt.'
-    : 'ETİK KURAL: Asla tıbbi tanı koyma veya ilaç reçete etme. Sen bir terapi asistanısın, doktor değilsin.';
-    const dynamicGoal = p.history.trim() === ''
-    ? await selectNextGoal(p.history, p.userMsg)
-    : "Konuşmanın akışına ve bir önceki cevabına göre doğal bir şekilde devam et.";
+    const safetyCheck = "ETİK KURAL: Asla tıbbi tanı koyma, kriz durumlarında profesyonel yardım önermelisin.";
+    const dynamicGoal = "Kullanıcının ifade ettiği duyguları ve ihtiyaçları anla, ona göre destekleyici bir sohbet ortamı yarat.";
 
-  return `
-SENİN KİMLİĞİN: Sen, ${therapist.persona} adında bir AI terapistsin. Yaklaşımın: ${therapist.tech}.
+    return `
+${personaPrompt}
+
 KULLANICI PROFİLİ: ${p.profileDesc}
+O ANKİ DUYGU DURUMU: Kullanıcı bu seansa "${p.mood}" hissederek başladı.
 GÜVENLİK NOTU: ${safetyCheck}
-O ANKİ DUYGU: Kullanıcı bu seansa "${p.mood}" hissederek başladı. Bu bilgiyi aklında tut.
 
 KONUŞMA GEÇMİŞİ (Sohbetin Bağlamı Budur):
-${p.history.trim() === '' ? 'Bu ilk mesaj, henüz bir geçmiş yok.' : p.history}
+${p.history.trim() === '' ? 'Bu ilk mesaj.' : p.history}
 
-KULLANICININ SON MESAJI (Cevap Vermen Gereken): "${p.userMsg}"
-GİZLİ GÖREVİN (Kullanıcıya Belli Etme): ${dynamicGoal}
+KULLANICININ SON MESAJI: "${p.userMsg}"
+
+GİZLİ GÖREVİN: ${dynamicGoal}
 
 YANIT KURALLARI:
-1. Yanıtını MUTLAKA konuşma geçmişini dikkate alarak oluştur. Konuşulanları unutma.
-2. 2 ila 4 cümle arasında, dengeli bir uzunlukta cevap ver.
-3. Asla kullanıcının son söylediğini kelimesi kelimesine tekrar etme (papağanlaşma).
-4. Cevabını, kullanıcıyı düşünmeye teşvik eden açık uçlu bir soruyla bitir.
-`.trim();
+1. Yanıtını MUTLAKA yukarıda tanımlanan kimliğine, tarzına ve felsefene %100 sadık kalarak oluştur.
+2. Yanıtını MUTLAKA konuşma geçmişini dikkate alarak oluştur.
+3. 2-4 cümle arasında, dengeli ve kısa bir cevap ver.
+4. Cevabını her zaman açık uçlu bir soruyla bitirerek sohbeti devam ettir.`.trim();
 }
 
-/**
- * Bir kullanıcı mesajına terapist yanıtı üretir.
- * @param tid Kullanılacak terapist kimliği.
- * @param userMsg Kullanıcının son mesajı.
- * @param mood Kullanıcının o anki ruh hali.
- * @param history Konuşma geçmişi.
- * @param turn Konuşmanın kaçıncı turda olduğu (profil hatırlatması için).
- */
-export async function generateTherapistReply(tid: TID, userMsg: string, mood = '', history = '', turn = 1): Promise<string> {
+// -----------------------------------------------------------------------------
+// 6. UYGULAMANIN KULLANDIĞI EXPORT EDİLMİŞ FONKSİYONLAR
+// -----------------------------------------------------------------------------
+
+export async function generateTherapistReply(userMsg: string, mood = '', history = '', turn = 1): Promise<string> {
+  let selectedTherapistId: TherapistID = 'therapist1'; // Varsayılan terapist
+
+  try {
+    const storedTherapist = await AsyncStorage.getItem('selectedTherapist');
+    if (storedTherapist) {
+      const therapistObject = JSON.parse(storedTherapist);
+      if (therapistObject.id && THERAPIST_PROFILES[therapistObject.id as TherapistID]) {
+        selectedTherapistId = therapistObject.id;
+      }
+    }
+  } catch (error) {
+    console.error("AsyncStorage'dan terapist okunamadı, varsayılan kullanılıyor:", error);
+  }
+
   const profile = await getUserProfile();
-  // Profili her 4 turda bir veya ilk turda hatırlat
   const profileDescription = (turn === 1 || turn % 4 === 1) ? createUserDescription(profile) : 'Daha önce paylaşıldı.';
   
-  const prompt = await buildTherapistPrompt({
-    id: tid,
-    profileDesc: profileDescription,
-    history: compress(history),
-    userMsg,
-    mood,
+  const prompt = await buildTherapistPrompt({ 
+    id: selectedTherapistId, 
+    profileDesc: profileDescription, 
+    history: compress(history), 
+    userMsg, 
+    mood 
   });
   
-  // console.log('🧠 Terapist Promptu:', prompt);
-  return await llm(prompt, 200);
+  return await llmForSmartestTasks(prompt, 200);
 }
 
-// -----------------------------------------------------------------------------
-// 4. GÜNLÜK VE ANALİZ FONKSİYONLARI
-// -----------------------------------------------------------------------------
-
-/**
- * Kullanıcının günlük yansımasına kısa, empatik ve motive edici bir yanıt verir.
- * @param note Kullanıcının yazdığı günlük notu.
- * @param mood Kullanıcının belirttiği ruh hali.
- */
 export async function generateDailyReflectionResponse(note: string, mood: string): Promise<string> {
   const profile = await getUserProfile();
-  const prompt = `
-ROL: Sen, kullanıcının gün sonu yansımasını okuyan, sıcak ve cesaret verici bir yol arkadaşısın.
-KULLANICI: ${profile?.nickname || 'Kullanıcı'}
-BİLGİ: Kullanıcı bugün kendini "${mood}" olarak etiketledi ve şunları yazdı: "${note}"
-
-GÖREVİN: Yargılamadan, sadece duygusunu geçerli kılan ve ona destek olan 5 samimi cümle yaz. Asla tavsiye verme. Sadece dinle ve yanında olduğunu hissettir.
-`.trim();
-  return await llm(prompt, 80);
+  const prompt = `ROL: Sen, kullanıcının gün sonu yansımasını okuyan, sıcak ve cesaret verici bir yol arkadaşısın.\nKULLANICI: ${profile?.nickname || 'Kullanıcı'}\nBİLGİ: Kullanıcı bugün kendini "${mood}" olarak etiketledi ve şunları yazdı: "${note}"\n\nGÖREVİN: Yargılamadan, sadece duygusunu geçerli kılan ve ona destek olan 1-2 samimi cümle yaz.`.trim();
+  return await llmForDailyReflection(prompt, 80);
 }
 
-/**
- * Kullanıcının günlük girişini analiz eder ve yapılandırılmış JSON formatında döner.
- * @param text Günlük metni.
- * @returns {DiaryAnalysis} formatında bir nesne.
- */
 export async function analyzeDiaryEntry(text: string): Promise<DiaryAnalysis> {
-  const prompt = `
-GÜNLÜK METNİ ANALİZİ
-METİN: "${text}"
-
-GÖREV: Yukarıdaki metni analiz et ve çıktıyı AŞAĞIDAKİ JSON ŞABLONUNA TAM UYGUN OLARAK doldur. Cevabında SADECE ve SADECE JSON nesnesi olmalı, başka hiçbir metin veya işaret olmamalı.
-
-JSON ŞABLONU:
-{
-  "mood": "Metinden anlaşılan ana duygu (örneğin: 'huzurlu', 'stresli', 'karışık', 'mutlu')",
-  "tags": ["Metindeki anahtar kelimeler veya temalar (3-5 adet)", "iş", "aile", "kişisel gelişim"],
-  "feedback": "Kullanıcının yazdıklarına dair 1-2 cümlelik, nazik ve yapıcı bir geri bildirim.",
-  "questions": ["Kullanıcıyı daha derine inmeye teşvik edecek 1-2 açık uçlu soru", "Bu konuda en çok neyin değişmesini isterdin?"]
-}
-`.trim();
-  const rawJson = await llm(prompt, 250);
+  const prompt = `GÜNLÜK METNİ ANALİZİ\nMETİN: "${text}"\n\nGÖREV: Metni analiz et ve çıktıyı AŞAĞIDAKİ JSON ŞABLONUNA TAM UYGUN OLARAK doldur. SADECE JSON nesnesi döndür.\n\nJSON ŞABLONU:\n{"mood": "ana duygu", "tags": ["anahtar kelimeler"], "feedback": "nazik bir geri bildirim.", "questions": ["düşündürücü bir soru"]}`.trim();
+  const rawJson = await llmForDiaryAnalysis(prompt, 250);
   try {
-    // AI'ın bazen eklediği ```json bloğunu temizle
-    const cleanJson = rawJson.replace(/^```json\n?|```$/g, '');
+    const cleanJson = rawJson.replace(/```(json)?/g, '').trim();
     return JSON.parse(cleanJson);
   } catch {
-    return { feedback: 'Günün analizi yapılırken bir sorun oluştu.', questions: [], mood: 'belirsiz', tags: [] };
+    return { feedback: 'Analiz yapılamadı.', questions: [], mood: 'belirsiz', tags: [] };
   }
 }
 
-/**
- * Kullanıcının TÜM olay kayıtlarını analiz ederek premium bir rapor oluşturur.
- * @param events Analiz edilecek olaylar dizisi.
- * @param days Raporun kapsadığı gün sayısı.
- */
 export async function generateDetailedMoodSummary(events: AppEvent[], days: number): Promise<string> {
-  // 1. Gerekli verileri hazırla
-  const userProfile = await getUserProfile();
-  const userDescription = createUserDescription(userProfile);
-
-  // 2. YENİ VERİ FORMATINA UYGUN PROMPT
-  const prompt = `
-ANA GÖREV: Aşağıda KAYNAK VERİLER bölümünde JSON formatında bir olay (event) akışı bulunmaktadır. Bu verileri kullanarak kullanıcının son ${days} günü hakkında detaylı ve bütünsel bir ruh hali raporu oluştur.
-
-ÖNEMLİ KURAL: "Veri yetersiz" gibi ifadeler KULLANMA. Sana verilen olay akışıyla mümkün olan en iyi analizi yap. Olaylar arasındaki bağlantıları kur. Örneğin, bir 'session_start' olayındaki 'kötü' ruh hali ile 'daily_reflection'daki 'iş stresi' notu arasında bir ilişki var mı?
-
-KULLANICI BİLGİLERİ: ${userDescription}
-
-KAYNAK VERİLER (Olay Akışı):
-${JSON.stringify(events, null, 2)}
-
-RAPOR YAPISI VE TALİMATLARI:
-Aşağıdaki 4 başlığı kullanarak raporunu oluştur.
-
-Genel Bakış
-KAYNAK VERİLER'deki duygu dağılımını (örneğin %60 pozitif) analiz et. Verilerden yola çıkarak haftanın en belirgin 3 özelliğini (başarı, zorluk, olay vb.) bul ve vurgula.
-
-Duygusal Dalgalanmalar
-Verilerdeki duygu geçişlerinin ne kadar keskin olduğunu ve hangi günler daha belirgin olduğunu (örn. hafta başı vs sonu) belirt. Genel bir duygu yoğunluk skoru (1-10) tahmini yap.
-
-Tetikleyici Analizi
-Verilerdeki olayları incele. 'daily_reflection' veya 'diary_entry' içindeki 'reflection'/'not' metinlerini, 'text_session' gibi olaylardaki 'messages' (sohbet geçmişi) içerikleriyle karşılaştır. Kullanıcının belirli konular (örneğin 'iş', 'aile') hakkında konuştuktan sonra ruh halinin nasıl değiştiğini analiz et. Tekrar eden temaları ve bunların duygularla ilişkisini bul.
-
-Kişiye Özel Tavsiyeler
-Kullanıcının profilindeki hedeflere (${userProfile?.goals?.join(', ') || 'belirtilmemiş'}) ve ilgi alanlarına (${userProfile?.interests?.join(', ') || 'belirtilmemiş'}) göre 3 somut adım öner. Verilerden yola çıkarak haftaya özel bir hedef ve bir kriz anı stratejisi sun.
-
-!! TEKNİK FORMATLAMA KURALLARI (UYULMASI ZORUNLU) !!
-1. Rapor 750 kelimeyi geçmesin.
-2. Cevabın SADECE DÜZ METİN olmalı. Markdown, yıldız, tire, madde işareti veya başka bir özel karakter KULLANMA.
-3. Başlıkları tam olarak 'Genel Bakış', 'Duygusal Dalgalanmalar' vb. şeklinde yaz ve sonraki satıra geç.
-4. Her bölümde, fikirleri yeni bir paragrafla (yeni bir satırda başlayarak) ayır.
-5. Kullanıcıya "${userProfile?.nickname || 'değerli kullanıcı'}" ismiyle hitap et.
-`.trim();
-
-  // console.log("💎 Gönderilen Bütünsel Analiz Promptu:\n", prompt);
-  return await llm(prompt, 800); // Token sayısını artırmak gerekebilir
+    const userProfile = await getUserProfile();
+    const userDescription = createUserDescription(userProfile);
+    const prompt = `ANA GÖREV: Aşağıdaki olay akışını analiz ederek ${days} günlük, bütünsel bir ruh hali raporu oluştur.\n\nÖNEMLİ KURAL: "Veri yetersiz" deme. Sana verilen olaylar arasındaki GERÇEK bağlantıları kurarak mümkün olan en iyi analizi yap.\n\nKULLANICI BİLGİLERİ: ${userDescription}\n\nKAYNAK VERİLER (Olay Akışı):\n${JSON.stringify(events, null, 2)}\n\nRAPOR YAPISI: Aşağıdaki 4 başlığı kullan.\n\nGenel Bakış\n...\nDuygusal Dalgalanmalar\n...\nTetikleyici Analizi\n...\nKişiye Özel Tavsiyeler\n...\n\n!! FORMATLAMA KURALLARI: SADECE DÜZ METİN kullan, Markdown kullanma. Başlıkları yazdıktan sonra alt satıra geç. Her bölümde fikirleri yeni paragraflarla ayır. Kullanıcıya "${userProfile?.nickname || 'değerli kullanıcı'}" ismiyle hitap et.`.trim();
+    return await llmForSmartestTasks(prompt, 800);
 }
