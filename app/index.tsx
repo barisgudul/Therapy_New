@@ -224,6 +224,29 @@ export default function HomeScreen() {
     }
   };
 
+  const handleGoToAllTranscripts = async () => {
+    const allKeys = await AsyncStorage.getAllKeys();
+    const eventKeys = allKeys.filter(key => /^events-\d{4}-\d{2}-\d{2}$/.test(key));
+    let allEvents = [];
+    if (eventKeys.length > 0) {
+      const dataPairs = await AsyncStorage.multiGet(eventKeys);
+      dataPairs.forEach(pair => {
+        const eventsJson = pair[1];
+        if (eventsJson) {
+          try {
+            const dailyEvents = JSON.parse(eventsJson);
+            allEvents.push(...dailyEvents);
+          } catch {}
+        }
+      });
+    }
+    const sessionEvents = allEvents.filter(ev => ['text_session', 'voice_session', 'video_session'].includes(ev.type));
+    router.push({
+      pathname: '/denem',
+      params: { events: JSON.stringify(sessionEvents) }
+    });
+  };
+
   /* ------------- UI ------------- */
   return (
     <LinearGradient colors={['#F8F9FC', '#FFFFFF']} 
@@ -341,7 +364,7 @@ export default function HomeScreen() {
             {/* Deneme Butonu - Herkese Açık */}
             <TouchableOpacity 
               style={[styles.button, { marginTop: 16, backgroundColor: '#6366f1', borderColor: '#6366f1' }]}
-              onPress={() => router.push('/denem' as const)}
+              onPress={handleGoToAllTranscripts}
               activeOpacity={0.9}
             >
               <LinearGradient
