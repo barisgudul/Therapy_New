@@ -1,38 +1,47 @@
-import { LinearGradient } from 'expo-linear-gradient'; // Gradyanlar için
+import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text, // Daha gelişmiş dokunma etkileşimleri için
+  Text,
   UIManager,
   View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { analyzeDiaryEntry } from '../hooks/useGemini';
 
-// Android'de LayoutAnimation'ı etkinleştirmek için
+// Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// ---- PREMIUM TASARIM TEMASI ----
+// ---- YENİ PREMIUM TASARIM TEMASI ----
 const theme = {
-  backgroundGradient: ['#FDFEFF', '#F5F7FA'] as [string, string], // Çok ince, ferah bir gradyan
+  // Sakin, havadar ve lüks bir his veren açık mavi tonları
+  backgroundGradient: ['#F7F9FF', '#E9EFFC'] as [string, string], 
   card: '#FFFFFF',
-  primaryGradient: ['#4361EE', '#5A67D8'] as [string, string], // Canlı ve güvenilir mavi/mor gradyan
-  primary: '#4361EE',
-  text: '#1A202C', // Daha koyu ve kontrastlı metin
-  textLight: '#718096', // İkincil metinler için yumuşak gri
-  textSubtle: '#A0AEC0', // En az dikkat çeken metinler
-  userBubble: '#F0F2F5',
-  aiBubbleGradient: ['rgba(67, 97, 238, 0.05)', 'rgba(90, 103, 216, 0.15)'] as [string, string],
-  shadow: 'rgba(67, 97, 238, 0.15)', // Gölge rengini ana renkle uyumlu hale getirme
-  success: '#38A169',
-  analysisBorder: 'rgba(67, 97, 238, 0.2)',
+  // Daha modern ve enerjik bir mavi
+  primary: '#3D5AFE', 
+  primaryGradient: ['#3D5AFE', '#5C6BC0'] as [string, string],
+  // Okunabilirlik için yüksek kontrastlı metin
+  text: '#0D1117', 
+  textLight: '#586069',
+  textSubtle: '#8B949E',
+  // Kullanıcı balonu için daha yumuşak bir arka plan
+  userBubble: '#F1F3F5', 
+  // Yapay zeka balonu için ana renkten türetilmiş sofistike bir gradyan
+  aiBubbleGradient: ['rgba(61, 90, 254, 0.05)', 'rgba(92, 107, 192, 0.1)'] as [string, string],
+  // Ana renkle uyumlu, daha yumuşak bir gölge
+  shadow: 'rgba(61, 90, 254, 0.12)', 
+  success: '#28A745',
+  // Analiz kutusunun kenarlığı için ince bir vurgu
+  analysisBorder: 'rgba(61, 90, 254, 0.15)',
+  iconBackground: 'rgba(61, 90, 254, 0.08)',
 };
 
 // ---- ARAYÜZ BİLEŞENLERİ (UI Components) ----
@@ -41,19 +50,30 @@ interface SessionEvent {
   id: string;
   type: string;
   timestamp: number;
-  mood?: string;
+  mood?: 'happy' | 'neutral' | 'sad'; // Örnek ruh hali verisi
   data: {
     messages: { sender: string; text: string }[];
     [key: string]: any;
   };
 }
 
+// Seans tipine göre ikon döndürür
 const getSessionIcon = (type: string) => {
   switch (type) {
-    case 'text_session': return 'edit-3';
+    case 'text_session': return 'edit';
     case 'voice_session': return 'mic';
     case 'video_session': return 'video';
     default: return 'message-circle';
+  }
+};
+
+// Ruh haline göre ikon ve renk döndürür (Premium bir detay!)
+const getMoodDetails = (mood?: string) => {
+  switch (mood) {
+    case 'happy': return { icon: 'smile', color: '#4CAF50' };
+    case 'neutral': return { icon: 'meh', color: '#FFC107' };
+    case 'sad': return { icon: 'frown', color: '#F44336' };
+    default: return null;
   }
 };
 
@@ -81,86 +101,110 @@ const MessageBubble: React.FC<{ message: { sender: string; text: string } }> = (
   );
 };
 
-// Seans Kartı Bileşeni
-const SessionCard: React.FC<{ event: SessionEvent }> = ({ event }) => {
+// Animasyonlu Seans Kartı Bileşeni
+const AnimatedSessionCard: React.FC<{ event: SessionEvent; index: number }> = ({ event, index }) => {
   const [analysis, setAnalysis] = React.useState({ loading: false, result: null as string | null });
+  const moodDetails = getMoodDetails(event.mood);
+
+  // Kartların ekrana gelirken animasyonlu girişi için
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const slideAnim = React.useRef(new Animated.Value(20)).current;
+
+  React.useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      delay: index * 100, // Kartların art arda gelmesi için
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 500,
+      delay: index * 100,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim, slideAnim, index]);
+
 
   const handleAnalyze = async () => {
     setAnalysis({ loading: true, result: null });
     try {
       const fullText = event.data.messages.map(m => m.text).join('\n\n');
       const result = await analyzeDiaryEntry(fullText);
-      // Animasyonu daha akışkan ve "yaylı" bir efekte değiştiriyoruz
       LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
       setAnalysis({ loading: false, result: result.feedback });
     } catch (e) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
-      setAnalysis({ loading: false, result: 'AI analizi sırasında bir hata oluştu.' });
+      setAnalysis({ loading: false, result: 'Yapay zeka analizi sırasında bir hata oluştu.' });
     }
   };
 
   return (
-    <View style={styles.card}>
-      {/* Kart Başlığı */}
-      <View style={styles.cardHeader}>
-        <View style={styles.sessionTypeContainer}>
-          <Icon name={getSessionIcon(event.type)} size={18} color={theme.primary} />
-          <Text style={styles.sessionType}>
-            {event.type === 'text_session' ? 'Yazı Terapi' : event.type === 'voice_session' ? 'Sesli Terapi' : 'Görüntülü Terapi'}
-          </Text>
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      <View style={styles.card}>
+        {/* Kart Başlığı - Daha dengeli ve şık bir yerleşim */}
+        <View style={styles.cardHeader}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.sessionTypeContainer}>
+              <Icon name={getSessionIcon(event.type)} size={16} color={theme.primary} />
+              <Text style={styles.sessionType}>
+                {event.type === 'text_session' ? 'Yazı Terapisi' : event.type === 'voice_session' ? 'Sesli Terapi' : 'Görüntülü Terapi'}
+              </Text>
+            </View>
+            <Text style={styles.sessionDate}>
+              {new Date(event.timestamp).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </Text>
+          </View>
+          {moodDetails && (
+            <View style={[styles.moodIconContainer, { backgroundColor: moodDetails.color + '1A' }]}>
+              <Icon name={moodDetails.icon} size={24} color={moodDetails.color} />
+            </View>
+          )}
         </View>
-        <View style={styles.dateContainer}>
-           <Icon name="calendar" size={14} color={theme.textSubtle} />
-           <Text style={styles.sessionDate}>
-            {new Date(event.timestamp).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
-           </Text>
+        
+        {/* Mesajlar */}
+        <View style={styles.messagesContainer}>
+          {event.data?.messages?.length ? (
+            event.data.messages.map((m, i) => <MessageBubble key={i} message={m} />)
+          ) : (
+            <Text style={styles.emptyText}>Bu seans için döküm bulunamadı.</Text>
+          )}
         </View>
-      </View>
-      
-      {/* Mesajlar */}
-      <View style={styles.messagesContainer}>
-        {event.data?.messages?.length ? (
-          event.data.messages.map((m, i) => <MessageBubble key={i} message={m} />)
-        ) : (
-          <Text style={styles.emptyText}>Bu seans için döküm bulunamadı.</Text>
-        )}
-      </View>
-      
-      {/* Analiz Bölümü */}
-      <View style={styles.actionSection}>
-        {!analysis.result && (
-          <Pressable onPress={handleAnalyze} disabled={analysis.loading}>
-            {({ pressed }) => (
+        
+        {/* Analiz Bölümü */}
+        <View style={styles.actionSection}>
+          {!analysis.result && (
+            <Pressable onPress={handleAnalyze} disabled={analysis.loading} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
               <LinearGradient
-                colors={theme.primaryGradient}
+                colors={analysis.loading ? ['#BDBDBD', '#9E9E9E'] : theme.primaryGradient}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
-                style={[styles.analyzeBtn, { opacity: pressed ? 0.85 : 1 }]}
+                style={styles.analyzeBtn}
               >
                 {analysis.loading ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <Icon name="sparkles" size={20} color="rgba(255,255,255,0.8)" />
+                    <Icon name="sparkles" size={20} color="rgba(255,255,255,0.9)" />
                     <Text style={styles.analyzeBtnText}>Zeka ile Değerlendir</Text>
                   </>
                 )}
               </LinearGradient>
-            )}
-          </Pressable>
-        )}
+            </Pressable>
+          )}
 
-        {analysis.result && (
-          <View style={styles.analysisBox}>
-            <View style={styles.analysisHeaderContainer}>
-                <Icon name="brain" size={18} color={theme.primary} />
-                <Text style={styles.analysisHeader}>Yapay Zeka Analizi</Text>
-            </View>
-            <Text style={styles.analysisText}>{analysis.result}</Text>
-          </View>
-        )}
+          {analysis.result && (
+            <LinearGradient colors={theme.aiBubbleGradient} style={styles.analysisBox}>
+              <View style={styles.analysisHeaderContainer}>
+                  <Icon name="brain" size={18} color={theme.primary} />
+                  <Text style={styles.analysisHeader}>Yapay Zeka Analizi</Text>
+              </View>
+              <Text style={styles.analysisText}>{analysis.result}</Text>
+            </LinearGradient>
+          )}
+        </View>
       </View>
-    </View>
+    </Animated.View>
   );
 };
 
@@ -169,7 +213,12 @@ export default function PremiumHistoryScreen(props: any) {
   const params = props.route?.params || {};
   let events: SessionEvent[] = [];
   try {
-    events = params.events ? JSON.parse(params.events as string) : [];
+    // Örnek mood verisi ekleyelim
+    const parsedEvents = params.events ? JSON.parse(params.events as string) : [];
+    events = parsedEvents.map((e: SessionEvent, i: number) => ({
+      ...e,
+      mood: i % 3 === 0 ? 'happy' : i % 3 === 1 ? 'neutral' : 'sad' // Demo için rastgele mood
+    }));
   } catch {
     events = [];
   }
@@ -177,19 +226,25 @@ export default function PremiumHistoryScreen(props: any) {
   return (
     <LinearGradient colors={theme.backgroundGradient} style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.header}>Geçmişim</Text>
-        <Text style={styles.subheader}>
-          Seans dökümlerinizi ve zeka analizlerini keşfedin.
-        </Text>
+        <View style={styles.headerContainer}>
+            <Text style={styles.header}>Yolculuğum</Text>
+            <Text style={styles.subheader}>
+            Geçmiş seanslarınıza göz atın ve içgörülerinizi keşfedin.
+            </Text>
+        </View>
         
         {events.length === 0 ? (
           <View style={styles.emptyState}>
-            <Icon name="moon" size={54} color={theme.textSubtle} />
+            <LinearGradient colors={theme.primaryGradient} style={styles.emptyStateIconContainer}>
+                <Icon name="award" size={48} color="white" />
+            </LinearGradient>
             <Text style={styles.emptyStateHeader}>Henüz Bir Anı Yok</Text>
-            <Text style={styles.emptyStateText}>İlk seansınız tamamlandığında burada görünecek.</Text>
+            <Text style={styles.emptyStateText}>İlk seansınız tamamlandığında yolculuğunuz burada başlayacak.</Text>
           </View>
         ) : (
-          events.sort((a,b) => b.timestamp - a.timestamp).map((event) => <SessionCard key={event.id} event={event} />)
+          events
+            .sort((a,b) => b.timestamp - a.timestamp)
+            .map((event, index) => <AnimatedSessionCard key={event.id} event={event} index={index} />)
         )}
       </ScrollView>
     </LinearGradient>
@@ -202,65 +257,71 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-    paddingTop: 60,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    paddingTop: Platform.OS === 'android' ? 40 : 60,
+  },
+  headerContainer: {
+    marginBottom: 32,
+    alignItems: 'center',
   },
   header: {
-    fontSize: 34,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: 'bold',
     color: theme.text,
-    textAlign: 'center',
     marginBottom: 8,
   },
   subheader: {
-    fontSize: 17,
+    fontSize: 16,
     color: theme.textLight,
     textAlign: 'center',
-    marginBottom: 40,
+    maxWidth: '85%',
   },
   // Kart Stilleri
   card: {
     backgroundColor: theme.card,
-    borderRadius: 24,
+    borderRadius: 28,
     padding: 20,
-    marginBottom: 28,
+    marginBottom: 24,
     shadowColor: theme.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.8,
+    shadowRadius: 24,
+    elevation: 10,
+    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingBottom: 16,
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F5',
   },
   sessionTypeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(67, 97, 238, 0.08)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    backgroundColor: theme.iconBackground,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 100, // Tam yuvarlak kapsül
   },
   sessionType: {
-    marginLeft: 8,
-    fontSize: 15,
+    marginLeft: 10,
+    fontSize: 14,
     fontWeight: '600',
     color: theme.primary,
-  },
-  dateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   sessionDate: {
     fontSize: 13,
     color: theme.textSubtle,
-    marginLeft: 6,
-    fontWeight: '500',
+    marginTop: 10,
+    marginLeft: 4
+  },
+  moodIconContainer: {
+      padding: 12,
+      borderRadius: 18,
   },
   // Mesaj Stilleri
   messagesContainer: {
@@ -268,29 +329,29 @@ const styles = StyleSheet.create({
   },
   bubbleContainer: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 22,
+    paddingHorizontal: 18,
+    borderRadius: 20,
     maxWidth: '85%',
   },
   userBubbleContainer: {
     backgroundColor: theme.userBubble,
     alignSelf: 'flex-end',
-    borderBottomRightRadius: 6,
+    borderBottomRightRadius: 4,
   },
   aiBubbleContainer: {
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: 6,
+    borderBottomLeftRadius: 4,
   },
   userText: {
     color: theme.text,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 22,
   },
   aiText: {
     color: theme.primary,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    lineHeight: 24,
+    lineHeight: 22,
   },
   // Aksiyon ve Analiz Stilleri
   actionSection: {
@@ -298,68 +359,74 @@ const styles = StyleSheet.create({
   },
   analyzeBtn: {
     paddingVertical: 16,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 12,
     shadowColor: theme.primary,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   analyzeBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 17,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   analysisBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 20,
     padding: 20,
     marginTop: 8,
-    borderWidth: 1,
-    borderColor: theme.analysisBorder,
   },
   analysisHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     marginBottom: 12,
   },
   analysisHeader: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
     color: theme.primary,
   },
   analysisText: {
     color: theme.text,
-    fontSize: 16,
-    lineHeight: 25,
+    fontSize: 15,
+    lineHeight: 24,
   },
   // Boş Durum Stilleri
   emptyState: {
-    marginTop: 80,
+    marginTop: 60,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
+  emptyStateIconContainer: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 24,
+  },
   emptyStateHeader: {
     fontSize: 22,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: theme.text,
-    marginTop: 24,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   emptyStateText: {
     fontSize: 16,
     color: theme.textLight,
     textAlign: 'center',
+    lineHeight: 24,
   },
   emptyText: {
     color: theme.textLight,
     fontStyle: 'italic',
     padding: 10,
+    textAlign: 'center',
   }
 });
