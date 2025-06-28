@@ -20,28 +20,29 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// ---- YENİ PREMIUM TASARIM TEMASI ----
+// ---- YENİ PREMIUM & ZARİF TASARIM TEMASI ----
 const theme = {
   // Sakin, havadar ve lüks bir his veren açık mavi tonları
   backgroundGradient: ['#F7F9FF', '#E9EFFC'] as [string, string], 
   card: '#FFFFFF',
-  // Daha modern ve enerjik bir mavi
-  primary: '#3D5AFE', 
-  primaryGradient: ['#3D5AFE', '#5C6BC0'] as [string, string],
+  // Daha derin, sofistike ve sakin bir mavi
+  primary: '#4A69E2', 
+  primaryGradient: ['#4A69E2', '#6A82E8'] as [string, string],
   // Okunabilirlik için yüksek kontrastlı metin
-  text: '#0D1117', 
-  textLight: '#586069',
-  textSubtle: '#8B949E',
+  text: '#1C202B', 
+  textLight: '#5A6474',
+  textSubtle: '#8A94A4',
   // Kullanıcı balonu için daha yumuşak bir arka plan
-  userBubble: '#F1F3F5', 
+  userBubble: '#F1F4F8', 
   // Yapay zeka balonu için ana renkten türetilmiş sofistike bir gradyan
-  aiBubbleGradient: ['rgba(61, 90, 254, 0.05)', 'rgba(92, 107, 192, 0.1)'] as [string, string],
-  // Ana renkle uyumlu, daha yumuşak bir gölge
-  shadow: 'rgba(61, 90, 254, 0.12)', 
+  aiBubbleGradient: ['rgba(74, 105, 226, 0.05)', 'rgba(106, 130, 232, 0.1)'] as [string, string],
+  // Ana renkle uyumlu, daha yumuşak ve yayvan bir gölge
+  shadow: 'rgba(74, 105, 226, 0.15)', 
   success: '#28A745',
   // Analiz kutusunun kenarlığı için ince bir vurgu
-  analysisBorder: 'rgba(61, 90, 254, 0.15)',
-  iconBackground: 'rgba(61, 90, 254, 0.08)',
+  analysisBorder: 'rgba(74, 105, 226, 0.2)',
+  iconBackground: 'rgba(74, 105, 226, 0.08)',
+  divider: '#EFF2F7',
 };
 
 // ---- ARAYÜZ BİLEŞENLERİ (UI Components) ----
@@ -50,7 +51,7 @@ interface SessionEvent {
   id: string;
   type: string;
   timestamp: number;
-  mood?: 'happy' | 'neutral' | 'sad'; // Örnek ruh hali verisi
+  mood?: 'happy' | 'neutral' | 'sad';
   data: {
     messages: { sender: string; text: string }[];
     [key: string]: any;
@@ -67,7 +68,7 @@ const getSessionIcon = (type: string) => {
   }
 };
 
-// Ruh haline göre ikon ve renk döndürür (Premium bir detay!)
+// Ruh haline göre ikon ve renk döndürür
 const getMoodDetails = (mood?: string) => {
   switch (mood) {
     case 'happy': return { icon: 'smile', color: '#4CAF50' };
@@ -106,21 +107,24 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent; index: number }> = ({
   const [analysis, setAnalysis] = React.useState({ loading: false, result: null as string | null });
   const moodDetails = getMoodDetails(event.mood);
 
-  // Kartların ekrana gelirken animasyonlu girişi için
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const slideAnim = React.useRef(new Animated.Value(20)).current;
+  const slideAnim = React.useRef(new Animated.Value(30)).current;
 
   React.useEffect(() => {
-    Animated.timing(fadeAnim, {
+    Animated.spring(fadeAnim, {
       toValue: 1,
-      duration: 500,
-      delay: index * 100, // Kartların art arda gelmesi için
+      velocity: 3,
+      tension: 2,
+      friction: 8,
+      delay: index * 120,
       useNativeDriver: true,
     }).start();
-    Animated.timing(slideAnim, {
+    Animated.spring(slideAnim, {
       toValue: 0,
-      duration: 500,
-      delay: index * 100,
+      velocity: 3,
+      tension: 2,
+      friction: 8,
+      delay: index * 120,
       useNativeDriver: true,
     }).start();
   }, [fadeAnim, slideAnim, index]);
@@ -142,9 +146,9 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent; index: number }> = ({
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
       <View style={styles.card}>
-        {/* Kart Başlığı - Daha dengeli ve şık bir yerleşim */}
+        {/* Kart Başlığı */}
         <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, marginRight: 16 }}>
             <View style={styles.sessionTypeContainer}>
               <Icon name={getSessionIcon(event.type)} size={16} color={theme.primary} />
               <Text style={styles.sessionType}>
@@ -157,7 +161,7 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent; index: number }> = ({
           </View>
           {moodDetails && (
             <View style={[styles.moodIconContainer, { backgroundColor: moodDetails.color + '1A' }]}>
-              <Icon name={moodDetails.icon} size={24} color={moodDetails.color} />
+              <Icon name={moodDetails.icon} size={26} color={moodDetails.color} />
             </View>
           )}
         </View>
@@ -174,7 +178,10 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent; index: number }> = ({
         {/* Analiz Bölümü */}
         <View style={styles.actionSection}>
           {!analysis.result && (
-            <Pressable onPress={handleAnalyze} disabled={analysis.loading} style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+            <Pressable onPress={handleAnalyze} disabled={analysis.loading} style={({ pressed }) => [
+              styles.analyzeBtnContainer,
+              { transform: [{ scale: pressed ? 0.98 : 1 }] }
+            ]}>
               <LinearGradient
                 colors={analysis.loading ? ['#BDBDBD', '#9E9E9E'] : theme.primaryGradient}
                 start={{ x: 0, y: 0.5 }}
@@ -194,13 +201,13 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent; index: number }> = ({
           )}
 
           {analysis.result && (
-            <LinearGradient colors={theme.aiBubbleGradient} style={styles.analysisBox}>
+            <View style={styles.analysisBox}>
               <View style={styles.analysisHeaderContainer}>
-                  <Icon name="brain" size={18} color={theme.primary} />
+                  <Icon name="brain" size={20} color={theme.primary} />
                   <Text style={styles.analysisHeader}>Yapay Zeka Analizi</Text>
               </View>
               <Text style={styles.analysisText}>{analysis.result}</Text>
-            </LinearGradient>
+            </View>
           )}
         </View>
       </View>
@@ -213,11 +220,10 @@ export default function PremiumHistoryScreen(props: any) {
   const params = props.route?.params || {};
   let events: SessionEvent[] = [];
   try {
-    // Örnek mood verisi ekleyelim
     const parsedEvents = params.events ? JSON.parse(params.events as string) : [];
     events = parsedEvents.map((e: SessionEvent, i: number) => ({
       ...e,
-      mood: i % 3 === 0 ? 'happy' : i % 3 === 1 ? 'neutral' : 'sad' // Demo için rastgele mood
+      mood: i % 3 === 0 ? 'happy' : i % 3 === 1 ? 'neutral' : 'sad'
     }));
   } catch {
     events = [];
@@ -229,14 +235,14 @@ export default function PremiumHistoryScreen(props: any) {
         <View style={styles.headerContainer}>
             <Text style={styles.header}>Yolculuğum</Text>
             <Text style={styles.subheader}>
-            Geçmiş seanslarınıza göz atın ve içgörülerinizi keşfedin.
+              Geçmiş seanslarınıza göz atın ve içgörülerinizi keşfedin.
             </Text>
         </View>
         
         {events.length === 0 ? (
           <View style={styles.emptyState}>
             <LinearGradient colors={theme.primaryGradient} style={styles.emptyStateIconContainer}>
-                <Icon name="award" size={48} color="white" />
+                <Icon name="award" size={52} color="white" />
             </LinearGradient>
             <Text style={styles.emptyStateHeader}>Henüz Bir Anı Yok</Text>
             <Text style={styles.emptyStateText}>İlk seansınız tamamlandığında yolculuğunuz burada başlayacak.</Text>
@@ -257,25 +263,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-    paddingTop: Platform.OS === 'android' ? 40 : 60,
+    paddingHorizontal: 20,
+    paddingVertical: 30,
+    paddingTop: Platform.OS === 'android' ? 50 : 70,
   },
   headerContainer: {
     marginBottom: 32,
     alignItems: 'center',
   },
   header: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: 'bold',
     color: theme.text,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subheader: {
-    fontSize: 16,
+    fontSize: 17,
     color: theme.textLight,
     textAlign: 'center',
-    maxWidth: '85%',
+    maxWidth: '90%',
+    lineHeight: 26,
   },
   // Kart Stilleri
   card: {
@@ -284,20 +291,19 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 24,
     shadowColor: theme.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.8,
-    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 30,
     elevation: 10,
-    overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingBottom: 16,
-    marginBottom: 16,
+    marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F5',
+    borderBottomColor: theme.divider,
   },
   sessionTypeContainer: {
     flexDirection: 'row',
@@ -305,7 +311,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.iconBackground,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 100, // Tam yuvarlak kapsül
+    borderRadius: 100,
+    alignSelf: 'flex-start',
   },
   sessionType: {
     marginLeft: 10,
@@ -314,10 +321,10 @@ const styles = StyleSheet.create({
     color: theme.primary,
   },
   sessionDate: {
-    fontSize: 13,
+    fontSize: 14,
     color: theme.textSubtle,
-    marginTop: 10,
-    marginLeft: 4
+    marginTop: 12,
+    marginLeft: 4,
   },
   moodIconContainer: {
       padding: 12,
@@ -330,103 +337,115 @@ const styles = StyleSheet.create({
   bubbleContainer: {
     paddingVertical: 12,
     paddingHorizontal: 18,
-    borderRadius: 20,
+    borderRadius: 22,
     maxWidth: '85%',
   },
   userBubbleContainer: {
     backgroundColor: theme.userBubble,
     alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 6,
   },
   aiBubbleContainer: {
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 6,
   },
   userText: {
     color: theme.text,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   aiText: {
     color: theme.primary,
     fontSize: 15,
     fontWeight: '500',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   // Aksiyon ve Analiz Stilleri
   actionSection: {
     marginTop: 24,
   },
+  analyzeBtnContainer: {
+    shadowColor: theme.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
+  },
   analyzeBtn: {
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: 18,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 12,
-    shadowColor: theme.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 8,
   },
   analyzeBtnText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 17,
   },
   analysisBox: {
-    borderRadius: 20,
+    backgroundColor: 'rgba(74, 105, 226, 0.04)',
+    borderRadius: 22,
     padding: 20,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: theme.analysisBorder,
   },
   analysisHeaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    gap: 12,
+    marginBottom: 16,
   },
   analysisHeader: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
     color: theme.primary,
   },
   analysisText: {
     color: theme.text,
     fontSize: 15,
-    lineHeight: 24,
+    lineHeight: 25,
   },
   // Boş Durum Stilleri
   emptyState: {
-    marginTop: 60,
+    flex: 1,
+    marginTop: 80,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
   },
   emptyStateIconContainer: {
-      width: 90,
-      height: 90,
-      borderRadius: 45,
+      width: 110,
+      height: 110,
+      borderRadius: 55,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 24,
+      marginBottom: 32,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      elevation: 10,
   },
   emptyStateHeader: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: theme.text,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 17,
     color: theme.textLight,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 26,
   },
   emptyText: {
-    color: theme.textLight,
+    color: theme.textSubtle,
     fontStyle: 'italic',
-    padding: 10,
+    paddingVertical: 20,
     textAlign: 'center',
+    fontSize: 15,
   }
 });
