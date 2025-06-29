@@ -24,7 +24,7 @@ import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
 import { generateDetailedMoodSummary } from '../hooks/useGemini';
 import { checkAndUpdateBadges } from '../utils/badges';
-import { getEventsForLast } from '../utils/eventLogger';
+import { deleteEventById, getEventsForLast } from '../utils/eventLogger';
 
 export default function AISummaryScreen() {
   const router = useRouter();
@@ -41,30 +41,13 @@ export default function AISummaryScreen() {
     loadSavedSummaries();
   }, []);
 
-  // Maksimum gün sayısını hesapla
+  // Maksimum gün sayısını eventLogger.ts'deki event kayıtlarına göre hesapla
   useEffect(() => {
     (async () => {
       const keys = await AsyncStorage.getAllKeys();
-      const sessionKeys = keys.filter(k => k.startsWith('session-'));
-      const moodKeys = keys.filter(k => k.startsWith('mood-'));
-      
-      // Tüm tarihleri bir Set'e ekleyelim (tekrar edenleri otomatik eler)
-      const uniqueDates = new Set<string>();
-      
-      // Session kayıtlarını işle
-      sessionKeys.forEach(key => {
-        const date = key.replace('session-', '');
-        uniqueDates.add(date);
-      });
-      
-      // Mood kayıtlarını işle
-      moodKeys.forEach(key => {
-        const date = key.replace('mood-', '');
-        uniqueDates.add(date);
-      });
-      
-      // Maksimum 30 gün ile sınırla
-      const capped = Math.min(uniqueDates.size, 30);
+      // Sadece 'events-YYYY-MM-DD' formatındaki anahtarları filtrele
+      const eventKeys = keys.filter(k => /^events-\d{4}-\d{2}-\d{2}$/.test(k));
+      const capped = Math.min(eventKeys.length, 30);
       setMaxDays(capped || 1);
       setSelectedDays(capped || 1);
     })();
@@ -133,11 +116,31 @@ const fetchSummary = async () => {
   }
 };
 
-  // Özeti silme fonksiyonu
-  const deleteSummary = async (index: number) => {
-    const newSummaries = summaries.filter((_, i) => i !== index);
-    setSummaries(newSummaries);
-    await saveSummaries(newSummaries);
+  // Özeti silme fonksiyonu (Alert ile ve eventLogger'dan silme)
+  const deleteSummary = async (index: number, eventId?: string) => {
+    Alert.alert(
+      'Analizi Sil',
+      'Bu AI analizini kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (eventId) {
+                await deleteEventById(eventId);
+              }
+              const newSummaries = summaries.filter((_, i) => i !== index);
+              setSummaries(newSummaries);
+              await saveSummaries(newSummaries);
+            } catch (e) {
+              Alert.alert('Hata', 'Silme işlemi sırasında bir hata oluştu.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const SummaryCard = ({ text, date, index }: { text: string; date: string; index: number }) => (
@@ -162,13 +165,9 @@ const fetchSummary = async () => {
       </Text>
       <TouchableOpacity
         onPress={() => deleteSummary(index)}
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          padding: 8,
-        }}>
-        <Ionicons name="close-circle-outline" size={20} color="#9CA3AF" />
+        style={styles.deleteButton}
+      >
+        <Ionicons name="trash-outline" size={20} color="#E53E3E" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -294,35 +293,6 @@ const fetchSummary = async () => {
               </View>
             </LinearGradient>
           </TouchableOpacity>
-
-          {/* HAFIZA KONTROL BUTONU (TEST) */}
-          <TouchableOpacity
-            style={{ margin: 20, padding: 15, backgroundColor: '#E53E3E', borderRadius: 10 }}
-            onPress={async () => {
-              try {
-                console.log('--- ASYNCSTORAGE KONTROLÜ BAŞLADI ---');
-                const allKeys = await AsyncStorage.getAllKeys();
-                console.log('BULUNAN TÜM ANAHTARLAR:', allKeys);
-
-                const moodKeys = allKeys.filter(key => key.startsWith('mood-'));
-                console.log(`--- mood- ile başlayan ${moodKeys.length} adet anahtar bulundu ---`);
-                
-                const sessionKeys = allKeys.filter(key => key.startsWith('session-'));
-                console.log(`--- session- ile başlayan ${sessionKeys.length} adet anahtar bulundu ---`);
-
-                // Ayrıca içeriği de görmek isterseniz:
-                // const allData = await AsyncStorage.multiGet(allKeys);
-                // console.log("TÜM VERİLER:", allData);
-
-              } catch (e) {
-                console.error('Hafıza kontrol hatası:', e);
-              }
-            }}
-          >
-            <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
-              HAFIZAYI KONTROL ET (TEST)
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {summaries.length === 0 && !loading ? (
@@ -372,7 +342,7 @@ const fetchSummary = async () => {
                   </View>
                   <Text style={styles.summaryCardText} numberOfLines={3}>{item.text}</Text>
                   <TouchableOpacity
-                    onPress={() => deleteSummary(index)}
+                    onPress={() => deleteSummary(index, (item as any).id)}
                     style={styles.deleteButton}
                   >
                     <Ionicons name="trash-outline" size={20} color="#E53E3E" />

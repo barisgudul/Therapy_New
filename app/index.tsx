@@ -14,10 +14,11 @@ import {
   Image,
   Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 
@@ -242,7 +243,7 @@ export default function HomeScreen() {
     }
     const sessionEvents = allEvents.filter(ev => ['text_session', 'voice_session', 'video_session'].includes(ev.type));
     router.push({
-      pathname: '/denem',
+      pathname: '/transcripts',
       params: { events: JSON.stringify(sessionEvents) }
     });
   };
@@ -275,17 +276,17 @@ export default function HomeScreen() {
               resizeMode="contain" 
             />
           </View>
-
-          <View style={styles.textContainer}>
+          <View style={[styles.textContainer, { marginTop: -12, marginBottom: 12 }]}>
             <Text style={styles.title}>Zihnine İyi Bak</Text>
             <Text style={styles.subtitle}>Yapay zekâ destekli terapiyi deneyimle</Text>
           </View>
-
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={styles.button}
+          <View style={[styles.buttonContainer, { marginTop: 0 }]}>
+            <Pressable
               onPress={handleCardPress}
-              activeOpacity={0.9}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
             >
               <LinearGradient
                 colors={['#FFFFFF', '#F8FAFF']}
@@ -298,12 +299,14 @@ export default function HomeScreen() {
                   <Text style={styles.buttonText}>Bugün Nasıl Hissediyorsun?</Text>
                 </View>
               </LinearGradient>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity 
-              style={styles.button}
+            <Pressable
               onPress={() => router.push('/ai_summary' as const)}
-              activeOpacity={0.9}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
             >
               <LinearGradient
                 colors={['#FFFFFF', '#F8FAFF']}
@@ -316,12 +319,14 @@ export default function HomeScreen() {
                   <Text style={styles.buttonText}>AI Ruh Hâli Özeti</Text>
                 </View>
               </LinearGradient>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity 
-              style={styles.button}
+            <Pressable
               onPress={() => router.push('/diary' as const)}
-              activeOpacity={0.9}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
             >
               <LinearGradient
                 colors={['#FFFFFF', '#F8FAFF']}
@@ -334,12 +339,14 @@ export default function HomeScreen() {
                   <Text style={styles.buttonText}>AI Destekli Günlük</Text>
                 </View>
               </LinearGradient>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity 
-              style={styles.button}
+            <Pressable
               onPress={handleStart}
-              activeOpacity={0.9}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
             >
               <LinearGradient
                 colors={['#FFFFFF', '#F8FAFF']}
@@ -352,7 +359,27 @@ export default function HomeScreen() {
                   <Text style={styles.buttonText}>Terapistini Seç</Text>
                 </View>
               </LinearGradient>
-            </TouchableOpacity>
+            </Pressable>
+
+            <Pressable
+              onPress={handleGoToAllTranscripts}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="chatbubbles-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>Geçmiş Seanslarım</Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
 
             <TouchableOpacity 
               style={styles.linkButton} 
@@ -360,43 +387,9 @@ export default function HomeScreen() {
             >
               <Text style={styles.linkText}>Terapiler nasıl işler?</Text>
             </TouchableOpacity>
-
-            {/* Deneme Butonu - Herkese Açık */}
-            <TouchableOpacity 
-              style={[styles.button, { marginTop: 16, backgroundColor: '#6366f1', borderColor: '#6366f1' }]}
-              onPress={handleGoToAllTranscripts}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={['#7f9cf5', '#6366f1']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.buttonGradient}
-              >
-                <View style={styles.buttonContent}>
-                  <Ionicons name="flask-outline" size={20} color="#fff" />
-                  <Text style={[styles.buttonText, { color: '#fff' }]}>Deneme</Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
-
-      {/* DEMO RESET ve DEBUG only dev */}
-      {__DEV__ && (
-        <View style={styles.debugContainer}>
-          <TouchableOpacity style={styles.resetBtn} onPress={clearDemoData}>
-            <Text style={styles.resetTxt}>Demo Sıfırla</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.resetBtn, { backgroundColor: '#14b8a6' }]}
-            onPress={showAllActivities}
-          >
-            <Text style={[styles.resetTxt, { color: '#fff' }]}>Aktiviteleri Yazdır</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {modalVisible && <BlurView intensity={60} tint="default" style={StyleSheet.absoluteFill} />}
 

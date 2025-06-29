@@ -4,8 +4,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Alert, // <-- YENİ: Onay penceresi için import edildi
   Animated,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +15,8 @@ import {
   UIManager,
   View
 } from 'react-native';
-import { AppEvent, EventType, getEventsForLast } from '../utils/eventLogger';
+// YENİ: deleteEventById fonksiyonu import edildi
+import { AppEvent, deleteEventById, EventType, getEventsForLast } from '../utils/eventLogger';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -59,7 +62,7 @@ const ScreenHeader: React.FC<{ title: string; onBack?: () => void }> = ({ title,
 );
 
 const SelectionCard: React.FC<{ title: string; description: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; }> = ({ title, description, icon, onPress }) => (
-  <TouchableOpacity onPress={onPress} style={styles.selectionCard} activeOpacity={0.9}>
+  <Pressable onPress={onPress} style={({ pressed }) => [styles.selectionCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
     <View style={styles.selectionContent}>
         <LinearGradient colors={theme.gradient} style={styles.selectionIconContainer}>
             <Ionicons name={icon} size={28} color={theme.tint} />
@@ -70,17 +73,18 @@ const SelectionCard: React.FC<{ title: string; description: string; icon: keyof 
         </View>
         <Ionicons name="chevron-forward" size={24} color={theme.tint} />
     </View>
-  </TouchableOpacity>
+  </Pressable>
 );
 
-const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; }> = ({ event, onPress }) => {
+// ---- SummaryCard BİLEŞENİ GÜNCELLENDİ ----
+const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete: () => void; }> = ({ event, onPress, onDelete }) => {
   const date = new Date(event.timestamp);
   const formattedDate = date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
   const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "İçerik yok";
   const summaryTitle = firstUserMessage.split(' ').slice(0, 3).join(' ') + '...';
 
   return (
-    <TouchableOpacity onPress={onPress} style={styles.summaryCard} activeOpacity={0.9}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.summaryCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
         <LinearGradient colors={[theme.card, '#F9FBFF']} style={styles.summaryCardGradient}>
             <View style={styles.summaryHeader}>
                 <Ionicons name="calendar-outline" size={18} color={theme.tint} />
@@ -90,10 +94,15 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; }> = ({ 
             <Text style={styles.summaryText} numberOfLines={2}>
                 {firstUserMessage}
             </Text>
+            {/* YENİ: Silme butonu eklendi */}
+            <Pressable onPress={onDelete} style={({ pressed }) => [styles.deleteButton, { transform: [{ scale: pressed ? 0.95 : 1 }] }] }>
+                <Ionicons name="trash-outline" size={22} color="#E53E3E" />
+            </Pressable>
         </LinearGradient>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
+
 
 const PremiumDiscoveryCard: React.FC<{onPressCTA: () => void}> = ({ onPressCTA }) => {
     const features = ['Derinlemesine Analiz', 'Kişisel Büyüme', 'Uzman Rehberliği'];
@@ -101,9 +110,6 @@ const PremiumDiscoveryCard: React.FC<{onPressCTA: () => void}> = ({ onPressCTA }
         <View style={styles.discoveryContainer}>
             <View style={styles.discoveryCard}>
                 <LinearGradient colors={[theme.card, '#F8FAFF']} style={styles.discoveryContent}>
-                    {/* HATA DÜZELTMESİ: Var olmayan Image satırı kaldırıldı. */}
-                    {/* <Image source={require('../assets/images/discovery-bg.png')} style={styles.discoveryBgImage} /> */}
-                    
                     <Text style={styles.discoveryTitle}>Potansiyelini Keşfet</Text>
                     <Text style={styles.discoveryDescription}>Henüz hiç seans kaydın yok. İlk adımı atarak zihinsel yolculuğunu başlat ve içgörülerini ortaya çıkar.</Text>
                     <View style={styles.featuresContainer}>
@@ -114,12 +120,12 @@ const PremiumDiscoveryCard: React.FC<{onPressCTA: () => void}> = ({ onPressCTA }
                             </View>
                         ))}
                     </View>
-                    <TouchableOpacity style={styles.discoveryButtonWrapper} activeOpacity={0.8} onPress={onPressCTA}>
+                    <Pressable style={({ pressed }) => [styles.discoveryButtonWrapper, { transform: [{ scale: pressed ? 0.98 : 1 }] }]} onPress={onPressCTA}>
                         <LinearGradient colors={theme.ctaButton} style={styles.discoveryButton}>
                             <Text style={styles.discoveryButtonText}>Terapistini Seç ve Başla</Text>
                             <Ionicons name="arrow-forward-circle" size={22} color={'#fff'} />
                         </LinearGradient>
-                    </TouchableOpacity>
+                    </Pressable>
                 </LinearGradient>
             </View>
         </View>
@@ -176,9 +182,37 @@ export default function PremiumHistoryScreen() {
   
   const handleNavigateToPremium = () => {
       console.log("Navigating to AvatarScreen...");
-      // @ts-ignore
-      navigation.navigate('avatar');
+      navigation.replace('avatar');
   };
+
+  // YENİ: Silme işlemini yöneten fonksiyon
+  const handleDeleteEvent = (eventId: string) => {
+    Alert.alert(
+      "Seansı Sil",
+      "Bu seans kaydını kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      [
+        {
+          text: "Vazgeç",
+          style: "cancel"
+        },
+        {
+          text: "Sil",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Adım 1: AsyncStorage'dan sil
+              await deleteEventById(eventId);
+              // Adım 2: Mevcut state'ten kaldırarak UI'ı anında güncelle
+              setAllEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+            } catch (error) {
+              Alert.alert("Hata", "Seans silinirken bir sorun oluştu.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
 
   const renderContent = () => {
     if (isLoading) { return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.tint} /></View>; }
@@ -206,7 +240,15 @@ export default function PremiumHistoryScreen() {
                 <PremiumDiscoveryCard onPressCTA={handleNavigateToPremium} />
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.summaryListContainer}>
-                {filteredEvents.map(event => ( <SummaryCard key={event.id} event={event} onPress={() => handleSelectEvent(event)} /> ))}
+                {filteredEvents.map(event => ( 
+                    // YENİ: onDelete prop'u SummaryCard'a geçirildi
+                    <SummaryCard 
+                        key={event.id} 
+                        event={event} 
+                        onPress={() => handleSelectEvent(event)} 
+                        onDelete={() => handleDeleteEvent(event.id)}
+                    /> 
+                ))}
               </ScrollView>
             )}
           </View>
@@ -258,6 +300,16 @@ const styles = StyleSheet.create({
   summaryTitle: { fontSize: 18, fontWeight: '600', color: theme.text, letterSpacing: -0.3, marginBottom: 8 },
   summaryText: { fontSize: 15, color: theme.softText, lineHeight: 22 },
   
+  // YENİ: Silme butonu için stil
+  deleteButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 237, 237, 0.7)',
+  },
+
   discoveryContainer: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
   discoveryCard: { borderRadius: 24, overflow: 'hidden', shadowColor: theme.tint, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12, borderWidth: 1.5, borderColor: 'rgba(93, 161, 217, 0.2)' },
   discoveryContent: { padding: 24 },

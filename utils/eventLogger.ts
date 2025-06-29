@@ -1,4 +1,4 @@
- import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 1. STANDART OLAY TİPİNİ TANIMLAYALIM
 //    Uygulamadaki her önemli olay bu yapıya uyacak.
@@ -97,3 +97,54 @@ export async function getEventsForLast(days: number): Promise<AppEvent[]> {
         return [];
     }
 } 
+
+// ---- YENİ EKLENEN FONKSİYON ----
+
+/**
+ * Belirtilen ID'ye sahip bir olayı AsyncStorage'dan siler.
+ * Olayların günlük gruplar halinde tutulduğu `events-YYYY-MM-DD` yapısına göre çalışır.
+ * @param eventId Silinecek olayın ID'si (timestamp).
+ */
+export async function deleteEventById(eventId: string): Promise<void> {
+  try {
+    // 1. eventId'den (timestamp) olayın tarihini ve anahtarını türet
+    const timestamp = Number(eventId);
+    if (isNaN(timestamp)) {
+      console.error('Geçersiz eventId, silme işlemi yapılamadı:', eventId);
+      return;
+    }
+    const eventDate = new Date(timestamp).toISOString().split('T')[0];
+    const key = `events-${eventDate}`;
+
+    // 2. O güne ait olay listesini al
+    const dailyEventsRaw = await AsyncStorage.getItem(key);
+    if (!dailyEventsRaw) {
+      console.warn(`Silinecek olay için anahtar bulunamadı: ${key}`);
+      return;
+    }
+
+    let dailyEvents: AppEvent[] = JSON.parse(dailyEventsRaw);
+
+    // 3. İlgili olayı listeden filtreleyerek çıkar
+    const updatedDailyEvents = dailyEvents.filter(event => event.id !== eventId);
+
+    // 4. Güncellenmiş listeyi kontrol et
+    if (updatedDailyEvents.length < dailyEvents.length) {
+      if (updatedDailyEvents.length > 0) {
+        // Eğer gün içinde başka olaylar varsa, listeyi güncelle
+        await AsyncStorage.setItem(key, JSON.stringify(updatedDailyEvents));
+        console.log(`✅ Olay (${eventId}) silindi. Anahtar güncellendi: ${key}`);
+      } else {
+        // Eğer gün içinde başka olay kalmadıysa, anahtarı tamamen sil
+        await AsyncStorage.removeItem(key);
+        console.log(`✅ Olay (${eventId}) silindi. Anahtar boş kaldığı için kaldırıldı: ${key}`);
+      }
+    } else {
+      console.warn(`Olay (${eventId}) listede bulunamadı. Anahtar: ${key}`);
+    }
+  } catch (error) {
+    console.error(`Olay silinirken hata oluştu (ID: ${eventId}):`, error);
+    // Hatanın çağrıldığı yere de bildirilmesi için tekrar fırlat
+    throw error;
+  }
+}
