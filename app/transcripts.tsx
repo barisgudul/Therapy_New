@@ -16,6 +16,7 @@ import {
   View
 } from 'react-native';
 // YENİ: deleteEventById fonksiyonu import edildi
+import { useRouter } from 'expo-router/';
 import { AppEvent, deleteEventById, EventType, getEventsForLast } from '../utils/eventLogger';
 
 // Android'de LayoutAnimation'ı etkinleştir
@@ -158,6 +159,7 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent }> = ({ event }) => {
 // ---- ANA EKRAN BİLEŞENİ ----
 export default function PremiumHistoryScreen() {
   const navigation = useNavigation();
+  const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(true);
   const [viewMode, setViewMode] = React.useState<ViewMode>('menu');
   const [allEvents, setAllEvents] = React.useState<AppEvent[]>([]);
@@ -182,7 +184,7 @@ export default function PremiumHistoryScreen() {
   
   const handleNavigateToPremium = () => {
       console.log("Navigating to AvatarScreen...");
-      navigation.replace('avatar');
+      router.replace('/avatar');
   };
 
   // YENİ: Silme işlemini yöneten fonksiyon
