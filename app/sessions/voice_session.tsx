@@ -5,10 +5,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   BackHandler,
   Dimensions,
+  Easing,
   Image,
   StyleSheet,
   Text,
@@ -62,6 +64,7 @@ export default function VoiceSessionScreen() {
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
   const [currentMood, setCurrentMood] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessionSummary, setSessionSummary] = useState<string>("");
 
   // Terapist bilgisini yükle
   useEffect(() => {
@@ -98,16 +101,9 @@ export default function VoiceSessionScreen() {
     loadMood();
   }, []);
 
-  /* ---------------------------- STATE & REFS ---------------------------- */
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  /* ---------------------------- STATE & REFS ---------------------------- */  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const [soundLevel, setSoundLevel] = useState(0);
-  const [transcript, setTranscript] = useState("");
-  const [volume, setVolume] = useState(0);
-
-  /* ---------------------------- VOICE HOOK ------------------------------ */
-  const {
+  /* ---------------------------- VOICE HOOK ------------------------------ */  const {
     isRecording,
     isProcessing: isSpeechProcessing,
     startRecording,
@@ -115,69 +111,69 @@ export default function VoiceSessionScreen() {
     cleanup,
     speakText,
   } = useVoiceSession({
-    onTranscriptReceived: async (text) => {
-      if (text) {
-        // Mesaj geçmişini güncel şekilde oluştur
-        const newMessages: ChatMessage[] = [...messages, { id: Date.now().toString(), sender: 'user', text: text }];
-        const chatHistory = newMessages
-          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-          .join('\n');
-        const turnCount = Math.floor((newMessages.length - 1) / 2) + 1;
-        try {
-          const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-            ? therapistId as "therapist1" | "therapist3" | "coach1" 
-            : "therapist1";
-          const aiResponse = await generateTherapistReply(
-            validTherapistId,
-            text,
-            currentMood,
-            chatHistory,
-            turnCount
-          );
-          // Hem kullanıcı hem AI mesajını birlikte ekle
-          setMessages(prev => [...prev,
-            { id: Date.now().toString(), sender: 'user', text: text },
-            { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse }
-          ]);
-          speakText(aiResponse);
-        } catch (error) {
-          console.error('AI yanıt hatası:', error);
-          const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.";
-          setMessages(prev => [...prev,
-            { id: Date.now().toString(), sender: 'user', text: text },
-            { id: (Date.now() + 1).toString(), sender: 'ai', text: errorMessage }
-          ]);
-          speakText(errorMessage);
-        }
+    onTranscriptReceived: async (userText) => {
+      if (!userText) return;
+
+      // 1. Yeni kullanıcı mesajını oluştur.
+      const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
+      // 2. Mesaj listesini TEK SEFERDE GÜNCELLE ve bir değişkende tut.
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
+
+      // 3. Özetleme mantığını GÜNCEL mesaj listesiyle çalıştır.
+      if (updatedMessages.length > 0 && updatedMessages.length % 7 === 0) {
+        const lastChunk = updatedMessages.slice(-7).map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
+        import('../../hooks/useGemini').then(({ generateCumulativeSummary }) => {
+          generateCumulativeSummary(sessionSummary, lastChunk).then(newSummary => {
+            setSessionSummary(newSummary);
+          });
+        });
+      }
+
+      // 4. Chat geçmişini GÜNCEL mesaj listesiyle oluştur.
+      const lastMessages = updatedMessages.slice(-4).map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
+      const chatHistoryForAI = sessionSummary
+        ? `ÖZET: ${sessionSummary}\n${lastMessages}`
+        : lastMessages;
+      const turnCount = Math.floor(updatedMessages.length / 2);
+
+      try {
+        const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+          ? therapistId as "therapist1" | "therapist3" | "coach1" 
+          : "therapist1";
+
+        // 5. AI'dan yanıt al.
+        const rawAiResponse = await generateTherapistReply(
+          validTherapistId,
+          userText,
+          currentMood,
+          chatHistoryForAI,
+          turnCount
+        );
+
+        // 6. ---- ÇÖZÜM BURADA: AI yanıtını temizle ----
+        const cleanedAiResponse = rawAiResponse.trim();
+
+        // 7. Temizlenmiş AI yanıtıyla son bir kez mesaj listesini güncelle.
+        const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: cleanedAiResponse };
+        setMessages(prev => [...prev, aiMessage]);
+        // 8. Temizlenmiş metni seslendir.
+        speakText(cleanedAiResponse, validTherapistId);
+
+      } catch (error) {
+        console.error('AI yanıt hatası:', error);
+        const errorMessage = "Üzgünüm, şu anda bir sorunla karşılaştım. Lütfen biraz sonra tekrar deneyin.".trim();
+        const aiErrorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage };
+        setMessages(prev => [...prev, aiErrorMessage]);
+        speakText(errorMessage, therapistId as string);
       }
     },
-    onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1.1, duration: 400, useNativeDriver: true }).start(),
-    onSpeechEnded: () => Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start(),
-    onSoundLevelChange: (level) => setVolume(level),
+    onSpeechStarted: () => {},
+    onSpeechEnded: () => {},
     therapistId: therapistId as string,
   });
 
-  /* ------------------------------ EFFECTS ------------------------------- */
-  // Pulsing circle anim
-  useEffect(() => {
-    pulseAnim.setValue(1);
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: isRecording ? 1.1 : 1.2,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, [isRecording]);
-
-  // cleanup on unmount
+  /* ------------------------------ EFFECTS ------------------------------- */  // cleanup on unmount
   useEffect(() => {
     return () => {
       cleanup(); // async fonksiyon, promise dönse de burada beklenmez
@@ -197,7 +193,6 @@ export default function VoiceSessionScreen() {
     }
     router.replace('/feel/after_feeling');
   };
-
   const onBackPress = () => {
     Alert.alert(
       'Seansı Sonlandır',
@@ -214,6 +209,22 @@ export default function VoiceSessionScreen() {
       ]
     );
     return true;
+  };
+
+  const triggerPulse = (start: boolean = true) => {
+    if (start) {
+      pulseAnim.setValue(1);
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.2, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
+        Animated.timing(pulseAnim, { toValue: 1.1, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ]).start();
+    } else {
+      Animated.spring(pulseAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }).start();
+    }
   };
 
   useEffect(() => {
@@ -240,9 +251,6 @@ export default function VoiceSessionScreen() {
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 
-      {/* Session Timer */}
-      <SessionTimer onSessionEnd={handleSessionEnd} />
-
       {/* Terapist avatar ve adı */}
       <View style={styles.therapistHeaderRow}>
         <View style={styles.avatarGradientBox}>
@@ -261,6 +269,10 @@ export default function VoiceSessionScreen() {
             {selectedTherapist?.name || 'Terapist'}
           </Text>
           <Text style={styles.therapistTitleRow}>{selectedTherapist?.title}</Text>
+          <View style={styles.timerContainer}>
+            <Ionicons name="time-outline" size={16} color="#8A94A6" />
+            <SessionTimer onSessionEnd={handleSessionEnd} />
+          </View>
         </View>
       </View>
 
@@ -274,35 +286,59 @@ export default function VoiceSessionScreen() {
             styles.circle,
             {
               backgroundColor: isRecording ? '#F8FAFF' : '#fff',
-              borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
-              borderWidth: isRecording ? 2 : 1,
+              borderColor: isSpeechProcessing ? '#FFD700' : (isRecording ? Colors.light.tint : '#E3E8F0'),
+              borderWidth: isRecording || isSpeechProcessing ? 2 : 1,
               shadowColor: isRecording ? Colors.light.tint : '#B0B8C1',
               shadowOpacity: isRecording ? 0.13 : 0.07,
               transform: [{ scale: pulseAnim }],
             },
           ]}
         >
-          <Animated.View
-            style={[
-              styles.brandWave,
-              {
-                borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
-                opacity: isRecording ? 0.18 : 0.10,
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          />
-          <View style={styles.brandDot} />
+          {isSpeechProcessing ? (
+            <ActivityIndicator size="large" color={Colors.light.tint} />
+          ) : (
+            <>
+              <Animated.View
+                style={[
+                  styles.brandWave,
+                  {
+                    borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
+                    opacity: isRecording ? 0.18 : 0.10,
+                    transform: [{ scale: pulseAnim }],
+                  },
+                ]}
+              />
+              <View style={styles.brandDot} />
+            </>
+          )}
         </Animated.View>
 
         <View style={styles.controls}>
           <TouchableOpacity
-            onPress={isRecording ? stopRecording : startRecording}
-            style={[styles.button, isRecording ? styles.btnActive : styles.btnMuted]}
+            disabled={isSpeechProcessing || isRecording}
+            onPress={() => {
+              if (!isRecording && !isSpeechProcessing) {
+                triggerPulse(true);
+                startRecording();
+              }
+            }}
+            style={[styles.button, isSpeechProcessing || isRecording ? styles.btnMuted : styles.btnActive]}
             activeOpacity={0.85}
           >
-            <Ionicons name={isRecording ? 'stop' : 'mic'} size={24} color={Colors.light.tint} />
+            <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={32} color={isSpeechProcessing || isRecording ? '#aaa' : Colors.light.tint} />
           </TouchableOpacity>
+          {isRecording && (
+            <TouchableOpacity
+              onPress={() => {
+                triggerPulse(false);
+                stopRecording();
+              }}
+              style={[styles.button, styles.btnActive]}
+              activeOpacity={0.85}
+            >
+              <Ionicons name={'stop-circle-outline'} size={32} color={Colors.light.tint} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onBackPress} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
             <Ionicons name="close" size={22} color={Colors.light.tint} />
           </TouchableOpacity>
@@ -392,6 +428,24 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     opacity: 0.9,
   },
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(227, 232, 240, 0.6)',
+  },
+  timerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginLeft: 6,
+    letterSpacing: 0.5,
+  },
   logo: {
     fontSize: 32,
     fontWeight: '600',
@@ -464,10 +518,12 @@ const styles = StyleSheet.create({
   },
   controls: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'center',
     marginTop: 36,
     marginBottom: 32,
-    gap: 40,
+    gap: 20,
   },
   button: {
     padding: 22,

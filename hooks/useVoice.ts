@@ -46,9 +46,16 @@ export const useVoiceSession = ({
   };
 
   const startRecording = useCallback(async () => {
-    if (isRecording) return;
+    console.log("🎤 ATTEMPTING TO START RECORDING...");
+    if (isRecording) {
+      console.log("   -> Already recording, returning.");
+      return;
+    }
     const ok = await requestPermission();
-    if (!ok) return;
+    if (!ok) {
+      console.log("   -> Permission denied, returning.");
+      return;
+    }
 
     try {
       await Audio.setAudioModeAsync({
@@ -58,14 +65,38 @@ export const useVoiceSession = ({
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: false
       });
+      console.log("   -> Audio mode set.");
 
+      // ----> GÜNCEL KAYIT SEÇENEKLERİ <----
+      const customRecordingOptions = {
+        android: {
+          extension: '.wav',
+          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
+          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+          sampleRate: 16000,
+          numberOfChannels: 1,
+        },
+        ios: {
+          extension: '.wav',
+          audioQuality: Audio.IOSAudioQuality.MAX,
+          sampleRate: 16000,
+          numberOfChannels: 1,
+          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+        web: {},
+      };
       const { recording: rec } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
+        customRecordingOptions
       );
+      console.log("   -> Recording object created.");
 
       recording.current = rec;
-      setIsRecording(true);
+      setIsRecording(true); // <-- Bu state'in güncellenmesi ÇOK ÖNEMLİ
       onSpeechStarted?.();
+      console.log("✅ RECORDING STARTED SUCCESSFULLY.");
 
       // Ses seviyesi ölçümü
       levelTimer.current = setInterval(async () => {
@@ -75,22 +106,27 @@ export const useVoiceSession = ({
           onSoundLevelChange?.(status.metering);
       }, 120);
     } catch (err) {
-      // console.warn('Kayıt başlatılamadı:', err);
+      console.error('🔴 FAILED TO START RECORDING:', err);
     }
   }, [isRecording, onSoundLevelChange, onSpeechStarted]);
 
   const stopRecording = useCallback(async () => {
-    if (!recording.current) return;
+    console.log("🛑 ATTEMPTING TO STOP RECORDING...");
+    if (!recording.current) {
+      console.log("   -> No recording object found, returning.");
+      return;
+    }
     if (levelTimer.current) {
       clearInterval(levelTimer.current);
       levelTimer.current = null;
     }
-    setIsRecording(false);
+    setIsRecording(false); // <-- Bu state'in güncellenmesi ÇOK ÖNEMLİ
     setIsProcessing(true);
 
     try {
       await recording.current.stopAndUnloadAsync();
       const uri = recording.current.getURI();
+      console.log("   -> Recording stopped and unloaded. URI:", uri);
       if (uri) {
         const info = await FileSystem.getInfoAsync(uri);
         // info.size sadece exists:true ise vardır
@@ -111,13 +147,15 @@ export const useVoiceSession = ({
         }
       }
     } catch (err) {
-      // console.warn('Kayıt durdurulamadı:', err);
+      console.error('🔴 FAILED TO STOP RECORDING:', err);
     } finally {
       setIsProcessing(false);
+      console.log("✅ PROCESSING FINISHED.");
     }
   }, [onSpeechEnded, onTranscriptReceived]);
 
-  const speakText = useCallback(async (text: string) => {
+  // speakText fonksiyonundan yaş parametresini kaldır
+  const speakText = useCallback(async (text: string, therapistIdArg?: string) => {
     try {
       // iOS için ses modunu ayarla
       if (Platform.OS === 'ios') {
@@ -129,8 +167,8 @@ export const useVoiceSession = ({
           playThroughEarpieceAndroid: false
         });
       }
-
-      const url = await textToSpeech(text, therapistId);
+      // therapistId'yi gcpServices'e iletiyoruz (artık userAge yok)
+      const url = await textToSpeech(text, therapistIdArg || therapistId);
       const { sound: s } = await Audio.Sound.createAsync(
         { uri: url },
         { 
