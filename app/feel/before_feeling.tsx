@@ -36,21 +36,16 @@ const MOOD_LEVELS = [
     { label: 'Mükemmel', color: '#06B6D4', shadow: '#60A5FA' }, // 6: Turkuaz Enerji
 ];
 
-
-const saveBeforeMood = async (moodLabel: string, sessionType?: string, therapistId?: string) => {
+// --- YARDIMCI KAYIT FONKSİYONU ---
+const saveBeforeMood = async (moodLabel: string) => {
     try {
-        const entry = { 
-            mood: moodLabel, 
-            timestamp: Date.now(),
-            sessionType,
-            therapistId,
-            type: 'before'
-        };
-        await AsyncStorage.setItem(`before_mood_${Date.now()}`, JSON.stringify(entry));
-        // En son before mood'u da ayrıca kaydet (mood_comparison için)
+        const entry = { mood: moodLabel, timestamp: Date.now() };
+        // Karşılaştırma için sadece en sonuncuyu saklamamız yeterli.
         await AsyncStorage.setItem('before_mood_latest', JSON.stringify(entry));
-        console.log('Before mood saved:', entry);
-    } catch (e) { console.error('Failed to save before mood.', e); }
+        console.log('✅ Before mood saved:', entry);
+    } catch (e) {
+        console.error('Failed to save before mood.', e);
+    }
 };
 
 // --- ANA BİLEŞEN ---
@@ -102,28 +97,22 @@ export default function BeforeFeelingScreen() {
 
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        // Merkezi olay kaydı
+        // Önce veriyi kaydet
+        await saveBeforeMood(currentMoodLabel);
+        // Sonra olayları logla
         await logEvent({
             type: 'session_start',
             mood: currentMoodLabel,
-            data: {
-                sessionType: sessionType,
-                therapistId: therapistId
-            }
+            data: { sessionType, therapistId }
         });
-        // En son moodu karşılaştırma için saklamaya devam
-        const latestEntry = { mood: currentMoodLabel, timestamp: Date.now() };
-        await AsyncStorage.setItem('before_mood_latest', JSON.stringify(latestEntry));
         opacity.value = withTiming(0, { duration: 400 });
         setTimeout(() => {
             if (!sessionType || !therapistId) {
-                console.warn("Session type or therapist ID is missing. Navigating back.");
                 router.back();
                 return;
             }
-            const sessionRoute = `/sessions/${sessionType}_session`;
             router.replace({
-                pathname: sessionRoute,
+                pathname: `/sessions/${sessionType}_session`,
                 params: { therapistId }
             });
         }, 400);

@@ -37,13 +37,15 @@ const MOOD_LEVELS = [
     { label: 'Mükemmel', color: '#06B6D4', shadow: '#60A5FA' }, // 6: Turkuaz Enerji (Zirve)
 ];
 
-
+// --- YARDIMCI KAYIT FONKSİYONU ---
 const saveAfterMood = async (moodLabel: string) => {
     try {
-        const entry = { mood: moodLabel, timestamp: Date.now(), type: 'after' };
-        await AsyncStorage.setItem(`after_mood_${Date.now()}`, JSON.stringify(entry));
+        const entry = { mood: moodLabel, timestamp: Date.now() };
         await AsyncStorage.setItem('after_mood_latest', JSON.stringify(entry));
-    } catch (e) { console.error('Failed to save after mood.', e); }
+        console.log('✅ After mood saved:', entry);
+    } catch (e) {
+        console.error('Failed to save after mood.', e);
+    }
 };
 
 // --- ANA BİLEŞEN ---
@@ -92,17 +94,18 @@ export default function AfterFeelingScreen() {
 
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        // Merkezi olay kaydı
+        // Önce veriyi DOĞRU anahtara kaydet
+        await saveAfterMood(currentMoodLabel);
+        // Sonra olayları logla
         await logEvent({
             type: 'session_end',
             mood: currentMoodLabel,
             data: {}
         });
-        // En son moodu karşılaştırma için saklamaya devam
-        const latestEntry = { mood: currentMoodLabel, timestamp: Date.now() };
-        await AsyncStorage.setItem('after_mood_latest', JSON.stringify(latestEntry));
         opacity.value = withTiming(0, { duration: 400 });
-        setTimeout(() => { router.replace('/feel/mood_comparison'); }, 400);
+        setTimeout(() => {
+            router.replace('/feel/mood_comparison');
+        }, 400);
     };
 
     // --- ANİMASYONLU STİLLER ---

@@ -55,36 +55,22 @@ const tokens = {
   },
 };
 
-// app/daily_write.tsx dosyasındaki MOOD_LEVELS sabitini bununla değiştirin:
-
+// YENİ: İnterpolasyon için optimize edilmiş, daha yumuşak ve terapötik renk paleti
 const MOOD_LEVELS = [
-  // --- Derin ve Düşünceli Alan ---
-  // Gece gökyüzü, derin sular. Ciddiyet ve içe dönüklük.
-  { label: 'İçe Dönük',  color: '#4A5568' },  // Kurşun Kalem Grisi (Charcoal Slate)
-  
-  // --- Melankolik ve Sakin Alan ---
-  // Sisli bir sabah. Durgunluk ve sükunet.
-  { label: 'Durgun',     color: '#718096' },  // Fırtınalı Gri (Stormy Gray)
-  
-  // --- Denge ve Nötr Alan ---
-  // Bulutlu bir gün. Yargısızlık ve denge.
-  { label: 'Dengede',    color: '#A0AEC0' },  // Taş Grisi (Stone Gray)
-  
-  // --- Uyanış ve Umut Alanı ---
-  // Gün doğumundan önceki ilk ışıklar. Hafif bir iyileşme.
-  { label: 'Sakin',      color: '#CBD5E0' },  // Gümüş Rengi (Silver Mist)
-  
-  // --- Huzur ve Berraklık Alanı ---
-  // Açık bir gökyüzü. Zihinsel berraklık ve dinginlik.
-  { label: 'Huzurlu',    color: '#A7BFDE' },  // Tozlu Mavi (Dusty Blue) - Markanızın yumuşak tonlarına bir gönderme
-  
-  // --- Nazik Pozitiflik Alanı ---
-  // Ilık bir öğleden sonra. Memnuniyet ve şefkat.
-  { label: 'İyi',        color: '#7f9cf5' },  // Lavanta Mavisi (Lavender Blue) - Markanızın şefkatli lavanta rengi
-  
-  // --- Canlılık ve Işık Alanı ---
-  // Gün ışığı. Enerji ve canlılık.
-  { label: 'Aydınlık',   color: '#63B3ED' },  // Berrak Gök Mavisi (Clear Sky Blue) - Markanızın ana mavisine yakın, ama daha yumuşak
+  // Derin düşünce, gece mavisi
+  { label: 'İçe Dönük',  color: '#4A5568' }, // Kurşun Kalem Grisi
+  // Durgunluk, sisli bir sabah
+  { label: 'Durgun',     color: '#718096' }, // Fırtınalı Gri
+  // Nötr denge, bulutlu gökyüzü
+  { label: 'Dengede',    color: '#A0AEC0' }, // Taş Grisi
+  // Hafif bir aydınlanma, gümüşi bir ışık
+  { label: 'Sakin',      color: '#A7BFDE' }, // Tozlu Mavi (Gri-Mavi geçişi)
+  // Huzur, açık ve berrak bir gökyüzü
+  { label: 'Huzurlu',    color: '#90a4f5' }, // Yumuşak Lavanta (Marka rengine yumuşak geçiş)
+  // Nazik pozitiflik, ılık bir gün
+  { label: 'İyi',        color: '#7f9cf5' }, // Lavanta Mavisi (Ana marka rengi)
+  // Canlılık ve enerji, parlak gökyüzü
+  { label: 'Aydınlık',   color: '#63B3ED' }, // Berrak Gök Mavisi
 ];
 
 const { width, height } = Dimensions.get('window');
@@ -137,6 +123,23 @@ function desaturateAndDarken(hex: string, desaturation: number, darkness: number
 
   const toHex = (c: number) => ('0' + c.toString(16)).slice(-2);
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+// YENİ: İki hex renk arasında yumuşak bir geçiş sağlayan interpolasyon fonksiyonu
+function interpolateColor(color1: string, color2: string, factor: number) {
+  const hex = (c: number) => c.toString(16).padStart(2, '0');
+  const c1 = parseInt(color1.substring(1), 16);
+  const r1 = (c1 >> 16) & 255;
+  const g1 = (c1 >> 8) & 255;
+  const b1 = c1 & 255;
+  const c2 = parseInt(color2.substring(1), 16);
+  const r2 = (c2 >> 16) & 255;
+  const g2 = (c2 >> 8) & 255;
+  const b2 = c2 & 255;
+  const r = Math.round(r1 + factor * (r2 - r1));
+  const g = Math.round(g1 + factor * (g2 - g1));
+  const b = Math.round(b1 + factor * (b2 - b1));
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
 //-------------------------------------------------------------
@@ -344,14 +347,21 @@ export default function DailyWriteScreen() {
           scale: entryAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) 
       }] 
   };
+
+  // -----------------------------------------------------------
+  // YENİ: RENK HESAPLAMA MANTIĞI
+  // -----------------------------------------------------------
+  const startIndex = Math.floor(moodValue);
+  const endIndex = Math.min(startIndex + 1, MOOD_LEVELS.length - 1);
+  const factor = moodValue - startIndex;
+  const startColor = MOOD_LEVELS[startIndex].color;
+  const endColor = MOOD_LEVELS[endIndex].color;
+  const dynamicColor = interpolateColor(startColor, endColor, factor);
   const currentMood = MOOD_LEVELS[Math.round(moodValue)];
   const isCurrentMoodDark = isColorDark(currentMood.color);
 
-  // Gradient renklerini belirle
-  const gradientColors: [string, string] =
-    currentMood.color === tokens.tintMain
-      ? [currentMood.color, lightenColor(currentMood.color, 0.18)]
-      : [currentMood.color, tokens.tintMain];
+  // Gradient için renkleri belirle (Artık dinamik renge göre)
+  const gradientColors: [string, string] = [dynamicColor, tokens.tintMain];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -363,7 +373,7 @@ export default function DailyWriteScreen() {
 
       <Animated.View style={[styles.container, fadeIn]}>
         <View style={styles.mainContent}>
-          <BlurView intensity={50} tint="light" style={[styles.card, styles.moodCard, {borderColor: currentMood.color}]}>
+          <BlurView intensity={50} tint="light" style={[styles.card, styles.moodCard, {borderColor: dynamicColor}]}>
             <Text style={styles.title}>Bugün nasıl hissediyorsun?</Text>
             <View style={styles.moodBlock}>
               <GradientMoodImage colors={gradientColors} />
@@ -372,19 +382,26 @@ export default function DailyWriteScreen() {
           </BlurView>
           <View style={{marginTop: -16, marginBottom: 16, paddingHorizontal: 10}}>
             <Slider
-              style={styles.slider} minimumValue={0} maximumValue={6} step={1}
+              style={styles.slider}
+              minimumValue={0}
+              maximumValue={MOOD_LEVELS.length - 1}
+              step={0.01}
               value={moodValue}
               onValueChange={v => setMoodValue(v)}
-              onSlidingComplete={() => Haptics.selectionAsync()}
-              minimumTrackTintColor={currentMood.color}
+              onSlidingComplete={v => {
+                const roundedValue = Math.round(v);
+                setMoodValue(roundedValue);
+                Haptics.selectionAsync();
+              }}
+              minimumTrackTintColor={dynamicColor}
               maximumTrackTintColor="rgba(93,161,217,0.15)"
-              thumbTintColor={currentMood.color}
+              thumbTintColor={dynamicColor}
             />
           </View>
           
           <TouchableOpacity onPress={() => { animatePress(); setInputVisible(true); }} activeOpacity={0.8}>
             <BlurView intensity={50} tint="light" style={[styles.card, styles.promptCard]}>
-                <Ionicons name="create-outline" size={24} color={currentMood.color} />
+                <Ionicons name="create-outline" size={24} color={dynamicColor} />
                 <Text numberOfLines={1} style={[styles.promptText, note && styles.promptFilled]}>
                   {note || 'Bugünün duygularını ve düşüncelerini buraya yaz...'}
                 </Text>
@@ -393,7 +410,7 @@ export default function DailyWriteScreen() {
         </View>
         <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
            <TouchableOpacity disabled={!note || saving} activeOpacity={0.85} onPress={saveSession}>
-                <LinearGradient start={{x:0, y:0}} end={{x:1, y:1}} colors={[currentMood.color, tokens.tintMain]} style={[styles.saveBtn, (!note || saving) && { opacity: 0.5 }] }>
+                <LinearGradient start={{x:0, y:0}} end={{x:1, y:1}} colors={[dynamicColor, tokens.tintMain]} style={[styles.saveBtn, (!note || saving) && { opacity: 0.5 }] }>
                   <Ionicons name="checkmark-circle-outline" size={24} color="#fff" />
                   <Text style={styles.saveText}>{saving ? 'Kaydediliyor...' : 'Günlüğü Tamamla'}</Text>
                 </LinearGradient>
@@ -418,7 +435,7 @@ export default function DailyWriteScreen() {
                     onPress={() => setInputVisible(false)} 
                     style={styles.modalBackButton}
                   >
-                    <Ionicons name="chevron-back" size={26} color={currentMood.color} />
+                    <Ionicons name="chevron-back" size={26} color={dynamicColor} />
                   </TouchableOpacity>
 
                   <View style={styles.modalIconContainer}>
@@ -426,7 +443,7 @@ export default function DailyWriteScreen() {
                       colors={['#f0f4fa', '#e6eaf1']}
                       style={styles.modalIconGradient}
                     >
-                      <Ionicons name="chatbubble-ellipses-outline" size={28} color={currentMood.color} />
+                      <Ionicons name="chatbubble-ellipses-outline" size={28} color={dynamicColor} />
                     </LinearGradient>
                   </View>
 
@@ -438,10 +455,10 @@ export default function DailyWriteScreen() {
                     <Text style={styles.modalSubtitle}>Duygularını ve düşüncelerini güvenle paylaşabilirsin.</Text>
                 </View>
                 
-                <View style={[styles.modalDivider, {backgroundColor: currentMood.color, opacity: 0.1}]} />
+                <View style={[styles.modalDivider, {backgroundColor: dynamicColor, opacity: 0.1}]} />
 
                 <View style={styles.inputWrapper}>
-                  <View style={[styles.inputContainer, { borderColor: `rgba(${hexToRgb(currentMood.color)}, 0.4)` }]}> 
+                  <View style={[styles.inputContainer, { borderColor: `rgba(${hexToRgb(dynamicColor)}, 0.4)` }]}> 
                     <TextInput
                       style={styles.input}
                       value={note}
@@ -450,43 +467,38 @@ export default function DailyWriteScreen() {
                       placeholderTextColor="#A0AEC0"
                       multiline
                       autoFocus
-                      selectionColor={currentMood.color}
+                      selectionColor={dynamicColor}
                     />
-                    <View style={[styles.inputDecoration, { backgroundColor: `rgba(${hexToRgb(currentMood.color)}, 0.1)` }]} />
+                    <View style={[styles.inputDecoration, { backgroundColor: `rgba(${hexToRgb(dynamicColor)}, 0.1)` }]} />
                   </View>
                 </View>
                 
                 <TouchableOpacity
                   style={[
-                    styles.elegantButton,
-                    {
-                      // Arka plan, rengin koyu ve desatüre hali olacak
-                      backgroundColor: desaturateAndDarken(currentMood.color, 0.4, 0.2),
-                    }
+                    styles.modalConfirmButton,
+                    { borderColor: `rgba(${hexToRgb(dynamicColor)}, 0.2)` }
                   ]}
                   onPress={() => setInputVisible(false)}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.elegantButtonContent}>
-                    {/* Vurgu çizgisi, ana rengin parlak hali */}
-                    <View style={[styles.elegantButtonAccentLine, { backgroundColor: lightenColor(currentMood.color, 0.15) }]} />
-                    
-                    <Ionicons 
-                      name="checkmark-done-circle-outline" 
-                      size={22} 
-                      // Vurgu rengi, ana rengin kendisi
-                      color={lightenColor(currentMood.color, 0.25)} 
-                    />
-                    <Text 
-                      style={[
-                        styles.elegantButtonText,
-                        // Metin de aynı vurgu renginde
-                        { color: lightenColor(currentMood.color, 0.25) }
-                      ]}
-                    >
-                      Tamam
-                    </Text>
-                  </View>
+                  <BlurView
+                    intensity={60}
+                    tint="light"
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <Ionicons 
+                    name="checkmark-done-circle-outline" 
+                    size={22}
+                    color={dynamicColor} 
+                  />
+                  <Text 
+                    style={[
+                      styles.modalConfirmButtonText,
+                      { color: dynamicColor }
+                    ]}
+                  >
+                    Tamam
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -494,22 +506,50 @@ export default function DailyWriteScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* AI ANALİZ MODALI - index.tsx ile aynı yapıda */}
+      {/* YENİ VE GELİŞTİRİLMİŞ AI ANALİZ MODALI */}
       <Modal visible={feedbackVisible} transparent animationType="fade" onRequestClose={closeFeedback}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity 
-              onPress={closeFeedback} 
-              style={styles.modalBackButton}
-            >
-              <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
-            </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalContainer}
+        >
+          <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+          
+          <TouchableWithoutFeedback onPress={closeFeedback}>
+            <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%'}}>
+              <View style={[styles.modalContent]}>
+                
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity 
+                    onPress={closeFeedback} 
+                    style={styles.modalBackButton}
+                  >
+                    <Ionicons name="chevron-back" size={26} color={dynamicColor} />
+                  </TouchableOpacity>
 
-            <Text style={styles.modalTitle}>AI Analizi</Text>
-            <View style={styles.modalDivider} />
-            <Text style={styles.modalText}>{aiMessage}</Text>
-          </View>
-        </View>
+                  <View style={styles.modalIconContainer}>
+                    <LinearGradient
+                      colors={['#f0f4fa', '#e6eaf1']}
+                      style={styles.modalIconGradient}
+                    >
+                      <Ionicons name="sparkles-outline" size={28} color={dynamicColor} />
+                    </LinearGradient>
+                  </View>
+
+                  <View style={{ width: 44, height: 44 }} />
+                </View>
+                
+                <View style={styles.modalTitleContainer}>
+                    <Text style={styles.modalTitle}>AI Analizi</Text>
+                </View>
+                
+                <View style={[styles.modalDivider, {backgroundColor: dynamicColor, opacity: 0.1}]} />
+
+                <Text style={styles.modalText}>{aiMessage}</Text>
+              
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
 
     </SafeAreaView>
@@ -660,33 +700,22 @@ const styles = StyleSheet.create({
     left: '15%',
     right: '15%',
   },
-  elegantButton: {
+  modalConfirmButton: {
     height: 54,
-    borderRadius: 20,
     width: '100%',
-    overflow: 'hidden', // İçindeki vurgu çizgisinin taşmasını engeller
-    position: 'relative', // Vurgu çizgisi için referans noktası
-  },
-  elegantButtonContent: { // YENİ: İçeriği sarmak için
+    borderRadius: 20,
+    marginTop: 8,
+    borderWidth: 1.5,
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
-    height: '100%',
   },
-  elegantButtonText: {
-    fontSize: 17, // Biraz büyütelim
+  modalConfirmButtonText: {
+    fontSize: 17,
     fontWeight: '600',
-    letterSpacing: -0.4, // Harf aralığını ayarla
-    marginLeft: 8, // İkon ve metin arası boşluk
-  },
-  elegantButtonAccentLine: { // YENİ: Tasarım imzası
-    position: 'absolute',
-    top: 0,
-    left: '20%',
-    right: '20%',
-    height: 2.5,
-    borderRadius: 2,
+    letterSpacing: -0.2,
+    marginLeft: 8,
   },
   modalText: {
     fontSize: 15,
