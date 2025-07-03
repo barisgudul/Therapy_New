@@ -6,6 +6,15 @@ import {
   ActivityIndicator,
   Alert, // <-- YENİ: Onay penceresi için import edildi
   Animated,
+  Easing // <-- YENİ: Buraya eklendi
+  ,
+
+
+
+
+
+
+
   Platform,
   Pressable,
   ScrollView,
@@ -39,6 +48,22 @@ const theme = {
     aiBubble: '#F8FAFF',
     userBubble: '#FFFFFF',
     textSubtle: '#9CA3AF',
+
+    // YENİ: PREMIUM KART İÇİN EKLENECEK RENKLER
+    premiumGradient: ['#1D2B64', '#4A00E0'] as [string, string], // Derin Kozmik Gradyan
+    premiumText: '#FFFFFF',
+    premiumTextSoft: '#E0E0E0',
+    premiumGlow: '#A77DFF', // İkon ve Buton için Işıma Rengi
+    premiumCta: ['#38ef7d', '#11998e'] as [string, string], // Canlı Yeşil Gradyan Buton
+
+    // YENİ: SERENİTY (HUzur) KARTI İÇİN EKLENECEK RENKLER
+    serenityBackground: ['#F5F7FA', '#E8EDF2'] as [string, string], // Çok hafif, soğuk bir arka plan
+    serenityCardBackground: ['#FFFFFF', '#FDFEFF'] as [string, string],
+    serenityText: '#334155', // Daha yumuşak bir ana metin rengi
+    serenityTextSoft: '#64748B', // Daha da yumuşak açıklama rengi
+    serenityAccent: '#A7C7E7', // Vurgu için yumuşak, pudralı bir mavi
+    serenityCtaText: '#FFFFFF',
+    serenityCtaBackground: ['#5DA1D9', '#6388E4'] as [string, string], // Ana tema rengini kullanan sakin bir CTA
 };
 
 // ---- TİP TANIMLAMALARI ----
@@ -77,13 +102,32 @@ const SelectionCard: React.FC<{ title: string; description: string; icon: keyof 
   </Pressable>
 );
 
+// ---- YENİ: AKICI VE GENİŞ SEÇİM KARTI (FLOWCARD) ----
+const FlowCard: React.FC<{ icon: keyof typeof Ionicons.glyphMap; title: string; description: string; onPress: () => void; }> = ({ icon, title, description, onPress }) => {
+    return (
+        <Pressable onPress={onPress} style={({ pressed }) => [styles.flowCard, { transform: [{ scale: pressed ? 0.985 : 1 }] }] }>
+            <LinearGradient colors={theme.serenityCardBackground} style={styles.flowCardGradient}>
+                <LinearGradient colors={theme.gradient} style={styles.flowIconContainer}>
+                    <Ionicons name={icon} size={28} color={theme.tint} />
+                </LinearGradient>
+                <View style={styles.flowTextContainer}>
+                    <Text style={styles.flowTitle}>{title}</Text>
+                    <Text style={styles.flowDescription}>{description}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={24} color={theme.serenityAccent} />
+            </LinearGradient>
+        </Pressable>
+    );
+};
+
 // ---- SummaryCard BİLEŞENİ GÜNCELLENDİ ----
 const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete: () => void; }> = ({ event, onPress, onDelete }) => {
   const date = new Date(event.timestamp);
   const formattedDate = date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "İçerik yok";
-  const summaryTitle = firstUserMessage.split(' ').slice(0, 3).join(' ') + '...';
-
+  const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "Bu seans dökümü bekliyor...";
+  const summaryTitle = firstUserMessage.length > 25 
+      ? firstUserMessage.substring(0, 25) + '...'
+      : firstUserMessage;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.summaryCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
         <LinearGradient colors={[theme.card, '#F9FBFF']} style={styles.summaryCardGradient}>
@@ -105,34 +149,6 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
 };
 
 
-const PremiumDiscoveryCard: React.FC<{onPressCTA: () => void}> = ({ onPressCTA }) => {
-    const features = ['Derinlemesine Analiz', 'Kişisel Büyüme', 'Uzman Rehberliği'];
-    return (
-        <View style={styles.discoveryContainer}>
-            <View style={styles.discoveryCard}>
-                <LinearGradient colors={[theme.card, '#F8FAFF']} style={styles.discoveryContent}>
-                    <Text style={styles.discoveryTitle}>Potansiyelini Keşfet</Text>
-                    <Text style={styles.discoveryDescription}>Henüz hiç seans kaydın yok. İlk adımı atarak zihinsel yolculuğunu başlat ve içgörülerini ortaya çıkar.</Text>
-                    <View style={styles.featuresContainer}>
-                        {features.map((feature, index) => (
-                            <View key={index} style={styles.featureTag}>
-                                <Ionicons name="checkmark-circle" size={14} color={theme.tint} style={styles.featureIcon} />
-                                <Text style={styles.featureText}>{feature}</Text>
-                            </View>
-                        ))}
-                    </View>
-                    <Pressable style={({ pressed }) => [styles.discoveryButtonWrapper, { transform: [{ scale: pressed ? 0.98 : 1 }] }]} onPress={onPressCTA}>
-                        <LinearGradient colors={theme.ctaButton} style={styles.discoveryButton}>
-                            <Text style={styles.discoveryButtonText}>Terapistini Seç ve Başla</Text>
-                            <Ionicons name="arrow-forward-circle" size={22} color={'#fff'} />
-                        </LinearGradient>
-                    </Pressable>
-                </LinearGradient>
-            </View>
-        </View>
-    );
-};
-
 const MessageBubble: React.FC<{ message: { sender: string; text: string } }> = ({ message }) => {
   const isAI = message.sender === 'ai';
   return (
@@ -153,6 +169,96 @@ const AnimatedSessionCard: React.FC<{ event: SessionEvent }> = ({ event }) => {
                 </View>
             </View>
         </Animated.View>
+    );
+};
+
+// ---- YENİ: AŞIRI ZARİF VE TERAPÖTİK SERENITY KARTI (SON VERSİYON) ----
+const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
+    // 1. ANİMASYON DEĞERLERİNİ GÜNCELLE
+    const leafTranslateY = React.useRef(new Animated.Value(60)).current; // Yaprak 60px aşağıdan başlayacak
+    const contentFadeAnim = React.useRef(new Animated.Value(0)).current;
+    const rippleAnim = React.useRef(new Animated.Value(0)).current;
+
+    // 2. YENİ ANİMASYON KOREOGRAFİSİ
+    React.useEffect(() => {
+        leafTranslateY.setValue(60);
+        contentFadeAnim.setValue(0);
+        rippleAnim.setValue(0);
+
+        Animated.parallel([
+            Animated.timing(rippleAnim, {
+                toValue: 1,
+                duration: 2000,
+                useNativeDriver: true,
+            }),
+            Animated.timing(leafTranslateY, {
+                toValue: 0,
+                duration: 1400,
+                delay: 200,
+                useNativeDriver: true,
+                easing: Easing.out(Easing.cubic),
+            }),
+            Animated.timing(contentFadeAnim, {
+                toValue: 1,
+                duration: 1000,
+                delay: 700,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
+
+    // Farklı halkalar için animasyon enterpolasyonları
+    const ripple1 = {
+        transform: [{
+            scale: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 4] })
+        }],
+        opacity: rippleAnim.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0.7, 0.3, 0] })
+    };
+    const ripple2 = {
+        transform: [{
+            scale: rippleAnim.interpolate({ inputRange: [0.1, 1], outputRange: [0, 4] })
+        }],
+        opacity: rippleAnim.interpolate({ inputRange: [0.1, 0.7, 1], outputRange: [0.6, 0.2, 0] })
+    };
+
+    return (
+        <View style={styles.serenityContainer}>
+            <LinearGradient colors={theme.serenityCardBackground} style={styles.serenityCard}>
+                {/* 1. Yaprak ve Dalga (Kendi dikey animasyonuna sahip) */}
+                <Animated.View style={{ transform: [{ translateY: leafTranslateY }] }}>
+                    <View style={styles.rippleContainer}>
+                        <Animated.View style={[styles.ripple, ripple1]} />
+                        <Animated.View style={[styles.ripple, ripple2]} />
+                        <Ionicons name="leaf-outline" size={36} color={theme.serenityAccent} style={{ opacity: 0.85 }} />
+                    </View>
+                </Animated.View>
+                {/* 2. Metinler ve Buton (Sadece belirginleşme animasyonuna sahip) */}
+                <Animated.View style={{ opacity: contentFadeAnim, alignItems: 'center', width: '100%' }}>
+                    <Text style={styles.serenityTitle}>
+                      {/* YENİ: "Henüz keşfedilecek bir şey yok" teması */}
+                      Keşfedilecek Bir Geçmiş
+                    </Text>
+                    <Text style={styles.serenityDescription}>
+                      {/* YENİ: Geçmiş oluşturmanın önemini vurgulama */}
+                      Burada, zamanla biriken seans kayıtlarınız sergilenecek. İlk görüşmenizi yaparak bu değerli arşivi oluşturmaya başlayın.
+                    </Text>
+                    <Pressable onPress={onPressCTA} style={({ pressed }) => [styles.serenityCtaWrapper, { transform: [{ scale: pressed ? 0.98 : 1 }] }] }>
+                        <LinearGradient 
+                            colors={theme.serenityCtaBackground} 
+                            style={styles.serenityCta} 
+                            start={{x:0, y:0.5}} 
+                            end={{x:1, y:0.5}}
+                        >
+                            <Ionicons name="sparkles-outline" size={20} color={theme.serenityCtaText} style={{ opacity: 0.9 }} />
+                            <Text style={styles.serenityCtaText}>
+                              {/* YENİ: İlk kaydı oluşturmaya yönelik eylem */}
+                              Terapistini Seç ve Başla
+                            </Text>
+                        </LinearGradient>
+                    </Pressable>
+                </Animated.View>
+            </LinearGradient>
+        </View>
     );
 };
 
@@ -182,6 +288,7 @@ export default function PremiumHistoryScreen() {
   const handleSelectSessionType = (type: EventType) => { setSelectedSessionType(type); setViewMode('summaryList'); };
   const handleSelectEvent = (event: SessionEvent) => { setSelectedEvent(event); setViewMode('detailView'); };
   
+  // Fix typo in function name
   const handleNavigateToPremium = () => {
       console.log("Navigating to AvatarScreen...");
       router.replace('/avatar');
@@ -221,25 +328,52 @@ export default function PremiumHistoryScreen() {
     switch (viewMode) {
       case 'menu':
         return (
-          <View>
-            <ScreenHeader title="Yolculuğum" onBack={() => navigation.goBack()}/>
-            <Text style={styles.pageSubtitle}>Geçmiş seanslarına göz atarak içgörülerini keşfet.</Text>
-            <View style={styles.selectionContainer}>
-              <SelectionCard title="Yazılı Görüşme" description="Düşüncelerini yazıya dökerek netleş" icon="chatbubble-ellipses-outline" onPress={() => handleSelectSessionType('text_session')} />
-              <SelectionCard title="Sesli Görüşme" description="Sesinle duygularını ifade et" icon="mic-outline" onPress={() => handleSelectSessionType('voice_session')} />
-              <SelectionCard title="Görüntülü Görüşme" description="Yüz yüze bağ kurarak anlaşıl" icon="videocam-outline" onPress={() => handleSelectSessionType('video_session')} />
-            </View>
-          </View>
+          <>
+            <ScreenHeader title="" onBack={() => navigation.goBack()} />
+            <ScrollView contentContainerStyle={styles.menuContainer}>
+              <View style={styles.introContainer}>
+                  <Text style={styles.introTitle}>İç Dünyanız</Text>
+                  {/* YENİ: Geçmişe dönük keşif teması */}
+                  <Text style={styles.introDescription}>
+                      Geçmiş görüşmelerinizdeki yansımaları ve içgörüleri keşfedin.
+                  </Text>
+              </View>
+              <View style={styles.cardsFlowContainer}>
+                  <FlowCard 
+                      title="Yazılarınız"
+                      description="Düşüncelerinizi kelimelerin akışında görün." 
+                      icon="chatbubble-ellipses-outline" 
+                      onPress={() => handleSelectSessionType('text_session')} 
+                  />
+                  <FlowCard 
+                      title="Sesli Görüşmeler"
+                      description="İfade ettiğiniz duyguların özüne dönün." 
+                      icon="mic-outline" 
+                      onPress={() => handleSelectSessionType('voice_session')} 
+                  />
+                  <FlowCard 
+                      title="Görüntülü Seanslar"
+                      description="O anki bağın ve anlayışın izlerini takip edin." 
+                      icon="videocam-outline" 
+                      onPress={() => handleSelectSessionType('video_session')} 
+                  />
+              </View>
+            </ScrollView>
+          </>
         );
       case 'summaryList': {
         const filteredEvents = allEvents.filter(e => e.type === selectedSessionType).sort((a,b) => b.timestamp - a.timestamp).map((e) => e as SessionEvent);
-        const sessionTitles = { text_session: "Yazı Geçmişi", voice_session: "Sesli Geçmiş", video_session: "Görüntülü Geçmiş" };
+        const sessionTitles = { 
+            text_session: "Yazılarınız", 
+            voice_session: "Ses Kayıtlarınız", 
+            video_session: "Görüşmeleriniz" 
+        };
         const title = sessionTitles[selectedSessionType!] || "Geçmiş Seanslar";
         return (
           <View style={{flex: 1}}>
             <ScreenHeader title={title} onBack={() => setViewMode('menu')} />
             {filteredEvents.length === 0 ? (
-                <PremiumDiscoveryCard onPressCTA={handleNavigateToPremium} />
+                <SerenityCard onPressCTA={handleNavigateToPremium} />
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.summaryListContainer}>
                 {filteredEvents.map(event => ( 
@@ -271,7 +405,7 @@ export default function PremiumHistoryScreen() {
       }
     }
   };
-  return ( <LinearGradient colors={theme.backgroundGradient} style={styles.screen}><View style={styles.container}>{renderContent()}</View></LinearGradient> );
+  return ( <LinearGradient colors={theme.serenityBackground} style={styles.screen}><View style={styles.container}>{renderContent()}</View></LinearGradient> );
 }
 
 // ---- STİLLER (REFERANSLARA GÖRE) ----
@@ -294,15 +428,60 @@ const styles = StyleSheet.create({
   selectionTitle: { fontSize: 18, fontWeight: '600', color: theme.text, marginBottom: 4 },
   selectionDescription: { fontSize: 14, color: theme.softText, lineHeight: 20 },
 
-  summaryListContainer: { gap: 16, marginTop: 24, paddingBottom: 40 },
+  // ---- YENİ: DİKEY AKIŞ (FLOW) STİLLERİ
+  cardsFlowContainer: {
+    paddingHorizontal: 20, // Kenarlardan ferahlık
+    gap: 20, // Kartlar arası cömert boşluk
+  },
+  flowCard: {
+    borderRadius: 24,
+    shadowColor: 'rgba(100, 116, 139, 0.12)',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 1,
+    shadowRadius: 25,
+    elevation: 10,
+  },
+  flowCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  flowIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 20, // İkon ve metin arası boşluk
+    shadowColor: theme.tint,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  flowTextContainer: {
+    flex: 1, // Metinlerin kalan tüm alanı doldurmasını sağlar
+  },
+  flowTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: theme.serenityText,
+    marginBottom: 4,
+  },
+  flowDescription: {
+    fontSize: 14,
+    color: theme.serenityTextSoft,
+    lineHeight: 20,
+  },
+  // ---- SummaryCard için gerekli stiller ----
   summaryCard: { borderRadius: 24, overflow: 'hidden', shadowColor: theme.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4, borderWidth: 1, borderColor: theme.divider },
   summaryCardGradient: { padding: 20, },
   summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.divider, paddingBottom: 12 },
   summaryDateText: { fontSize: 14, fontWeight: '600', color: theme.softText },
   summaryTitle: { fontSize: 18, fontWeight: '600', color: theme.text, letterSpacing: -0.3, marginBottom: 8 },
   summaryText: { fontSize: 15, color: theme.softText, lineHeight: 22 },
-  
-  // YENİ: Silme butonu için stil
   deleteButton: {
     position: 'absolute',
     top: 16,
@@ -312,18 +491,79 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 237, 237, 0.7)',
   },
 
-  discoveryContainer: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
-  discoveryCard: { borderRadius: 24, overflow: 'hidden', shadowColor: theme.tint, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 12, borderWidth: 1.5, borderColor: 'rgba(93, 161, 217, 0.2)' },
-  discoveryContent: { padding: 24 },
-  discoveryTitle: { fontSize: 24, fontWeight: '600', color: theme.text, marginBottom: 12, letterSpacing: -0.5 },
-  discoveryDescription: { fontSize: 16, color: theme.softText, lineHeight: 24, marginBottom: 24 },
-  featuresContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 8, marginBottom: 24 },
-  featureTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(93,161,217,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, },
-  featureIcon: { marginRight: 6 },
-  featureText: { fontSize: 13, color: theme.tint, fontWeight: '500' },
-  discoveryButtonWrapper: { shadowColor: theme.tint, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, borderRadius: 28 },
-  discoveryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 28, gap: 10 },
-  discoveryButtonText: { color: '#fff', fontSize: 17, fontWeight: '600', letterSpacing: -0.3 },
+  // ---- YENİ: SERENITY CARD STİLLERİ (ANİMASYON İÇİN GÜNCELLENDİ) ----
+  serenityContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  serenityCard: {
+    borderRadius: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 80, // Yaprağın "inmesi" için yukarıda boşluk bırakır
+    paddingBottom: 40,
+    minHeight: 520, // Kartın yüksekliğini sabit tutar
+    shadowColor: 'rgba(100, 116, 139, 0.15)',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 1,
+    shadowRadius: 35,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  rippleContainer: {
+    width: 120,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
+  ripple: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1.5,
+    borderColor: theme.serenityAccent,
+  },
+  serenityTitle: {
+    fontSize: 26,
+    fontWeight: '300',
+    color: theme.serenityText,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  serenityDescription: {
+    fontSize: 16,
+    color: theme.serenityTextSoft,
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 36,
+    paddingHorizontal: 10,
+  },
+  serenityCtaWrapper: {
+    alignSelf: 'stretch',
+    shadowColor: theme.tint,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  serenityCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 20,
+    borderRadius: 100,
+  },
+  serenityCtaText: {
+    color: theme.serenityCtaText,
+    fontSize: 17,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
   
   detailCard: { marginTop: 16, backgroundColor: 'transparent' },
   messagesContainer: { padding: 12, gap: 16 },
@@ -332,4 +572,29 @@ const styles = StyleSheet.create({
   userBubble: { alignSelf: 'flex-end', backgroundColor: theme.userBubble, borderTopRightRadius: 6, borderColor: 'rgba(93, 161, 217, 0.2)' },
   bubbleText: { color: theme.text, fontSize: 16, lineHeight: 24, letterSpacing: -0.2 },
   emptyText: { color: theme.softText, fontStyle: 'italic', padding: 20, textAlign: 'center' },
+
+  // ---- YENİ: GİRİŞ BÖLÜMÜ STİLLERİ ----
+  introContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 32,
+    marginTop: 16,
+  },
+  introTitle: {
+    fontSize: 34,
+    fontWeight: '300',
+    color: theme.serenityText,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  introDescription: {
+    fontSize: 17,
+    color: theme.serenityTextSoft,
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  // GENEL MENU KONTEYNERİ
+  menuContainer: {
+    paddingBottom: 60, // En altta boşluk
+  },
+  summaryListContainer: { gap: 16, marginTop: 24, paddingBottom: 40 },
 });

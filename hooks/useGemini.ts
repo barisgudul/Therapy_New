@@ -192,7 +192,7 @@ ${JSON.stringify(entries, null, 2)}
 `.trim();
   const config: GenerationConfig = {
     temperature: 0.6,
-    maxOutputTokens: 500,
+    maxOutputTokens: 1000,
   };
   return await sendToGemini(prompt, POWERFUL_MODEL, config);
 }
