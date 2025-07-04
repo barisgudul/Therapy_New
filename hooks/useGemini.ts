@@ -2,9 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 
 // ------------------- MODEL SABİTLERİ -------------------
-const FAST_MODEL = 'gemini-1.5-flash-latest'; // Hızlı sohbetler için
-const POWERFUL_MODEL = 'gemini-1.5-pro-latest'; // Derin analizler için
-const GENIOUS_MODEL = 'gemini-1.5-pro-latest'; // En güçlü model, en yüksek maliyetli
+const FAST_MODEL = 'gemini-2.5-flash'; // Hızlı sohbetler için
+const POWERFUL_MODEL = 'gemini-2.5-pro'; // Derin analizler için
+const GENIOUS_MODEL = 'gemini-2.5-flash'; // En güçlü model, en yüksek maliyetli
 // ------------------- GENERATION CONFIG TİPİ -------------------
 type GenerationConfig = {
   temperature?: number;
@@ -123,9 +123,9 @@ ${chatHistory}  // Bu değişken artık hibrit geçmişi (özet + son konuşmala
   // ---- CONFIG'İ AYARLIYORUZ ----
   const config: GenerationConfig = {
     temperature: 0.85, // Daha insansı ve çeşitli cevaplar için artırıldı
-    maxOutputTokens: 300, 
+    maxOutputTokens: 5000, 
   };
-  return await sendToGemini(prompt, FAST_MODEL, config);
+  return await sendToGemini(prompt, GENIOUS_MODEL, config);
 }
 
 // ---- DİĞER FONKSİYONLAR (ESKİ HALİYLE KORUNDU) ----
@@ -178,7 +178,7 @@ Kullanıcının son ${days} günlük duygu durumu analizi için aşağıdaki yap
 • Acil durum stratejisi (kriz anları için)
 
 Teknik Talimatlar:
-1. Rapor maksimum 500 kelime olsun
+1. Rapor maksimum 600 kelime olsun
 2. Her bölüm 3-4 maddeli paragraf şeklinde
 3. Sayısal verileri yuvarlayarak yaz (%Yüzde, X/Y oran gibi)
 4. Günlük konuşma dili kullan (akademik jargon yok)
@@ -192,7 +192,7 @@ ${JSON.stringify(entries, null, 2)}
 `.trim();
   const config: GenerationConfig = {
     temperature: 0.6,
-    maxOutputTokens: 1000,
+    maxOutputTokens: 15000
   };
   return await sendToGemini(prompt, POWERFUL_MODEL, config);
 }
