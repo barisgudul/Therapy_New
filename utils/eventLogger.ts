@@ -18,14 +18,15 @@ export type EventType =
   | 'text_session'         // Yazılı seans içeriği
   | 'voice_session'        // Sesli seans içeriği
   | 'video_session'        // Görüntülü seans içeriği
-  | 'diary_entry';         // Günlük (diary.tsx) içeriği
+  | 'diary_entry'         // Günlük (diary.tsx) içeriği
+  | 'dream_analysis';         // Rüya analizi
 
 /**
  * Yeni bir olayı o günün olay kaydına ekler.
  * Anahtar formatı her zaman: `events-YYYY-MM-DD`
  * @param event Kaydedilecek standart olay nesnesi.
  */
-export async function logEvent(event: Omit<AppEvent, 'id' | 'timestamp'>): Promise<void> {
+export async function logEvent(event: Omit<AppEvent, 'id' | 'timestamp'>): Promise<string> {
   const now = Date.now();
   const today = new Date(now).toISOString().split('T')[0];
   const key = `events-${today}`; // <-- HER ŞEY BU STANDART ANAHTARLA KAYDEDİLECEK
@@ -50,9 +51,10 @@ export async function logEvent(event: Omit<AppEvent, 'id' | 'timestamp'>): Promi
     // Güncellenmiş listeyi AsyncStorage'a geri kaydet
     await AsyncStorage.setItem(key, JSON.stringify(todaysEvents));
     console.log(`✅ Olay Kaydedildi: ${finalEvent.type} -> ${key}`);
-
+    return finalEvent.id;
   } catch (error) {
     console.error(`Olay kaydedilirken hata oluştu (${key}):`, error);
+    throw error;
   }
 }
 

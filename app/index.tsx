@@ -381,6 +381,26 @@ export default function HomeScreen() {
               </LinearGradient>
             </Pressable>
 
+            <Pressable
+              onPress={() => router.push('/dream' as const)}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="cloudy-night-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>Yapay Zeka Destekli Rüya Analizi</Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+
             <TouchableOpacity 
               style={styles.linkButton} 
               onPress={() => router.push('/how_it_works' as const)}
