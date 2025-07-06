@@ -1,26 +1,24 @@
 // app/dream/analyze.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { analyzeDream } from '../../hooks/useGemini';
-import { logEvent } from '../../utils/eventLogger';
-import { StoredDreamAnalysis } from './index'; // Tipi index dosyasından alıyoruz
+import { logEvent, recordDreamAnalysisUsage } from '../../utils/eventLogger';
 
 const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
 
@@ -53,26 +51,34 @@ export default function AnalyzeDreamScreen() {
     try {
       const result = await analyzeDream(dream);
       if (result) {
-        const loggedEvent = await logEvent({
+        // Yeni 'dream_analysis' olayı oluştur
+        const loggedEventId = await logEvent({
           type: 'dream_analysis',
-          data: { dreamText: dream, analysis: result },
+          data: {
+            dreamText: dream,
+            analysis: result,
+            dialogue: [] // Diyalog başlangıçta boş
+          },
         });
 
-        // logEvent artık string id döndürüyor, doğrudan kullan
-        const eventId = typeof loggedEvent === 'string' ? loggedEvent : `fallback-${Date.now()}`;
-        
-        const newAnalysis: StoredDreamAnalysis = {
-          ...result,
-          id: eventId,
-          date: new Date().toISOString()
+        // ----> KULLANIMI KAYDET <----
+        await recordDreamAnalysisUsage();
+
+        // AppEvent formatında parametre oluştur
+        const eventForNavigation = {
+          id: loggedEventId,
+          timestamp: Date.now(),
+          type: 'dream_analysis',
+          data: {
+            dreamText: dream,
+            analysis: result,
+            dialogue: []
+          },
         };
-        const existingAnalysesRaw = await AsyncStorage.getItem(STORAGE_KEY);
-        const existingAnalyses: StoredDreamAnalysis[] = existingAnalysesRaw ? JSON.parse(existingAnalysesRaw) : [];
-        const updatedAnalyses = [newAnalysis, ...existingAnalyses];
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedAnalyses));
+
         router.push({
           pathname: './result',
-          params: { analysisData: JSON.stringify(newAnalysis) },
+          params: { eventData: JSON.stringify(eventForNavigation), isNewAnalysis: "true" },
         });
         setDream('');
       } else {

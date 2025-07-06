@@ -2,8 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 
 // ------------------- MODEL SABİTLERİ -------------------
-const FAST_MODEL = 'gemini-1.5-flash-latest'; // Hızlı ve genel amaçlı kullanım için (Gemini 2.5 Flash henüz API'de bu isimle olmayabilir, en güncel flash'ı kullanalım)
-const POWERFUL_MODEL = 'gemini-1.5-pro-latest'; // Derin ve uzun analizler için (Aynı şekilde, en güncel pro)
+const FAST_MODEL = 'gemini-1.5-flash'; // Hızlı ve genel amaçlı kullanım için (Gemini 2.5 Flash henüz API'de bu isimle olmayabilir, en güncel flash'ı kullanalım)
+const POWERFUL_MODEL = 'gemini-2.5-pro'; // Derin ve uzun analizler için (Aynı şekilde, en güncel pro)
 
 // DİKKAT: Bu değişken 'flash' modeline ayarlı. TherapistReply bu modeli kullanıyor.
 // Eğer terapist cevaplarının daha güçlü modelle üretilmesini isterseniz bunu POWERFUL_MODEL yapın.
@@ -264,8 +264,17 @@ Lütfen yanıtını tam olarak şu JSON formatında ver, başka hiçbir metin ek
 
     try {
         const jsonString = await sendToGemini(prompt, FAST_MODEL, config);
-        // Bazen API, JSON'u markdown kod bloğu içine alabilir, temizleyelim.
-        const cleanedText = jsonString.trim().replace(/^```json\n?|\n?```$/g, '');
+        // JSON dışındaki karakterleri temizle
+        const firstBrace = jsonString.indexOf('{');
+        const lastBrace = jsonString.lastIndexOf('}');
+        let cleanedText = (firstBrace !== -1 && lastBrace !== -1)
+          ? jsonString.substring(firstBrace, lastBrace + 1)
+          : jsonString.trim();
+        // Eğer hala başı ve sonu tırnak ise, bir kez daha parse et
+        if (cleanedText.startsWith('"') && cleanedText.endsWith('"')) {
+          cleanedText = cleanedText.slice(1, -1);
+          cleanedText = cleanedText.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+        }
         const analysis: DiaryAnalysis = JSON.parse(cleanedText);
         return analysis;
     } catch (err) {
@@ -328,6 +337,12 @@ export const analyzeDream = async (dreamText: string): Promise<DreamAnalysisResu
   const userProfile = await getUserProfile();
   const userDesc = makeUserDesc(userProfile);
 
+  // Çok uzun rüya metinlerini kısalt
+  const maxDreamLength = 1500;
+  const safeDreamText = dreamText.length > maxDreamLength
+    ? dreamText.slice(0, maxDreamLength) + '... (kısaltıldı)'
+    : dreamText;
+
   const prompt = `
 ### ROL & GÖREV ###
 Sen, rüya sembolizmi, Jungcu arketipler ve modern psikodinamik yaklaşımlar konusunda uzmanlaşmış, empatik ve bilge bir rüya analistisin. Görevin, kullanıcının rüyasını analiz etmek ve bulgularını yapılandırılmış bir JSON formatında sunmaktır.
@@ -342,7 +357,7 @@ Sen, rüya sembolizmi, Jungcu arketipler ve modern psikodinamik yaklaşımlar ko
 ${userDesc || "Kullanıcı profili bilgisi mevcut değil."}
 
 ### KULLANICININ RÜYASI ###
-"${dreamText}"
+"${safeDreamText}"
 
 ### ÇIKTI FORMATI (ÇOK ÖNEMLİ) ###
 Lütfen yanıtını SADECE ve SADECE aşağıdaki yapıda bir JSON nesnesi olarak döndür. Başka hiçbir metin, açıklama veya kod bloğu işareti ekleme.
@@ -364,11 +379,10 @@ Lütfen yanıtını SADECE ve SADECE aşağıdaki yapıda bir JSON nesnesi olara
 }
 `;
 
-  // DEĞİŞİKLİK: Model, isteğiniz doğrultusunda POWERFUL_MODEL'dan FAST_MODEL'a değiştirildi.
-  // maxOutputTokens (8192), Flash modelinin de desteklediği bir limittir, bu yüzden korunabilir.
+  
   const config: GenerationConfig = {
     temperature: 0.7,
-    maxOutputTokens: FLASH_MAX_TOKENS,
+    maxOutputTokens: 1024, // Flash model için daha güvenli bir limit
     responseMimeType: 'application/json',
   };
 
@@ -383,115 +397,107 @@ Lütfen yanıtını SADECE ve SADECE aşağıdaki yapıda bir JSON nesnesi olara
   }
 };
 
-// Rüya Diyaloğu için Dönen Veri Tipi
-export interface DreamDialogueReply {
-  responseText: string; // Kullanıcıya gösterilecek cevap
-  nextQuestion: string;   // Bir sonraki adımdaki potansiyel soru
-}
-
 /**
- * Bir rüya analizi üzerine devam eden bir diyaloğu yönetir.
+ * YENİ: Sadece bir sonraki soruyu üretir.
+ * Rüya analizi ve önceki konuşmalara dayanarak bir sonraki mantıklı soruyu üretir.
  * @param dreamAnalysis - Orijinal rüya analizi objesi.
- * @param conversationHistory - Şu ana kadar geçen konuşmalar (kullanıcı ve AI).
- * @param currentUserInput - Kullanıcının en son yazdığı cevap/mesaj.
- * @returns AI'ın cevabını ve bir sonraki potansiyel soruyu içeren bir obje.
+ * @param conversationHistory - Şu ana kadar geçen konuşmalar (sadece kullanıcı cevapları).
+ * @returns AI'ın üreteceği yeni soru.
  */
-export async function generateDreamDialogueReply(
+export async function generateNextDreamQuestion(
   dreamAnalysis: DreamAnalysisResult,
-  conversationHistory: { text: string; role: 'user' | 'model' }[],
-  currentUserInput: string
-): Promise<DreamDialogueReply | null> {
-    
-  // AI için geçmişi formatlayalım
-  const formattedHistory = conversationHistory.map(m => `${m.role === 'user' ? 'Kullanıcı' : 'Sen'}: ${m.text}`).join('\n');
-  
+  conversationHistory: { text: string; role: 'user' }[]
+): Promise<string | null> {
+  const formattedHistory = conversationHistory
+    .map((m, i) => `Kullanıcının ${i + 1}. Cevabı: ${m.text}`)
+    .join('\n');
+
   const prompt = `
 ### ROL & GÖREV ###
-Sen, bir rüya analizinin ardından danışanla diyaloğu derinleştiren, Jungcu ve modern psikodinamik yaklaşımlara hakim bir Kozmik Terapistsin. Asla rolünden çıkma.
+Sen, rüya analizi diyaloglarını yöneten usta bir terapistsin. Görevin, verilen bağlama göre sohbeti bir adım daha derinleştirecek TEK ve ANLAMLI bir soru üretmektir. Başka HİÇBİR ŞEY yazma, sadece soruyu yaz.
 
 ### BAĞLAM (Bu rüya hakkında konuşuyoruz) ###
-- **Rüya Başlığı:** ${dreamAnalysis.title}
 - **Rüya Özeti:** ${dreamAnalysis.summary}
 - **Temel Yorum:** ${dreamAnalysis.interpretation}
+- **Orijinal Sorular:** ${dreamAnalysis.questions.join(', ')}
 
 ### ÖNCEKİ KONUŞMALAR ###
-${formattedHistory || "Bu, diyalogtaki ilk mesaj."}
-
-### KULLANICININ SON MESAJI ###
-Kullanıcı: "${currentUserInput}"
+${formattedHistory || "Henüz kullanıcıdan bir cevap alınmadı. Diyaloğu başlatmak için ilk soruyu üret."}
 
 ### TALİMATLAR (ÇOK ÖNEMLİ) ###
-1.  **CEVAP VER:** Kullanıcının son mesajına, yukarıdaki rüya bağlamını ve sohbet geçmişini dikkate alarak, 1-2 cümlelik empatik, kısa ve doğrudan ilgili bir yanıt ver. Cevabın, kullanıcının düşüncesini yansıtsın ve ona anlaşıldığını hissettirsin.
-2.  **YENİ BİR SORU ÜRET:** Cevabını verdikten sonra, diyaloğu bir adım daha derine taşıyacak, açık uçlu ve tek bir yeni soru üret. Bu soru, kullanıcının cevabından veya rüyanın henüz keşfedilmemiş bir yönünden (bir sembol, bir duygu vb.) ilham alabilir.
-3.  **FORMAT:** Yanıtını SADECE ve SADECE aşağıdaki JSON formatında, başka hiçbir metin eklemeden ver.
+1.  **TEK BİR SORU ÜRET:** Kullanıcının son cevabını veya rüyanın henüz keşfedilmemiş bir yönünü temel alarak, açık uçlu, düşünmeye teşvik edici YENİ BİR SORU üret.
+2.  **ASLA YORUM YAPMA:** Yanıtında "Harika bir nokta.", "Anlıyorum..." gibi ifadeler KULLANMA. Çıktın sadece ve sadece soru metni olmalı.
+3.  **TEKRARDAN KAÇIN:** Daha önce sorduğun sorulardan veya orijinal analizdeki sorulardan farklı bir soru sormaya çalış.
 
-{
-  "responseText": "Buraya kullanıcıya vereceğin 1-2 cümlelik yanıtı yaz.",
-  "nextQuestion": "Buraya ürettiğin yeni ve tek soruyu yaz."
-}
+### ÇIKTI (Sadece tek bir soru metni): ###
   `.trim();
 
-  // Bu işlem için Flash model yeterince güçlü ve maliyet açısından verimlidir.
   const config: GenerationConfig = {
     temperature: 0.8,
-    maxOutputTokens: 512, // Cevap ve soru için yeterli alan.
-    responseMimeType: 'application/json',
+    maxOutputTokens: 100, // Sadece soru için
   };
 
   try {
-    const jsonString = await sendToGemini(prompt, FAST_MODEL, config);
-    // Güvenli JSON parse
-    const cleanedText = jsonString.trim().replace(/^```json\n?|\n?```$/g, '');
-    const result: DreamDialogueReply = JSON.parse(cleanedText);
-    return result;
+    const nextQuestion = await sendToGemini(prompt, FAST_MODEL, config);
+    // Gemini'nin soru işaretini eklemediği durumlar için
+    return nextQuestion.endsWith('?') ? nextQuestion : nextQuestion + '?';
   } catch (err) {
-    console.error('[generateDreamDialogueReply] Diyalog yanıtı üretilirken hata:', err);
+    console.error('[generateNextDreamQuestion] Soru üretilirken hata:', err);
     return null;
   }
 }
 
 /**
- * Rüya analizi ve takip eden diyaloğu temel alarak son bir özetleyici geri bildirim oluşturur.
+ * GÜNCELLENDİ: Rüya analizi ve 3 kullanıcı cevabını alarak son bir özet oluşturur.
  * @param dreamAnalysis Orijinal rüya analizi objesi.
- * @param conversationHistory Geçen tüm konuşmalar (kullanıcı ve AI).
- * @returns 2-3 cümlelik sonuç odaklı bir geri bildirim metni.
+ * @param userAnswers Kullanıcının 3 cevabını içeren dizi.
+ * @returns 3-4 cümlelik sonuç odaklı bir geri bildirim metni.
  */
 export async function generateFinalDreamFeedback(
   dreamAnalysis: DreamAnalysisResult,
-  conversationHistory: { text: string; role: 'user' | 'model' }[],
+  userAnswers: { text: string }[],
 ): Promise<string> {
-    
-  // AI için geçmişi formatlayalım
-  const formattedHistory = conversationHistory.map(m => `${m.role === 'user' ? 'Kullanıcı' : 'Sen'}: ${m.text}`).join('\n');
+    // Truncate interpretation and answers if too long to avoid MAX_TOKENS
+    const maxInterpretationLength = 1200;
+    const maxAnswerLength = 400;
+    const truncatedInterpretation = dreamAnalysis.interpretation.length > maxInterpretationLength
+      ? dreamAnalysis.interpretation.slice(0, maxInterpretationLength) + '... (kısaltıldı)'
+      : dreamAnalysis.interpretation;
+    const formattedAnswers = userAnswers
+      .map((ans, i) => {
+        let t = ans.text || '';
+        if (t.length > maxAnswerLength) t = t.slice(0, maxAnswerLength) + '... (kısaltıldı)';
+        return `Soru ${i + 1}'e Verilen Cevap: "${t}"`;
+      })
+      .join('\n');
   
-  const prompt = `
+    const prompt = `
 ### ROL & GÖREV ###
-Sen, bir rüya analizi üzerine danışanla kısa bir diyaloğu tamamlamış olan bilge Kozmik Terapistsin. Görevin, tüm bu süreci özetleyen, sıcak, cesaretlendirici ve sonuç odaklı son bir geri bildirim sunmaktır.
+Sen, bir rüya analizi ve 3 adımlı bir keşif diyaloğunu tamamlamış olan bilge Kozmik Terapistsin. Görevin, tüm bu süreci sentezleyerek, kullanıcıya içgörü kazandıran, sıcak, cesaretlendirici ve sonuç odaklı son bir geri bildirim sunmaktır.
 
 ### BAĞLAM ###
-- **Orijinal Rüya Yorumu:** ${dreamAnalysis.interpretation}
-- **Rüya ve Diyalogdan Çıkarımlar:** Aşağıdaki diyalog, rüyanın daha derin anlamlarını keşfetmek için yapıldı.
-${formattedHistory}
+- **Orijinal Rüya Yorumu:** ${truncatedInterpretation}
+- **Keşif Diyaloğu Cevapları:**
+${formattedAnswers}
 
 ### TALİMATLAR ###
-1.  **Sentezle:** Hem orijinal rüya yorumunu hem de diyalogdaki kullanıcı cevaplarını birleştirerek bütüncül bir bakış açısı oluştur.
-2.  **Özetle:** Kullanıcının bu keşif yolculuğu için onu takdir eden, 2-3 cümlelik kısa ve etkili bir sonuç paragrafı yaz.
-3.  **Güçlendir:** Kullanıcıyı bu içgörülerle baş başa bırakan, ona pozitif bir düşünce veya hafif bir cesaretlendirme ile veda et.
-4.  **SORU SORMA:** Bu son mesajdır. Kesinlikle yeni bir soru sorma.
+1.  **Sentezle:** Orijinal rüya yorumunu ve kullanıcının verdiği ÜÇ cevabı birleştirerek bütüncül bir bakış açısı oluştur. Cevaplar arasındaki bağlantılara dikkat et.
+2.  **Özetle:** Kullanıcıyı bu keşif yolculuğu için takdir eden, 3-4 cümlelik etkili bir sonuç paragrafı yaz. Rüyanın ana mesajının, kullanıcının cevaplarıyla nasıl daha da aydınlandığını vurgula.
+3.  **Güçlendir:** Kullanıcıyı bu içgörülerle baş başa bırakan, ona pozitif bir düşünce veya hafif bir cesaretlendirmenin yanı sıra, gerekirse bir eylem adımı öner.
 
-### ÇIKTI (Sadece kısa sonuç metnini yaz) ###
-  `.trim();
+### ÇIKTI (Sadece sonuç metni) ###
+`.trim();
 
-  const config: GenerationConfig = {
-    temperature: 0.7,
-    maxOutputTokens: 256, // Kısa bir geri bildirim için yeterli.
-  };
+    const config: GenerationConfig = {
+      temperature: 0.5,
+      maxOutputTokens: 300,
+    };
 
-  try {
-    const feedback = await sendToGemini(prompt, FAST_MODEL, config);
-    return feedback;
-  } catch (err) {
-    console.error('[generateFinalDreamFeedback] Son geri bildirim üretilirken hata:', err);
-    return "Bu verimli sohbet için teşekkürler. Rüyalarından gelen mesajları dinlemeye devam etmen harika.";
-  }
+    try {
+      const finalFeedback = await sendToGemini(prompt, FAST_MODEL, config);
+      return finalFeedback;
+    } catch (err) {
+      console.error('[generateFinalDreamFeedback] Geri bildirim üretilirken hata:', err);
+      return 'Rüya analizi tamamlandı, ancak geri bildirimde bir hata oluştu.';
+    }
 }

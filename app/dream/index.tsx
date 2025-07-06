@@ -1,6 +1,5 @@
 //app/dream/index.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
@@ -16,13 +15,7 @@ import {
     View
 } from 'react-native';
 
-import { DreamAnalysisResult } from '../../hooks/useGemini';
-import { deleteEventById } from '../../utils/eventLogger';
-
-export type StoredDreamAnalysis = DreamAnalysisResult & {
-  id: string;
-  date: string;
-};
+import { AppEvent, canUserAnalyzeDream, deleteEventById, getEventsForLast } from '../../utils/eventLogger';
 
 const COSMIC_COLORS = {
   background: ['#0d1117', '#1A2947'] as [string, string],
@@ -33,18 +26,17 @@ const COSMIC_COLORS = {
   accent: '#5DA1D9',
 };
 
-const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
-
 export default function DreamJournalScreen() {
   const router = useRouter();
-  const [analyses, setAnalyses] = useState<StoredDreamAnalysis[]>([]);
+  const [analyses, setAnalyses] = useState<AppEvent[]>([]);
 
   const loadAnalyses = useCallback(async () => {
     try {
-      const storedData = await AsyncStorage.getItem(STORAGE_KEY);
-      if (storedData) {
-        setAnalyses(JSON.parse(storedData));
-      }
+      // Son 365 günün olaylarını çek
+      const allEvents = await getEventsForLast(365);
+      // Sadece rüya analizlerini filtrele
+      const dreamEvents = allEvents.filter(event => event.type === 'dream_analysis');
+      setAnalyses(dreamEvents);
     } catch (e) {
       console.error('Rüya analizleri yüklenemedi:', e);
     }
@@ -56,18 +48,17 @@ export default function DreamJournalScreen() {
     }, [loadAnalyses])
   );
   
-  const handleDelete = async (analysisId: string) => {
+  const handleDelete = async (eventId: string) => {
     Alert.alert(
       "Analizi Sil",
-      "Bu rüya yorumunu kalıcı olarak silmek istediğinizden emin misiniz?",
+      "Bu rüya analizini kalıcı olarak silmek istediğinizden emin misiniz?",
       [
         { text: "Vazgeç", style: "cancel" },
         { text: "Sil", style: "destructive", onPress: async () => {
           try {
-            await deleteEventById(analysisId); 
-            const updatedAnalyses = analyses.filter(a => a.id !== analysisId);
+            await deleteEventById(eventId);
+            const updatedAnalyses = analyses.filter(a => a.id !== eventId);
             setAnalyses(updatedAnalyses);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedAnalyses));
           } catch (error) {
             console.error("Silme hatası:", error);
             Alert.alert("Hata", "Analiz silinirken bir sorun oluştu.");
@@ -77,7 +68,23 @@ export default function DreamJournalScreen() {
     );
   };
 
-  const renderDreamCard = ({ item, index }: { item: StoredDreamAnalysis, index: number }) => (
+  const handleNewDreamPress = async () => {
+    const { canAnalyze, daysRemaining } = await canUserAnalyzeDream();
+    if (canAnalyze) {
+      router.push('/dream/analyze');
+    } else {
+      Alert.alert(
+        "Haftalık Limit Doldu",
+        `Bir sonraki ücretsiz rüya analizine ${daysRemaining} gün kaldı. Limitsiz analiz için Premium'u keşfedebilirsin.`,
+        [
+          { text: "Tamam" },
+          { text: "Premium'a Göz At", onPress: () => router.push('/premium') }
+        ]
+      );
+    }
+  };
+
+  const renderDreamCard = ({ item, index }: { item: AppEvent, index: number }) => (
     <MotiView
       from={{ opacity: 0, translateY: 50 }}
       animate={{ opacity: 1, translateY: 0 }}
@@ -86,12 +93,12 @@ export default function DreamJournalScreen() {
         <TouchableOpacity
             style={styles.card}
             activeOpacity={0.8}
-            onPress={() => router.push({ pathname: '/dream/result', params: { analysisData: JSON.stringify(item) } })}
+            onPress={() => router.push({ pathname: '/dream/result', params: { eventData: JSON.stringify(item), isNewAnalysis: "false" } })}
         >
             <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.cardTitle} numberOfLines={1}>{item.data.analysis.title}</Text>
                 <Text style={styles.cardDate}>
-                {new Date(item.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}
+                  {new Date(item.timestamp).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}
                 </Text>
             </View>
             <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteIcon}>
@@ -110,7 +117,7 @@ export default function DreamJournalScreen() {
 
         <View style={styles.header}>
             <Text style={styles.headerTitle}>Rüya Günlüğü</Text>
-            <Text style={styles.headerSubtext}>Bilinçdışınızın fısıltılarını keşfedin.</Text>
+            <Text style={styles.headerSubtext}>Bilinçaltınızı analizlerle keşfedin.</Text>
         </View>
 
         <FlatList
@@ -121,8 +128,8 @@ export default function DreamJournalScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons name="moon-outline" size={60} color={COSMIC_COLORS.textSecondary} />
-              <Text style={styles.emptyTitle}>Henüz yorumlanmış bir rüya yok.</Text>
-              <Text style={styles.emptySubtitle}>Aşağıdaki butona dokunarak ilk rüyanızı yorumlatın.</Text>
+              <Text style={styles.emptyTitle}>Henüz analiz edilmiş bir rüya yok.</Text>
+              <Text style={styles.emptySubtitle}>Aşağıdaki butona dokunarak ilk rüya analizinizi alın.</Text>
             </View>
           }
         />
@@ -130,11 +137,11 @@ export default function DreamJournalScreen() {
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.newDreamButton}
-            onPress={() => router.push('/dream/analyze')}
+            onPress={handleNewDreamPress}
           >
             <LinearGradient colors={['#F8FAFF', '#FFFFFF']} style={styles.newDreamButtonGradient}>
                 <Ionicons name="add" size={24} color={COSMIC_COLORS.accent} />
-                <Text style={styles.newDreamButtonText}>Yeni Rüya Yorumlat</Text>
+                <Text style={styles.newDreamButtonText}>Yeni Rüya Analizi al</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>

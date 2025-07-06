@@ -1,3 +1,4 @@
+// utils/eventLogger.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 1. STANDART OLAY TİPİNİ TANIMLAYALIM
@@ -149,4 +150,94 @@ export async function deleteEventById(eventId: string): Promise<void> {
     // Hatanın çağrıldığı yere de bildirilmesi için tekrar fırlat
     throw error;
   }
+}
+
+/**
+ * Belirtilen ID'ye sahip bir olayın `data` alanını günceller.
+ * @param eventId Güncellenecek olayın ID'si (timestamp).
+ * @param newData Olayın yeni data nesnesi.
+ */
+export async function updateEventData(eventId: string, newData: any): Promise<void> {
+  try {
+    const timestamp = Number(eventId);
+    if (isNaN(timestamp)) {
+      console.error('Geçersiz eventId, güncelleme işlemi yapılamadı:', eventId);
+      return;
+    }
+    const eventDate = new Date(timestamp).toISOString().split('T')[0];
+    const key = `events-${eventDate}`;
+
+    const dailyEventsRaw = await AsyncStorage.getItem(key);
+    if (!dailyEventsRaw) {
+      console.warn(`Güncellenecek olay için anahtar bulunamadı: ${key}`);
+      return;
+    }
+
+    let dailyEvents: AppEvent[] = JSON.parse(dailyEventsRaw);
+
+    // Güncellenecek olayın index'ini bul
+    const eventIndex = dailyEvents.findIndex(event => event.id === eventId);
+
+    if (eventIndex !== -1) {
+      // Olayın data alanını yeni veriyle güncelle
+      dailyEvents[eventIndex].data = newData;
+      
+      // Tüm günün olaylarını güncellenmiş haliyle geri yaz
+      await AsyncStorage.setItem(key, JSON.stringify(dailyEvents));
+      console.log(`✅ Olay (${eventId}) datası güncellendi. Anahtar: ${key}`);
+    } else {
+      console.warn(`Güncellenecek Olay (${eventId}) listede bulunamadı. Anahtar: ${key}`);
+    }
+  } catch (error) {
+    console.error(`Olay datası güncellenirken hata oluştu (ID: ${eventId}):`, error);
+    throw error;
+  }
+}
+
+// const LAST_DREAM_ANALYSIS_DATE_KEY = 'lastDreamAnalysisDate';
+
+/**
+ * Kullanıcının yeni bir ücretsiz rüya analizi yapıp yapamayacağını kontrol eder.
+ * Son analizden bu yana 7 gün geçtiyse izin verir.
+ * @returns { canAnalyze: boolean, daysRemaining: number }
+ */
+// export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean, daysRemaining: number }> {
+//   const lastAnalysisDateStr = await AsyncStorage.getItem(LAST_DREAM_ANALYSIS_DATE_KEY);
+//
+//   if (!lastAnalysisDateStr) {
+//     // Hiç analiz yapmamış, izin ver.
+//     return { canAnalyze: true, daysRemaining: 0 };
+//   }
+//
+//   const lastAnalysisDate = new Date(Number(lastAnalysisDateStr));
+//   const now = new Date();
+//   
+//   // Aradaki farkı milisaniye cinsinden hesapla
+//   const diffTime = now.getTime() - lastAnalysisDate.getTime();
+//   const diffDays = diffTime / (1000 * 60 * 60 * 24);
+//
+//   if (diffDays >= 7) {
+//     // 7 gün veya daha fazla geçmiş, izin ver.
+//     return { canAnalyze: true, daysRemaining: 0 };
+//   } else {
+//     // Henüz 7 gün geçmemiş.
+//     const daysRemaining = Math.ceil(7 - diffDays);
+//     return { canAnalyze: false, daysRemaining };
+//   }
+// }
+
+/**
+ * Yeni bir rüya analizi yapıldıktan sonra bugünün tarihini kaydeder.
+ */
+// export async function recordDreamAnalysisUsage(): Promise<void> {
+//   await AsyncStorage.setItem(LAST_DREAM_ANALYSIS_DATE_KEY, Date.now().toString());
+//   console.log('Rüya analizi kullanım zamanı kaydedildi.');
+// }
+
+// Haftalık limit fonksiyonları geliştirme aşamasında, şimdilik stub olarak export ediliyor
+export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean, daysRemaining: number }> {
+  return { canAnalyze: true, daysRemaining: 0 };
+}
+export async function recordDreamAnalysisUsage(): Promise<void> {
+  // no-op
 }
