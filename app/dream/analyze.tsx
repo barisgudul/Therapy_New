@@ -76,7 +76,7 @@ export default function AnalyzeDreamScreen() {
           },
         };
 
-        router.push({
+        router.replace({
           pathname: './result',
           params: { eventData: JSON.stringify(eventForNavigation), isNewAnalysis: "true" },
         });
@@ -104,7 +104,8 @@ export default function AnalyzeDreamScreen() {
       >
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="never"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <MotiView

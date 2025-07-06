@@ -218,11 +218,12 @@ export default function DreamResultScreen() {
                             )}
 
                         </MotiView>
-                        {/* Rüya Günlüğüne Dön butonu en alta taşındı */}
-                        <TouchableOpacity onPress={() => router.replace('/dream')} style={styles.saveExitButton}>
-                            <Text style={styles.saveExitButtonText}>Rüya Günlüğüne Dön</Text>
-                        </TouchableOpacity>
                     </ScrollView>
+
+                    <TouchableOpacity onPress={() => router.back()} style={styles.saveExitButton}>
+                        <Text style={styles.saveExitButtonText}>Rüya Günlüğüne Dön</Text>
+                    </TouchableOpacity>
+                    
                 </SafeAreaView>
             </KeyboardAvoidingView>
         </LinearGradient>
@@ -232,8 +233,8 @@ export default function DreamResultScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   backButton: { position: 'absolute', top: 60, left: 10, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20 },
-  scrollContainer: { paddingTop: 40, paddingBottom: 80, paddingHorizontal: 20 },
-  saveExitButton: { marginTop: 24, marginBottom: 24, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 28, height: 56, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
+  scrollContainer: { paddingTop: 40, paddingBottom: 20, paddingHorizontal: 20 },
+  saveExitButton: { marginBottom: 24, marginHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 28, height: 56, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
   saveExitButtonText: { color: COSMIC_COLORS.textPrimary, fontSize: 16, fontWeight: '600' },
   headerDate: { color: COSMIC_COLORS.textSecondary, textAlign: 'center', marginBottom: 4 },
   headerTitle: { color: COSMIC_COLORS.textPrimary, fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 30, paddingHorizontal: 10 },

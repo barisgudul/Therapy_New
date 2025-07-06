@@ -276,7 +276,7 @@ export default function HomeScreen() {
               resizeMode="contain" 
             />
           </View>
-          <View style={[styles.textContainer, { marginTop: -12, marginBottom: 12 }]}>
+          <View style={[styles.textContainer, { marginTop: -60, marginBottom: 10 }]}>
             <Text style={styles.title}>Zihnine İyi Bak</Text>
             <Text style={styles.subtitle}>Yapay zekâ destekli terapiyi deneyimle</Text>
           </View>
@@ -316,7 +316,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.buttonContent}>
                   <Ionicons name="analytics-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>AI Ruh Hâli Özeti</Text>
+                  <Text style={styles.buttonText}>Yapay Zeka Destekli Ruh Hâli Analizi</Text>
                 </View>
               </LinearGradient>
             </Pressable>
@@ -336,7 +336,7 @@ export default function HomeScreen() {
               >
                 <View style={styles.buttonContent}>
                   <Ionicons name="book-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>AI Destekli Günlük</Text>
+                  <Text style={styles.buttonText}>Yapay Zeka Destekli Günlük</Text>
                 </View>
               </LinearGradient>
             </Pressable>

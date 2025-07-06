@@ -6,13 +6,13 @@ import { useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useCallback, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { AppEvent, canUserAnalyzeDream, deleteEventById, getEventsForLast } from '../../utils/eventLogger';
