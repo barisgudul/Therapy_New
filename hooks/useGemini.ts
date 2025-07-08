@@ -335,36 +335,7 @@ export interface DreamAnalysisResult {
 // MODEL: Flash
 export const analyzeDream = async (dreamText: string): Promise<DreamAnalysisResult | null> => {
   const userProfile = await getUserProfile();
-  
-  // GÜVENLİK İYİLEŞTİRMESİ: Sadece rüya analizi için gerekli minimum bilgileri gönder
-  // Doğum tarihi, meslek, beklentiler ve hayat deneyimleri gibi hassas bilgiler gönderilmiyor
-  const safeUserInfo = userProfile?.nickname 
-    ? `Kullanıcının adı: ${userProfile.nickname}.` 
-    : '';
-
-  // Kullanıcının son 30 günlük verilerini al (rüya analizi için bağlam oluşturmak üzere)
-  const { getEventsForLast } = await import('../utils/eventLogger');
-  const recentEvents = await getEventsForLast(30);
-  
-  // Son verilerden anlamlı bir bağlam oluştur
-  const contextFromEvents = recentEvents.length > 0 
-    ? `\n### KULLANICININ SON 30 GÜNLÜK VERİLERİ ###
-${recentEvents.slice(0, 10).map(event => {
-  const date = new Date(event.timestamp).toLocaleDateString('tr-TR');
-  switch (event.type) {
-    case 'daily_reflection':
-      return `📝 ${date} - Günlük Yansıma: ${event.mood || 'Ruh hali belirtilmemiş'}`;
-    case 'session_end':
-      return `💬 ${date} - Seans Sonu: ${event.mood || 'Ruh hali belirtilmemiş'}`;
-    case 'diary_entry':
-      return `📖 ${date} - Günlük Yazısı: ${event.data?.text?.substring(0, 100) || 'İçerik yok'}...`;
-    case 'mood_comparison_note':
-      return `📊 ${date} - Ruh Hali Karşılaştırması: ${event.data?.note?.substring(0, 100) || 'Not yok'}...`;
-    default:
-      return `📅 ${date} - ${event.type}: ${event.mood || 'Veri mevcut'}`;
-  }
-}).join('\n')}`
-    : '';
+  const userDesc = makeUserDesc(userProfile);
 
   // Çok uzun rüya metinlerini kısalt
   const maxDreamLength = 1500;
@@ -373,42 +344,26 @@ ${recentEvents.slice(0, 10).map(event => {
     : dreamText;
 
   const prompt = `
-### ROL & GÖREV ###
-Sen, rüya sembolizmi, Jungcu arketipler ve modern psikodinamik yaklaşımlar konusunda uzmanlaşmış, empatik ve bilge bir rüya analistisin. Görevin, kullanıcının rüyasını analiz etmek ve bulgularını yapılandırılmış bir JSON formatında sunmaktır.
+Sen, psikanalitik kuram ve bilinçdışı süreçler konusunda bilgili, derinlemesine düşünen bir rüya yorumcusun. Görevin, rüyayı benlik gelişimi, savunma mekanizmaları, aktarım ve geçmiş yaşantılar bağlamında çözümlemek. Yorumun halkın anlayacağı sade bir dille ama anlamlı olacak şekilde yazılmalı. Karmaşık kuramları yorumuna yedir ama akademik değil içten bir dil kullan. Yorumun derin, düşünmeye teşvik eden ve içgörü kazandırıcı olsun. Kesin yargılardan kaçın, olasılık belirten ifadelerle yaz.
 
-### YORUM İLKELERİ ###
-1.  **Asla Kesin Konuşma:** Yorumlarını "bu rüya ... anlamına geliyor" gibi kesin ifadelerle değil, "... sembolize ediyor olabilir", "... hissini yansıtıyor olabilir", "... ile bağlantılı olabilir" gibi olasılık belirten ifadelerle yap.
-2.  **Bağlamsal Analiz:** Kullanıcının son 30 günlük verilerini (duygu durumu, günlük yazıları, seanslar) dikkate alarak rüyayı analiz et. Bu veriler rüyanın anlamını daha derinlemesine anlamana yardımcı olacak.
-3.  **Yapıcı ve Destekleyici Ol:** Yorumların korkutucu veya olumsuz olmamalı. Her zaman kullanıcıyı güçlendiren, ona içgörü kazandıran ve pozitif bir bakış açısı sunan bir dil kullan.
-4.  **Derinlikli Ol:** Sadece yüzeydeki sembolleri değil, rüyanın genel atmosferini, duygusal tonunu ve olası altında yatan dinamikleri de analiz et.
+Kullanıcı Bilgisi:
+${userDesc || "Kullanıcı profili bilgisi mevcut değil."}
 
-### KULLANICI BİLGİLERİ ###
-${safeUserInfo || "Kullanıcı bilgisi mevcut değil."}${contextFromEvents}
-
-### KULLANICININ RÜYASI ###
+Rüya Metni:
 "${safeDreamText}"
 
-### ÇIKTI FORMATI (ÇOK ÖNEMLİ) ###
-Lütfen yanıtını SADECE ve SADECE aşağıdaki yapıda bir JSON nesnesi olarak döndür. Başka hiçbir metin, açıklama veya kod bloğu işareti ekleme.
-
+JSON formatında şu bilgileri üret:
 {
   "title": "Rüya İçin Kısa ve Etkileyici Bir Başlık",
   "summary": "Rüyanın 1-2 cümlelik genel özeti.",
   "themes": ["Ana Tema 1", "Ana Tema 2", "Ana Tema 3"],
-  "symbols": [
-    { "symbol": "Önemli Sembol 1", "meaning": "Bu sembolün rüya ve kullanıcının son dönem verileri bağlamındaki olası anlamı." },
-    { "symbol": "Önemli Sembol 2", "meaning": "Bu sembolün rüya ve kullanıcının son dönem verileri bağlamındaki olası anlamı." }
-  ],
-  "interpretation": "Buraya rüyanın tüm unsurlarını birleştiren, kullanıcının son dönem verileriyle ilişkilendiren, akıcı ve derinlemesine yorumunu yaz. Yaklaşık 3-4 paragraflık, içgörü dolu bir metin olsun.",
+  "interpretation": "Rüyada ortaya çıkan bastırılmış duygular, geçmiş yaşantılarla ilişkili olasılıklar, savunma mekanizmaları ve benlik çatışmalarıyla ilgili içten ve anlaşılır yorum.",
   "questions": [
-    "Kullanıcıyı rüyası hakkında daha derin düşünmeye teşvik edecek birinci soru?",
-    "Kullanıcının gerçek hayatıyla rüyası arasında bağ kurmasını sağlayacak ikinci soru?",
-    "Rüyanın hissettirdiği duygu üzerine odaklanan üçüncü soru?"
+    "Rüyayı daha iyi anlamak için 3 adet açık uçlu, psikanalitik bakış açısıyla yazılmış, kişinin iç dünyasını keşfetmesini teşvik eden soru üret."
   ]
 }
 `;
 
-  
   const config: GenerationConfig = {
     temperature: 0.7,
     maxOutputTokens: 1024, // Flash model için daha güvenli bir limit
