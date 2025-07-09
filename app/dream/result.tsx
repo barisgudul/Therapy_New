@@ -166,18 +166,7 @@ export default function DreamResultScreen() {
                             <View style={styles.tagsContainer}>{event.data.analysis?.themes?.map((tag: string) => <MotiView key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></MotiView>)}</View>
                         </MotiView>
                         <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 300}}>
-                            <View style={styles.cardHeader}>
-                                <Ionicons name="planet-outline" size={24} color={COSMIC_COLORS.accent} />
-                                <Text style={styles.cardTitle}>Semboller ve Olası Anlamları</Text>
-                            </View>
-                            <View>
-                                {event.data.analysis?.symbols?.map((item: any, index: number) => (
-                                    <Text key={index} style={styles.fullSymbolText}>
-                                        <Text style={styles.symbolTitleText}>• {item.symbol}: </Text>
-                                        <Text style={styles.symbolMeaningText}>{item.meaning}</Text>
-                                    </Text>
-                                ))}
-                            </View>
+                            {/* Semboller ve Olası Anlamları kartı kaldırıldı */}
                         </MotiView>
                         <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 400}}>
                             <View style={styles.cardHeader}><Ionicons name="compass-outline" size={24} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Derinlemesine Yorum</Text></View>
