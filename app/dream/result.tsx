@@ -172,6 +172,30 @@ export default function DreamResultScreen() {
                             <View style={styles.cardHeader}><Ionicons name="compass-outline" size={24} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Derinlemesine Yorum</Text></View>
                             <Text style={styles.feedbackText}>{event.data.analysis?.interpretation || ''}</Text>
                         </MotiView>
+                        
+                        {/* // --- YENİ VE EN ÖNEMLİ KART --- // */}
+                        {event.data.analysis?.crossConnections && event.data.analysis.crossConnections.length > 0 && (
+                            <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 450}}>
+                                <View style={styles.cardHeader}>
+                                    <Ionicons name="git-network-outline" size={24} color={'#facc15'} />
+                                    <Text style={[styles.cardTitle, {color: '#facc15'}]}>Çapraz Bağlantılar</Text>
+                                </View>
+                                <Text style={styles.crossConnectionIntro}>AI, rüyanızla yaşamınızdaki diğer olaylar arasında şu olası bağlantıları tespit etti:</Text>
+                                {event.data.analysis.crossConnections.map((conn, index) => (
+                                    <View key={index} style={styles.connectionItem}>
+                                        <Text style={styles.connectionText}>
+                                            <Text style={styles.connectionLabel}>Bağlantı: </Text>
+                                            {conn.connection}
+                                        </Text>
+                                        <Text style={styles.evidenceText}>
+                                            <Text style={styles.connectionLabel}>Kanıt: </Text>
+                                            {conn.evidence}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </MotiView>
+                        )}
+                        
                         <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 500}}>
                             <View style={styles.cardHeader}>
                                 <Ionicons name="chatbubbles-outline" size={24} color={COSMIC_COLORS.accent} />
@@ -273,4 +297,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 15,
   },
+  crossConnectionIntro: {
+    color: COSMIC_COLORS.textSecondary,
+    fontSize: 15,
+    marginBottom: 16,
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  connectionItem: {
+    marginBottom: 16,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(93,161,217,0.3)',
+  },
+  connectionText: {
+    color: COSMIC_COLORS.textPrimary,
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  evidenceText: {
+    color: COSMIC_COLORS.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  connectionLabel: {
+    fontWeight: 'bold',
+    color: COSMIC_COLORS.accent,
+  }
 });

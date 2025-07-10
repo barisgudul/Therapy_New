@@ -20,7 +20,10 @@ export type EventType =
   | 'voice_session'        // Sesli seans içeriği
   | 'video_session'        // Görüntülü seans içeriği
   | 'diary_entry'         // Günlük (diary.tsx) içeriği
-  | 'dream_analysis';         // Rüya analizi
+  | 'dream_analysis'      // Rüya analizi
+  // --- YENİ HAFIZA TÜRLERİ ---
+  | 'user_vault'           // Dinamik Kullanıcı Kasası (JSON objesi)
+  | 'journey_log_entry';   // Kronolojik Seyir Defteri'ne eklenen her bir özet
 
 /**
  * Yeni bir olayı o günün olay kaydına ekler.
@@ -240,4 +243,79 @@ export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean, days
 }
 export async function recordDreamAnalysisUsage(): Promise<void> {
   // no-op
+}
+
+// --- YENİ HAFIZA YÖNETİM FONKSİYONLARI ---
+
+/**
+ * Kullanıcı Kasası'nı getirir. Sadece tek bir 'user_vault' olacağı için en sonuncusunu bulur.
+ */
+export async function getUserVault(): Promise<any | null> {
+  try {
+    const allEvents = await getEventsForLast(365); // Geniş bir zaman aralığı iyidir.
+    const vaultEvent = allEvents.find(e => e.type === 'user_vault');
+    return vaultEvent ? vaultEvent.data : null;
+  } catch (error) {
+    console.error("Kullanıcı Kasası alınırken hata:", error);
+    return null;
+  }
+}
+
+/**
+ * Kullanıcı Kasası'nı kaydeder veya günceller.
+ * @param newVaultData Kasanın tamamının güncel hali.
+ */
+export async function updateUserVault(newVaultData: any): Promise<void> {
+  try {
+    const allEvents = await getEventsForLast(365);
+    const existingVault = allEvents.find(e => e.type === 'user_vault');
+
+    if (existingVault) {
+      // Var olanı güncelle
+      await updateEventData(existingVault.id, newVaultData);
+    } else {
+      // Yoksa yeni oluştur
+      await logEvent({ type: 'user_vault', data: newVaultData });
+    }
+  } catch (error) {
+    console.error("Kullanıcı Kasası güncellenirken hata:", error);
+  }
+}
+
+/**
+ * Seyir Defteri'ne yeni bir giriş (kısa özet) ekler.
+ * @param logEntryText Eklenen seans/rüya/günlük özeti.
+ */
+export async function addJourneyLogEntry(logEntryText: string): Promise<void> {
+    try {
+        await logEvent({
+            type: 'journey_log_entry',
+            data: {
+                entry: logEntryText,
+                // Bu zaman damgası, olayların sıralanması için kritiktir.
+                // logEvent zaten timestamp ekliyor, bu yüzden burada eklemeye gerek yok.
+            }
+        });
+    } catch (error) {
+        console.error("Seyir Defteri'ne giriş eklenirken hata:", error);
+    }
+}
+
+/**
+ * Seyir Defteri'nin son 'X' girişini getirir.
+ * @param limit Kaç adet son girişin getirileceği.
+ */
+export async function getRecentJourneyLogEntries(limit: number = 5): Promise<string[]> {
+  try {
+    const allEvents = await getEventsForLast(365);
+    return allEvents
+      .filter(e => e.type === 'journey_log_entry')
+      .sort((a, b) => b.timestamp - a.timestamp) // En yeniden eskiye sırala
+      .slice(0, limit)
+      .map(e => e.data.entry as string)
+      .reverse(); // Kronolojik sıra için tekrar ters çevir (eskiden yeniye)
+  } catch (error) {
+    console.error("Seyir Defteri girişleri alınırken hata:", error);
+    return [];
+  }
 }

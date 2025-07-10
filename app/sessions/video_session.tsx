@@ -1,3 +1,4 @@
+// app/sessions/video_session.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -20,9 +21,19 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import { generateTherapistReply } from '../../hooks/useGemini';
+import {
+  analyzeSessionForMemory,
+  generateCumulativeSummary,
+  generateTherapistReply,
+  mergeVaultData,
+} from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
-import { logEvent } from '../../utils/eventLogger';
+import {
+  addJourneyLogEntry,
+  getUserVault,
+  logEvent,
+  updateUserVault,
+} from '../../utils/eventLogger';
 import { avatars } from '../avatar';
 
 const { width, height } = Dimensions.get('window');
@@ -51,13 +62,15 @@ export default function VideoSessionScreen() {
   const isDark = colorScheme === 'dark';
   const [permission, requestPermission] = useCameraPermissions();
   const [currentMood, setCurrentMood] = useState<string>('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [intraSessionSummary, setIntraSessionSummary] = useState('');
+  const messageCountForSummary = useRef(0);
 
   // Doğru terapist objesini bul
   const therapist = avatars.find(a => a.imageId === therapistId);
 
   const [cameraVisible, setCameraVisible] = useState(true);
   const [micPermissionGranted, setMicPermissionGranted] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [volume, setVolume] = useState<number>(0);
   const [pipPosition, setPipPosition] = useState({ x: width - PIP_SIZE - BOUNDARY_SIDE, y: 120 });
   const [isDragging, setIsDragging] = useState(false);
@@ -121,12 +134,36 @@ export default function VideoSessionScreen() {
   } = useVoiceSession({
     onTranscriptReceived: async (text) => {
       if (text) {
-        // Mesaj geçmişini güncel şekilde oluştur
-        const newMessages: ChatMessage[] = [...messages, { id: Date.now().toString(), sender: 'user', text: text }];
-        const chatHistory = newMessages
-          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-          .join('\n');
-        const turnCount = Math.floor((newMessages.length - 1) / 2) + 1;
+        // 1. Yeni kullanıcı mesajını oluştur.
+        const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: text };
+        // 2. Mesaj listesini TEK SEFERDE GÜNCELLE ve bir değişkende tut.
+        const updatedMessages = [...messages, userMessage];
+        setMessages(updatedMessages);
+
+        // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) ---
+        let currentChatHistoryForPrompt = '';
+        const summaryTrigger = 7; // Her 7 mesajda bir
+
+        // Mevcut seans içindeki tüm mesajlar AI'a gönderilmeden önce özetleniyor
+        if (updatedMessages.length > messageCountForSummary.current + summaryTrigger) {
+            const conversationChunk = updatedMessages
+                .slice(messageCountForSummary.current)
+                .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+                .join('\n');
+            
+            const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+            setIntraSessionSummary(updatedSummary);
+            messageCountForSummary.current = updatedMessages.length;
+            currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
+        } else {
+            // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
+            const recentMessages = updatedMessages
+                .slice(messageCountForSummary.current)
+                .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+                .join('\n');
+            currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
+        }
+
         try {
           const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
             ? therapistId as "therapist1" | "therapist3" | "coach1" 
@@ -134,9 +171,7 @@ export default function VideoSessionScreen() {
           const aiResponse = await generateTherapistReply(
             validTherapistId,
             text,
-            currentMood,
-            chatHistory,
-            turnCount
+            currentChatHistoryForPrompt
           );
           // Hem kullanıcı hem AI mesajını birlikte ekle
           setMessages(prev => [...prev,
@@ -217,6 +252,7 @@ export default function VideoSessionScreen() {
   // Move onBackPress and handleSessionEnd to top-level
   const handleSessionEnd = async () => {
     await stopRecording?.();
+    // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
     if (messages.length > 2) {
       await logEvent({
         type: 'video_session',
@@ -224,7 +260,36 @@ export default function VideoSessionScreen() {
         data: { therapistId, messages },
       });
       await AsyncStorage.removeItem('before_mood_latest');
+    } else {
+      router.replace('/feel/after_feeling');
+      return;
     }
+
+    // --- MAKRO HAFIZA İŞLEME RİTÜELİ ---
+    // Arka planda çalışması için bu bloğu bir try-catch içine alabiliriz.
+    try {
+      console.log("Hafıza işleme ritüeli başlıyor...");
+      const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
+
+      // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript);
+      if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
+
+      // 2. Seyir Defterine Not Düş
+      await addJourneyLogEntry(memoryPieces.log);
+
+      // 3. Kasayı Güncelle
+      const currentVault = await getUserVault() || {};
+      const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
+      await updateUserVault(newVault);
+
+      console.log("Hafıza işleme ritüeli başarıyla tamamlandı.");
+    } catch (error) {
+      console.error("Seans sonu hafıza işleme hatası:", error);
+      // Bu hata, kullanıcının akışını engellememeli.
+    }
+    
+    // Kullanıcıyı bir sonraki ekrana yönlendir.
     router.replace('/feel/after_feeling');
   };
 

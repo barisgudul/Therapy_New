@@ -1,3 +1,4 @@
+// app/ai_summary.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { Slider } from '@miblanchard/react-native-slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,9 +23,8 @@ import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
 import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
-import { generateDetailedMoodSummary } from '../hooks/useGemini';
-import { checkAndUpdateBadges } from '../utils/badges';
-import { deleteEventById, getEventsForLast } from '../utils/eventLogger';
+import { generateStructuredAnalysisReport } from '../hooks/useGemini';
+import { deleteEventById, getEventsForLast, getUserVault } from '../utils/eventLogger';
 
 export default function AISummaryScreen() {
   const router = useRouter();
@@ -81,36 +81,41 @@ const fetchSummary = async () => {
   setLoading(true);
   
   try {
-      // Yeni ve basit veri çekme
-      const events = await getEventsForLast(selectedDays);
-      if (events.length < 3) {
-          Alert.alert(
-            "Yetersiz Veri",
-            `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı. Lütfen uygulamayı kullanmaya devam edin.`
-          );
-          setLoading(false);
-          return;
-      }
-      // Artık veriyi doğrudan AI'a gönderebiliriz.
-      const result = await generateDetailedMoodSummary(events, selectedDays);
-      
-      const newSummary = {
-        text: result.trim(),
-        date: new Date().toISOString()
-      };
-      const newSummaries = [newSummary, ...summaries];
-      
-      setSummaries(newSummaries);
-      await saveSummaries(newSummaries);
+    // 1. Analiz edilecek ham veriyi çek
+    const events = await getEventsForLast(selectedDays);
+    if (events.length < 3) {
+      Alert.alert("Yetersiz Veri", `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı.`);
+      setLoading(false);
+      return;
+    }
 
-      await checkAndUpdateBadges('ai', { aiSummaries: newSummaries.length, aiInsights: true });
+    // 2. Kolektif Bilincin temelini (Kasa'yı) çek
+    const userVault = await getUserVault();
+    if (!userVault) {
+         Alert.alert("Analiz Başarısız", "Analiz için gerekli temel kullanıcı verileri henüz oluşmamış. Lütfen en az bir seansı tamamlayın.");
+         setLoading(false);
+         return;
+    }
 
-      setActiveSummary(result.trim());
-      setModalVisible(true);
+    // 3. Yeni ve güçlü AI fonksiyonumuzu çağır
+    const result = await generateStructuredAnalysisReport(selectedDays);
+    
+    const newSummary = {
+      text: result.trim(),
+      date: new Date().toISOString()
+    };
+    const newSummaries = [newSummary, ...summaries];
+    
+    setSummaries(newSummaries);
+    await saveSummaries(newSummaries);
+
+    // Kullanıcıya sonucu göster
+    setActiveSummary(result.trim());
+    setModalVisible(true);
 
   } catch (e) {
-    console.error("AI özet oluşturma hatası:", e);
-    Alert.alert("Hata", "AI özeti oluşturulurken bir hata oluştu, lütfen tekrar deneyin.");
+    console.error("Bütünsel İçgörü Raporu oluşturma hatası:", e);
+    Alert.alert("Hata", "Analiz oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
   } finally {
     setLoading(false);
   }
@@ -257,7 +262,7 @@ const fetchSummary = async () => {
         <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 
-      <Text style={styles.headerTitle}>AI Ruh Hâli Analizi</Text>
+      <Text style={styles.headerTitle}>Bütünsel İçgörü Raporu</Text>
 
       <View style={styles.content}>
         <View style={styles.controlsBox}>

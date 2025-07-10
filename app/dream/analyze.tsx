@@ -17,8 +17,8 @@ import {
   View
 } from 'react-native';
 
-import { analyzeDream } from '../../hooks/useGemini';
-import { logEvent, recordDreamAnalysisUsage } from '../../utils/eventLogger';
+import { analyzeDreamWithContext } from '../../hooks/useGemini';
+import { addJourneyLogEntry, logEvent, recordDreamAnalysisUsage } from '../../utils/eventLogger';
 
 const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
 
@@ -48,42 +48,43 @@ export default function AnalyzeDreamScreen() {
     setError(null);
     Keyboard.dismiss();
     setIsLoading(true);
-    try {
-      const result = await analyzeDream(dream);
-      if (result) {
-        // Yeni 'dream_analysis' olayı oluştur
-        const loggedEventId = await logEvent({
-          type: 'dream_analysis',
-          data: {
-            dreamText: dream,
-            analysis: result,
-            dialogue: [] // Diyalog başlangıçta boş
-          },
-        });
+          try {
+        // 1. KOLEKTİF BİLİNÇ İLE ANALİZ ET
+        const result = await analyzeDreamWithContext(dream); 
 
-        // ----> KULLANIMI KAYDET <----
-        await recordDreamAnalysisUsage();
+        if (result) {
+          // 2. YENİ 'dream_analysis' OLAYINI KAYDET
+          const eventId = await logEvent({
+            type: 'dream_analysis',
+            data: { dreamText: dream, analysis: result, dialogue: [] },
+          });
 
-        // AppEvent formatında parametre oluştur
-        const eventForNavigation = {
-          id: loggedEventId,
-          timestamp: Date.now(),
-          type: 'dream_analysis',
-          data: {
-            dreamText: dream,
-            analysis: result,
-            dialogue: []
-          },
-        };
+          // 3. HAFIZAYI GÜNCELLE: Analizin özünü Seyir Defteri'ne ekle
+          // Bu sayede gelecekteki analizler bu rüyadan haberdar olacak.
+          const logEntry = `Bir rüya analizi yapıldı. Başlık: "${result.title}". Ana temalar: ${result.themes.join(', ')}.`;
+          await addJourneyLogEntry(logEntry);
+          
+          // 4. Kullanım sayacını kaydet (opsiyonel)
+          await recordDreamAnalysisUsage();
 
-        router.replace({
-          pathname: './result',
-          params: { eventData: JSON.stringify(eventForNavigation), isNewAnalysis: "true" },
-        });
-        setDream('');
-      } else {
-        setError('Rüyanız analiz edilirken bir sorun oluştu. Lütfen tekrar deneyin.');
-      }
+          // 5. Navigasyon için tam olay objesini oluştur
+          const eventForNavigation = {
+              id: eventId,
+              timestamp: Date.now(),
+              type: 'dream_analysis',
+              data: { dreamText: dream, analysis: result, dialogue: [] }
+          };
+
+          // 6. Sonuç sayfasına yönlendir
+          router.replace({
+            pathname: './result',
+            params: { eventData: JSON.stringify(eventForNavigation), isNewAnalysis: "true" },
+          });
+
+          setDream('');
+        } else {
+          setError('Rüyanız analiz edilirken bir sorun oluştu. Lütfen tekrar deneyin.');
+        }
     } catch (e: any) {
       console.error("Analiz hatası: ", e);
       setError('Beklenmedik bir hata oluştu: ' + e.message);

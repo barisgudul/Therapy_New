@@ -1,3 +1,4 @@
+// app/sessions/voice_session.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -20,9 +21,19 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import { generateTherapistReply } from '../../hooks/useGemini';
+import {
+  analyzeSessionForMemory,
+  generateCumulativeSummary,
+  generateTherapistReply,
+  mergeVaultData,
+} from '../../hooks/useGemini';
 import { useVoiceSession } from '../../hooks/useVoice';
-import { logEvent } from '../../utils/eventLogger';
+import {
+  addJourneyLogEntry,
+  getUserVault,
+  logEvent,
+  updateUserVault,
+} from '../../utils/eventLogger';
 import { avatars } from '../avatar';
 
 /* -------------------------------------------------------------------------- */
@@ -65,6 +76,8 @@ export default function VoiceSessionScreen() {
   const [currentMood, setCurrentMood] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionSummary, setSessionSummary] = useState<string>("");
+  const [intraSessionSummary, setIntraSessionSummary] = useState('');
+  const messageCountForSummary = useRef(0);
 
   // Terapist bilgisini yükle
   useEffect(() => {
@@ -120,22 +133,29 @@ export default function VoiceSessionScreen() {
       const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
 
-      // 3. Özetleme mantığını GÜNCEL mesaj listesiyle çalıştır.
-      if (updatedMessages.length > 0 && updatedMessages.length % 7 === 0) {
-        const lastChunk = updatedMessages.slice(-7).map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
-        import('../../hooks/useGemini').then(({ generateCumulativeSummary }) => {
-          generateCumulativeSummary(sessionSummary, lastChunk).then(newSummary => {
-            setSessionSummary(newSummary);
-          });
-        });
-      }
+      // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) ---
+      let currentChatHistoryForPrompt = '';
+      const summaryTrigger = 7; // Her 7 mesajda bir
 
-      // 4. Chat geçmişini GÜNCEL mesaj listesiyle oluştur.
-      const lastMessages = updatedMessages.slice(-4).map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
-      const chatHistoryForAI = sessionSummary
-        ? `ÖZET: ${sessionSummary}\n${lastMessages}`
-        : lastMessages;
-      const turnCount = Math.floor(updatedMessages.length / 2);
+      // Mevcut seans içindeki tüm mesajlar AI'a gönderilmeden önce özetleniyor
+      if (updatedMessages.length > messageCountForSummary.current + summaryTrigger) {
+          const conversationChunk = updatedMessages
+              .slice(messageCountForSummary.current)
+              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+              .join('\n');
+          
+          const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+          setIntraSessionSummary(updatedSummary);
+          messageCountForSummary.current = updatedMessages.length;
+          currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
+      } else {
+          // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
+          const recentMessages = updatedMessages
+              .slice(messageCountForSummary.current)
+              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+              .join('\n');
+          currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
+      }
 
       try {
         const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
@@ -146,9 +166,7 @@ export default function VoiceSessionScreen() {
         const rawAiResponse = await generateTherapistReply(
           validTherapistId,
           userText,
-          currentMood,
-          chatHistoryForAI,
-          turnCount
+          currentChatHistoryForPrompt
         );
 
         // 6. ---- ÇÖZÜM BURADA: AI yanıtını temizle ----
@@ -183,6 +201,7 @@ export default function VoiceSessionScreen() {
   // Move onBackPress and handleSessionEnd to top-level
   const handleSessionEnd = async () => {
     await stopRecording?.();
+    // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
     if (messages.length > 2) {
       await logEvent({
         type: 'voice_session',
@@ -190,7 +209,36 @@ export default function VoiceSessionScreen() {
         data: { therapistId, messages },
       });
       await AsyncStorage.removeItem('before_mood_latest');
+    } else {
+      router.replace('/feel/after_feeling');
+      return;
     }
+
+    // --- MAKRO HAFIZA İŞLEME RİTÜELİ ---
+    // Arka planda çalışması için bu bloğu bir try-catch içine alabiliriz.
+    try {
+      console.log("Hafıza işleme ritüeli başlıyor...");
+      const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
+
+      // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript);
+      if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
+
+      // 2. Seyir Defterine Not Düş
+      await addJourneyLogEntry(memoryPieces.log);
+
+      // 3. Kasayı Güncelle
+      const currentVault = await getUserVault() || {};
+      const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
+      await updateUserVault(newVault);
+
+      console.log("Hafıza işleme ritüeli başarıyla tamamlandı.");
+    } catch (error) {
+      console.error("Seans sonu hafıza işleme hatası:", error);
+      // Bu hata, kullanıcının akışını engellememeli.
+    }
+    
+    // Kullanıcıyı bir sonraki ekrana yönlendir.
     router.replace('/feel/after_feeling');
   };
   const onBackPress = () => {

@@ -1,3 +1,4 @@
+// app/diary.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
@@ -16,9 +17,9 @@ import {
   View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { analyzeDiaryEntry } from '../hooks/useGemini';
+import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../hooks/useGemini';
 import { canWriteDiary } from '../utils/diaryControl';
-import { AppEvent, getEventsForLast, logEvent } from '../utils/eventLogger';
+import { addJourneyLogEntry, AppEvent, deleteEventById, getEventsForLast, getUserVault, logEvent, updateUserVault } from '../utils/eventLogger';
 
 interface Message {
   text: string;
@@ -33,9 +34,9 @@ export default function DiaryScreen() {
   const [selectedDiary, setSelectedDiary] = useState<AppEvent | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentInput, setCurrentInput] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [suggestedQuestions, setSuggestedQuestions] = useState<string[]>([]);
-  const [analysisCount, setAnalysisCount] = useState(0);
+  const [step, setStep] = useState(0); // 0: İlk yazı, 1: 1. soru seti, 2: 2. soru seti, 3: 3. soru seti, 4: Tamamlama
+  const [currentQuestions, setCurrentQuestions] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false); // Tek bir loading state yeterli
   const [diaryEvents, setDiaryEvents] = useState<AppEvent[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState('');
@@ -85,28 +86,52 @@ export default function DiaryScreen() {
     setMessages(prev => [...prev, newMessage]);
   };
 
-  // AI analiz fonksiyonu
-  const analyzeDiary = async () => {
-    if (!currentInput.trim() || analysisCount >= 3) return;
+  // İlk Adım: handleInitialEntry - Kullanıcı ilk metnini modal'dan gönderdiğinde çalışır.
+  const handleInitialEntry = async () => {
+    if (!currentInput.trim()) return;
+
+    setIsLoading(true); // ActivityIndicator'ı tetikler
+    addMessage(currentInput, true); // Kullanıcının ilk yazısını ekrana bas
     
-    setIsAnalyzing(true);
-    try {
-      // Kullanıcı mesajını ekle
-      addMessage(currentInput, true);
-      
-      const analysis = await analyzeDiaryEntry(currentInput);
-      
-      // AI yanıtını ekle
-      addMessage(analysis.feedback, false);
-      
-      setSuggestedQuestions(analysis.questions);
-      setAnalysisCount(prev => prev + 1);
-      setCurrentInput(''); // Input'u temizle
-    } catch (error) {
-      console.error('Analiz hatası:', error);
-    } finally {
-      setIsAnalyzing(false);
+    const { mood, questions } = await generateDiaryStart(currentInput);
+    // Gelen mood'u bir state'te tutabiliriz, kaydederken kullanmak üzere.
+    // setDiaryMood(mood); 
+
+    setCurrentQuestions(questions); // AI'dan gelen 3 soruyu state'e ata
+    setStep(1); // Bir sonraki adıma geç
+    setCurrentInput(''); // Input'u temizle
+    setIsLoading(false);
+    handleModalClose(); // Modalı kapatıp, ana ekranda soru butonlarını göster
+  };
+
+  // Orta Adımlar: handleQuestionResponse - Kullanıcı bir soru seçip modal'dan cevap verdiğinde çalışır.
+  const handleQuestionResponse = async () => {
+    if (!currentInput.trim()) return;
+
+    setIsLoading(true);
+    // Seçilen soruyu ve kullanıcının cevabını ekrana bas
+    addMessage(selectedQuestion, false); // Soruyu AI mesajı gibi göster
+    addMessage(currentInput, true);     // Cevabı kullanıcı mesajı gibi göster
+
+    if (step < 3) {
+      // Bir sonraki soru setini oluştur
+      const conversationHistory = [...messages, {text: currentInput, isUser: true, timestamp: 0}]
+        .map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`)
+        .join('\n');
+        
+      const nextQuestions = await generateDiaryNextQuestions(conversationHistory);
+      setCurrentQuestions(nextQuestions);
+      setStep(prev => prev + 1);
+    } else {
+      // 3. soru da cevaplandı, tamamlama adımına geç.
+      setCurrentQuestions([]);
+      setStep(4);
     }
+
+    setCurrentInput('');
+    setSelectedQuestion('');
+    setIsLoading(false);
+    handleModalClose();
   };
 
   // Günlük kaydetme fonksiyonu
@@ -115,55 +140,44 @@ export default function DiaryScreen() {
     setSaveModalVisible(true);
     setIsSaving(true);
     
-    let analysisResult: { mood?: string; summary?: string; tags?: string[] } = {};
+    // 1. HAM GÜNLÜĞÜ KAYDET
+    // Artık messages dizisi tüm diyalogu içeriyor.
+    const loggedEventId = await logEvent({
+      type: 'diary_entry',
+      mood: 'belirsiz', // Basit mood, daha sonra iyileştirilebilir
+      data: { 
+        messages: messages // Bu, kullanıcının tekrar okuması için.
+      }
+    });
 
+    // 2. HASAT: Arka planda Kolektif Bilinç'i besle
     try {
-        const userMessagesText = messages.filter(msg => msg.isUser).map(msg => msg.text).join('\n');
-        
-        // Eğer hiç kullanıcı mesajı yoksa AI'ı boşuna çağırma
-        if (userMessagesText) {
-          const analysis = await analyzeDiaryEntry(userMessagesText);
-          analysisResult = {
-              mood: analysis.mood,
-              summary: analysis.feedback,
-              tags: analysis.tags,
-          };
-        }
-    } catch (error) {
-        // Bu blok API hatasını yakalar. Hata olsa bile devam ederiz.
-        console.error('Günlük analizi sırasında API hatası (ama yola devam edilecek):', error);
-        // İsteğe bağlı olarak kullanıcıya bilgi verebiliriz ama sessiz kalmak daha iyi bir deneyim olabilir.
-        // Alert.alert('AI Analizi Başarısız', 'Günlüğünüz kaydedildi ancak AI analizi yapılamadı.');
-    } finally {
-        // API başarılı olsa da, başarısız olsa da GÜNLÜK KAYDEDİLECEK.
-        try {
-            await logEvent({
-                type: 'diary_entry',
-                mood: analysisResult.mood || 'belirsiz', // API'dan cevap geldiyse onu, gelmediyse 'belirsiz' kullan
-                data: {
-                    messages: messages, // Kullanıcının yazdığı her şey burada, bu en önemlisi
-                    summary: analysisResult.summary || 'AI analizi yapılamadı.', // API özeti veya hata mesajı
-                    tags: analysisResult.tags || [],
-                }
-            });
+      const fullTranscript = messages.map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`).join('\n');
+      
+      // Bu zenginleştirilmiş metni işlemek için analyzeSessionForMemory kullanabiliriz.
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript); 
 
-            // Geri kalanı başarılı kayıt senaryosuyla aynı
-            await loadDiaryEvents();
-            
-            setIsSaving(false);
-            setSaveModalVisible(false);
-            setIsWritingMode(false);
-            setMessages([]);
-            setCurrentInput('');
-            setSuggestedQuestions([]);
-            setAnalysisCount(0);
-        } catch(saveError) {
-             console.error('Günlük kaydetme (logEvent) hatası:', saveError);
-             Alert.alert('Kritik Hata', 'Günlüğünüz kaydedilirken bir sorun oluştu.');
-             setIsSaving(false);
-             setSaveModalVisible(false);
-        }
+      if (memoryPieces) {
+        const logEntry = `Bir günlük keşfi yapıldı. Ana tema: ${memoryPieces.log}`;
+        await addJourneyLogEntry(logEntry);
+
+        const currentVault = await getUserVault() || {};
+        const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
+        await updateUserVault(newVault);
+      }
+    } catch (e) {
+      console.error("Günlük sonrası hafıza işleme hatası:", e);
     }
+    
+    // 3. EKRANI TEMİZLE VE ÇIKIŞ YAP
+    await loadDiaryEvents();
+    setIsSaving(false);
+    setSaveModalVisible(false);
+    setIsWritingMode(false);
+    setMessages([]);
+    setCurrentInput('');
+    setCurrentQuestions([]);
+    setStep(0);
   };
 
   // Soru seçildiğinde
@@ -201,7 +215,8 @@ export default function DiaryScreen() {
       setIsWritingMode(true);
       setMessages([]);
       setCurrentInput('');
-      setSuggestedQuestions([]);
+      setCurrentQuestions([]);
+      setStep(0);
     } catch (error) {
       console.error('Yeni günlük başlatma hatası:', error);
       Alert.alert('Hata', 'Yeni günlük başlatılırken bir hata oluştu.');
@@ -215,7 +230,34 @@ export default function DiaryScreen() {
   };
 
   const handleDeleteDiary = async (timestamp: number | undefined) => {
-    Alert.alert('Silme Desteği Yok', 'Günlük silme şu anda desteklenmiyor.');
+    if (!timestamp || !selectedDiary) return;
+
+    Alert.alert(
+      'Günlüğü Sil',
+      'Bu günlüğü silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Sil',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEventById(selectedDiary.id);
+              await loadDiaryEvents(); // Listeyi yenile
+              setSelectedDiary(null);
+              setIsViewingDiary(false);
+              Alert.alert('Başarılı', 'Günlük başarıyla silindi.');
+            } catch (error) {
+              console.error('Günlük silinirken hata:', error);
+              Alert.alert('Hata', 'Günlük silinirken bir hata oluştu.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderDiaryList = () => (
@@ -427,7 +469,7 @@ export default function DiaryScreen() {
                   </View>
                 ))}
 
-                {isAnalyzing && (
+                {isLoading && (
                   <View style={styles.writingAnalyzingContainer}>
                     <ActivityIndicator color={Colors.light.tint} />
                     <Text style={styles.writingAnalyzingText}>Düşüncelerin analiz ediliyor...</Text>
@@ -446,7 +488,7 @@ export default function DiaryScreen() {
             </View>
           </View>
 
-          {messages.length > 0 && (
+          {messages.length > 0 && step === 4 && (
             <View style={styles.saveButtonContainer}>
               <TouchableOpacity
                 style={styles.saveButton}
@@ -460,8 +502,8 @@ export default function DiaryScreen() {
                   style={styles.saveButtonGradient}
                 >
                   <View style={styles.saveButtonContent}>
-                    <Ionicons name="save" size={24} color={Colors.light.tint} />
-                    <Text style={styles.saveButtonText}>Kaydet ve Çık</Text>
+                    <Ionicons name="checkmark-circle-outline" size={24} color={Colors.light.tint} />
+                    <Text style={styles.saveButtonText}>Günlüğü Tamamla ve Kaydet</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -469,10 +511,10 @@ export default function DiaryScreen() {
           )}
 
           <View style={styles.diaryContainer}>
-            {suggestedQuestions.length > 0 && (
+            {currentQuestions.length > 0 && step > 0 && step < 4 && (
               <View style={styles.writingQuestionsContainer}>
-                <Text style={styles.writingQuestionsTitle}>Düşünmek İster misin?</Text>
-                {suggestedQuestions.map((question, index) => (
+                <Text style={styles.writingQuestionsTitle}>Şimdi bunlardan birini seçerek devam edelim...</Text>
+                {currentQuestions.map((question, index) => (
                   <TouchableOpacity
                     key={index}
                     style={styles.writingQuestionButton}
@@ -541,14 +583,15 @@ export default function DiaryScreen() {
 
               <View style={styles.modalFooter}>
                 <TouchableOpacity
-                  style={[styles.modalButton, (!currentInput.trim() || analysisCount >= 3) && styles.buttonDisabled]}
+                  style={[styles.modalButton, (!currentInput.trim() || step >= 4) && styles.buttonDisabled]}
                   onPress={() => {
-                    analyzeDiary();
-                    handleModalClose();
-                    setSelectedQuestion('');
-                    Keyboard.dismiss();
+                    if (step === 0) {
+                      handleInitialEntry();
+                    } else {
+                      handleQuestionResponse();
+                    }
                   }}
-                  disabled={!currentInput.trim() || isAnalyzing || analysisCount >= 3}
+                  disabled={!currentInput.trim() || isLoading || step >= 4}
                   activeOpacity={0.85}
                 >
                   <LinearGradient
@@ -557,7 +600,9 @@ export default function DiaryScreen() {
                     end={{x: 1, y: 1}}
                     style={styles.modalButtonGradient}
                   >
-                    <Text style={styles.modalButtonText}>Günlüğü Onayla</Text>
+                    <Text style={styles.modalButtonText}>
+                      {step === 0 ? 'Günlüğü Başlat' : 'Cevabı Gönder'}
+                    </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -571,7 +616,6 @@ export default function DiaryScreen() {
   if (isViewingDiary) {
     return renderDiaryView();
   }
-
   return isWritingMode ? renderWritingMode() : renderDiaryList();
 }
 
@@ -1307,3 +1351,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 }); 
+

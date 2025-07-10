@@ -1,3 +1,4 @@
+// app/sessions/text_session.tsx
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,8 +21,18 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import { generateTherapistReply } from '../../hooks/useGemini';
-import { logEvent } from '../../utils/eventLogger';
+import {
+  analyzeSessionForMemory,
+  generateCumulativeSummary,
+  generateTherapistReply,
+  mergeVaultData,
+} from '../../hooks/useGemini';
+import {
+  addJourneyLogEntry,
+  getUserVault,
+  logEvent,
+  updateUserVault,
+} from '../../utils/eventLogger';
 import { saveToSessionData } from '../../utils/sessionData';
 import { avatars } from '../avatar';
 
@@ -48,6 +59,8 @@ export default function TextSessionScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [currentMood, setCurrentMood] = useState<string>('');
+  const [intraSessionSummary, setIntraSessionSummary] = useState('');
+  const messageCountForSummary = useRef(0);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
@@ -104,17 +117,44 @@ export default function TextSessionScreen() {
 
   // Move onBackPress and handleSessionEnd to top-level
   const handleSessionEnd = async () => {
+    // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
     if (messages.length > 2) {
       await logEvent({
         type: 'text_session',
         mood: currentMood,
-        data: {
-          therapistId: therapistId,
-          messages: messages
-        }
+        data: { therapistId, messages }
       });
       await AsyncStorage.removeItem('before_mood_latest');
+    } else {
+      router.replace('/feel/after_feeling');
+      return;
     }
+
+    // --- MAKRO HAFIZA İŞLEME RİTÜELİ ---
+    // Arka planda çalışması için bu bloğu bir try-catch içine alabiliriz.
+    try {
+      console.log("Hafıza işleme ritüeli başlıyor...");
+      const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
+
+      // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript);
+      if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
+
+      // 2. Seyir Defterine Not Düş
+      await addJourneyLogEntry(memoryPieces.log);
+
+      // 3. Kasayı Güncelle
+      const currentVault = await getUserVault() || {};
+      const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
+      await updateUserVault(newVault);
+
+      console.log("Hafıza işleme ritüeli başarıyla tamamlandı.");
+    } catch (error) {
+      console.error("Seans sonu hafıza işleme hatası:", error);
+      // Bu hata, kullanıcının akışını engellememeli.
+    }
+    
+    // Kullanıcıyı bir sonraki ekrana yönlendir.
     router.replace('/feel/after_feeling');
   };
 
@@ -174,13 +214,31 @@ const sendMessage = async () => {
   setMessages(newMessagesForUI);
   setIsTyping(true);
 
-  // AI'a gönderilecek geçmişi oluştur
-  const chatHistory = newMessagesForUI
-    .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-    .join('\n');
-  
-  const turnCount = Math.floor((newMessagesForUI.length - 1) / 2) + 1;
+  // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) ---
+  let currentChatHistoryForPrompt = '';
+  const summaryTrigger = 7; // Her 7 mesajda bir
 
+  // Mevcut seans içindeki tüm mesajlar AI'a gönderilmeden önce özetleniyor
+  if (newMessagesForUI.length > messageCountForSummary.current + summaryTrigger) {
+      const conversationChunk = newMessagesForUI
+          .slice(messageCountForSummary.current)
+          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+          .join('\n');
+      
+      const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+      setIntraSessionSummary(updatedSummary);
+      messageCountForSummary.current = newMessagesForUI.length;
+      currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
+  } else {
+      // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
+      const recentMessages = newMessagesForUI
+          .slice(messageCountForSummary.current)
+          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+          .join('\n');
+      currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
+  }
+  
+  // --- AI YANITINI AL ---
   try {
     const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
       ? therapistId as "therapist1" | "therapist3" | "coach1" 
@@ -189,9 +247,7 @@ const sendMessage = async () => {
     const aiReplyText = await generateTherapistReply(
       validTherapistId,
       trimmedInput,
-      currentMood,
-      chatHistory,
-      turnCount
+      currentChatHistoryForPrompt
     );
 
     const aiMessage = { 

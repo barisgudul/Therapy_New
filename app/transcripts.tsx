@@ -1,3 +1,4 @@
+// app/transcripts.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,15 +7,7 @@ import {
   ActivityIndicator,
   Alert, // <-- YENİ: Onay penceresi için import edildi
   Animated,
-  Easing // <-- YENİ: Buraya eklendi
-  ,
-
-
-
-
-
-
-
+  Easing, // <-- YENİ: Buraya eklendi
   Platform,
   Pressable,
   ScrollView,
