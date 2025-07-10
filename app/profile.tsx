@@ -5,21 +5,20 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
-import { getProfileData } from '../utils/helpers';
 
 type RelationshipStatus = 'single' | 'in_relationship' | 'married' | 'complicated' | '';
 type Gender = 'male' | 'female' | 'other' | '';
@@ -102,11 +101,6 @@ export default function ProfileScreen() {
       };
       await AsyncStorage.setItem('userProfile', JSON.stringify(data));
 
-      // Rozetleri kontrol et ve güncelle
-      const profileData = await getProfileData(); // Profil verilerini al
-      
-      
-
       Alert.alert('Başarılı', 'Profil kaydedildi.', [
         { text: 'Tamam', onPress: () => router.replace('/') }
       ]);
@@ -156,6 +150,7 @@ export default function ProfileScreen() {
         aspect: [1, 1],
         quality: 0.8,
       });
+      
 
       if (!result.canceled) {
         setProfileImage(result.assets[0].uri);

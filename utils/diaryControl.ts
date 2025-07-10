@@ -1,3 +1,4 @@
+// utils/diaryControl.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const canWriteDiary = async (): Promise<{ canWrite: boolean; message: string }> => {

@@ -33,13 +33,7 @@ import {
   logEvent,
   updateUserVault,
 } from '../../utils/eventLogger';
-import { saveToSessionData } from '../../utils/sessionData';
 import { avatars } from '../avatar';
-
-// --- DEBUG IMPORT: Gerçekten var mı kontrolü --- //
-import * as sessionData from '../../utils/sessionData';
-console.log('DEBUG sessionData:', sessionData);
-console.log('DEBUG saveToSessionData:', saveToSessionData);
 
 const therapistImages: Record<string, any> = {
   therapist1: require('../../assets/Terapist_1.jpg'),

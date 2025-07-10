@@ -30,12 +30,10 @@ import {
   TouchableWithoutFeedback,
   View
 } from 'react-native';
+
 import { Colors } from '../constants/Colors';
 import { generateDailyReflectionResponse } from '../hooks/useGemini';
-import { checkAndUpdateBadges } from '../utils/badges';
 import { logEvent } from '../utils/eventLogger';
-import { calculateStreak, getTotalEntries, isColorDark } from '../utils/helpers';
-import { statisticsManager } from '../utils/statisticsManager';
 
 
 //-------------------------------------------------------------
@@ -74,6 +72,15 @@ const MOOD_LEVELS = [
 ];
 
 const { width, height } = Dimensions.get('window');
+
+// Renk koyuluk kontrolü için yardımcı fonksiyon
+function isColorDark(hexColor: string) {
+  const color = hexColor.charAt(0) === '#' ? hexColor.substring(1, 7) : hexColor;
+  const r = parseInt(color.substring(0, 2), 16); // Red
+  const g = parseInt(color.substring(2, 4), 16); // Green
+  const b = parseInt(color.substring(4, 6), 16); // Blue
+  return (r * 0.299 + g * 0.587 + b * 0.114) < 186;
+}
 
 // Renk açıcı yardımcı fonksiyon
 function lightenColor(hex: string, percent: number) {
@@ -314,11 +321,6 @@ export default function DailyWriteScreen() {
         ['todayMessage', aiMessage],
         ['lastReflectionAt', String(now.getTime())],
       ]);
-      // Eski istatistik ve rozet sistemleri
-      const streak = await calculateStreak();
-      const totalEntries = await getTotalEntries();
-      await statisticsManager.updateStatistics({ text: note, mood: mood, date: now.toISOString().split('T')[0], source: 'daily_write' });
-      await checkAndUpdateBadges('daily', { totalEntries, streak: streak.currentStreak, dailyWriterNovice: totalEntries >= 3, dailyWriterExpert: totalEntries >= 15 });
     } catch (err) {
       console.error("closeFeedback hatası:", err);
     }
