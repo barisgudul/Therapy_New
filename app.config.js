@@ -1,3 +1,4 @@
+// app.config.js
 import localConfig from './app.config.local.js'; // API key burada tanımlı
 
 export default {
