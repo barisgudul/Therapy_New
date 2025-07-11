@@ -3,7 +3,6 @@
 // Expo deps: expo-haptics expo-linear-gradient @react-native-async-storage/async-storage react-native-reanimated
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
@@ -36,17 +35,6 @@ const MOOD_LEVELS = [
     { label: 'Harika',   color: '#60A5FA', shadow: '#3B82F6' }, // 5: Gök Mavisi (Daha Aydınlık ve Ferah)
     { label: 'Mükemmel', color: '#06B6D4', shadow: '#60A5FA' }, // 6: Turkuaz Enerji (Zirve)
 ];
-
-// --- YARDIMCI KAYIT FONKSİYONU ---
-const saveAfterMood = async (moodLabel: string) => {
-    try {
-        const entry = { mood: moodLabel, timestamp: Date.now() };
-        await AsyncStorage.setItem('after_mood_latest', JSON.stringify(entry));
-        console.log('✅ After mood saved:', entry);
-    } catch (e) {
-        console.error('Failed to save after mood.', e);
-    }
-};
 
 // --- ANA BİLEŞEN ---
 export default function AfterFeelingScreen() {
@@ -94,17 +82,27 @@ export default function AfterFeelingScreen() {
 
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        // Önce veriyi DOĞRU anahtara kaydet
-        await saveAfterMood(currentMoodLabel);
-        // Sonra olayları logla
+
+        // 1. ÖNCE: Seansın bitişini ve SON ruh halini Supabase'e logla.
+        // Bu, ruh hali bilgisini kalıcı hale getirmek için YETERLİDİR.
         await logEvent({
             type: 'session_end',
             mood: currentMoodLabel,
-            data: {}
+            data: {} // Gerekirse seansla ilgili başka veriler de eklenebilir.
         });
+
+        // 2. SONRA: Bir sonraki ekrana gitmek için animasyonu başlat.
         opacity.value = withTiming(0, { duration: 400 });
+        
+        // 3. EN SON: Animasyon biterken yönlendirmeyi yap.
         setTimeout(() => {
-            router.replace('/feel/mood_comparison');
+            // Ruh hali bilgisini karşılaştırma ekranına parametre olarak gönder.
+            router.replace({
+                pathname: '/feel/mood_comparison',
+                params: { 
+                    afterMood: currentMoodLabel // Yeni parametremiz
+                }
+            });
         }, 400);
     };
 

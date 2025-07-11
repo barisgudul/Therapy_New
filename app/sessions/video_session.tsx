@@ -1,6 +1,5 @@
 // app/sessions/video_session.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
@@ -34,7 +33,7 @@ import {
   logEvent,
   updateUserVault,
 } from '../../utils/eventLogger';
-import { avatars } from '../avatar';
+import { avatars } from '../therapy/avatar';
 
 const { width, height } = Dimensions.get('window');
 const PIP_SIZE = 100;
@@ -56,7 +55,8 @@ export type ChatMessage = {
 };
 
 export default function VideoSessionScreen() {
-  const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
+  // therapistId'nin yanına mood'u da ekle
+  const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -107,21 +107,12 @@ export default function VideoSessionScreen() {
     setIsDragging(false);
   };
 
-  // Mood'u yükle
+  // Mood'u parametreden alıp state'e ata
   useEffect(() => {
-    const loadMood = async () => {
-      try {
-        const moodRaw = await AsyncStorage.getItem('before_mood_latest');
-        if (moodRaw) {
-          const moodData = JSON.parse(moodRaw);
-          setCurrentMood(moodData.mood || '');
-        }
-      } catch (error) {
-        console.error('Mood yüklenirken hata:', error);
-      }
-    };
-    loadMood();
-  }, []);
+    if (mood) {
+      setCurrentMood(mood);
+    }
+  }, [mood]);
 
   /* ---------------------------- VOICE HOOK ------------------------------ */
   const {
@@ -132,62 +123,53 @@ export default function VideoSessionScreen() {
     cleanup,
     speakText,
   } = useVoiceSession({
-    onTranscriptReceived: async (text) => {
-      if (text) {
-        // 1. Yeni kullanıcı mesajını oluştur.
-        const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: text };
-        // 2. Mesaj listesini TEK SEFERDE GÜNCELLE ve bir değişkende tut.
-        const updatedMessages = [...messages, userMessage];
-        setMessages(updatedMessages);
+    onTranscriptReceived: async (userText) => {
+      if (!userText) return;
 
-        // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) ---
-        let currentChatHistoryForPrompt = '';
-        const summaryTrigger = 7; // Her 7 mesajda bir
+      // 1. Kullanıcı mesajını anında UI'da göster
+      const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
+      const updatedMessagesWithUser = [...messages, userMessage];
+      setMessages(updatedMessagesWithUser);
 
-        // Mevcut seans içindeki tüm mesajlar AI'a gönderilmeden önce özetleniyor
-        if (updatedMessages.length > messageCountForSummary.current + summaryTrigger) {
-            const conversationChunk = updatedMessages
-                .slice(messageCountForSummary.current)
-                .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-                .join('\n');
-            
-            const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
-            setIntraSessionSummary(updatedSummary);
-            messageCountForSummary.current = updatedMessages.length;
-            currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
-        } else {
-            // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
-            const recentMessages = updatedMessages
-                .slice(messageCountForSummary.current)
-                .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-                .join('\n');
-            currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
-        }
+      // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) - Aynen kalıyor, doğru ---
+      let currentChatHistoryForPrompt = '';
+      const summaryTrigger = 7; 
+      if (updatedMessagesWithUser.length > messageCountForSummary.current + summaryTrigger) {
+          const conversationChunk = updatedMessagesWithUser
+              .slice(messageCountForSummary.current)
+              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+              .join('\n');
+          const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+          setIntraSessionSummary(updatedSummary);
+          messageCountForSummary.current = updatedMessagesWithUser.length;
+          currentChatHistoryForPrompt = updatedSummary;
+      } else {
+          const recentMessages = updatedMessagesWithUser
+              .slice(messageCountForSummary.current)
+              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+              .join('\n');
+          currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
+      }
 
-        try {
-          const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-            ? therapistId as "therapist1" | "therapist3" | "coach1" 
-            : "therapist1";
-          const aiResponse = await generateTherapistReply(
-            validTherapistId,
-            text,
-            currentChatHistoryForPrompt
-          );
-          // Hem kullanıcı hem AI mesajını birlikte ekle
-          setMessages(prev => [...prev,
-            { id: Date.now().toString(), sender: 'user', text: text },
-            { id: (Date.now() + 1).toString(), sender: 'ai', text: aiResponse }
-          ]);
-          speakText(aiResponse);
-        } catch (error) {
-          console.error('AI yanıt hatası:', error);
-          const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum. Lütfen tekrar deneyin.";
-          setMessages(prev => [...prev,
-            { id: Date.now().toString(), sender: 'user', text: text },
-            { id: (Date.now() + 1).toString(), sender: 'ai', text: errorMessage }
-          ]);
-          speakText(errorMessage);
-        }
+      try {
+        const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
+          ? therapistId as "therapist1" | "therapist3" | "coach1" 
+          : "therapist1";
+        const aiResponse = await generateTherapistReply(
+          validTherapistId,
+          userText,
+          currentChatHistoryForPrompt
+        );
+        const cleanedAiResponse = aiResponse.trim();
+        const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: cleanedAiResponse };
+        setMessages(prev => [...prev, aiMessage]);
+        speakText(cleanedAiResponse);
+      } catch (error) {
+        console.error('AI yanıt hatası:', error);
+        const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum.";
+        const aiErrorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage };
+        setMessages(prev => [...prev, aiErrorMessage]);
+        speakText(errorMessage);
       }
     },
     onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1.1, duration: 400, useNativeDriver: true }).start(),
@@ -259,7 +241,6 @@ export default function VideoSessionScreen() {
         mood: currentMood,
         data: { therapistId, messages },
       });
-      await AsyncStorage.removeItem('before_mood_latest');
     } else {
       router.replace('/feel/after_feeling');
       return;

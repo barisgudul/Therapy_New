@@ -3,7 +3,6 @@
 // Expo deps: expo-haptics expo-linear-gradient @react-native-async-storage/async-storage react-native-reanimated
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
@@ -35,18 +34,6 @@ const MOOD_LEVELS = [
     { label: 'Harika',   color: '#60A5FA', shadow: '#3B82F6' }, // 5: Gök Mavisi
     { label: 'Mükemmel', color: '#06B6D4', shadow: '#60A5FA' }, // 6: Turkuaz Enerji
 ];
-
-// --- YARDIMCI KAYIT FONKSİYONU ---
-const saveBeforeMood = async (moodLabel: string) => {
-    try {
-        const entry = { mood: moodLabel, timestamp: Date.now() };
-        // Karşılaştırma için sadece en sonuncuyu saklamamız yeterli.
-        await AsyncStorage.setItem('before_mood_latest', JSON.stringify(entry));
-        console.log('✅ Before mood saved:', entry);
-    } catch (e) {
-        console.error('Failed to save before mood.', e);
-    }
-};
 
 // --- ANA BİLEŞEN ---
 export default function BeforeFeelingScreen() {
@@ -97,23 +84,32 @@ export default function BeforeFeelingScreen() {
 
     const handleSave = async () => {
         const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
-        // Önce veriyi kaydet
-        await saveBeforeMood(currentMoodLabel);
-        // Sonra olayları logla
+
+        // 1. ÖNCE: Seansın başlangıcını Supabase'e logla.
+        // Bu, ruh hali bilgisini kalıcı hale getirmek için YETERLİDİR.
         await logEvent({
             type: 'session_start',
             mood: currentMoodLabel,
             data: { sessionType, therapistId }
         });
+
+        // 2. SONRA: Bir sonraki ekrana gitmek için animasyonu başlat.
         opacity.value = withTiming(0, { duration: 400 });
+
+        // 3. EN SON: Animasyon biterken yönlendirmeyi yap.
         setTimeout(() => {
             if (!sessionType || !therapistId) {
+                console.error("SessionType veya TherapistId eksik, yönlendirme yapılamıyor.");
                 router.back();
                 return;
             }
+            // Ruh hali bilgisini seans ekranına parametre olarak gönder.
             router.replace({
                 pathname: `/sessions/${sessionType}_session`,
-                params: { therapistId }
+                params: { 
+                    therapistId: therapistId, 
+                    mood: currentMoodLabel // <-- BURASI EKLENDİ
+                }
             });
         }, 400);
     };

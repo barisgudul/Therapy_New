@@ -1,7 +1,6 @@
 // app/ai_summary.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { Slider } from '@miblanchard/react-native-slider';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import * as Sharing from 'expo-sharing';
@@ -24,56 +23,51 @@ import RNHTMLtoPDF from 'react-native-html-to-pdf';
 import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
 import { generateStructuredAnalysisReport } from '../hooks/useGemini';
-import { deleteEventById, getEventsForLast, getUserVault } from '../utils/eventLogger';
+import { AppEvent, deleteEventById, getEventsForLast, logEvent } from '../utils/eventLogger';
 
 export default function AISummaryScreen() {
   const router = useRouter();
 
   const [maxDays, setMaxDays] = useState(7);
   const [selectedDays, setSelectedDays] = useState(7);
-  const [summaries, setSummaries] = useState<{text: string, date: string}[]>([]);
+  const [analysisEvents, setAnalysisEvents] = useState<AppEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
 
   // Kayıtlı özetleri yükle
   useEffect(() => {
-    loadSavedSummaries();
-  }, []);
-
-  // Maksimum gün sayısını eventLogger.ts'deki event kayıtlarına göre hesapla
-  useEffect(() => {
-    (async () => {
-      const keys = await AsyncStorage.getAllKeys();
-      // Sadece 'events-YYYY-MM-DD' formatındaki anahtarları filtrele
-      const eventKeys = keys.filter(k => /^events-\d{4}-\d{2}-\d{2}$/.test(k));
-      const capped = Math.min(eventKeys.length, 30);
-      setMaxDays(capped || 1);
-      setSelectedDays(capped || 1);
-    })();
-  }, []);
-
-  // Kayıtlı özetleri yükleme fonksiyonu
-  const loadSavedSummaries = async () => {
-    try {
-      const savedSummaries = await AsyncStorage.getItem('ai-summaries');
-      if (savedSummaries) {
-        setSummaries(JSON.parse(savedSummaries));
-      }
-    } catch (e) {
-      console.error('Özetler yüklenirken hata:', e);
-    }
-  };
+    const initializePage = async () => {
+        setLoading(true);
+        try {
+            const allEvents = await getEventsForLast(365); // Maksimum 1 yıllık veri çekelim
+            // 1. Önceki analizleri filtrele ve state'e ata
+            const analysisOnly = allEvents.filter(e => e.type === 'ai_analysis');
+            setAnalysisEvents(analysisOnly);
+            // 2. Maksimum gün sayısını hesapla
+            if (allEvents.length > 0) {
+                // En eski olayın tarihini al (zaten sondadır)
+                const oldestEventDate = new Date(allEvents[allEvents.length - 1].created_at);
+                const today = new Date();
+                const diffTime = Math.abs(today.getTime() - oldestEventDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const cappedDays = Math.min(diffDays, 30); // Analiz için en fazla 30 gün
+                setMaxDays(cappedDays > 0 ? cappedDays : 1);
+                setSelectedDays(cappedDays > 0 ? cappedDays : 1);
+            } else {
+                setMaxDays(1);
+                setSelectedDays(1);
+            }
+        } catch (e) {
+            console.error('Sayfa başlatılırken hata:', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+    initializePage();
+}, []);
 
   // Özetleri kaydetme fonksiyonu
-  const saveSummaries = async (newSummaries: {text: string, date: string}[]) => {
-    try {
-      await AsyncStorage.setItem('ai-summaries', JSON.stringify(newSummaries));
-    } catch (e) {
-      console.error('Özetler kaydedilirken hata:', e);
-    }
-  };
-
   // ai_summary.tsx dosyasındaki mevcut fetchSummary fonksiyonunu bununla değiştirin.
 
 const fetchSummary = async () => {
@@ -81,35 +75,39 @@ const fetchSummary = async () => {
   setLoading(true);
   
   try {
-    // 1. Analiz edilecek ham veriyi çek
-    const events = await getEventsForLast(selectedDays);
-    if (events.length < 3) {
+    const eventsForAnalysis = await getEventsForLast(selectedDays);
+    if (eventsForAnalysis.length < 3) {
       Alert.alert("Yetersiz Veri", `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı.`);
       setLoading(false);
       return;
     }
 
-    // 2. Kolektif Bilincin temelini (Kasa'yı) çek
-    const userVault = await getUserVault();
-    if (!userVault) {
-         Alert.alert("Analiz Başarısız", "Analiz için gerekli temel kullanıcı verileri henüz oluşmamış. Lütfen en az bir seansı tamamlayın.");
-         setLoading(false);
-         return;
+    const result = await generateStructuredAnalysisReport(selectedDays);
+
+    // ---- ANA BAĞLANTI NOKTASI ----
+    // Analiz sonucunu yeni bir olay olarak Supabase'e kaydet.
+    const newAnalysisEventId = await logEvent({
+        type: 'ai_analysis',
+        mood: 'neutral', // veya analizden bir mood çıkarılabilir
+        data: {
+            text: result.trim(),
+            analyzedDays: selectedDays,
+        }
+    });
+
+    if (newAnalysisEventId) {
+        // Yeni oluşturulan olayı hemen listeye ekleyerek anında UI güncellemesi sağla
+        const newEvent: AppEvent = {
+            id: newAnalysisEventId,
+            type: 'ai_analysis',
+            user_id: '', // getUser ile alınabilir ama UI için şart değil
+            timestamp: Date.now(),
+            created_at: new Date().toISOString(),
+            data: { text: result.trim(), analyzedDays: selectedDays }
+        };
+        setAnalysisEvents(prevEvents => [newEvent, ...prevEvents]);
     }
 
-    // 3. Yeni ve güçlü AI fonksiyonumuzu çağır
-    const result = await generateStructuredAnalysisReport(selectedDays);
-    
-    const newSummary = {
-      text: result.trim(),
-      date: new Date().toISOString()
-    };
-    const newSummaries = [newSummary, ...summaries];
-    
-    setSummaries(newSummaries);
-    await saveSummaries(newSummaries);
-
-    // Kullanıcıya sonucu göster
     setActiveSummary(result.trim());
     setModalVisible(true);
 
@@ -122,7 +120,7 @@ const fetchSummary = async () => {
 };
 
   // Özeti silme fonksiyonu (Alert ile ve eventLogger'dan silme)
-  const deleteSummary = async (index: number, eventId?: string) => {
+  const deleteSummary = (eventId: string) => {
     Alert.alert(
       'Analizi Sil',
       'Bu AI analizini kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.',
@@ -133,12 +131,8 @@ const fetchSummary = async () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (eventId) {
                 await deleteEventById(eventId);
-              }
-              const newSummaries = summaries.filter((_, i) => i !== index);
-              setSummaries(newSummaries);
-              await saveSummaries(newSummaries);
+                // setAnalysisEvents(prev => prev.filter(e => e.id !== eventId)); // Bu satır artık kullanılmıyor
             } catch (e) {
               Alert.alert('Hata', 'Silme işlemi sırasında bir hata oluştu.');
             }
@@ -147,35 +141,6 @@ const fetchSummary = async () => {
       ]
     );
   };
-
-  const SummaryCard = ({ text, date, index }: { text: string; date: string; index: number }) => (
-    <TouchableOpacity
-      style={commonStyles.card}
-      activeOpacity={0.9}
-      onPress={() => {
-        setActiveSummary(text);
-        setModalVisible(true);
-      }}
-    >
-      <View style={commonStyles.iconWrap}>
-        <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
-      </View>
-      <Text numberOfLines={3} style={commonStyles.cardText}>{text}</Text>
-      <Text style={styles.summaryCardDate}>
-        {new Date(date).toLocaleDateString('tr-TR', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        })}
-      </Text>
-      <TouchableOpacity
-        onPress={() => deleteSummary(index)}
-        style={styles.deleteButton}
-      >
-        <Ionicons name="trash-outline" size={20} color="#E53E3E" />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
 
   // PDF OLUŞTURMA ve PAYLAŞIM
   const exportToPDF = async () => {
@@ -300,7 +265,7 @@ const fetchSummary = async () => {
           </TouchableOpacity>
         </View>
 
-        {summaries.length === 0 && !loading ? (
+        {analysisEvents.length === 0 && !loading ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyStateIconContainer}>
               <LinearGradient
@@ -317,13 +282,13 @@ const fetchSummary = async () => {
           </View>
         ) : (
           <FlatList
-            data={summaries}
-            renderItem={({ item, index }) => (
+            data={analysisEvents}
+            renderItem={({ item }) => (
               <TouchableOpacity
                 style={styles.summaryCard}
                 activeOpacity={0.9}
                 onPress={() => {
-                  setActiveSummary(item.text);
+                  setActiveSummary(item.data.text);
                   setModalVisible(true);
                 }}
               >
@@ -338,16 +303,14 @@ const fetchSummary = async () => {
                       <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
                     </View>
                     <Text style={styles.summaryCardDate}>
-                      {new Date(item.date).toLocaleDateString('tr-TR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                      {new Date(item.created_at).toLocaleDateString('tr-TR', {
+                        year: 'numeric', month: 'long', day: 'numeric'
                       })}
                     </Text>
                   </View>
-                  <Text style={styles.summaryCardText} numberOfLines={3}>{item.text}</Text>
+                  <Text style={styles.summaryCardText} numberOfLines={3}>{item.data.text}</Text>
                   <TouchableOpacity
-                    onPress={() => deleteSummary(index, (item as any).id)}
+                    onPress={() => deleteSummary(item.id)}
                     style={styles.deleteButton}
                   >
                     <Ionicons name="trash-outline" size={20} color="#E53E3E" />
@@ -355,7 +318,7 @@ const fetchSummary = async () => {
                 </LinearGradient>
               </TouchableOpacity>
             )}
-            keyExtractor={(_, i) => i.toString()}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContainer}
             ListHeaderComponent={loadingHeader}
           />

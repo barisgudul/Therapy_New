@@ -1,24 +1,25 @@
+// app/profile.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
+import { getUserVault, updateUserVault, VaultData } from '../utils/eventLogger';
 
 type RelationshipStatus = 'single' | 'in_relationship' | 'married' | 'complicated' | '';
 type Gender = 'male' | 'female' | 'other' | '';
@@ -39,6 +40,8 @@ export default function ProfileScreen() {
   const [showImagePickerModal, setShowImagePickerModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [permissionMessage, setPermissionMessage] = useState('');
+  // State'lerin yanına vault ekle
+  const [vault, setVault] = useState<VaultData | null>(null);
 
   const relationshipOptions = [
     { value: 'single', label: 'Bekarım' },
@@ -58,55 +61,59 @@ export default function ProfileScreen() {
     loadProfile();
   }, []);
 
+  // YENİ loadProfile FONKSİYONU
   const loadProfile = async () => {
     try {
-      const stored = await AsyncStorage.getItem('userProfile');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setNickname(parsed.nickname || '');
-        setBirthDate(parsed.birthDate || '');
-        setExpectation(parsed.expectation || '');
-        setTherapyGoals(parsed.therapyGoals || '');
-        setPreviousTherapy(parsed.previousTherapy || '');
-        setRelationshipStatus(parsed.relationshipStatus || '');
-        setGender(parsed.gender || '');
-        setProfileImage(parsed.profileImage || null);
+      const userVault = await getUserVault(); // Merkezi hafızadan oku
+      if (userVault) {
+        setVault(userVault); // İlerde lazım olur diye tüm vault'u sakla
+        const profileData = userVault.profile || {}; // Vault içinde profile objesi yoksa diye kontrol
+        setNickname(profileData.nickname || '');
+        setBirthDate(profileData.birthDate || '');
+        setExpectation(profileData.expectation || '');
+        setTherapyGoals(profileData.therapyGoals || '');
+        setPreviousTherapy(profileData.previousTherapy || '');
+        setRelationshipStatus(profileData.relationshipStatus || '');
+        setGender(profileData.gender || '');
+        setProfileImage(profileData.profileImage || null);
       }
     } catch (error) {
-      console.error('Profil yüklenemedi:', error);
+      console.error('Vault profili yüklenemedi:', error);
     }
   };
 
+  // YENİ handleSave FONKSİYONU
   const handleSave = async () => {
     if (!nickname.trim()) {
       Alert.alert('Uyarı', 'Lütfen bir isim girin.');
       return;
     }
-
     try {
       setIsLoading(true);
-      
       const goalsArray = therapyGoals.split(',').map(g => g.trim()).filter(Boolean);
-      const data = {
-        nickname,
-        birthDate,
-        expectation,
-        therapyGoals,
-        previousTherapy,
-        relationshipStatus,
-        gender,
-        profileImage,
-        goals: goalsArray,
-        interests: [],
+      // Güncel Vault'u temel alarak yeni bir vault nesnesi oluştur.
+      const newVault: VaultData = {
+        ...vault, // Önceki Vault verilerini koru (traits, memories vs.)
+        profile: { // Profil verilerini bu alana yaz
+          nickname,
+          birthDate,
+          expectation,
+          therapyGoals,
+          previousTherapy,
+          relationshipStatus,
+          gender,
+          profileImage,
+          goals: goalsArray,
+          interests: [], // Bu alanı da korumuş olduk
+        }
       };
-      await AsyncStorage.setItem('userProfile', JSON.stringify(data));
-
-      Alert.alert('Başarılı', 'Profil kaydedildi.', [
+      await updateUserVault(newVault); // Tek fonksiyonla sunucuya gönder!
+      Alert.alert('Başarılı', 'Profilin güncellendi.', [
         { text: 'Tamam', onPress: () => router.replace('/') }
       ]);
     } catch (error) {
-      console.error('Profil kaydetme hatası:', error);
-      Alert.alert('Hata', 'Profil kaydedilemedi. Lütfen tekrar deneyin.');
+      console.error('Profil güncelleme hatası:', error);
+      Alert.alert('Hata', 'Profil güncellenemedi. Lütfen tekrar deneyin.');
     } finally {
       setIsLoading(false);
     }

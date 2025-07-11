@@ -97,33 +97,47 @@ export default function DreamResultScreen() {
         if (isDialogueLockedForPast || isChatCompleted || !messageText.trim() || isReplying || !event) return; 
 
         Keyboard.dismiss();
-        let currentDialogue = [...dialogue, { text: messageText, role: 'user' as const }];
+        
+        const userMessage: DialogueMessage = { text: messageText, role: 'user' };
+        
+        // 1. Önce kullanıcı mesajını ekrana bas
+        let currentDialogue = [...dialogue, userMessage];
         setDialogue(currentDialogue);
         setUserInput('');
         setIsReplying(true);
 
         setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300);
 
+        // 2. Kullanıcı mesajıyla birlikte diyaloğun son halini KAYDET
         await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
         
-        // Sadece user mesajlarını doğru tipte filtrele
         const userAnswers = currentDialogue.filter((m): m is { text: string; role: 'user' } => m.role === 'user');
 
         if (userAnswers.length < MAX_INTERACTIONS) {
+            // ... (Next question logic)
             const nextQuestion = await generateNextDreamQuestion(event.data.analysis, userAnswers);
             if (nextQuestion) {
-                currentDialogue.push({ text: nextQuestion, role: 'model' });
-                setDialogue([...currentDialogue]);
+                // 3. AI cevabını al ve diyaloğa ekle
+                const aiMessage: DialogueMessage = { text: nextQuestion, role: 'model' };
+                currentDialogue.push(aiMessage); // Aynı diziye eklemeye devam
+                setDialogue([...currentDialogue]); // UI'ı yeni diziyle güncelle
+
+                // 4. AI cevabıyla birlikte diyaloğun EN SON halini tekrar KAYDET
                 await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
             }
         } else {
+            // ... (Final feedback logic)
             const finalFeedback = await generateFinalDreamFeedback(event.data.analysis, userAnswers);
             if (finalFeedback) {
-                currentDialogue.push({ text: finalFeedback, role: 'model' });
+                // 3. Final AI cevabını al ve diyaloğa ekle
+                const finalAiMessage: DialogueMessage = { text: finalFeedback, role: 'model' };
+                currentDialogue.push(finalAiMessage);
                 setDialogue([...currentDialogue]);
+
+                // 4. Final AI cevabıyla birlikte diyaloğun EN SON halini tekrar KAYDET
                 await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
             }
-            setIsChatCompleted(true); // Diyaloğun bittiğini işaretle
+            setIsChatCompleted(true);
         }
         setIsReplying(false);
     };

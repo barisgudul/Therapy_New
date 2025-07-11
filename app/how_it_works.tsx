@@ -1,3 +1,4 @@
+// app/how_it_works.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
@@ -139,7 +140,7 @@ export default function HowItWorksScreen() {
 
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => router.push('/avatar')}
+          onPress={() => router.push('/therapy/avatar')}
           activeOpacity={0.7}
         >
           <LinearGradient

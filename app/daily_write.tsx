@@ -5,7 +5,6 @@
 //            @react-native-community/slider
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { BlurView } from 'expo-blur';
@@ -274,19 +273,6 @@ export default function DailyWriteScreen() {
 
   const animatePress = () => { Animated.sequence([ Animated.timing(scaleAnim, { toValue: 0.96, duration: 120, useNativeDriver: true }), Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }), ]).start(); };
 
-  async function appendActivity(activityKey: string, newEntry: any) {
-    let prev: any[] = [];
-    try {
-      const prevRaw = await AsyncStorage.getItem(activityKey);
-      if (prevRaw) prev = JSON.parse(prevRaw);
-      if (!Array.isArray(prev)) prev = [];
-    } catch {
-      prev = [];
-    }
-    prev.push(newEntry);
-    await AsyncStorage.setItem(activityKey, JSON.stringify(prev));
-  }
-
   async function saveSession() {
     if (!note || saving) return;
     setSaving(true);
@@ -303,31 +289,29 @@ export default function DailyWriteScreen() {
 
   async function closeFeedback() {
     setFeedbackVisible(false);
-    const now = new Date();
     const mood = MOOD_LEVELS[moodValue].label;
 
     try {
-      // Merkezi olay kaydı
+      // 1. SADECE Merkezi Olay Kaydını Yap.
       await logEvent({
         type: 'daily_reflection',
         mood: mood,
         data: {
-          reflection: note,
+          text: note,         // veri yapısını standartlaştıralım, 'text' olsun
+          aiResponse: aiMessage // AI'ın cevabını da kaydedelim, çok değerli bir veri!
         }
       });
-      // Eski meta kayıtlar devam
-      await AsyncStorage.multiSet([
-        ['todayDate', now.toISOString().split('T')[0]],
-        ['todayMessage', aiMessage],
-        ['lastReflectionAt', String(now.getTime())],
-      ]);
+      console.log('✅ Günlük yansıması merkezi olarak kaydedildi.');
+
     } catch (err) {
-      console.error("closeFeedback hatası:", err);
+      console.error("Günlük yansıması kaydı sırasında hata:", err);
+      // Hata olsa bile kullanıcıyı ana ekrana yönlendir.
     }
+    // 2. Ekranı Temizle ve Ana Sayfaya Dön.
     setNote('');
     setInputVisible(false);
     setAiMessage('');
-    router.replace('/');
+    router.replace('/'); // replace kullanarak geri tuşuyla bu sayfaya dönmesini engelle
   }
 
   // Animasyon stilleri

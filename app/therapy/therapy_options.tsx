@@ -1,9 +1,10 @@
+// app/therapy_options.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../constants/Colors';
+import { Colors } from '../../constants/Colors';
 
 const therapyOptions = [
   {
@@ -45,7 +46,7 @@ export default function TherapyOptionsScreen() {
   const handleOptionPress = (route: string) => {
     const sessionType = route.split('/').pop()?.replace('_session', '');
     router.push({
-      pathname: '/feel/before_feeling',
+      pathname: '../feel/before_feeling',
       params: { 
         sessionType: sessionType || 'text',
         therapistId 

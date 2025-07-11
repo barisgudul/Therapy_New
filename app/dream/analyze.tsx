@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 
 import { analyzeDreamWithContext } from '../../hooks/useGemini';
-import { addJourneyLogEntry, logEvent, recordDreamAnalysisUsage } from '../../utils/eventLogger';
+import { addJourneyLogEntry, logEvent } from '../../utils/eventLogger';
 
 const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
 
@@ -65,7 +65,6 @@ export default function AnalyzeDreamScreen() {
           await addJourneyLogEntry(logEntry);
           
           // 4. Kullanım sayacını kaydet (opsiyonel)
-          await recordDreamAnalysisUsage();
 
           // 5. Navigasyon için tam olay objesini oluştur
           const eventForNavigation = {

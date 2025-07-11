@@ -5,13 +5,13 @@
 // Expo deps: expo-linear-gradient, expo-haptics, @react-native-async-storage/async-storage, react-native-reanimated
 
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router/';
+import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Dimensions,
     Keyboard,
     KeyboardAvoidingView,
@@ -37,7 +37,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
-import { logEvent } from '../../utils/eventLogger';
+import { getEventsForLast, logEvent } from '../../utils/eventLogger';
 
 // Sabitler ve Tipler
 const { width, height } = Dimensions.get('window');
@@ -120,6 +120,8 @@ const CosmicParticles = memo(({ color }: { color: string }) => {
 
 export default function MoodComparisonScreen() {
     const router = useRouter();
+    // 1. afterMood parametresini al
+    const { afterMood } = useLocalSearchParams<{ afterMood?: string }>();
     const [step, setStep] = useState<Step>('loading');
     const [theme, setTheme] = useState<{ initial: ThemeType; final: ThemeType } | null>(null);
     const [data, setData] = useState<DataType | null>(null);
@@ -131,12 +133,23 @@ export default function MoodComparisonScreen() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                // 'currentSessionMood' adını 'before_mood_latest' olarak değiştirdim, diğer sayfalardaki yapıya uyumlu olsun diye
-                const beforeMoodRaw = await AsyncStorage.getItem('before_mood_latest');
-                const beforeMoodLabel = beforeMoodRaw ? JSON.parse(beforeMoodRaw).mood : defaultMood.label;
+                // 'afterMood' parametreden gelmeli.
+                if (!afterMood) {
+                    throw new Error("Seans sonrası ruh hali bilgisi bulunamadı.");
+                }
+
+                // 'beforeMood' için en son 'session_start' olayını bul.
+                const recentEvents = await getEventsForLast(1); // Son 1 gün yeterli
+                const lastSessionStart = recentEvents.find(e => e.type === 'session_start');
+
+                if (!lastSessionStart?.mood) {
+                    throw new Error("Seans başlangıç ruh hali bulunamadı.");
+                }
+
+                const beforeMoodLabel = lastSessionStart.mood;
+                const afterMoodLabel = afterMood;
                 
-                const afterMoodRaw = await AsyncStorage.getItem('after_mood_latest');
-                const afterMoodLabel = afterMoodRaw ? JSON.parse(afterMoodRaw).mood : defaultMood.label;
+                // Buradan sonrası aynı...
                 const before = MOOD_LEVELS.find(m => m.label === beforeMoodLabel) || defaultMood;
                 const after = MOOD_LEVELS.find(m => m.label === afterMoodLabel) || defaultMood;
 
@@ -155,12 +168,17 @@ export default function MoodComparisonScreen() {
                 setData({ before, after, question: "Bu değişimi nasıl yorumlarsın?", response: "Bu derin düşünceleri paylaştığın için teşekkürler. Her yansıma, yolculuğumuzu daha da aydınlatıyor.", answer: '' });
                 setStep('reveal');
                 transitionProgress.value = withDelay(500, withTiming(1, { duration: 4000, easing: Easing.bezier(0.25, 1, 0.5, 1) }));
+
             } catch (error) {
-                console.error("Veri yüklenemedi:", error); setData(defaultData); setStep('reveal');
+                console.error("Karşılaştırma verisi yüklenemedi:", error);
+                // Hata durumunda kullanıcıyı ana sayfaya yönlendir, çünkü veri yoksa bu sayfanın bir anlamı kalmaz.
+                Alert.alert("Hata", "Karşılaştırma verileri yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.", [
+                    {text: 'Tamam', onPress: () => router.replace('/')}
+                ]);
             }
         };
         loadData();
-    }, []);
+    }, [afterMood]); // afterMood parametresi geldiğinde bu hook çalışsın.
 
     const handleStartReflection = () => {
         if (step === 'reveal') {

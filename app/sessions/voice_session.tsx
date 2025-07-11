@@ -1,6 +1,5 @@
 // app/sessions/voice_session.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
@@ -34,7 +33,7 @@ import {
   logEvent,
   updateUserVault,
 } from '../../utils/eventLogger';
-import { avatars } from '../avatar';
+import { avatars } from '../therapy/avatar';
 
 /* -------------------------------------------------------------------------- */
 /* TYPES & CONSTS                                                             */
@@ -67,7 +66,8 @@ export type ChatMessage = {
 /* -------------------------------------------------------------------------- */
 
 export default function VoiceSessionScreen() {
-  const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
+  // therapistId'nin yanına mood'u da ekle
+  const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
   const navigation = useNavigation();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
@@ -79,44 +79,28 @@ export default function VoiceSessionScreen() {
   const [intraSessionSummary, setIntraSessionSummary] = useState('');
   const messageCountForSummary = useRef(0);
 
-  // Terapist bilgisini yükle
+  // Mood ve terapist bilgisini parametrelerden alıp state'e ata
   useEffect(() => {
-    const loadTherapist = async () => {
-      try {
-        const savedTherapist = await AsyncStorage.getItem('selectedTherapist');
-        if (savedTherapist) {
-          setSelectedTherapist(JSON.parse(savedTherapist));
-        } else {
-          // Eğer kayıtlı terapist yoksa, avatars'dan bul
-          const therapist = avatars.find(a => a.imageId === therapistId);
-          setSelectedTherapist(therapist);
-        }
-      } catch (error) {
-        console.error('Terapist yüklenirken hata:', error);
-      }
-    };
-    loadTherapist();
-  }, [therapistId]);
+    // 1. Mood'u parametreden alıp state'e ata
+    if (mood) {
+        setCurrentMood(mood);
+    }
 
-  // Mood'u yükle
-  useEffect(() => {
-    const loadMood = async () => {
-      try {
-        const moodRaw = await AsyncStorage.getItem('before_mood_latest');
-        if (moodRaw) {
-          const moodData = JSON.parse(moodRaw);
-          setCurrentMood(moodData.mood || '');
-        }
-      } catch (error) {
-        console.error('Mood yüklenirken hata:', error);
-      }
-    };
-    loadMood();
-  }, []);
+    // 2. Terapist bilgisini merkezi 'avatars' dizisinden ID ile bul
+    if (therapistId) {
+        const therapist = avatars.find(a => a.imageId === therapistId);
+        setSelectedTherapist(therapist);
+    } else {
+        // ID gelmezse bir varsayılan ata (güvenlik önlemi)
+        setSelectedTherapist(avatars[0]); 
+    }
+  }, [therapistId, mood]);
 
-  /* ---------------------------- STATE & REFS ---------------------------- */  const pulseAnim = useRef(new Animated.Value(1)).current;
+  /* ---------------------------- STATE & REFS ---------------------------- */  
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  /* ---------------------------- VOICE HOOK ------------------------------ */  const {
+  /* ---------------------------- VOICE HOOK ------------------------------ */  
+  const {
     isRecording,
     isProcessing: isSpeechProcessing,
     startRecording,
@@ -208,7 +192,6 @@ export default function VoiceSessionScreen() {
         mood: currentMood,
         data: { therapistId, messages },
       });
-      await AsyncStorage.removeItem('before_mood_latest');
     } else {
       router.replace('/feel/after_feeling');
       return;

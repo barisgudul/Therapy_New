@@ -16,6 +16,7 @@ export const EVENT_TYPES = [
   'video_session',
   'diary_entry',
   'dream_analysis',
+  'ai_analysis',
 ] as const
 
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -83,6 +84,129 @@ export async function getEventsForLast(days: number): Promise<AppEvent[]> {
   } catch (error) {
     console.error('⛔️ Event çekme hatası:', (error as Error).message)
     return []
+  }
+}
+
+/**
+ * Belirli bir event'i (olayı) ID'sine göre 'events' tablosundan siler.
+ * @param eventId Silinecek olayın ID'si (string).
+ */
+export async function deleteEventById(eventId: string): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı giriş yapmamış, olay silinemiyor.');
+
+    const { error } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', eventId)
+      .eq('user_id', user.id); // ÖNEMLİ: Sadece kendi olayını silebildiğinden emin ol!
+
+    if (error) throw error;
+    __DEV__ && console.log(`✅ [Event] ID'si ${eventId} olan olay silindi.`);
+
+  } catch (error) {
+    console.error('⛔️ Olay silme hatası:', (error as Error).message);
+    throw error; // Hatanın UI'a bildirilmesi için tekrar fırlat
+  }
+}
+
+/**
+ * Bir olayın 'data' JSON sütununu günceller. 
+ * Özellikle diyalog gibi devam eden etkileşimleri kaydetmek için kullanılır.
+ * @param eventId Güncellenecek olayın ID'si.
+ * @param newData Yeni 'data' objesi.
+ */
+export async function updateEventData(eventId: string, newData: Record<string, any>): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı bulunamadı, olay güncellenemiyor.');
+    
+    const { error } = await supabase
+      .from('events')
+      .update({ data: newData })
+      .eq('id', eventId)
+      .eq('user_id', user.id); // Sadece kendi olayını güncelleyebilsin.
+    
+    if (error) throw error;
+    __DEV__ && console.log(`✅ [Event] ID'si ${eventId} olan olayın verisi güncellendi.`);
+  } catch (error) {
+    console.error('⛔️ Olay veri güncelleme hatası:', (error as Error).message);
+    throw error;
+  }
+}
+
+/**
+ * Kullanıcının son 7 gün içinde rüya analizi yapıp yapmadığını kontrol eder.
+ * Şimdilik haftada 1 ücretsiz analiz hakkı olduğunu varsayıyoruz.
+ */
+export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean; daysRemaining: number }> {
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const recentDreamAnalyses = await getEventsForLast(7);
+        const lastAnalysis = recentDreamAnalyses.find(e => e.type === 'dream_analysis');
+        
+        if (!lastAnalysis) {
+            return { canAnalyze: true, daysRemaining: 0 };
+        }
+        
+        const lastAnalysisDate = new Date(lastAnalysis.created_at);
+        const nextAvailableDate = new Date(lastAnalysisDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const now = new Date();
+        
+        if (now >= nextAvailableDate) {
+            return { canAnalyze: true, daysRemaining: 0 };
+        } else {
+            const diffTime = nextAvailableDate.getTime() - now.getTime();
+            const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return { canAnalyze: false, daysRemaining: daysRemaining };
+        }
+    } catch (e) {
+        return { canAnalyze: false, daysRemaining: 7 };
+    }
+}
+
+/**
+ * Kullanıcının son 18 saat içinde bir günlük yazıp yazmadığını 
+ * 'events' tablosundan kontrol eder. Bu kontrol cihazdan bağımsızdır.
+ */
+export async function canUserWriteNewDiary(): Promise<{ canWrite: boolean; message: string }> {
+  try {
+    // 1. Son 1 gün içindeki olayları çekmek yeterli.
+    const recentEvents = await getEventsForLast(1);
+
+    // 2. Bu olaylar içinden en son 'diary_entry' olayını bul.
+    const lastDiaryEntry = recentEvents.find(e => e.type === 'diary_entry');
+
+    // 3. Eğer son 24 saatte hiç günlük yazılmamışsa, izin ver.
+    if (!lastDiaryEntry) {
+      return { canWrite: true, message: '' };
+    }
+
+    // 4. Yazılmışsa, zaman farkını hesapla.
+    const lastEntryTime = new Date(lastDiaryEntry.created_at).getTime();
+    const currentTime = Date.now();
+    const hoursPassed = (currentTime - lastEntryTime) / (1000 * 60 * 60);
+
+    if (hoursPassed < 18) {
+      const hoursRemaining = (18 - hoursPassed).toFixed(1);
+      return {
+        canWrite: false,
+        message: `Bugün için bir günlük keşfi yaptın. Bir sonraki günlüğün için yaklaşık ${hoursRemaining} saat sonra tekrar bekliyor olacağım!`
+      };
+    }
+
+    // 18 saatten fazla geçmişse, izin ver.
+    return { canWrite: true, message: '' };
+
+  } catch (error) {
+    console.error('Günlük yazma izni kontrolü hatası:', (error as Error).message);
+    return {
+      canWrite: false,
+      message: 'Günlük yazma izni kontrol edilirken bir hata oluştu.'
+    };
   }
 }
 
@@ -174,5 +298,44 @@ export async function getRecentJourneyLogEntries(limit = 5): Promise<string[]> {
   } catch (error) {
     console.error('⛔️ Journey getirme hatası:', (error as Error).message)
     return []
+  }
+}
+
+
+// eventLogger.ts dosyasının sonuna ekleyin
+
+// --------------------------------------------------
+// AŞAMA 4: TEHLİKELİ BÖLGE (TÜM VERİLERİ SİLME)
+// --------------------------------------------------
+
+/**
+ * Giriş yapmış olan kullanıcının tüm Kolektif Bilinç verilerini (events, vault, journey)
+ * veritabanından kalıcı olarak siler. Bu işlem geri alınamaz.
+ */
+export async function deleteAllUserData(): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı bulunamadı. Silme işlemi yapılamadı.');
+
+    __DEV__ && console.log(`[DANGER ZONE] ${user.id} için tüm veriler siliniyor...`);
+
+    // Tüm silme işlemlerini paralel olarak başlatıyoruz.
+    const [eventsResult, vaultResult, journeyResult] = await Promise.all([
+      supabase.from('events').delete().eq('user_id', user.id),
+      supabase.from('user_vaults').delete().eq('user_id', user.id),
+      supabase.from('journey_logs').delete().eq('user_id', user.id)
+    ]);
+
+    // Hata kontrolü
+    if (eventsResult.error) throw eventsResult.error;
+    if (vaultResult.error) throw vaultResult.error;
+    if (journeyResult.error) throw journeyResult.error;
+
+    __DEV__ && console.log(`✅ [DANGER ZONE] Kullanıcı verileri başarıyla silindi.`);
+    
+  } catch (error) {
+    console.error('⛔️ Tüm kullanıcı verilerini silme hatası:', (error as Error).message);
+    // Hatanın UI katmanına da ulaşması için tekrar fırlatıyoruz.
+    throw error;
   }
 }

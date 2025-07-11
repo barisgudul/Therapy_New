@@ -8,7 +8,6 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router/';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Dimensions,
   Image,
@@ -21,30 +20,10 @@ import {
   View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
+// import { deleteAllUserData } from '../utils/eventLogger'; // ARTIK GEREKSİZ
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
-
-/* --------- DEBUG: Aktiviteleri Yazdır --------- */
-async function showAllActivities() {
-  const keys = await AsyncStorage.getAllKeys();
-  const activityKeys = keys.filter(k => k.startsWith('activity-'));
-  if (activityKeys.length === 0) {
-    console.log('Hiç aktivite kaydı yok!');
-    Alert.alert('Hiç aktivite kaydı yok!');
-    return;
-  }
-  for (const key of activityKeys) {
-    const value = await AsyncStorage.getItem(key);
-    try {
-      console.log(key, JSON.parse(value || ''));
-    } catch {
-      console.log(key, value);
-    }
-  }
-  Alert.alert('Tüm aktiviteler konsola yazdırıldı!');
-}
-/* ---------------------------------------------- */
 
 /* -------- HomeScreen -------- */
 export default function HomeScreen() {
@@ -165,64 +144,7 @@ export default function HomeScreen() {
   /* Terapistini Seç */
   const handleStart = async () => {
     const stored = await AsyncStorage.getItem('userProfile');
-    stored ? router.push('/avatar' as const) : router.push('/profile' as const);
-  };
-
-  /* DEMO reset (gelistirmede) */
-  const clearDemoData = async () => {
-    try {
-      // Tüm AsyncStorage anahtarlarını al
-      const keys = await AsyncStorage.getAllKeys();
-      
-      // Silinecek anahtarlar
-      const keysToRemove = keys.filter(k => 
-        k.startsWith('mood-') || 
-        k.startsWith('activity-') ||
-        k.startsWith('diary-') ||
-        k.startsWith('session-') ||
-        k.startsWith('badge-') ||
-        k.startsWith('streak-') ||
-        [
-          'todayDate',
-          'lastReflectionAt',
-          'todayMessage',
-          'userProfile',
-          'nickname',
-          'lastEntryDate',
-          'currentStreak',
-          'user_badges',
-          'diary_entries',
-          'session_data',
-          'ai_summaries'
-        ].includes(k)
-      );
-
-      // Tüm verileri sil
-      await AsyncStorage.multiRemove(keysToRemove);
-      
-      // State'leri sıfırla
-      setAiMessage(null);
-      setRefreshStreak(Date.now());
-      
-      Alert.alert(
-        'Veriler Sıfırlandı',
-        'Tüm günlük, terapi ve aktivite verileriniz başarıyla silindi.',
-        [{ text: 'Tamam' }]
-      );
-    } catch (error) {
-      console.error('Veri temizleme hatası:', error);
-      Alert.alert('Hata', 'Veriler temizlenirken bir hata oluştu.');
-    }
-  };
-
-  const resetBadges = async () => {
-    try {
-      await AsyncStorage.removeItem('user_badges');
-      Alert.alert('Başarılı', 'Rozetler sıfırlandı. Uygulamayı yeniden başlatın.');
-    } catch (error) {
-      console.error('Rozet sıfırlama hatası:', error);
-      Alert.alert('Hata', 'Rozetler sıfırlanırken bir hata oluştu.');
-    }
+    stored ? router.push('/therapy/avatar' as const) : router.push('/profile' as const);
   };
 
   const handleGoToAllTranscripts = async () => {

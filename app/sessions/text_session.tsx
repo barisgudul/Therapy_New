@@ -1,6 +1,5 @@
 // app/sessions/text_session.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
@@ -33,7 +32,7 @@ import {
   logEvent,
   updateUserVault,
 } from '../../utils/eventLogger';
-import { avatars } from '../avatar';
+import { avatars } from '../therapy/avatar';
 
 const therapistImages: Record<string, any> = {
   therapist1: require('../../assets/Terapist_1.jpg'),
@@ -46,7 +45,8 @@ export default function TextSessionScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
-  const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
+  // therapistId'nin yanına mood'u da ekle
+  const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
   const [messages, setMessages] = useState<{ sender: 'user' | 'ai', text: string }[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -118,7 +118,6 @@ export default function TextSessionScreen() {
         mood: currentMood,
         data: { therapistId, messages }
       });
-      await AsyncStorage.removeItem('before_mood_latest');
     } else {
       router.replace('/feel/after_feeling');
       return;
@@ -177,22 +176,22 @@ export default function TextSessionScreen() {
     };
   }, [messages, router, therapistId, currentMood]);
 
-  // Mood'u yükle
+  // Mood ve terapist bilgisini parametrelerden alıp state'e ata
   useEffect(() => {
-    const loadMood = async () => {
-      try {
-        // "currentSessionMood" yerine artık standart olan "before_mood_latest"i kullanıyoruz
-        const moodRaw = await AsyncStorage.getItem('before_mood_latest');
-        if (moodRaw) {
-          const moodData = JSON.parse(moodRaw);
-          setCurrentMood(moodData.mood || '');
-        }
-      } catch (error) {
-        console.error('Mood yüklenirken hata:', error);
-      }
-    };
-    loadMood();
-  }, []);
+    // 1. Mood'u parametreden alıp state'e ata
+    if (mood) {
+        setCurrentMood(mood);
+    }
+
+    // 2. Terapist bilgisini merkezi 'avatars' dizisinden ID ile bul
+    if (therapistId) {
+        const therapist = avatars.find(a => a.imageId === therapistId);
+        setSelectedTherapist(therapist);
+    } else {
+        // ID gelmezse bir varsayılan ata (güvenlik önlemi)
+        setSelectedTherapist(avatars[0]); 
+    }
+  }, [therapistId, mood]);
 
   // text_session.tsx içindeki sendMessage fonksiyonunu bununla değiştirin.
 const sendMessage = async () => {
@@ -222,7 +221,7 @@ const sendMessage = async () => {
       const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
       setIntraSessionSummary(updatedSummary);
       messageCountForSummary.current = newMessagesForUI.length;
-      currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
+      currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özete gönder
   } else {
       // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
       const recentMessages = newMessagesForUI
@@ -263,25 +262,6 @@ const sendMessage = async () => {
     setIsTyping(false);
   }
 };
-
-  // Terapist bilgisini yükle
-  useEffect(() => {
-    const loadTherapist = async () => {
-      try {
-        const savedTherapist = await AsyncStorage.getItem('selectedTherapist');
-        if (savedTherapist) {
-          setSelectedTherapist(JSON.parse(savedTherapist));
-        } else {
-          // Eğer kayıtlı terapist yoksa, avatars'dan bul
-          const therapist = avatars.find(a => a.imageId === therapistId);
-          setSelectedTherapist(therapist);
-        }
-      } catch (error) {
-        console.error('Terapist yüklenirken hata:', error);
-      }
-    };
-    loadTherapist();
-  }, [therapistId]);
 
   return (
     <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 

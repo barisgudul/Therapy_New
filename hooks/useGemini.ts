@@ -1,5 +1,4 @@
 // hooks/useGemini.ts
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
 import { AppEvent, getEventsForLast, getRecentJourneyLogEntries, getUserVault } from '../utils/eventLogger';
 
@@ -77,26 +76,29 @@ export const sendToGemini = async (
 };
 
 // ---- Kullanıcı Profilini Getir ve Kısa Açıklama Üret ----
-async function getUserProfile() {
-  try {
-    const stored = await AsyncStorage.getItem('userProfile');
-    if (!stored) return null;
-    return JSON.parse(stored);
-  } catch {
-    return null;
-  }
-}
-
-function makeUserDesc(userProfile: any) {
-  if (!userProfile) return '';
-  let desc = '';
-  if (userProfile.nickname) desc += `Adı: ${userProfile.nickname}.\n`;
-  if (userProfile.birthDate) desc += `Doğum tarihi: ${userProfile.birthDate}.\n`;
-  if (userProfile.profession) desc += `Meslek: ${userProfile.profession}.\n`;
-  if (userProfile.expectation) desc += `Terapiden beklentisi: ${userProfile.expectation}.\n`;
-  if (userProfile.history) desc += `Hayatındaki önemli deneyim: ${userProfile.history}.\n`;
-  return desc.trim();
-}
+// SİL: Baştaki AsyncStorage import'u.
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+// SİL: getUserProfile fonksiyonu.
+// async function getUserProfile() {
+//   try {
+//     const stored = await AsyncStorage.getItem('userProfile');
+//     if (!stored) return null;
+//     return JSON.parse(stored);
+//   } catch {
+//     return null;
+//   }
+// }
+// SİL: makeUserDesc fonksiyonu.
+// function makeUserDesc(userProfile: any) {
+//   if (!userProfile) return '';
+//   let desc = '';
+//   if (userProfile.nickname) desc += `Adı: ${userProfile.nickname}.\n`;
+//   if (userProfile.birthDate) desc += `Doğum tarihi: ${userProfile.birthDate}.\n`;
+//   if (userProfile.profession) desc += `Meslek: ${userProfile.profession}.\n`;
+//   if (userProfile.expectation) desc += `Terapiden beklentisi: ${userProfile.expectation}.\n`;
+//   if (userProfile.history) desc += `Hayatındaki önemli deneyim: ${userProfile.history}.\n`;
+//   return desc.trim();
+// }
 
 // ---- TERAPİST KARAKTERLERİNE GÖRE MESAJLAŞMA (YENİ PROMPT YAPISI) ----
 // MODEL: Flash
@@ -154,24 +156,31 @@ export async function generateTherapistReply(
 
 // MODEL: Flash
 export async function generateDailyReflectionResponse(todayNote: string, todayMood: string) {
-  const userProfile = await getUserProfile();
-  const userDesc = makeUserDesc(userProfile);
+  // 1. Veriyi Kolektif Bilinç'ten çek
+  const userVault = await getUserVault();
+
+  // 2. Prompt için anlamlı bir açıklama oluştur
+  let userDesc = '';
+  if (userVault?.profile?.nickname) {
+    userDesc += `Kullanıcının adı ${userVault.profile.nickname}.`;
+  }
+  // İhtiyaç duyulursa başka profil bilgileri de eklenebilir.
+
   const prompt = `
-${userDesc ? userDesc + '\n' : ''}
-Sen bir empatik ve destekleyici yapay zekâ terapistsin.
+${userDesc ? `${userDesc}\n\n` : ''}Sen bir empatik ve destekleyici yapay zekâ terapistsin.
 Kullanıcı bugün duygularını ve düşüncelerini günlük olarak paylaştı.
 Bugünkü ruh hali: ${todayMood}
 Bugünkü yazısı: "${todayNote}"
 
 Sadece bugüne ve yazdığı hisse odaklan. Kısa, sade, empatik, motive edici ve samimi bir yanıt ver. 
-Güven ve iyi hissetmesini sağla. Ona asla soru sorma, öneri verirken aşırı kişisel detaya girme, ona adıyla veya mesleğine uygun şekilde hitap edebilirsin. 
+Güven ve iyi hissetmesini sağla. Ona asla soru sorma, öneri verirken aşırı kişisel detaya girme, eğer adını biliyorsan (${userDesc ? "EVET" : "HAYIR"}) ona adıyla hitap et.
 Cevabın akıcı ve doğal bir Türkçeyle, robot gibi olmadan, ama asla uzun olmayacak şekilde yazılsın.
-Kullanıcı profil bilgisi yoksa anonim biriyle konuştuğunu unutma ve isimsiz hitap et. İstersen emojiler kullanabilirsin ama asla zorunda değilsin aşırıya kaçma emojilerde.
+İstersen emojiler kullanabilirsin ama asla zorunda değilsin aşırıya kaçma emojilerde.
   `.trim();
-  // Bu fonksiyon için 80 token makul ve güvenli bir limittir. Değişiklik gerekmiyor.
+
   const config: GenerationConfig = {
     temperature: 0.7,
-    maxOutputTokens: 80,
+    maxOutputTokens: 150, // Biraz arttırdık.
   };
   return await sendToGemini(prompt, FAST_MODEL, config);
 }

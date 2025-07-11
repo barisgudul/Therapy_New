@@ -1,3 +1,4 @@
+// app/avatar.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
@@ -10,14 +11,14 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { Colors } from '../constants/Colors';
+import { Colors } from '../../constants/Colors';
 
 export const avatars = [
   {
     id: '1',
     name: 'Dr. Elif',
     imageId: 'therapist1',
-    thumbnail: require('../assets/Terapist_1.jpg'),
+    thumbnail: require('../../assets/Terapist_1.jpg'),
     title: 'Klinik Psikolog',
     persona: 'Şefkatli ve duygusal, anaç tavırlı',
     icon: 'heart' as const,
@@ -30,7 +31,7 @@ export const avatars = [
     id: '3',
     name: 'Dr. Lina',
     imageId: 'therapist3',
-    thumbnail: require('../assets/Terapist_3.jpg'),
+    thumbnail: require('../../assets/Terapist_3.jpg'),
     title: 'Bilişsel Davranışçı Uzmanı',
     persona: 'Enerjik ve motive edici, genç ruhlu',
     icon: 'sunny' as const,
@@ -43,7 +44,7 @@ export const avatars = [
     id: '4',
     name: 'Coach Can',
     imageId: 'coach1',
-    thumbnail: require('../assets/coach-can.jpg'),
+    thumbnail: require('../../assets/coach-can.jpg'),
     title: 'Yaşam Koçu',
     persona: 'Dinamik ve ilham verici, pratik odaklı',
     icon: 'rocket' as const,
@@ -57,15 +58,11 @@ export const avatars = [
 export default function AvatarScreen() {
   const router = useRouter();
 
-  const handleSelect = (name: string, imageId: string) => {
+  const handleExplore = (imageId: string) => {
     router.push({
       pathname: '/therapist_profile',
-      params: { name, imageId },
+      params: { name: 'Dr. Elif', imageId },
     });
-  };
-
-  const handleExplore = (imageId: string) => {
-    router.push(`/therapist_profile?id=${imageId}`);
   };
 
   return (

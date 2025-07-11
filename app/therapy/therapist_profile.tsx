@@ -1,18 +1,19 @@
+// app/therapy/therapist_profile.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../constants/Colors';
-import { commonStyles } from '../constants/Styles';
+import { Colors } from '../../constants/Colors';
+import { commonStyles } from '../../constants/Styles';
+import { getUserVault, updateUserVault, VaultData } from '../../utils/eventLogger';
 
 export const therapists = {
   therapist1: {
     id: 'therapist1',
     name: 'Dr. Elif',
     title: 'AI Klinik Psikolog',
-    photo: require('../assets/Terapist_1.jpg'),
+    photo: require('../../assets/Terapist_1.jpg'),
     specialties: ['Duygusal zorluklar', 'Özşefkat', 'İlişki terapisi'],
     approach: 'Şefkatli ve duygusal, anaç tavırlı bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
     philosophy: 'Duygularını onurlandırmak, kendini iyileştirmenin ilk adımıdır.',
@@ -26,17 +27,17 @@ export const therapists = {
       'Mindfulness Teknikleri'
     ]
   },
-  therapist3: {
-    id: 'therapist3',
-    name: 'Dr. Lina',
-    title: 'AI Bilişsel Davranışçı Uzmanı',
-    photo: require('../assets/Terapist_3.jpg'),
-    specialties: ['Öz güven', 'Motivasyon', 'Yaşam hedefleri'],
+  therapist2: {
+    id: 'therapist2',
+    name: 'Dr. Can',
+    title: 'AI Psikolojik Danışman',
+    photo: require('../../assets/Terapist_2.jpg'),
+    specialties: ['Stres yönetimi', 'Kariyer danışmanlığı', 'Motivasyon'],
     approach: 'Genç ruhlu ve motive edici bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
     philosophy: 'Bugün küçük bir adım, yarın büyük bir değişimin başlangıcıdır.',
     style: 'Enerjik ve pozitif yaklaşımım, danışanlarımı cesaretlendirir ve değişim için motive eder.',
     icon: 'heart-circle' as const,
-    about: 'Selam! Ben Dr. Lina. Hayata pozitif bakışımla, güçlü yönlerini keşfetmen ve hedeflerine ulaşman için seni desteklerim. Seanslarımda motive edici, pratik ve genç bir enerji sunarım. Hedef belirleme ve değişim konularında yanındayım.',
+    about: 'Selam! Ben Dr. Can. Hayata pozitif bakışımla, güçlü yönlerini keşfetmen ve hedeflerine ulaşman için seni desteklerim. Seanslarımda motive edici, pratik ve genç bir enerji sunarım. Hedef belirleme ve değişim konularında yanındayım.',
     methods: [
       'Bilişsel Davranışçı Terapi',
       'Çözüm Odaklı Terapi',
@@ -44,12 +45,12 @@ export const therapists = {
       'Mindfulness Teknikleri'
     ]
   },
-  coach1: {
-    id: 'coach1',
-    name: 'Coach Can',
-    title: 'AI Yaşam Koçu',
-    photo: require('../assets/coach-can.jpg'),
-    specialties: ['Kişisel gelişim', 'Hedef belirleme', 'Performans artırma'],
+  therapist3: {
+    id: 'therapist3',
+    name: 'Dr. Zeynep',
+    title: 'AI Aile Terapisti',
+    photo: require('../../assets/Terapist_3.jpg'),
+    specialties: ['Aile içi iletişim', 'Çocuk & Ergen', 'Travma sonrası destek'],
     approach: 'Dinamik ve ilham verici bir koç olarak, danışanlarımın potansiyellerini ortaya çıkarmalarına ve hedeflerine ulaşmalarına yardımcı oluyorum. Her bireyin içinde keşfedilmeyi bekleyen bir güç olduğuna inanırım.',
     philosophy: 'Başarı, küçük adımların tutarlı bir şekilde atılmasıyla gelir.',
     style: 'Enerjik ve pratik yaklaşımım, danışanlarımı harekete geçirir ve hedeflerine ulaşmalarını sağlar.',
@@ -67,48 +68,30 @@ export const therapists = {
 export default function TherapistProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [selectedTherapist, setSelectedTherapist] = useState<string | null>(null);
   const therapist = therapists[id as keyof typeof therapists];
-
-  useEffect(() => {
-    loadSelectedTherapist();
-  }, []);
-
-  const loadSelectedTherapist = async () => {
-    try {
-      const therapist = await AsyncStorage.getItem('selectedTherapist');
-      setSelectedTherapist(therapist);
-    } catch (error) {
-      console.error('Terapist bilgisi yüklenemedi:', error);
-    }
-  };
 
   const selectTherapist = async () => {
     if (!therapist) return;
     try {
-      await AsyncStorage.setItem('selectedTherapist', JSON.stringify({
-        id: therapist.id,
-        name: therapist.name,
-        title: therapist.title,
-        photo: therapist.photo,
-        specialties: therapist.specialties,
-        approach: therapist.approach,
-        philosophy: therapist.philosophy,
-        style: therapist.style,
-        icon: therapist.icon,
-        about: therapist.about,
-        methods: therapist.methods
-      }));
-      setSelectedTherapist(therapist.id);
-      console.log('Terapist seçildi, yönlendiriliyor:', therapist.id);
-      router.push({
-        pathname: '/therapy_options',
-        params: { therapistId: therapist.id }
-      });
+        const currentVault = await getUserVault() || {};
+        const newVault: VaultData = {
+            ...currentVault,
+            preferences: {
+                ...currentVault.preferences,
+                selectedTherapistId: therapist.id
+            }
+        };
+        await updateUserVault(newVault);
+        console.log(`✅ [Vault] Terapist seçimi güncellendi: ${therapist.id}`);
+        router.push({
+            pathname: '/therapy_options',
+            params: { therapistId: therapist.id }
+        });
     } catch (error) {
-      console.error('Terapist seçilemedi:', error);
+        console.error('Terapist seçimi kaydedilemedi:', error);
+        // kullanıcıya bir uyarı gösterebilirsiniz.
     }
-  };
+};
 
   if (!therapist) {
     return (

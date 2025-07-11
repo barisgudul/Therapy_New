@@ -18,8 +18,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../hooks/useGemini';
-import { canWriteDiary } from '../utils/diaryControl';
-import { addJourneyLogEntry, AppEvent, deleteEventById, getEventsForLast, getUserVault, logEvent, updateUserVault } from '../utils/eventLogger';
+import { addJourneyLogEntry, AppEvent, canUserWriteNewDiary, deleteEventById, getEventsForLast, getUserVault, logEvent, updateUserVault } from '../utils/eventLogger';
 
 interface Message {
   text: string;
@@ -205,10 +204,11 @@ export default function DiaryScreen() {
 
   const startNewDiary = async () => {
     try {
-      const { canWrite, message } = await canWriteDiary();
+      // Yeni, merkezi fonksiyonu çağır
+      const { canWrite, message } = await canUserWriteNewDiary(); 
       
       if (!canWrite) {
-        Alert.alert('Uyarı', message);
+        Alert.alert('Biraz Dinlenelim', message); // Başlığı daha empatik yapabiliriz
         return;
       }
 
