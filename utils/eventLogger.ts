@@ -339,3 +339,96 @@ export async function deleteAllUserData(): Promise<void> {
     throw error;
   }
 }
+
+// --------------------------------------------------
+// AŞAMA 5: TRAIT YÖNETİMİ
+// --------------------------------------------------
+
+export const traitKeys = [
+  'confidence', 'anxiety_level', 'extraversion', 'openness', 'neuroticism',
+  'writing_style', 'preferred_tone', 'attachment_style', 'conflict_response',
+] as const;
+
+export type TraitKey = (typeof traitKeys)[number];
+export type TraitValue = number | string;
+export type Traits = Partial<Record<TraitKey, TraitValue>>;
+
+// Seçenekleri daha sofistike hale getiriyoruz.
+interface UpdateTraitOptions {
+  /**
+   * 'overwrite': Eski veriyi yok say, yeni veriyi doğrudan yaz.
+   * 'average': Üstel hareketli ortalama kullanarak eski veriyle harmanla.
+   */
+  mode: 'overwrite' | 'average';
+  /**
+   * Öğrenme katsayısı (alpha). 0.01 (çok yavaş öğrenen) ile 0.99 (çok hızlı öğrenen) arasında.
+   * Sadece 'average' modunda geçerlidir.
+   * Varsayılan değer, sistemin ani değişimlere aşırı tepki vermesini engelleyen 0.1'dir.
+   */
+  alpha?: number;
+}
+
+/**
+ * Kullanıcının tek bir kişilik özelliğini (trait) akıllıca günceller.
+ * Bu fonksiyon, bir bilincin hafıza bütünlüğünü korumak için tasarlanmıştır.
+ * @param key Güncellenecek özellik. Tip güvenliği için `TraitKey` olmalıdır.
+ * @param value Yeni gelen değer.
+ * @param options Güncelleme stratejisini belirler.
+ */
+export async function updateTrait<K extends TraitKey>(
+  key: K,
+  value: Traits[K],
+  options: UpdateTraitOptions = { mode: 'average', alpha: 0.1 }
+): Promise<void> {
+  // Varsayılan alpha değerini atayalım
+  const alpha = options.alpha ?? 0.1;
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('YETKİLENDİRME BAŞARISIZ: Trait güncellemesi için kullanıcı oturumu şarttır.');
+
+    const currentVault = await getUserVault();
+    // Vault'u kopyalamak yerine yeni bir nesne oluşturmak daha temiz.
+    const newVault = currentVault ? JSON.parse(JSON.stringify(currentVault)) : { traits: {} };
+
+    if (!newVault.traits) {
+      newVault.traits = {};
+    }
+
+    const currentValue = newVault.traits[key];
+
+    // --- ÇEKİRDEK GÜNCELLEME MANTIĞI ---
+
+    let finalValue = value; // Varsayılan olarak gelen değeri ata
+
+    // Sadece 'average' modu ve numerik değerler için ortalama al.
+    // 'writing_style' gibi metinsel bir özelliği ortalamaya çalışmak aptalcadır.
+    if (options.mode === 'average' && typeof value === 'number') {
+      if (typeof currentValue === 'number') {
+        // Mevcut bir değer var: EMA formülünü uygula.
+        const weightedAverage = (alpha * value) + ((1 - alpha) * currentValue);
+        // Değerin sapıtmasını engellemek için 0-1 aralığına sıkıştıralım (clamping).
+        // Bu, sistemin kendi kendini kalibre etmesini sağlar.
+        finalValue = Math.max(0, Math.min(1, weightedAverage));
+        __DEV__ && console.log(`[TRAIT-EMA] '${key}' güncellendi. Eski: ${currentValue.toFixed(3)}, Gelen: ${value.toFixed(3)}, Yeni: ${finalValue.toFixed(3)}, α=${alpha}`);
+      } else {
+        // Mevcut bir değer yok (ilk defa set ediliyor) veya mevcut değer sayı değil.
+        // Bu durumda yeni değeri doğrudan ata.
+        finalValue = Math.max(0, Math.min(1, value)); // Yine de clamp et
+         __DEV__ && console.log(`[TRAIT-INIT] '${key}' ilk kez set edildi: ${finalValue.toFixed(3)}`);
+      }
+    } else {
+      // 'overwrite' modu veya metinsel değerler için: Direkt üzerine yaz.
+       __DEV__ && console.log(`[TRAIT-OVR] '${key}' üzerine yazıldı: ${value}`);
+    }
+
+    newVault.traits[key] = finalValue;
+
+    // Vault'u veritabanında atomik olarak güncelle.
+    await updateUserVault(newVault);
+
+  } catch (error) {
+    // Hata mesajları net ve izlenebilir olmalı.
+    console.error(`⛔️ [TRAIT-CRITICAL] '${key}' özelliği güncellenirken sistem hatası oluştu.`, error);
+  }
+}
