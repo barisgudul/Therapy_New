@@ -9,7 +9,6 @@ import { Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Te
 import { Colors } from '../constants/Colors';
 import { useVaultStore } from '../store/vaultStore';
 import { getSessionEventsForUser } from '../utils/eventLogger';
-import { supabase } from '../utils/supabase';
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
@@ -27,20 +26,7 @@ export default function HomeScreen() {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // === UYGULAMA YAŞAM DÖNGÜSÜ YÖNETİMİ ===
-  useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-          if (isLoadingVault) {
-            fetchVault();
-          }
-        } else if (event === 'SIGNED_OUT') {
-          clearVault();
-        }
-      }
-    );
-    return () => authListener.subscription.unsubscribe();
-  }, [fetchVault, clearVault, isLoadingVault]);
+  // Bu blok tamamen kaldırıldı.
 
   // === BİLDİRİM YÖNETİMİ (Artık AsyncStorage'a bağlı değil) ===
   useEffect(() => {

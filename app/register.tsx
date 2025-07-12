@@ -2,18 +2,17 @@
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Button,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View,
+  Button,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import { signUpWithEmail } from '../utils/auth';
 
@@ -28,8 +27,8 @@ export default function RegisterScreen() {
     setLoading(true);
     const user = await signUpWithEmail(email, password);
     if (user) {
-      Alert.alert('Hoş Geldin!', 'Kaydın başarıyla oluşturuldu. Seni giriş ekranına yönlendiriyoruz.');
-      router.push('/login'); // Kayıt olunca login'e gönder
+      // Artık login'e değil, onboarding'e yönlendiriyoruz!
+      router.replace('/onboarding/step1');
     }
     setLoading(false);
   };

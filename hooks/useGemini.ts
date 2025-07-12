@@ -1,7 +1,7 @@
 // hooks/useGemini.ts
 import Constants from "expo-constants";
 import { useVaultStore } from '../store/vaultStore';
-import { getEventsForLast, getRecentJourneyLogEntries } from '../utils/eventLogger';
+import { getEventsForLast, getRecentJourneyLogEntries, Traits } from '../utils/eventLogger';
 import { assessTextSafety, SafetyClassification } from '../utils/guardians';
 import { parseAndValidateJson } from '../utils/jsonValidator';
 import { DiaryStart, DiaryStartSchema, DreamAnalysisResult, DreamAnalysisSchema, NextQuestionsSchema, SessionMemory, SessionMemorySchema } from "../utils/schemas";
@@ -521,4 +521,32 @@ export function mergeVaultData(currentVault: any, vaultUpdate: any): any {
   }
   
   return newVault;
+}
+
+// --- ONBOARDING ANALİZİ: Kullanıcı cevaplarından trait çıkarımı ---
+/**
+ * Kullanıcının onboarding cevaplarını analiz eder ve trait skorları döndürür.
+ * @param answers Kullanıcının onboarding akışında verdiği cevaplar (her adım bir cevap)
+ * @returns traits: { confidence, anxiety, motivation, openness, stress }
+ */
+export async function analyzeOnboardingAnswers(answers: Record<string, string>): Promise<Partial<Traits> | null> {
+    const formattedAnswers = Object.values(answers).join('\n - ');
+    const prompt = `
+Aşağıda bir kullanıcının onboarding sürecinde verdiği cevaplar var. Her bir cevabı analiz et ve aşağıdaki trait'ler için 0-1 arası bir skor tahmini yap:
+- confidence
+- anxiety_level
+- motivation
+- openness
+- neuroticism
+
+Cevaplar:
+${formattedAnswers}
+
+ÇIKTI (Sadece JSON): { "confidence": 0.0-1.0, "anxiety_level": 0.0-1.0, "motivation": 0.0-1.0, "openness": 0.0-1.0, "neuroticism": 0.0-1.0 }
+    `.trim();
+
+    try {
+        const jsonString = await sendToGemini(prompt, POWERFUL_MODEL, { responseMimeType: 'application/json' });
+        return JSON.parse(jsonString);
+    } catch(e) { return null; }
 }
