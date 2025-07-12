@@ -1,181 +1,100 @@
 // app/index.tsx
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router/';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  Image,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
-// import { deleteAllUserData } from '../utils/eventLogger'; // ARTIK GEREKSİZ
+import { useVaultStore } from '../store/vaultStore';
+import { getSessionEventsForUser } from '../utils/eventLogger';
+import { supabase } from '../utils/supabase';
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
 
-/* -------- HomeScreen -------- */
 export default function HomeScreen() {
   const router = useRouter();
 
-  const [aiMessage, setAiMessage] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [refreshStreak, setRefreshStreak] = useState(Date.now());
-  const [nicknameModalVisible, setNicknameModalVisible] = useState(false);
-  const [nicknameInput, setNicknameInput] = useState('');
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const [streakCount, setStreakCount] = useState(0);
+  // === ZUSTAND STORE BAĞLANTISI ===
+  const vault = useVaultStore((state) => state.vault);
+  const isLoadingVault = useVaultStore((state) => state.isLoading);
+  const fetchVault = useVaultStore((state) => state.fetchVault);
+  const clearVault = useVaultStore((state) => state.clearVault);
 
-  /* bildirim */
+  const [modalVisible, setModalVisible] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // === UYGULAMA YAŞAM DÖNGÜSÜ YÖNETİMİ ===
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+          if (isLoadingVault) {
+            fetchVault();
+          }
+        } else if (event === 'SIGNED_OUT') {
+          clearVault();
+        }
+      }
+    );
+    return () => authListener.subscription.unsubscribe();
+  }, [fetchVault, clearVault, isLoadingVault]);
+
+  // === BİLDİRİM YÖNETİMİ (Artık AsyncStorage'a bağlı değil) ===
   useEffect(() => {
     (async () => {
       await Notifications.cancelAllScheduledNotificationsAsync();
-      
-      // Sabah motivasyon bildirimi
       await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Günaydın!',
-          body: 'Bugün kendine iyi bakmayı unutma.',
-          data: { route: '/daily_write' },
-        },
+        content: { title: 'Günaydın!', body: 'Bugün kendine iyi bakmayı unutma.', data: { route: '/daily_write' } },
         trigger: { hour: 8, minute: 0, repeats: true } as any,
       });
-      
-      // Akşam yansıma bildirimi
       await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Bugün nasılsın?',
-          body: '1 cümleyle kendini ifade etmek ister misin?',
-          data: { route: '/daily_write' },
-        },
+        content: { title: 'Bugün nasılsın?', body: '1 cümleyle kendini ifade etmek ister misin?', data: { route: '/daily_write' } },
         trigger: { hour: 20, minute: 0, repeats: true } as any,
       });
-      
-      // 3 gün boyunca giriş yapılmazsa bildirim
-      const lastEntryDate = await AsyncStorage.getItem('lastEntryDate');
-      if (lastEntryDate) {
-        const lastEntry = new Date(lastEntryDate);
-        const now = new Date();
-        const diffTime = now.getTime() - lastEntry.getTime();
-        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-        if (diffDays >= 3) {
-          // Bildirimi bugün saat 21:00'de gönder
-          const notificationTime = new Date();
-          notificationTime.setHours(21, 0, 0, 0);
-          let seconds = Math.floor((notificationTime.getTime() - now.getTime()) / 1000);
-          if (seconds < 0) seconds += 24 * 60 * 60; // Eğer saat geçtiyse ertesi gün 21:00
-          // @ts-ignore
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Seni özledik!',
-              body: 'Bir süredir giriş yapmadın. Bugün günlüğünü yazmak ister misin?',
-              data: { route: '/daily_write' },
-            },
-            trigger: { seconds, repeats: false, type: undefined }as any,
-          });
-        }
-      }
-      
-      // 7 günlük seri tamamlandığında bildirim (7 saat sonra)
-      const streak = await AsyncStorage.getItem('currentStreak');
-      if (streak && parseInt(streak) === 7) {
-        const lastEntryDate = await AsyncStorage.getItem('lastEntryDate');
-        if (lastEntryDate) {
-          const lastEntry = new Date(lastEntryDate);
-          const notificationTime = new Date(lastEntry.getTime() + (7 * 60 * 60 * 1000)); // 7 saat sonrası
-          
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: '7/7 Tamamlandı! 🌟',
-              body: 'Harikasın! Haftalık hedefine ulaştın. AI ile haftalık performansını incelemek ister misin?',
-              data: { route: '/ai_summary' },
-            },
-            trigger: {
-              date: notificationTime,
-            } as any,
-          });
-        }
-      }
     })();
   }, []);
 
-  const animateBg = (open: boolean) =>
-    Animated.timing(scaleAnim, { toValue: open ? 0.9 : 1, duration: 250, useNativeDriver: true }).start();
+  const animateBg = (open: boolean) => Animated.timing(scaleAnim, { toValue: open ? 0.9 : 1, duration: 250, useNativeDriver: true }).start();
 
-  /* kart/modal durumu */
-  const refreshState = useCallback(async () => {
-    const [storedDate, todayMsg] = await AsyncStorage.multiGet(['todayDate', 'todayMessage']);
-    storedDate[1] === todayISO() && todayMsg[1] ? setAiMessage(todayMsg[1]) : setAiMessage(null);
-    setRefreshStreak(Date.now());
-  }, []);
-
-  useFocusEffect(useCallback(() => { refreshState(); }, [refreshState]));
-
-  /* günlük kartı */
-  const handleCardPress = async () => {
-    const storedDate = await AsyncStorage.getItem('todayDate');
-    if (storedDate === todayISO()) {
-      // zaten açılmışsa: modal
-      const msg = await AsyncStorage.getItem('todayMessage');
-      if (msg) setAiMessage(msg);
+  // === GÜNLÜK KARTI: ARTIK VAULT'TAN OKUYOR ===
+  const handleCardPress = () => {
+    if (vault?.metadata?.lastDailyReflectionDate === todayISO()) {
       setModalVisible(true);
       animateBg(true);
     } else {
-      // ilk tıklama → tarihi hemen kaydet
-      await AsyncStorage.setItem('todayDate', todayISO());
-      setAiMessage(null);
       router.push('/daily_write' as const);
     }
   };
-  
-  
 
-  /* Terapistini Seç */
-  const handleStart = async () => {
-    const stored = await AsyncStorage.getItem('userProfile');
-    stored ? router.push('/therapy/avatar' as const) : router.push('/profile' as const);
+  // === TERAPİSTİNİ SEÇ: ARTIK VAULT'TAN OKUYOR ===
+  const handleStart = () => {
+    vault?.profile?.nickname
+      ? router.push('/therapy/avatar' as const)
+      : router.push('/profile' as const);
   };
 
+  // === GEÇMİŞ SEANSLARIM: ARTIK SUPABASE'DEN ÇEKİYOR ===
   const handleGoToAllTranscripts = async () => {
-    const allKeys = await AsyncStorage.getAllKeys();
-    const eventKeys = allKeys.filter(key => /^events-\d{4}-\d{2}-\d{2}$/.test(key));
-    let allEvents = [];
-    if (eventKeys.length > 0) {
-      const dataPairs = await AsyncStorage.multiGet(eventKeys);
-      dataPairs.forEach(pair => {
-        const eventsJson = pair[1];
-        if (eventsJson) {
-          try {
-            const dailyEvents = JSON.parse(eventsJson);
-            allEvents.push(...dailyEvents);
-          } catch {}
-        }
-      });
+    try {
+        const sessionEvents = await getSessionEventsForUser(); 
+        router.push({
+            pathname: '/transcripts',
+            params: { events: JSON.stringify(sessionEvents) }
+        });
+    } catch(error) {
+        console.error("Geçmiş seanslar çekilirken hata:", error);
     }
-    const sessionEvents = allEvents.filter(ev => ['text_session', 'voice_session', 'video_session'].includes(ev.type));
-    router.push({
-      pathname: '/transcripts',
-      params: { events: JSON.stringify(sessionEvents) }
-    });
   };
 
-  /* ------------- UI ------------- */
+  // Not: Görünen mesaj, AI'dan gelen ve Vault'a kaydedilen bir mesaj olmalı.
+  const dailyMessage = vault?.metadata?.dailyMessageContent || 'Bugün için mesajın burada görünecek.';
+  
+  // ------------- UI KISMI (DEĞİŞİKLİK AZ) -------------
   return (
-    <LinearGradient colors={['#F8F9FC', '#FFFFFF']} 
-      start={{x: 0, y: 0}} 
-      end={{x: 1, y: 1}} 
-      style={styles.flex}>
+    <LinearGradient colors={['#F8F9FC', '#FFFFFF']} style={styles.flex}>
       <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
         {/* Üst Bar */}
         <View style={styles.topBar}>
@@ -332,10 +251,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </Animated.View>
-
       {modalVisible && <BlurView intensity={60} tint="default" style={StyleSheet.absoluteFill} />}
-
-      {/* Modal */}
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
@@ -348,7 +264,6 @@ export default function HomeScreen() {
             >
               <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
             </TouchableOpacity>
-
             <View style={styles.modalIcon}>
               <LinearGradient
                 colors={['#E8EEF7', '#F0F4F9']}
@@ -356,10 +271,9 @@ export default function HomeScreen() {
               />
               <Ionicons name="sparkles-outline" size={28} color={Colors.light.tint} />
             </View>
-
             <Text style={styles.modalTitle}>Günün Mesajı</Text>
             <View style={styles.modalDivider} />
-            <Text style={styles.modalText}>{aiMessage}</Text>
+            <Text style={styles.modalText}>{dailyMessage}</Text>
           </View>
         </View>
       </Modal>

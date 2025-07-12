@@ -301,8 +301,30 @@ export async function getRecentJourneyLogEntries(limit = 5): Promise<string[]> {
   }
 }
 
+/**
+ * Giriş yapmış kullanıcının tüm geçmiş seanslarını (text, voice, video) çeker.
+ * @returns Kullanıcının seans event'lerini içeren bir dizi.
+ */
+export async function getSessionEventsForUser(): Promise<AppEvent[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
 
-// eventLogger.ts dosyasının sonuna ekleyin
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', user.id)
+      .in('type', ['text_session', 'voice_session', 'video_session']) // Sadece seansları al
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data as AppEvent[]) || [];
+
+  } catch (error) {
+    console.error('⛔️ Geçmiş seansları çekme hatası:', (error as Error).message);
+    return [];
+  }
+}
 
 // --------------------------------------------------
 // AŞAMA 4: TEHLİKELİ BÖLGE (TÜM VERİLERİ SİLME)

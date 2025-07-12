@@ -1,5 +1,8 @@
+// hooks/useGemini.ts
 import Constants from "expo-constants";
-import { getEventsForLast, getRecentJourneyLogEntries, getUserVault } from '../utils/eventLogger';
+import { useVaultStore } from '../store/vaultStore';
+import { getEventsForLast, getRecentJourneyLogEntries } from '../utils/eventLogger';
+import { assessTextSafety, SafetyClassification } from '../utils/guardians';
 import { parseAndValidateJson } from '../utils/jsonValidator';
 import { DiaryStart, DiaryStartSchema, DreamAnalysisResult, DreamAnalysisSchema, NextQuestionsSchema, SessionMemory, SessionMemorySchema } from "../utils/schemas";
 
@@ -42,6 +45,40 @@ export const sendToGemini = async (text: string, model: string, config?: Generat
   }
 };
 
+export async function classifyTextSafety(text: string): Promise<SafetyClassification> {
+  const prompt = `
+    Aşağıdaki metni kendine zarar verme veya ağır umutsuzluk içeriği açısından analiz et.
+    Metnin risk seviyesini şu 4 kategoriden SADECE BİRİ ile etiketle:
+
+    - 'level_0_safe': Tehlike veya belirgin bir endişe yok. (Ör: "Bugün hava güzel", "İş yerinde yoruldum")
+    - 'level_1_mild_concern': Genel bir üzüntü, depresyon veya mutsuzluk hali var ama doğrudan kendine zarar verme iması yok. (Ör: "Çok depresyondayım", "Hiçbir şeyden keyif almıyorum")
+    - 'level_2_moderate_risk': Dolaylı olarak kendine zarar verme, yaşama isteksizliği veya ağır umutsuzluk ifadeleri var. (Ör: "Artık yaşamak istemiyorum", "Her şeyin bitmesini diliyorum")
+    - 'level_3_high_alert': Doğrudan, net ve acil kendine zarar verme veya intihar planı/niyeti var. (Ör: "Kendimi öldüreceğim", "Canıma kıyacağım", "İntihar etmeyi planlıyorum")
+
+    METİN: "${text}"
+
+    ÇIKTI (Sadece tek kelime):
+  `.trim();
+
+  const config: GenerationConfig = { temperature: 0.0, maxOutputTokens: 10 };
+  try {
+    const classification = await sendToGemini(prompt, FAST_MODEL, config);
+    const result = classification.trim().toLowerCase();
+    if ([
+      'level_0_safe',
+      'level_1_mild_concern',
+      'level_2_moderate_risk',
+      'level_3_high_alert',
+    ].includes(result)) {
+      return result as SafetyClassification;
+    }
+    console.warn(`[GuardianV2] Beklenmedik sınıflandırma sonucu: '${result}'. Güvenlik için 'level_2_moderate_risk' varsayılıyor.`);
+    return 'level_2_moderate_risk';
+  } catch (error) {
+    console.error('[GuardianV2] Metin sınıflandırma API hatası:', error);
+    return 'level_2_moderate_risk';
+  }
+}
 
 // -------------------------------------------------------------
 // === ZOD DOĞRULAMALI FONKSİYONLAR ===
@@ -49,6 +86,13 @@ export const sendToGemini = async (text: string, model: string, config?: Generat
 
 // --- GÜNLÜK AKIŞI: Başlangıç ---
 export async function generateDiaryStart(initialEntry: string): Promise<DiaryStart> {
+    // GÖREV 1: Gardiyan kontrolü
+    const safetyCheck = await assessTextSafety(initialEntry, classifyTextSafety);
+    const fallback: DiaryStart = { mood: "belirsiz", questions: ["Bu hissin kaynağı ne olabilir?", "Bu durumla ilgili neyi değiştirmek isterdin?", "Bu konu hakkında başka kimseyle konuştun mu?"] };
+    if (!safetyCheck.isSafeForAI) {
+        console.warn("🚨 [GARDIYAN-DIARY] Günlük başlangıcında Kırmızı Bayrak! Akış durdurulmalı.");
+        return { mood: "acil_durum", questions: [safetyCheck.response!] };
+    }
     const prompt = `
         Bir kullanıcının günlük başlangıç yazısını analiz et. Görevin:
         1. Yazıdaki baskın duyguyu tek kelimeyle belirle (mood).
@@ -58,7 +102,6 @@ export async function generateDiaryStart(initialEntry: string): Promise<DiarySta
 
         ÇIKTI (Sadece JSON): { "mood": "belirlediğin_duygu", "questions": ["soru1", "soru2", "soru3"] }`;
     const config: GenerationConfig = { responseMimeType: 'application/json', temperature: 0.5 };
-    const fallback: DiaryStart = { mood: "belirsiz", questions: ["Bu hissin kaynağı ne olabilir?", "Bu durumla ilgili neyi değiştirmek isterdin?", "Bu konu hakkında başka kimseyle konuştun mu?"] };
 
     try {
         const jsonString = await sendToGemini(prompt, FAST_MODEL, config);
@@ -71,6 +114,12 @@ export async function generateDiaryStart(initialEntry: string): Promise<DiarySta
 
 // --- GÜNLÜK AKIŞI: Sonraki Sorular ---
 export async function generateDiaryNextQuestions(conversationHistory: string): Promise<string[]> {
+    // GÖREV 1: Gardiyan kontrolü
+    const safetyCheck = await assessTextSafety(conversationHistory, classifyTextSafety);
+    const fallback = ["Bu konuda başka ne söylemek istersin?", "Bu durum seni gelecekte nasıl etkileyebilir?", "Hissettiğin bu duyguya bir isim verecek olsan ne olurdu?"];
+    if (!safetyCheck.isSafeForAI) {
+        return [safetyCheck.response!];
+    }
     const prompt = `
         Bir günlük diyalogu devam ediyor. Kullanıcının son cevabına dayanarak, sohbeti bir adım daha ileri taşıyacak 3 YENİ ve FARKLI soru üret.
         KONUŞMA GEÇMİŞİ:
@@ -79,7 +128,6 @@ export async function generateDiaryNextQuestions(conversationHistory: string): P
         ÇIKTI (Sadece JSON): { "questions": ["yeni_soru1", "yeni_soru2", "yeni_soru3"] }`;
         
     const config: GenerationConfig = { responseMimeType: 'application/json', temperature: 0.6 };
-    const fallback = ["Bu konuda başka ne söylemek istersin?", "Bu durum seni gelecekte nasıl etkileyebilir?", "Hissettiğin bu duyguya bir isim verecek olsan ne olurdu?"];
 
      try {
         const jsonString = await sendToGemini(prompt, FAST_MODEL, config);
@@ -93,7 +141,11 @@ export async function generateDiaryNextQuestions(conversationHistory: string): P
 
 // --- RÜYA ANALİZİ ---
 export const analyzeDreamWithContext = async (dreamText: string): Promise<DreamAnalysisResult | null> => {
-  const userVault = await getUserVault();
+  const safetyCheck = await assessTextSafety(dreamText, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return null;
+  }
+  const userVault = useVaultStore.getState().vault;
   const recentLogs = await getRecentJourneyLogEntries(3);
   const context = `
     ### KULLANICI KASASI (Kişinin Özü) ###
@@ -123,6 +175,11 @@ export const analyzeDreamWithContext = async (dreamText: string): Promise<DreamA
 
 // --- SEANS HAFIZA ANALİZİ ---
 export async function analyzeSessionForMemory(transcript: string): Promise<SessionMemory | null> {
+  // GÖREV 1: Gardiyan kontrolü
+  const safetyCheck = await assessTextSafety(transcript, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return null;
+  }
   const prompt = `
     ### ROL & GÖREV ###
     Sen, bir psikanalist ve hikaye anlatıcısının ruhuna sahip bir AI'sın. Görevin, aşağıdaki terapi dökümünün derinliklerine inerek hem ruhsal özünü hem de somut gerçeklerini çıkarmaktır. Yargılama, sadece damıt.
@@ -149,8 +206,12 @@ export async function analyzeSessionForMemory(transcript: string): Promise<Sessi
 // hatayı yukarı fırlatır ya da biz bir `try-catch` ile yakalayıp anlamlı bir fallback döneriz.
 
 export async function generateTherapistReply(therapistId: string, userMessage: string, intraSessionChatHistory: string): Promise<string> {
+  const safetyCheck = await assessTextSafety(userMessage, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return safetyCheck.response!;
+  }
   try {
-    const userVault = await getUserVault() || {};
+    const userVault = useVaultStore.getState().vault || {};
     const recentLogEntries = await getRecentJourneyLogEntries(5);
     const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
     let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
@@ -164,8 +225,7 @@ export async function generateTherapistReply(therapistId: string, userMessage: s
     }
     const personalities: Record<string, string> = { default: "Sen empatik ve destekleyici bir terapistsin." };
     const personality = personalities[therapistId] || personalities.default;
-    
-    const prompt = `
+    let prompt = `
       ### Kolektif Bilinç ###
       Rolün: ${personality}. Aşağıdaki bilgileri, kullanıcıyı yıllardır tanıyormuş gibi sezgisel bir yanıt için kullan, asla tekrarlama.
       ${traitsSummary}
@@ -177,7 +237,9 @@ export async function generateTherapistReply(therapistId: string, userMessage: s
       "${userMessage}"
       ### Görevin ###
       Bu bağlama uygun, 2-3 cümlelik sıcak ve empatik bir yanıt ver. Doğal ol. Sadece yanıtını yaz.`.trim();
-
+    if (safetyCheck.level === 'sensitive_topic') {
+      prompt = `DİKKAT: Konu hassas. Ekstra şefkatli ve destekleyici ol.\n` + prompt;
+    }
     return await sendToGemini(prompt, GENIOUS_MODEL, { temperature: 0.85, maxOutputTokens: 300 });
   } catch (error) {
     console.error("[generateTherapistReply] Hata:", error);
@@ -186,8 +248,12 @@ export async function generateTherapistReply(therapistId: string, userMessage: s
 }
 
 export async function generateDailyReflectionResponse(todayNote: string, todayMood: string): Promise<string> {
+  const safetyCheck = await assessTextSafety(todayNote, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return safetyCheck.response!;
+  }
   try {
-    const userVault = await getUserVault();
+    const userVault = useVaultStore.getState().vault;
     const userName = userVault?.profile?.nickname;
 
     const prompt = `
@@ -206,6 +272,10 @@ export async function generateDailyReflectionResponse(todayNote: string, todayMo
 }
 
 export async function generateCumulativeSummary(previousSummary: string, newConversationChunk: string): Promise<string> {
+  const safetyCheck = await assessTextSafety(newConversationChunk, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return safetyCheck.response!;
+  }
   try {
     const prompt = `
 ### GÖREV ###
@@ -241,10 +311,18 @@ ${newConversationChunk}
 }
 
 export async function generateStructuredAnalysisReport(days: number): Promise<string> {
+  // GÖREV 1: Gardiyan kontrolü
+  // Bu fonksiyonun kullanıcıdan metin alan kısmı eventsFromPeriod ve userVault. Bunlar AI'a gönderilmeden önce, eğer bir event.text veya userVault içindeki metinlerden biri riskli ise, raporun başına acil mesaj eklenmeli. Ancak burada toplu veri var, bu yüzden sadece userVault.profile?.nickname gibi alanları kontrol etmek anlamlı. Yine de, örnek olarak userVault.profile?.nickname için kontrol ekliyorum.
+  const userVault = useVaultStore.getState().vault || {};
+  if (userVault.profile?.nickname) {
+    const safetyCheck = await assessTextSafety(userVault.profile.nickname, classifyTextSafety);
+    if (!safetyCheck.isSafeForAI) {
+      return safetyCheck.response!;
+    }
+  }
   try {
     // --- 1. KOLEKTİF BİLİNÇ'ten veriyi topla ---
     const eventsFromPeriod = await getEventsForLast(days);
-    const userVault = await getUserVault() || {};
 
     // --- 2. VERİ YOĞUNLAŞTIRICI (Bu, token limitlerini korumak için ZORUNLU) ---
     let compressedDataFeed: any[] = []; // AppEvent yerine any kullanıyoruz
@@ -332,6 +410,11 @@ ${JSON.stringify(entries, null, 2)}
 }
 
 export async function generateNextDreamQuestion(dreamAnalysis: DreamAnalysisResult, conversationHistory: { text: string; role: 'user' }[]): Promise<string | null> {
+  const userMessages = conversationHistory.filter(m => m.role === 'user').map(m => m.text).join('\n\n');
+  const safetyCheck = await assessTextSafety(userMessages, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return safetyCheck.response!;
+  }
   try {
     const formattedHistory = conversationHistory
       .map((m, i) => `Kullanıcının ${i + 1}. Cevabı: ${m.text}`)
@@ -372,6 +455,11 @@ ${formattedHistory || "Henüz kullanıcıdan bir cevap alınmadı. Diyaloğu ba�
 }
 
 export async function generateFinalDreamFeedback(dreamAnalysis: DreamAnalysisResult, userAnswers: { text: string }[]): Promise<string> {
+  const allAnswers = userAnswers.map(ans => ans.text).join('\n\n');
+  const safetyCheck = await assessTextSafety(allAnswers, classifyTextSafety);
+  if (!safetyCheck.isSafeForAI) {
+    return safetyCheck.response!;
+  }
   try {
     // Truncate interpretation and answers if too long to avoid MAX_TOKENS
     const maxInterpretationLength = 1200;
