@@ -16,25 +16,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { fetchVault, clearVault } = useVaultStore.getState();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session) {
-        fetchVault();
+    async function initializeAuth() {
+      try {
+        const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
+        if (getSessionError) throw getSessionError;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session) {
+          try {
+            await fetchVault();
+          } catch (vaultError: any) {
+            console.error("⛔️ Vault yükleme hatası:", vaultError.message);
+            // Vault yüklemede hata olsa bile oturum devam edebilir
+          }
+        }
+      } catch (initialError: any) {
+        console.error("⛔️ Auth başlangıç hatası:", initialError.message);
+        // Hata durumunda oturum null, kullanıcı null olsun
+        setSession(null);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
+    }
+
+    initializeAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
 
-        if (_event === 'SIGNED_IN') fetchVault();
-        if (_event === 'SIGNED_OUT') clearVault();
+          if (_event === 'SIGNED_IN') {
+            // fetchVault() bir hata fırlatabilir, async olarak yakala
+            (async () => {
+              try {
+                await fetchVault();
+              } catch (vaultFetchError: any) {
+                console.error("AuthListener - Vault yükleme hatası:", vaultFetchError.message);
+                // Vault yüklemede hata olsa bile kullanıcı giriş yapmış olabilir
+              }
+            })();
+          } else if (_event === 'SIGNED_OUT') {
+            clearVault();
+          }
+        } catch (listenerError: any) {
+          console.error("Auth Listener hatası:", listenerError.message);
+        } finally {
+          setLoading(false);
+        }
       }
     );
+
     return () => authListener.subscription.unsubscribe();
   }, [fetchVault, clearVault]);
 

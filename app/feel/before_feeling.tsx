@@ -1,4 +1,4 @@
-// app/before_feeling.tsx (Seans Öncesi Ruh Hali)
+// app/feel/before_feeling.tsx (Seans Öncesi Ruh Hali)
 // -----------------------------------------------------------------------
 // Expo deps: expo-haptics expo-linear-gradient @react-native-async-storage/async-storage react-native-reanimated
 
@@ -18,7 +18,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
-import { logEvent } from '../../utils/eventLogger';
+import { logEvent } from '../../services/event.service';
 
 // --- TASARIM SABİTLERİ ---
 const { width } = Dimensions.get('window');

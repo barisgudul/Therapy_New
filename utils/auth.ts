@@ -2,7 +2,7 @@
 import { supabase } from './supabase'; // Yeni Supabase bağlantısı
 
 // 1. E-posta ve Şifre ile Yeni Kullanıcı KAYDET
-export async function signUpWithEmail(email, password) {
+export async function signUpWithEmail(email: string, password: string) {
   try {
     const { data, error } = await supabase.auth.signUp({
       email: email,
@@ -12,15 +12,14 @@ export async function signUpWithEmail(email, password) {
     if (error) throw error;
     return data.user;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Kayıt Olma Hatası:", error.message);
-    alert(`Kayıt olurken hata oluştu: ${error.message}`);
-    return null;
+    throw error; // Hatayı yukarı fırlat
   }
 }
 
 // 2. E-posta ve Şifre ile GİRİŞ YAP
-export async function signInWithEmail(email, password) {
+export async function signInWithEmail(email: string, password: string) {
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
@@ -30,10 +29,9 @@ export async function signInWithEmail(email, password) {
     if (error) throw error;
     return data.user;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Giriş Yapma Hatası:", error.message);
-    alert(`Giriş yapılırken hata oluştu: ${error.message}`);
-    return null;
+    throw error; // Hatayı yukarı fırlat
   }
 }
 

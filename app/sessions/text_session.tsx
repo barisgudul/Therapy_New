@@ -20,26 +20,13 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import {
-  analyzeSessionForMemory,
-  generateCumulativeSummary,
-  generateTherapistReply,
-  mergeVaultData,
-} from '../../hooks/useGemini';
-import {
-  addJourneyLogEntry,
-  getUserVault,
-  logEvent,
-  updateUserVault,
-} from '../../utils/eventLogger';
-import { avatars } from '../therapy/avatar';
+import { ALL_THERAPISTS, getTherapistByImageId } from '../../data/therapists';
+import { analyzeSessionForMemory, generateCumulativeSummary, generateTherapistReply, mergeVaultData } from '../../services/ai.service';
+import { logEvent } from '../../services/event.service';
+import { addJourneyLogEntry } from '../../services/journey.service';
+import { getUserVault, updateUserVault } from '../../services/vault.service';
+import { useVaultStore } from '../../store/vaultStore';
 
-const therapistImages: Record<string, any> = {
-  therapist1: require('../../assets/Terapist_1.jpg'),
-  therapist2: require('../../assets/Terapist_2.jpg'),
-  therapist3: require('../../assets/Terapist_3.jpg'),
-  coach1: require('../../assets/coach-can.jpg'),
-};
 
 export default function TextSessionScreen() {
   const router = useRouter();
@@ -130,7 +117,8 @@ export default function TextSessionScreen() {
       const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
 
       // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript);
+      const vaultStore = useVaultStore.getState();
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript, vaultStore.vault);
       if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
 
       // 2. Seyir Defterine Not Düş
@@ -183,13 +171,13 @@ export default function TextSessionScreen() {
         setCurrentMood(mood);
     }
 
-    // 2. Terapist bilgisini merkezi 'avatars' dizisinden ID ile bul
+    // 2. Terapist bilgisini merkezi 'ALL_THERAPISTS' dizisinden ID ile bul
     if (therapistId) {
-        const therapist = avatars.find(a => a.imageId === therapistId);
+        const therapist = getTherapistByImageId(therapistId);
         setSelectedTherapist(therapist);
     } else {
         // ID gelmezse bir varsayılan ata (güvenlik önlemi)
-        setSelectedTherapist(avatars[0]); 
+        setSelectedTherapist(ALL_THERAPISTS[0]); 
     }
   }, [therapistId, mood]);
 
@@ -218,7 +206,8 @@ const sendMessage = async () => {
           .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
           .join('\n');
       
-      const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+              const vaultStore = useVaultStore.getState();
+        const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk, vaultStore.vault);
       setIntraSessionSummary(updatedSummary);
       messageCountForSummary.current = newMessagesForUI.length;
       currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özete gönder
@@ -237,10 +226,12 @@ const sendMessage = async () => {
       ? therapistId as "therapist1" | "therapist3" | "coach1" 
       : "therapist1";
     
+    const vaultStore = useVaultStore.getState();
     const aiReplyText = await generateTherapistReply(
       validTherapistId,
       trimmedInput,
-      currentChatHistoryForPrompt
+      currentChatHistoryForPrompt,
+      vaultStore.vault
     );
 
     const aiMessage = { 
@@ -283,7 +274,7 @@ const sendMessage = async () => {
               end={{x: 1, y: 1}} 
               style={styles.avatarGradient}>
             <Image 
-              source={selectedTherapist?.thumbnail || therapistImages[therapistId] || therapistImages.therapist1} 
+                              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail} 
               style={styles.therapistAvatarXL}
             />
           </LinearGradient>

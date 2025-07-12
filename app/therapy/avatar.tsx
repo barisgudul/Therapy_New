@@ -1,4 +1,4 @@
-// app/avatar.tsx
+// app/therapy/avatar.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
@@ -12,56 +12,15 @@ import {
   View
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
-
-export const avatars = [
-  {
-    id: '1',
-    name: 'Dr. Elif',
-    imageId: 'therapist1',
-    thumbnail: require('../../assets/Terapist_1.jpg'),
-    title: 'Klinik Psikolog',
-    persona: 'Şefkatli ve duygusal, anaç tavırlı',
-    icon: 'heart' as const,
-    style: 'Empati ve dinleme öncelikli, duygulara odaklanır',
-    specialty: 'Duygusal zorluklar, özşefkat, ilişki terapisi',
-    motto: '"Duygularını onurlandırmak, kendini iyileştirmenin ilk adımıdır."',
-    about: 'Ben Dr. Elif. Duyguların keşfi ve iyileşme yolculuğunda sana şefkatle eşlik ederim. Seanslarda her duygunun güvenle ifade edilebildiği, yargısız bir alan yaratırım. Stres, özgüven ve ilişki sorunlarında destek olurum.'
-  },
-  {
-    id: '3',
-    name: 'Dr. Lina',
-    imageId: 'therapist3',
-    thumbnail: require('../../assets/Terapist_3.jpg'),
-    title: 'Bilişsel Davranışçı Uzmanı',
-    persona: 'Enerjik ve motive edici, genç ruhlu',
-    icon: 'sunny' as const,
-    style: 'Cesaretlendirici, pozitif ve umut aşılayan',
-    specialty: 'Öz güven, motivasyon, yaşam hedefleri, davranış değişikliği',
-    motto: '"Bugün küçük bir adım, yarın büyük bir değişimin başlangıcıdır."',
-    about: 'Selam! Ben Dr. Lina. Hayata pozitif bakışımla, güçlü yönlerini keşfetmen ve hedeflerine ulaşman için seni desteklerim. Seanslarımda motive edici, pratik ve genç bir enerji sunarım. Hedef belirleme ve değişim konularında yanındayım.'
-  },
-  {
-    id: '4',
-    name: 'Coach Can',
-    imageId: 'coach1',
-    thumbnail: require('../../assets/coach-can.jpg'),
-    title: 'Yaşam Koçu',
-    persona: 'Dinamik ve ilham verici, pratik odaklı',
-    icon: 'rocket' as const,
-    style: 'Enerjik, motive edici ve hedef odaklı',
-    specialty: 'Kişisel gelişim, hedef belirleme, performans artırma',
-    motto: '"Başarı, küçük adımların tutarlı bir şekilde atılmasıyla gelir."',
-    about: 'Merhaba! Ben Coach Can. Yaşam koçluğu alanında uzmanlaşmış bir AI koçuyum. Dinamik ve ilham verici yaklaşımımla, potansiyelinizi ortaya çıkarmanıza ve hedeflerinize ulaşmanıza rehberlik ediyorum. Kişisel gelişim, kariyer planlaması ve performans artırma konularında yanınızdayım.'
-  }
-];
+import { ALL_THERAPISTS } from '../../data/therapists';
 
 export default function AvatarScreen() {
   const router = useRouter();
 
-  const handleExplore = (imageId: string) => {
+  const handleExplore = (therapistId: string) => {
     router.push({
-      pathname: '/therapist_profile',
-      params: { name: 'Dr. Elif', imageId },
+      pathname: '/therapy/therapist_profile',
+      params: { id: therapistId },
     });
   };
 
@@ -89,11 +48,11 @@ export default function AvatarScreen() {
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.list}>
-          {avatars.map((avatar) => (
+          {ALL_THERAPISTS.map((avatar) => (
             <TouchableOpacity
               key={avatar.id}
               style={styles.card}
-              onPress={() => handleExplore(avatar.imageId)}
+              onPress={() => handleExplore(avatar.id)}
               activeOpacity={0.9}
             >
               <LinearGradient

@@ -31,8 +31,9 @@ import {
 } from 'react-native';
 
 import { Colors } from '../constants/Colors';
-import { generateDailyReflectionResponse } from '../hooks/useGemini';
-import { logEvent } from '../utils/eventLogger';
+import { generateDailyReflectionResponse } from '../services/ai.service';
+import { logEvent } from '../services/event.service';
+import { useVaultStore } from '../store/vaultStore';
 
 
 //-------------------------------------------------------------
@@ -279,7 +280,8 @@ export default function DailyWriteScreen() {
     setAiMessage('AI analiz ediyor...');
     setFeedbackVisible(true);
     try {
-      const personalized = await generateDailyReflectionResponse(note, MOOD_LEVELS[moodValue].label);
+      const vaultStore = useVaultStore.getState();
+      const personalized = await generateDailyReflectionResponse(note, MOOD_LEVELS[moodValue].label, vaultStore.vault);
       setAiMessage(personalized);
     } catch (err) {
       setAiMessage('Sunucu hatası, lütfen tekrar deneyin.');

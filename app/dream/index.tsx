@@ -6,16 +6,16 @@ import { useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useCallback, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    FlatList,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
-import { AppEvent, canUserAnalyzeDream, deleteEventById, getEventsForLast } from '../../utils/eventLogger';
+import { AppEvent, canUserAnalyzeDream, deleteEventById, getEventsForLast } from '../../services/event.service';
 
 const COSMIC_COLORS = {
   background: ['#0d1117', '#1A2947'] as [string, string],
@@ -48,25 +48,35 @@ export default function DreamJournalScreen() {
     }, [loadAnalyses])
   );
   
-  const handleDelete = async (eventId: string) => {
+  const handleDelete = (eventId: string) => {
     Alert.alert(
       "Analizi Sil",
-      "Bu rüya analizini kalıcı olarak silmek istediğinizden emin misiniz?",
+      "Bu rüya analizini kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
       [
         { text: "Vazgeç", style: "cancel" },
-        { text: "Sil", style: "destructive", onPress: async () => {
-          try {
-            await deleteEventById(eventId);
-            const updatedAnalyses = analyses.filter(a => a.id !== eventId);
-            setAnalyses(updatedAnalyses);
-          } catch (error) {
-            console.error("Silme hatası:", error);
-            Alert.alert("Hata", "Analiz silinirken bir sorun oluştu.");
+        { 
+          text: "Sil", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+                // ADIM 1: KOMUTA MERKEZİNDEN İMHA EMRİNİ GÖNDER VE ONAY BEKLE.
+                await deleteEventById(eventId);
+
+                // ADIM 2: İMHA ONAYI GELDİKTEN SONRA, VE SADECE GELDİKTEN SONRA,
+                // CEPHE GÖRÜNÜMÜNÜ GÜNCELLE.
+                setAnalyses(prevAnalyses => prevAnalyses.filter(a => a.id !== eventId));
+                // İsteğe bağlı: Kullanıcıya operasyonun başarısını bildir.
+                // Alert.alert("Başarılı", "Analiz kalıcı olarak silindi.");
+            } catch (error) {
+                // EĞER ONAY GELMEZSE, HEMEN UYARI VER VE HİÇBİR ŞEYİ DEĞİŞTİRME.
+                console.error("Silme hatası:", error);
+                Alert.alert("Hata", "Analiz silinirken bir sorun oluştu. Lütfen tekrar deneyin.");
+            }
           }
-        }}
+        }
       ]
     );
-  };
+};
 
   const handleNewDreamPress = async () => {
     const { canAnalyze, daysRemaining } = await canUserAnalyzeDream();

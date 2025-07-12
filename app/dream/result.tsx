@@ -5,9 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { generateFinalDreamFeedback, generateNextDreamQuestion } from '../../hooks/useGemini';
-import { AppEvent, updateEventData } from '../../utils/eventLogger';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { generateFinalDreamFeedback, generateNextDreamQuestion } from '../../services/ai.service';
+import { AppEvent, updateEventData } from '../../services/event.service';
+import { useVaultStore } from '../../store/vaultStore';
 
 const COSMIC_COLORS = {
     background: ['#0d1117', '#1A2947'] as [string, string],
@@ -97,49 +98,48 @@ export default function DreamResultScreen() {
         if (isDialogueLockedForPast || isChatCompleted || !messageText.trim() || isReplying || !event) return; 
 
         Keyboard.dismiss();
-        
         const userMessage: DialogueMessage = { text: messageText, role: 'user' };
-        
-        // 1. Önce kullanıcı mesajını ekrana bas
         let currentDialogue = [...dialogue, userMessage];
         setDialogue(currentDialogue);
         setUserInput('');
         setIsReplying(true);
-
         setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300);
 
-        // 2. Kullanıcı mesajıyla birlikte diyaloğun son halini KAYDET
-        await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
-        
-        const userAnswers = currentDialogue.filter((m): m is { text: string; role: 'user' } => m.role === 'user');
+        try {
+            // 2. Kullanıcı mesajıyla birlikte diyaloğun son halini KAYDET
+            await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
+            const userAnswers = currentDialogue.filter((m): m is { text: string; role: 'user' } => m.role === 'user');
 
-        if (userAnswers.length < MAX_INTERACTIONS) {
-            // ... (Next question logic)
-            const nextQuestion = await generateNextDreamQuestion(event.data.analysis, userAnswers);
-            if (nextQuestion) {
-                // 3. AI cevabını al ve diyaloğa ekle
-                const aiMessage: DialogueMessage = { text: nextQuestion, role: 'model' };
-                currentDialogue.push(aiMessage); // Aynı diziye eklemeye devam
-                setDialogue([...currentDialogue]); // UI'ı yeni diziyle güncelle
-
-                // 4. AI cevabıyla birlikte diyaloğun EN SON halini tekrar KAYDET
-                await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
+            if (userAnswers.length < MAX_INTERACTIONS) {
+                const vaultStore = useVaultStore.getState();
+                const nextQuestion = await generateNextDreamQuestion(event.data.analysis, userAnswers, vaultStore.vault);
+                if (nextQuestion) {
+                    const aiMessage: DialogueMessage = { text: nextQuestion, role: 'model' };
+                    currentDialogue.push(aiMessage);
+                    setDialogue([...currentDialogue]);
+                    await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
+                } else {
+                    throw new Error("AI sonraki soruyu oluşturamadı.");
+                }
+            } else {
+                const vaultStore = useVaultStore.getState();
+                const finalFeedback = await generateFinalDreamFeedback(event.data.analysis, userAnswers, vaultStore.vault);
+                if (finalFeedback) {
+                    const finalAiMessage: DialogueMessage = { text: finalFeedback, role: 'model' };
+                    currentDialogue.push(finalAiMessage);
+                    setDialogue([...currentDialogue]);
+                    await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
+                } else {
+                    throw new Error("AI final geri bildirimini oluşturamadı.");
+                }
+                setIsChatCompleted(true);
             }
-        } else {
-            // ... (Final feedback logic)
-            const finalFeedback = await generateFinalDreamFeedback(event.data.analysis, userAnswers);
-            if (finalFeedback) {
-                // 3. Final AI cevabını al ve diyaloğa ekle
-                const finalAiMessage: DialogueMessage = { text: finalFeedback, role: 'model' };
-                currentDialogue.push(finalAiMessage);
-                setDialogue([...currentDialogue]);
-
-                // 4. Final AI cevabıyla birlikte diyaloğun EN SON halini tekrar KAYDET
-                await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
-            }
-            setIsChatCompleted(true);
+        } catch (error: any) {
+            console.error("⛔️ Mesaj gönderme/AI yanıt hatası:", error.message);
+            Alert.alert("Hata", `Mesaj gönderilemedi: ${error.message}`);
+        } finally {
+            setIsReplying(false);
         }
-        setIsReplying(false);
     };
 
     useEffect(() => {

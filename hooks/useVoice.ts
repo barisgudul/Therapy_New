@@ -58,6 +58,7 @@ export const useVoiceSession = ({
     }
 
     try {
+      // Genel ses modu ayarı - hem kayıt hem oynatım için optimize edilmiş
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -81,6 +82,7 @@ export const useVoiceSession = ({
           audioQuality: Audio.IOSAudioQuality.MAX,
           sampleRate: 16000,
           numberOfChannels: 1,
+          bitRate: 128000, // <-- EKSİK OLAN BUYDU. ZAFİYET GİDERİLDİ.
           outputFormat: Audio.IOSOutputFormat.LINEARPCM,
           linearPCMBitDepth: 16,
           linearPCMIsBigEndian: false,
@@ -157,16 +159,6 @@ export const useVoiceSession = ({
   // speakText fonksiyonundan yaş parametresini kaldır
   const speakText = useCallback(async (text: string, therapistIdArg?: string) => {
     try {
-      // iOS için ses modunu ayarla
-      if (Platform.OS === 'ios') {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false
-        });
-      }
       // therapistId'yi gcpServices'e iletiyoruz (artık userAge yok)
       const url = await textToSpeech(text, therapistIdArg || therapistId);
       const { sound: s } = await Audio.Sound.createAsync(

@@ -2,12 +2,12 @@
 
 import { supabase } from './supabase';
 // `updateTrait` ve `traitKeys`'i eventLogger'dan alıyoruz
-import { TraitKey, traitKeys, Traits, updateTrait } from './eventLogger';
+import { TraitKey, traitKeys, Traits, updateTrait } from '../services/trait.service';
 
 // Artık kendi gemini client'ına ihtiyacın yok, useGemini'deki merkezi fonksiyonu kullan.
 // Bunun için ya sendToGemini'yi dışarıya taşıyıp import edeceksin
 // ya da burada da bir client instance oluşturacaksın. Şimdilik burada kalsın.
-import { sendToGemini } from '../hooks/useGemini'; // merkezi fonksiyonu import et
+import { invokeGemini } from '../services/ai.service';
 import { parseAndValidateJson } from './jsonValidator';
 import { TraitsSchema } from './schemas';
 
@@ -18,8 +18,12 @@ import { TraitsSchema } from './schemas';
  */
 export async function extractAndSaveUserTraits(): Promise<void> {
   try {
+    // Background job güvenliği: User kontrolü ve graceful handling
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı bulunamadı.');
+    if (!user) {
+      __DEV__ && console.log('📭 [TRAITS] Kullanıcı oturumu bulunamadı. Background job güvenli şekilde sonlandırılıyor.');
+      return; // Hata fırlatmak yerine graceful exit - background job için daha uygun
+    }
 
     // 1. Son 7 günün event verisini al (daha verimli bir sorgu)
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -29,10 +33,10 @@ export async function extractAndSaveUserTraits(): Promise<void> {
       .eq('user_id', user.id)
       .gte('created_at', sevenDaysAgo) 
       .order('created_at', { ascending: false })
-      .limit(50); // Çok fazla veriyi AI'a göndermemek için limit koymak mantıklı
+      .limit(50); // Çok fazla veriyi AI'a göndermek için limit koymak mantıklı
 
     if (error || !events || events.length < 5) { // En az 5 olay olsun
-      __DEV__ && console.log('📭 Trait çıkarımı için yeterli yeni event verisi yok.');
+      __DEV__ && console.log('📭 [TRAITS] Trait çıkarımı için yeterli yeni event verisi yok.');
       return;
     }
 
@@ -61,7 +65,7 @@ export async function extractAndSaveUserTraits(): Promise<void> {
 
     // 3. Gemini Pro ile analiz et (bu önemli bir iş)
     // DİKKAT: JSON formatı istediğimiz için `responseMimeType` kullanıyoruz.
-    const jsonString = await sendToGemini(prompt, 'gemini-2.5-pro', { responseMimeType: 'application/json' });
+    const jsonString = await invokeGemini(prompt, 'gemini-2.5-pro', { responseMimeType: 'application/json' });
     
     // GÜVENLİ PARSE VE DOĞRULAMA
     const parsed = parseAndValidateJson(jsonString, TraitsSchema);
@@ -84,9 +88,11 @@ export async function extractAndSaveUserTraits(): Promise<void> {
         }
     }
 
-    __DEV__ && console.log('✅ Trait çıkarımı ve güncellemesi tamamlandı:', parsed);
+    __DEV__ && console.log('✅ [TRAITS] Trait çıkarımı ve güncellemesi tamamlandı:', parsed);
   } catch (err) {
-    console.error('⛔️ Trait çıkarım kritik hatası:', (err as Error).message);
+    console.error('⛔️ [TRAITS] Trait çıkarım kritik hatası:', (err as Error).message);
+    // Background job için hata fırlatmıyoruz, sadece logluyoruz
+    // Bu sayede sistem çökmüyor ve diğer background joblar etkilenmiyor
   }
 }
 

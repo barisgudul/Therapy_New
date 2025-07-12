@@ -20,20 +20,18 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
+import { ALL_THERAPISTS, getTherapistByImageId } from '../../data/therapists';
+import { useVoiceSession } from '../../hooks/useVoice';
 import {
   analyzeSessionForMemory,
   generateCumulativeSummary,
   generateTherapistReply,
   mergeVaultData,
-} from '../../hooks/useGemini';
-import { useVoiceSession } from '../../hooks/useVoice';
-import {
-  addJourneyLogEntry,
-  getUserVault,
-  logEvent,
-  updateUserVault,
-} from '../../utils/eventLogger';
-import { avatars } from '../therapy/avatar';
+} from '../../services/ai.service';
+import { logEvent } from '../../services/event.service';
+import { addJourneyLogEntry } from '../../services/journey.service';
+import { getUserVault, updateUserVault } from '../../services/vault.service';
+import { useVaultStore } from '../../store/vaultStore';
 
 /* -------------------------------------------------------------------------- */
 /* TYPES & CONSTS                                                             */
@@ -41,12 +39,7 @@ import { avatars } from '../therapy/avatar';
 
 const { width } = Dimensions.get('window');
 
-const therapistImages: Record<string, any> = {
-  therapist1: require('../../assets/Terapist_1.jpg'),
-  therapist2: require('../../assets/Terapist_2.jpg'),
-  therapist3: require('../../assets/Terapist_3.jpg'),
-  coach1: require('../../assets/coach-can.jpg'),
-};
+
 
 const therapistNames: Record<string, string> = {
   therapist1: 'Terapist 1',
@@ -86,13 +79,13 @@ export default function VoiceSessionScreen() {
         setCurrentMood(mood);
     }
 
-    // 2. Terapist bilgisini merkezi 'avatars' dizisinden ID ile bul
+    // 2. Terapist bilgisini merkezi 'ALL_THERAPISTS' dizisinden ID ile bul
     if (therapistId) {
-        const therapist = avatars.find(a => a.imageId === therapistId);
+        const therapist = getTherapistByImageId(therapistId);
         setSelectedTherapist(therapist);
     } else {
         // ID gelmezse bir varsayılan ata (güvenlik önlemi)
-        setSelectedTherapist(avatars[0]); 
+        setSelectedTherapist(ALL_THERAPISTS[0]); 
     }
   }, [therapistId, mood]);
 
@@ -128,7 +121,8 @@ export default function VoiceSessionScreen() {
               .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
               .join('\n');
           
-          const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+          const vaultStore = useVaultStore.getState();
+          const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk, vaultStore.vault);
           setIntraSessionSummary(updatedSummary);
           messageCountForSummary.current = updatedMessages.length;
           currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
@@ -147,10 +141,12 @@ export default function VoiceSessionScreen() {
           : "therapist1";
 
         // 5. AI'dan yanıt al.
+        const vaultStore = useVaultStore.getState();
         const rawAiResponse = await generateTherapistReply(
           validTherapistId,
           userText,
-          currentChatHistoryForPrompt
+          currentChatHistoryForPrompt,
+          vaultStore.vault
         );
 
         // 6. ---- ÇÖZÜM BURADA: AI yanıtını temizle ----
@@ -204,7 +200,8 @@ export default function VoiceSessionScreen() {
       const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
 
       // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript);
+      const vaultStore = useVaultStore.getState();
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript, vaultStore.vault);
       if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
 
       // 2. Seyir Defterine Not Düş
@@ -290,7 +287,7 @@ export default function VoiceSessionScreen() {
               end={{x: 1, y: 1}} 
               style={styles.avatarGradient}>
             <Image 
-              source={selectedTherapist?.thumbnail || therapistImages[therapistId] || therapistImages.therapist1} 
+                              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail} 
               style={styles.therapistAvatarXL}
             />
           </LinearGradient>

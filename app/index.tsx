@@ -8,7 +8,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useVaultStore } from '../store/vaultStore';
-import { getSessionEventsForUser } from '../utils/eventLogger';
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
@@ -28,20 +27,22 @@ export default function HomeScreen() {
   // === UYGULAMA YAŞAM DÖNGÜSÜ YÖNETİMİ ===
   // Bu blok tamamen kaldırıldı.
 
-  // === BİLDİRİM YÖNETİMİ (Artık AsyncStorage'a bağlı değil) ===
+  // === BİLDİRİM YÖNETİMİ (Vault kontrolü ile) ===
   useEffect(() => {
-    (async () => {
-      await Notifications.cancelAllScheduledNotificationsAsync();
-      await Notifications.scheduleNotificationAsync({
-        content: { title: 'Günaydın!', body: 'Bugün kendine iyi bakmayı unutma.', data: { route: '/daily_write' } },
-        trigger: { hour: 8, minute: 0, repeats: true } as any,
-      });
-      await Notifications.scheduleNotificationAsync({
-        content: { title: 'Bugün nasılsın?', body: '1 cümleyle kendini ifade etmek ister misin?', data: { route: '/daily_write' } },
-        trigger: { hour: 20, minute: 0, repeats: true } as any,
-      });
-    })();
-  }, []);
+    if (!isLoadingVault && vault) {
+      (async () => {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        await Notifications.scheduleNotificationAsync({
+          content: { title: 'Günaydın!', body: 'Bugün kendine iyi bakmayı unutma.', data: { route: '/daily_write' } },
+          trigger: { hour: 8, minute: 0, repeats: true } as any,
+        });
+        await Notifications.scheduleNotificationAsync({
+          content: { title: 'Bugün nasılsın?', body: '1 cümleyle kendini ifade etmek ister misin?', data: { route: '/daily_write' } },
+          trigger: { hour: 20, minute: 0, repeats: true } as any,
+        });
+      })();
+    }
+  }, [isLoadingVault, vault]);
 
   const animateBg = (open: boolean) => Animated.timing(scaleAnim, { toValue: open ? 0.9 : 1, duration: 250, useNativeDriver: true }).start();
 
@@ -62,21 +63,15 @@ export default function HomeScreen() {
       : router.push('/profile' as const);
   };
 
-  // === GEÇMİŞ SEANSLARIM: ARTIK SUPABASE'DEN ÇEKİYOR ===
-  const handleGoToAllTranscripts = async () => {
-    try {
-        const sessionEvents = await getSessionEventsForUser(); 
-        router.push({
-            pathname: '/transcripts',
-            params: { events: JSON.stringify(sessionEvents) }
-        });
-    } catch(error) {
-        console.error("Geçmiş seanslar çekilirken hata:", error);
-    }
+  // === GEÇMİŞ SEANSLARIM: DİREKT YÖNLENDİRME ===
+  const handleGoToAllTranscripts = () => {
+    router.push('/transcripts');
   };
 
   // Not: Görünen mesaj, AI'dan gelen ve Vault'a kaydedilen bir mesaj olmalı.
-  const dailyMessage = vault?.metadata?.dailyMessageContent || 'Bugün için mesajın burada görünecek.';
+  const dailyMessage = (!isLoadingVault && vault?.metadata?.dailyMessageContent) 
+    ? vault.metadata.dailyMessageContent 
+    : 'Bugün için mesajın burada görünecek.';
   
   // ------------- UI KISMI (DEĞİŞİKLİK AZ) -------------
   return (

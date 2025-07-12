@@ -37,7 +37,7 @@ import Animated, {
     withSpring,
     withTiming,
 } from 'react-native-reanimated';
-import { getEventsForLast, logEvent } from '../../utils/eventLogger';
+import { getEventsForLast, logEvent } from '../../services/event.service';
 
 // Sabitler ve Tipler
 const { width, height } = Dimensions.get('window');

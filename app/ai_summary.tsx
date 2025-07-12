@@ -22,8 +22,9 @@ import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
 import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
-import { generateStructuredAnalysisReport } from '../hooks/useGemini';
-import { AppEvent, deleteEventById, getEventsForLast, logEvent } from '../utils/eventLogger';
+import { generateStructuredAnalysisReport } from '../services/ai.service';
+import { AppEvent, deleteEventById, getAIAnalysisEvents, getEventsForLast, getOldestEventDate, logEvent } from '../services/event.service';
+import { useVaultStore } from '../store/vaultStore';
 
 export default function AISummaryScreen() {
   const router = useRouter();
@@ -38,28 +39,38 @@ export default function AISummaryScreen() {
   // Kayıtlı özetleri yükle
   useEffect(() => {
     const initializePage = async () => {
-        setLoading(true);
+        setLoading(true); // İLK SATIR - Hemen yükleme durumunu başlat
         try {
-            const allEvents = await getEventsForLast(365); // Maksimum 1 yıllık veri çekelim
-            // 1. Önceki analizleri filtrele ve state'e ata
-            const analysisOnly = allEvents.filter(e => e.type === 'ai_analysis');
+            // Vault store'u yükle
+            const vaultStore = useVaultStore.getState();
+            if (vaultStore.isLoading || !vaultStore.vault) {
+                console.log('🔄 [AI-SUMMARY] Sayfa başlatılırken vault yükleniyor...');
+                await vaultStore.fetchVault();
+            }
+
+            // Sadece AI analiz olaylarını çek - optimize edilmiş veri çekimi
+            const analysisOnly = await getAIAnalysisEvents();
             setAnalysisEvents(analysisOnly);
-            // 2. Maksimum gün sayısını hesapla
-            if (allEvents.length > 0) {
-                // En eski olayın tarihini al (zaten sondadır)
-                const oldestEventDate = new Date(allEvents[allEvents.length - 1].created_at);
+            console.log(`📋 [AI-SUMMARY] ${analysisOnly.length} önceki analiz yüklendi.`);
+
+            // Maksimum gün sayısını belirlemek için en eski olay tarihini optimize bir şekilde çek
+            const oldestEventDate = await getOldestEventDate();
+
+            if (oldestEventDate) { // Eğer veri varsa
                 const today = new Date();
                 const diffTime = Math.abs(today.getTime() - oldestEventDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const cappedDays = Math.min(diffDays, 30); // Analiz için en fazla 30 gün
+                const cappedDays = Math.min(diffDays, 365); // Zaten 365 yapılmıştı, şimdi sadece oldestEventDate'i doğru kullan
                 setMaxDays(cappedDays > 0 ? cappedDays : 1);
                 setSelectedDays(cappedDays > 0 ? cappedDays : 1);
-            } else {
+                console.log(`📅 [AI-SUMMARY] Analiz aralığı: ${cappedDays} gün olarak ayarlandı.`);
+            } else { // Hiç olay yoksa
                 setMaxDays(1);
                 setSelectedDays(1);
+                console.log('📅 [AI-SUMMARY] Henüz veri yok, varsayılan 1 gün ayarlandı.');
             }
         } catch (e) {
-            console.error('Sayfa başlatılırken hata:', e);
+            console.error('❌ [AI-SUMMARY] Sayfa başlatılırken hata:', e);
         } finally {
             setLoading(false);
         }
@@ -72,17 +83,25 @@ export default function AISummaryScreen() {
 
 const fetchSummary = async () => {
   if (loading) return;
-  setLoading(true);
+  setLoading(true); // İLK SATIR - Hemen yükleme durumunu başlat
   
   try {
+    // Vault store'un yüklü olduğundan emin ol
+    const vaultStore = useVaultStore.getState();
+    if (vaultStore.isLoading || !vaultStore.vault) {
+      console.log('🔄 [AI-SUMMARY] Vault yükleniyor...');
+      await vaultStore.fetchVault();
+    }
+
     const eventsForAnalysis = await getEventsForLast(selectedDays);
     if (eventsForAnalysis.length < 3) {
-      Alert.alert("Yetersiz Veri", `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı.`);
+      Alert.alert("Yetersiz Veri", `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı. En az 3 farklı olay gerekli.`);
       setLoading(false);
       return;
     }
 
-    const result = await generateStructuredAnalysisReport(selectedDays);
+    console.log(`📊 [AI-SUMMARY] ${eventsForAnalysis.length} olay analiz ediliyor...`);
+    const result = await generateStructuredAnalysisReport(selectedDays, vaultStore.vault);
 
     // ---- ANA BAĞLANTI NOKTASI ----
     // Analiz sonucunu yeni bir olay olarak Supabase'e kaydet.
@@ -106,13 +125,14 @@ const fetchSummary = async () => {
             data: { text: result.trim(), analyzedDays: selectedDays }
         };
         setAnalysisEvents(prevEvents => [newEvent, ...prevEvents]);
+        console.log('✅ [AI-SUMMARY] Yeni analiz başarıyla oluşturuldu ve kaydedildi.');
     }
 
     setActiveSummary(result.trim());
     setModalVisible(true);
 
   } catch (e) {
-    console.error("Bütünsel İçgörü Raporu oluşturma hatası:", e);
+    console.error("❌ [AI-SUMMARY] Bütünsel İçgörü Raporu oluşturma hatası:", e);
     Alert.alert("Hata", "Analiz oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
   } finally {
     setLoading(false);
@@ -132,8 +152,11 @@ const fetchSummary = async () => {
           onPress: async () => {
             try {
                 await deleteEventById(eventId);
-                // setAnalysisEvents(prev => prev.filter(e => e.id !== eventId)); // Bu satır artık kullanılmıyor
+                // UI'ı güncelle - silinen analizi listeden çıkar
+                setAnalysisEvents(prev => prev.filter(e => e.id !== eventId));
+                console.log('✅ [AI-SUMMARY] Analiz başarıyla silindi ve UI güncellendi.');
             } catch (e) {
+              console.error('❌ [AI-SUMMARY] Analiz silme hatası:', e);
               Alert.alert('Hata', 'Silme işlemi sırasında bir hata oluştu.');
             }
           },
@@ -146,6 +169,22 @@ const fetchSummary = async () => {
   const exportToPDF = async () => {
     if (!activeSummary) return;
     try {
+      // Markdown'ı HTML'e çevir
+      const convertMarkdownToHTML = (markdown: string): string => {
+        return markdown
+          // Başlıkları
+          .replace(/^## (.*$)/gim, '<h2 style="color: #4988e5; margin: 20px 0 10px 0; font-size: 18px; font-weight: 600;">$1</h2>')
+          .replace(/^### (.*$)/gim, '<h3 style="color: #4988e5; margin: 16px 0 8px 0; font-size: 16px; font-weight: 600;">$1</h3>')
+          // Kalın metin
+          .replace(/\*\*(.*?)\*\*/g, '<strong style="font-weight: 600;">$1</strong>')
+          // Madde işaretleri
+          .replace(/^• (.*$)/gim, '<li style="margin: 4px 0; padding-left: 8px;">$1</li>')
+          // Madde listelerini sarmala
+          .replace(/(<li.*<\/li>)/gs, '<ul style="margin: 8px 0; padding-left: 20px;">$1</ul>')
+          // Yeni satırları
+          .replace(/\n/g, '<br/>');
+      };
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -157,7 +196,7 @@ const fetchSummary = async () => {
               .container { padding: 32px 18px; }
               h2 { color: #4988e5; text-align: center; margin-bottom: 16px; }
               .divider { height: 2px; width: 100%; background: #e3e8f0; margin: 12px 0 22px 0; border-radius: 2px; }
-              .content { font-size: 15px; line-height: 1.7; color: #222; text-align: center; }
+              .content { font-size: 15px; line-height: 1.7; color: #222; text-align: left; }
               .footer { margin-top: 32px; color: #9ca3af; font-size: 12px; text-align: center; }
             </style>
           </head>
@@ -166,7 +205,7 @@ const fetchSummary = async () => {
               <h2>therapy<span style="color:#5DA1D9;">.</span> - AI Ruh Hâli Analizi</h2>
               <div class="divider"></div>
               <div class="content">
-                ${activeSummary.replace(/\n/g, "<br/>")}
+                ${convertMarkdownToHTML(activeSummary)}
               </div>
               <div class="footer">
                 Bu PDF, therapy. uygulamasının AI analiz özelliği ile otomatik oluşturulmuştur.

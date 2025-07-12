@@ -17,8 +17,10 @@ import {
   View
 } from 'react-native';
 
-import { analyzeDreamWithContext } from '../../hooks/useGemini';
-import { addJourneyLogEntry, logEvent } from '../../utils/eventLogger';
+import { analyzeDreamWithContext } from '../../services/ai.service';
+import { logEvent } from '../../services/event.service';
+import { addJourneyLogEntry } from '../../services/journey.service';
+import { useVaultStore } from '../../store/vaultStore';
 
 const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
 
@@ -50,7 +52,8 @@ export default function AnalyzeDreamScreen() {
     setIsLoading(true);
           try {
         // 1. KOLEKTİF BİLİNÇ İLE ANALİZ ET
-        const result = await analyzeDreamWithContext(dream); 
+        const vaultStore = useVaultStore.getState();
+        const result = await analyzeDreamWithContext(dream, vaultStore.vault); 
 
         if (result) {
           // 2. YENİ 'dream_analysis' OLAYINI KAYDET

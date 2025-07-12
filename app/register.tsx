@@ -2,17 +2,18 @@
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import {
-  Button,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Alert,
+    Button,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 import { signUpWithEmail } from '../utils/auth';
 
@@ -25,12 +26,18 @@ export default function RegisterScreen() {
   const handleSignUp = async () => {
     Keyboard.dismiss(); // Butona basıldığında klavyeyi kapat
     setLoading(true);
-    const user = await signUpWithEmail(email, password);
-    if (user) {
-      // Artık login'e değil, onboarding'e yönlendiriyoruz!
-      router.replace('/onboarding/step1');
+    
+    try {
+      const user = await signUpWithEmail(email, password);
+      if (user) {
+        // Artık login'e değil, onboarding'e yönlendiriyoruz!
+        router.replace('/onboarding/step1');
+      }
+    } catch (error: any) {
+      Alert.alert("Kayıt Hatası", error.message || "Kayıt olurken bir hata oluştu.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

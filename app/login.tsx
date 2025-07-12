@@ -2,17 +2,18 @@
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import {
-    Button,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    TouchableWithoutFeedback,
-    View
+  Alert,
+  Button,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View
 } from 'react-native';
 import { signInWithEmail } from '../utils/auth'; // Sadece signIn kaldı
 
@@ -25,12 +26,18 @@ export default function LoginScreen() {
   const handleSignIn = async () => {
     Keyboard.dismiss(); // Butona basıldığında klavyeyi kapat
     setLoading(true);
-    const user = await signInWithEmail(email, password);
-    if (user) {
-      // Başarılı giriş uyarısını kaldırabiliriz, direkt yönlendirme daha iyi
-      router.replace('/'); 
+    
+    try {
+      const user = await signInWithEmail(email, password);
+      if (user) {
+        // Başarılı giriş uyarısını kaldırabiliriz, direkt yönlendirme daha iyi
+        router.replace('/'); 
+      }
+    } catch (error: any) {
+      Alert.alert("Giriş Hatası", error.message || "Giriş yapılırken bir hata oluştu.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // handleSignUp fonksiyonunu buradan sildik.

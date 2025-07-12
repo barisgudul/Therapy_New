@@ -17,8 +17,11 @@ import {
   View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
-import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../hooks/useGemini';
-import { addJourneyLogEntry, AppEvent, canUserWriteNewDiary, deleteEventById, getEventsForLast, getUserVault, logEvent, updateUserVault } from '../utils/eventLogger';
+import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../services/ai.service';
+import { AppEvent, canUserWriteNewDiary, deleteEventById, getEventsForLast, logEvent } from '../services/event.service';
+import { addJourneyLogEntry } from '../services/journey.service';
+import { getUserVault, updateUserVault } from '../services/vault.service';
+import { useVaultStore } from '../store/vaultStore';
 
 interface Message {
   text: string;
@@ -154,7 +157,7 @@ export default function DiaryScreen() {
       const fullTranscript = messages.map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`).join('\n');
       
       // Bu zenginleştirilmiş metni işlemek için analyzeSessionForMemory kullanabiliriz.
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript); 
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript, useVaultStore.getState().vault); 
 
       if (memoryPieces) {
         const logEntry = `Bir günlük keşfi yapıldı. Ana tema: ${memoryPieces.log}`;

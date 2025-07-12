@@ -1,1 +1,2 @@
+// Bu dosya native platformlar için.
 export { useColorScheme } from 'react-native';

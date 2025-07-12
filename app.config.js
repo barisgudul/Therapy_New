@@ -1,5 +1,4 @@
 // app.config.js
-import localConfig from './app.config.local.js'; // API key burada tanımlı
 
 export default {
   expo: {
@@ -11,7 +10,8 @@ export default {
     scheme: 'therapynew',
 
     extra: {
-      ...localConfig.extra, // API key ve GCP_CONFIG buradan geliyor
-    },
+      supabaseUrl: "https://ijtcqbxagcdgfxrgamis.supabase.co",
+      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqdGNxYnhhZ2NkZ2Z4cmdhbWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNTAyMDEsImV4cCI6MjA2NzcyNjIwMX0.LPZoZbbIkfN0IsZLA9DyD6Y8iydlhemUdcRmlr_Els0",
+  },
   },
 };

@@ -5,21 +5,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
-import { getUserVault, updateUserVault, VaultData } from '../utils/eventLogger';
+import { getUserVault, updateUserVault, VaultData } from '../services/vault.service';
 
 type RelationshipStatus = 'single' | 'in_relationship' | 'married' | 'complicated' | '';
 type Gender = 'male' | 'female' | 'other' | '';

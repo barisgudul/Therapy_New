@@ -1,6 +1,6 @@
 // store/vaultStore.ts
 import { create } from 'zustand';
-import { VaultData, updateUserVault } from '../utils/eventLogger'; // Doğru yolu belirttiğinden emin ol
+import { VaultData, updateUserVault } from '../services/vault.service'; // Doğru yolu belirttiğinden emin ol
 import { supabase } from '../utils/supabase'; // Doğru yolu belirttiğinden emin ol
 
 // Store'umuzun yapısını tanımlıyoruz.
@@ -21,13 +21,27 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   isLoading: true,
 
   fetchVault: async () => {
-    // Zaten yüklüyse veya yükleniyorsa, tekrar çekme.
-    if (!get().isLoading) return; 
+    const currentState = get();
     
+    // EĞER ZATEN YÜKLENİYORSA, TEKRAR ÇAĞIRMAYI ENGELE! BU ASIL GUARD KOŞULUDUR.
+    if (currentState.isLoading) { 
+      console.log('🔄 [VAULT-STORE] Zaten vault yükleniyor, tekrar başlatılmadı.');
+      return;
+    }
+    // Eğer yüklenmiyor ama vault zaten doluysa (daha önce yüklendiyse), gereksiz çağrı yapma.
+    if (currentState.vault !== null) {
+      console.log('🔄 [VAULT-STORE] Vault zaten yüklü.');
+      return;
+    }
+
+    set({ isLoading: true }); // Buraya sadece gerçek bir yükleme başlayacaksa girer
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error('Kullanıcı bulunamadı. Vault çekilemiyor.');
+        set({ isLoading: false, vault: null }); // Kullanıcı yoksa isLoading false ve vault null olmalı
+        console.error('⛔️ [VAULT-STORE] Kullanıcı bulunamadı. Vault çekilemiyor.');
+        return; // Fonksiyondan erken çık
       }
 
       const { data, error } = await supabase
@@ -46,7 +60,10 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
     } catch (error: any) {
       console.error('⛔️ [VAULT-STORE] Kasa yüklenirken hata:', error.message);
-      set({ isLoading: false, vault: {} }); // Hata durumunda boş bir vault set et
+      set({ isLoading: false, vault: null }); // Hata durumunda da isLoading false olmalı
+      // Hatanın çağrıldığı yere yayılması gerekiyorsa tekrar fırlat.
+      // Bu, 'fetchVault'u çağıranın hatayı yakalayıp uygun UI göstermesi için önemli.
+      throw error; 
     }
   },
 
@@ -62,6 +79,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       // Eğer veritabanı güncellemesi başarısız olursa, bir uyarı ver.
       // Burada daha gelişmiş bir hata yönetimi (örn: eski state'e geri dönme) yapılabilir.
       console.error('⛔️ [VAULT-STORE] Kasa senkronizasyonu başarısız:', error);
+      throw error;
     }
   },
 

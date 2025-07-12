@@ -6,69 +6,13 @@ import React from 'react';
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { commonStyles } from '../../constants/Styles';
-import { getUserVault, updateUserVault, VaultData } from '../../utils/eventLogger';
-
-export const therapists = {
-  therapist1: {
-    id: 'therapist1',
-    name: 'Dr. Elif',
-    title: 'AI Klinik Psikolog',
-    photo: require('../../assets/Terapist_1.jpg'),
-    specialties: ['Duygusal zorluklar', 'Özşefkat', 'İlişki terapisi'],
-    approach: 'Şefkatli ve duygusal, anaç tavırlı bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
-    philosophy: 'Duygularını onurlandırmak, kendini iyileştirmenin ilk adımıdır.',
-    style: 'Empati ve dinleme öncelikli, duygulara odaklanır',
-    icon: 'heart-circle' as const,
-    about: 'Ben Dr. Elif. Duyguların keşfi ve iyileşme yolculuğunda sana şefkatle eşlik ederim. Seanslarda her duygunun güvenle ifade edilebildiği, yargısız bir alan yaratırım. Stres, özgüven ve ilişki sorunlarında destek olurum.',
-    methods: [
-      'Bilişsel Davranışçı Terapi',
-      'Çözüm Odaklı Terapi',
-      'Motivasyonel Görüşme',
-      'Mindfulness Teknikleri'
-    ]
-  },
-  therapist2: {
-    id: 'therapist2',
-    name: 'Dr. Can',
-    title: 'AI Psikolojik Danışman',
-    photo: require('../../assets/Terapist_2.jpg'),
-    specialties: ['Stres yönetimi', 'Kariyer danışmanlığı', 'Motivasyon'],
-    approach: 'Genç ruhlu ve motive edici bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
-    philosophy: 'Bugün küçük bir adım, yarın büyük bir değişimin başlangıcıdır.',
-    style: 'Enerjik ve pozitif yaklaşımım, danışanlarımı cesaretlendirir ve değişim için motive eder.',
-    icon: 'heart-circle' as const,
-    about: 'Selam! Ben Dr. Can. Hayata pozitif bakışımla, güçlü yönlerini keşfetmen ve hedeflerine ulaşman için seni desteklerim. Seanslarımda motive edici, pratik ve genç bir enerji sunarım. Hedef belirleme ve değişim konularında yanındayım.',
-    methods: [
-      'Bilişsel Davranışçı Terapi',
-      'Çözüm Odaklı Terapi',
-      'Motivasyonel Görüşme',
-      'Mindfulness Teknikleri'
-    ]
-  },
-  therapist3: {
-    id: 'therapist3',
-    name: 'Dr. Zeynep',
-    title: 'AI Aile Terapisti',
-    photo: require('../../assets/Terapist_3.jpg'),
-    specialties: ['Aile içi iletişim', 'Çocuk & Ergen', 'Travma sonrası destek'],
-    approach: 'Dinamik ve ilham verici bir koç olarak, danışanlarımın potansiyellerini ortaya çıkarmalarına ve hedeflerine ulaşmalarına yardımcı oluyorum. Her bireyin içinde keşfedilmeyi bekleyen bir güç olduğuna inanırım.',
-    philosophy: 'Başarı, küçük adımların tutarlı bir şekilde atılmasıyla gelir.',
-    style: 'Enerjik ve pratik yaklaşımım, danışanlarımı harekete geçirir ve hedeflerine ulaşmalarını sağlar.',
-    icon: 'trophy' as const,
-    about: 'Merhaba! Ben Coach Can. Yaşam koçluğu alanında uzmanlaşmış bir AI koçuyum. Dinamik ve ilham verici yaklaşımımla, potansiyelinizi ortaya çıkarmanıza ve hedeflerinize ulaşmanıza rehberlik ediyorum. Kişisel gelişim, kariyer planlaması ve performans artırma konularında yanınızdayım.',
-    methods: [
-      'Hedef Belirleme Teknikleri',
-      'Performans Koçluğu',
-      'Zaman Yönetimi',
-      'Motivasyon Stratejileri'
-    ]
-  }
-};
+import { getTherapistById } from '../../data/therapists';
+import { getUserVault, updateUserVault, VaultData } from '../../services/vault.service';
 
 export default function TherapistProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const therapist = therapists[id as keyof typeof therapists];
+  const therapist = getTherapistById(id);
 
   const selectTherapist = async () => {
     if (!therapist) return;

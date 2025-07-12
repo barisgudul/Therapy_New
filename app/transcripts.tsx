@@ -4,22 +4,22 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import {
-  ActivityIndicator,
-  Alert, // <-- YENİ: Onay penceresi için import edildi
-  Animated,
-  Easing, // <-- YENİ: Buraya eklendi
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  UIManager,
-  View
+    ActivityIndicator,
+    Alert, // <-- YENİ: Onay penceresi için import edildi
+    Animated,
+    Easing, // <-- YENİ: Buraya eklendi
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    UIManager,
+    View
 } from 'react-native';
 // YENİ: deleteEventById fonksiyonu import edildi
 import { useRouter } from 'expo-router/';
-import { AppEvent, deleteEventById, EventType, getEventsForLast } from '../utils/eventLogger';
+import { AppEvent, deleteEventById, EventType, getEventsForLast } from '../services/event.service';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {

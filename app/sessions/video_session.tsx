@@ -20,20 +20,18 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
+import { ALL_THERAPISTS, getTherapistByImageId } from '../../data/therapists';
+import { useVoiceSession } from '../../hooks/useVoice';
 import {
   analyzeSessionForMemory,
   generateCumulativeSummary,
   generateTherapistReply,
   mergeVaultData,
-} from '../../hooks/useGemini';
-import { useVoiceSession } from '../../hooks/useVoice';
-import {
-  addJourneyLogEntry,
-  getUserVault,
-  logEvent,
-  updateUserVault,
-} from '../../utils/eventLogger';
-import { avatars } from '../therapy/avatar';
+} from '../../services/ai.service';
+import { logEvent } from '../../services/event.service';
+import { addJourneyLogEntry } from '../../services/journey.service';
+import { getUserVault, updateUserVault } from '../../services/vault.service';
+import { useVaultStore } from '../../store/vaultStore';
 
 const { width, height } = Dimensions.get('window');
 const PIP_SIZE = 100;
@@ -41,12 +39,7 @@ const BOUNDARY_TOP = 40;
 const BOUNDARY_BOTTOM = 200;
 const BOUNDARY_SIDE = 0;
 
-const therapistImages: Record<string, any> = {
-  therapist1: require('../../assets/Terapist_1.jpg'),
-  therapist2: require('../../assets/Terapist_2.jpg'),
-  therapist3: require('../../assets/Terapist_3.jpg'),
-  coach1: require('../../assets/coach-can.jpg')
-};
+
 
 export type ChatMessage = {
   id: string;
@@ -67,7 +60,7 @@ export default function VideoSessionScreen() {
   const messageCountForSummary = useRef(0);
 
   // Doğru terapist objesini bul
-  const therapist = avatars.find(a => a.imageId === therapistId);
+      const therapist = getTherapistByImageId(therapistId);
 
   const [cameraVisible, setCameraVisible] = useState(true);
   const [micPermissionGranted, setMicPermissionGranted] = useState(false);
@@ -139,7 +132,8 @@ export default function VideoSessionScreen() {
               .slice(messageCountForSummary.current)
               .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
               .join('\n');
-          const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk);
+          const vaultStore = useVaultStore.getState();
+        const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk, vaultStore.vault);
           setIntraSessionSummary(updatedSummary);
           messageCountForSummary.current = updatedMessagesWithUser.length;
           currentChatHistoryForPrompt = updatedSummary;
@@ -155,10 +149,12 @@ export default function VideoSessionScreen() {
         const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
           ? therapistId as "therapist1" | "therapist3" | "coach1" 
           : "therapist1";
+        const vaultStore = useVaultStore.getState();
         const aiResponse = await generateTherapistReply(
           validTherapistId,
           userText,
-          currentChatHistoryForPrompt
+          currentChatHistoryForPrompt,
+          vaultStore.vault
         );
         const cleanedAiResponse = aiResponse.trim();
         const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: cleanedAiResponse };
@@ -253,7 +249,8 @@ export default function VideoSessionScreen() {
       const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
 
       // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript);
+      const vaultStore = useVaultStore.getState();
+      const memoryPieces = await analyzeSessionForMemory(fullTranscript, vaultStore.vault);
       if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
 
       // 2. Seyir Defterine Not Düş
@@ -314,7 +311,7 @@ export default function VideoSessionScreen() {
 
       <View style={styles.modalContainer}>
         <Image 
-          source={therapistImages[therapistId] || therapistImages.therapist1} 
+                          source={therapist?.photo || ALL_THERAPISTS[0].photo} 
           style={styles.therapistImage}
         />
         <View style={styles.therapistInfoBox}>

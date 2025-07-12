@@ -1,3 +1,4 @@
+// constants/Colors.ts
 const tintColorLight = '#3E6B89'; // Soft mavi
 const tintColorDark = '#7FB3D5';  // Hafif parlak mavi (dark tema için)
 

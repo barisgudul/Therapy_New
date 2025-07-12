@@ -1,10 +1,8 @@
-/**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
- */
-
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// hooks/useThemeColor.ts
+import { Colors } from '../constants/Colors';
+// BURASI EN KRİTİK KISIM: .ts veya .web.ts UZANTISI OLMADAN, KÖK ADIYLA ÇAĞIR.
+// Expo, platforma göre doğru dosyayı kendisi seçecektir.
+import { useColorScheme } from './useColorScheme';
 
 export function useThemeColor(
   props: { light?: string; dark?: string },

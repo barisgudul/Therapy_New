@@ -2,7 +2,7 @@
 import { useLocalSearchParams } from 'expo-router/';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { analyzeOnboardingAnswers } from '../../hooks/useGemini';
+import { analyzeOnboardingAnswers } from '../../services/ai.service';
 import { useVaultStore } from '../../store/vaultStore';
 
 export default function SummaryScreen() {
