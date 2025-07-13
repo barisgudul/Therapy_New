@@ -1,79 +1,62 @@
-// context/Auth.tsx
+// context/Auth.tsx (İyileştirilmiş Versiyon)
+
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useVaultStore } from '../store/vaultStore';
 import { supabase } from '../utils/supabase';
 
-type AuthContextType = { user: User | null; session: Session | null; loading: boolean; };
-const AuthContext = createContext<AuthContextType>({ user: null, session: null, loading: true });
+type AuthContextType = { 
+  user: User | null; 
+  session: Session | null; 
+  isLoading: boolean; // "loading" yerine daha açıklayıcı
+};
+
+const AuthContext = createContext<AuthContextType>({ user: null, session: null, isLoading: true });
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const { fetchVault, clearVault } = useVaultStore.getState();
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Zustand'dan fonksiyonları doğrudan al, state'i değil
+  const fetchVault = useVaultStore((state) => state.fetchVault);
+  const clearVault = useVaultStore((state) => state.clearVault);
 
   useEffect(() => {
-    async function initializeAuth() {
-      try {
-        const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
-        if (getSessionError) throw getSessionError;
+    // 1. Sadece Supabase listener'ını ve ilk oturum kontrolünü yap
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    };
 
-        setSession(session);
-        setUser(session?.user ?? null);
+    getInitialSession();
 
-        if (session) {
-          try {
-            await fetchVault();
-          } catch (vaultError: any) {
-            console.error("⛔️ Vault yükleme hatası:", vaultError.message);
-            // Vault yüklemede hata olsa bile oturum devam edebilir
-          }
-        }
-      } catch (initialError: any) {
-        console.error("⛔️ Auth başlangıç hatası:", initialError.message);
-        // Hata durumunda oturum null, kullanıcı null olsun
-        setSession(null);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false); // Her state değişiminden sonra yüklenmenin bittiğini belirt
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []); // Bağımlılık listesi boş, sadece bir kez çalışır
+
+  useEffect(() => {
+    // 2. Kullanıcı durumu değiştiğinde vault'u yönet
+    if (user) {
+      fetchVault().catch(error => {
+        console.error("⛔️ Vault yükleme hatası (user değiştiğinde):", error.message);
+      });
+    } else {
+      // Kullanıcı null ise (çıkış yapıldıysa) vault'u temizle
+      clearVault();
     }
+  }, [user, fetchVault, clearVault]); // Bu effect sadece 'user' değiştiğinde tetiklenir
 
-    initializeAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        try {
-          setSession(session);
-          setUser(session?.user ?? null);
-
-          if (_event === 'SIGNED_IN') {
-            // fetchVault() bir hata fırlatabilir, async olarak yakala
-            (async () => {
-              try {
-                await fetchVault();
-              } catch (vaultFetchError: any) {
-                console.error("AuthListener - Vault yükleme hatası:", vaultFetchError.message);
-                // Vault yüklemede hata olsa bile kullanıcı giriş yapmış olabilir
-              }
-            })();
-          } else if (_event === 'SIGNED_OUT') {
-            clearVault();
-          }
-        } catch (listenerError: any) {
-          console.error("Auth Listener hatası:", listenerError.message);
-        } finally {
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => authListener.subscription.unsubscribe();
-  }, [fetchVault, clearVault]);
-
-  const value = { session, user, loading };
+  const value = { session, user, isLoading };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

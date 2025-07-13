@@ -1,95 +1,67 @@
-// app/login.tsx - Güncellenmiş Hali
+// app/login.tsx
+
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
-import {
-  Alert,
-  Button,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
-} from 'react-native';
-import { signInWithEmail } from '../utils/auth'; // Sadece signIn kaldı
+import { ActivityIndicator, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { AuthInput } from '../components/AuthInput';
+import { AuthLayout } from '../components/AuthLayout';
+import { authScreenStyles as styles } from '../styles/auth';
+import { signInWithEmail } from '../utils/auth';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+    const router = useRouter();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-  const handleSignIn = async () => {
-    Keyboard.dismiss(); // Butona basıldığında klavyeyi kapat
-    setLoading(true);
-    
-    try {
-      const user = await signInWithEmail(email, password);
-      if (user) {
-        // Başarılı giriş uyarısını kaldırabiliriz, direkt yönlendirme daha iyi
-        router.replace('/'); 
-      }
-    } catch (error: any) {
-      Alert.alert("Giriş Hatası", error.message || "Giriş yapılırken bir hata oluştu.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleSignIn = async () => {
+        if (!email.trim() || !password.trim()) {
+            setError('Lütfen tüm alanları doldurun.');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+        
+        setLoading(true);
+        setError('');
+        
+        try {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await signInWithEmail(email, password);
+            router.replace('/');
+        } catch (e) {
+            setError('E-posta veya şifre hatalı.');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // handleSignUp fonksiyonunu buradan sildik.
+    const FooterLink = (
+        <TouchableOpacity onPress={() => router.push('/register')}>
+            <Text style={styles.linkText}>Hesabın yok mu? <Text style={styles.linkTextBold}>Kayıt ol.</Text></Text>
+        </TouchableOpacity>
+    );
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView contentContainerStyle={styles.innerContainer}>
-          <Text style={styles.title}>Giriş Yap</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="E-posta Adresiniz"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Şifreniz"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <Button title="Giriş Yap" onPress={handleSignIn} disabled={loading} />
-          
-          <View style={styles.linkContainer}>
-            <Text>Hesabın yok mu? </Text>
-            <TouchableOpacity onPress={() => router.push('/register')}>
-              <Text style={styles.link}>Kayıt Ol</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
-  );
+    return (
+        <AuthLayout 
+            title="Tekrar Hoş Geldin" 
+            subtitle="Hesabına giriş yapmak için bilgilerini gir."
+            footer={FooterLink}
+        >
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {/* Temiz, gruplanmış inputlar */}
+            <View style={styles.inputWrapper}>
+                <AuthInput iconName="mail-outline" placeholder="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                <View style={styles.inputSeparator} />
+                <AuthInput iconName="lock-closed-outline" placeholder="Şifre" value={password} onChangeText={setPassword} secureTextEntry onSubmitEditing={handleSignIn} />
+            </View>
+
+            <Pressable onPress={handleSignIn} style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]} disabled={loading}>
+                {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Giriş Yap</Text>}
+            </Pressable>
+        </AuthLayout>
+    );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  innerContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
-  input: { height: 40, borderColor: 'gray', borderWidth: 1, marginBottom: 12, paddingHorizontal: 8 },
-  linkContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
-  link: { color: 'blue' },
-});
