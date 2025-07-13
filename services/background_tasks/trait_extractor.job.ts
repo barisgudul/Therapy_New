@@ -1,15 +1,15 @@
-// utils/traits.ts
+// services/background_tasks/trait_extractor.job.ts
 
-import { supabase } from './supabase';
+import { supabase } from '../../utils/supabase';
 // `updateTrait` ve `traitKeys`'i eventLogger'dan alıyoruz
-import { TraitKey, traitKeys, Traits, updateTrait } from '../services/trait.service';
+import { TraitKey, traitKeys, Traits, updateTrait } from '../trait.service';
 
 // Artık kendi gemini client'ına ihtiyacın yok, useGemini'deki merkezi fonksiyonu kullan.
 // Bunun için ya sendToGemini'yi dışarıya taşıyıp import edeceksin
 // ya da burada da bir client instance oluşturacaksın. Şimdilik burada kalsın.
-import { invokeGemini } from '../services/ai.service';
-import { parseAndValidateJson } from './jsonValidator';
-import { TraitsSchema } from './schemas';
+import { parseAndValidateJson } from '../../utils/jsonValidator';
+import { TraitsSchema } from '../../utils/schemas';
+import { invokeGemini } from '../ai.service';
 
 
 /**
@@ -97,4 +97,4 @@ export async function extractAndSaveUserTraits(): Promise<void> {
 }
 
 // Artık traits.ts içindeki geminiClient.ts ve ilgili kodları silebilirsin.
-// Merkezi useGemini.ts'i kullanmak daha temiz bir mimari sağlar.
+// Merkezi useGemini.ts'i kullanmak daha temiz bir mimari sağlar. 

@@ -1,9 +1,11 @@
 // services/ai.service.ts
-import { assessTextSafety, SafetyClassification } from '../utils/guardians';
+import { ApiError, isAppError } from '../utils/errors';
 import { parseAndValidateJson } from '../utils/jsonValidator';
 import { DiaryStart, DiaryStartSchema, DreamAnalysisResult, DreamAnalysisSchema, NextQuestionsSchema, SessionMemory, SessionMemorySchema } from "../utils/schemas";
 import { supabase } from '../utils/supabase';
-import { AppEvent, getEventsForLast } from './event.service';
+import { fetchAndValidateAnalysisEvents } from './analysis_pipeline/1_fetcher';
+import { processAndCompressEvents } from './analysis_pipeline/2_processor';
+import { buildFinalPrompt } from './analysis_pipeline/3_builder';
 import { getRecentJourneyLogEntries } from './journey.service';
 import type { Traits } from './trait.service';
 
@@ -19,56 +21,14 @@ type GenerationConfig = {
   responseMimeType?: 'application/json';
 };
 
-// GEMINI_API_KEY ve sendToGemini fonksiyonunu kaldırıyorum.
-
-export async function classifyTextSafety(text: string): Promise<SafetyClassification> {
-  const prompt = `
-    Aşağıdaki metni kendine zarar verme veya ağır umutsuzluk içeriği açısından analiz et.
-    Metnin risk seviyesini şu 4 kategoriden SADECE BİRİ ile etiketle:
-
-    - 'level_0_safe': Tehlike veya belirgin bir endişe yok. (Ör: "Bugün hava güzel", "İş yerinde yoruldum")
-    - 'level_1_mild_concern': Genel bir üzüntü, depresyon veya mutsuzluk hali var ama doğrudan kendine zarar verme iması yok. (Ör: "Çok depresyondayım", "Hiçbir şeyden keyif almıyorum")
-    - 'level_2_moderate_risk': Dolaylı olarak kendine zarar verme, yaşama isteksizliği veya ağır umutsuzluk ifadeleri var. (Ör: "Artık yaşamak istemiyorum", "Her şeyin bitmesini diliyorum")
-    - 'level_3_high_alert': Doğrudan, net ve acil kendine zarar verme veya intihar planı/niyeti var. (Ör: "Kendimi öldüreceğim", "Canıma kıyacağım", "İntihar etmeyi planlıyorum")
-
-    METİN: "${text}"
-
-    ÇIKTI (Sadece tek kelime):
-  `.trim();
-
-  const config: GenerationConfig = { temperature: 0.0, maxOutputTokens: 10 };
-  try {
-    const classification = await invokeGemini(prompt, FAST_MODEL, config);
-    const result = classification.trim().toLowerCase();
-    if ([
-      'level_0_safe',
-      'level_1_mild_concern',
-      'level_2_moderate_risk',
-      'level_3_high_alert',
-    ].includes(result)) {
-      return result as SafetyClassification;
-    }
-    console.warn(`[GuardianV2] Beklenmedik sınıflandırma sonucu: '${result}'. Güvenlik için 'level_2_moderate_risk' varsayılıyor.`);
-    return 'level_2_moderate_risk';
-  } catch (error) {
-    console.error('[GuardianV2] Metin sınıflandırma API hatası:', error);
-    throw error;
-  }
-}
-
 // -------------------------------------------------------------
 // === ZOD DOĞRULAMALI FONKSİYONLAR ===
 // -------------------------------------------------------------
 
 // --- GÜNLÜK AKIŞI: Başlangıç ---
 export async function generateDiaryStart(initialEntry: string): Promise<DiaryStart> {
-    // GÖREV 1: Gardiyan kontrolü
-    const safetyCheck = await assessTextSafety(initialEntry, classifyTextSafety);
+    // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
     const fallback: DiaryStart = { mood: "belirsiz", questions: ["Bu hissin kaynağı ne olabilir?", "Bu durumla ilgili neyi değiştirmek isterdin?", "Bu konu hakkında başka kimseyle konuştun mu?"] };
-    if (!safetyCheck.isSafeForAI) {
-        console.warn("🚨 [GARDIYAN-DIARY] Günlük başlangıcında Kırmızı Bayrak! Akış durdurulmalı.");
-        throw new Error(safetyCheck.response!);
-    }
     const prompt = `
         Bir kullanıcının günlük başlangıç yazısını analiz et. Görevin:
         1. Yazıdaki baskın duyguyu tek kelimeyle belirle (mood).
@@ -82,20 +42,16 @@ export async function generateDiaryStart(initialEntry: string): Promise<DiarySta
     try {
         const jsonString = await invokeGemini(prompt, FAST_MODEL, config);
         return parseAndValidateJson(jsonString, DiaryStartSchema) || fallback;
-    } catch (e) {
-        console.error("generateDiaryStart API çağrı hatası:", e);
-        throw new Error("Günlük başlangıç oluşturulamadı.");
+    } catch (err) {
+        console.error("generateDiaryStart API çağrı hatası:", err);
+        throw new ApiError("Günlük başlangıç analizi oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
     }
 }
 
 // --- GÜNLÜK AKIŞI: Sonraki Sorular ---
 export async function generateDiaryNextQuestions(conversationHistory: string): Promise<string[]> {
-    // GÖREV 1: Gardiyan kontrolü
-    const safetyCheck = await assessTextSafety(conversationHistory, classifyTextSafety);
+    // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
     const fallback = ["Bu konuda başka ne söylemek istersin?", "Bu durum seni gelecekte nasıl etkileyebilir?", "Hissettiğin bu duyguya bir isim verecek olsan ne olurdu?"];
-    if (!safetyCheck.isSafeForAI) {
-        throw new Error(safetyCheck.response!);
-    }
     const prompt = `
         Bir günlük diyalogu devam ediyor. Kullanıcının son cevabına dayanarak, sohbeti bir adım daha ileri taşıyacak 3 YENİ ve FARKLI soru üret.
         KONUŞMA GEÇMİŞİ:
@@ -109,18 +65,15 @@ export async function generateDiaryNextQuestions(conversationHistory: string): P
         const jsonString = await invokeGemini(prompt, FAST_MODEL, config);
         const data = parseAndValidateJson(jsonString, NextQuestionsSchema);
         return data?.questions || fallback;
-    } catch (e) {
-        console.error("generateDiaryNextQuestions API çağrı hatası:", e);
-        throw new Error("Sonraki sorular oluşturulamadı.");
+    } catch (err) {
+        console.error("generateDiaryNextQuestions API çağrı hatası:", err);
+        throw new ApiError("Günlük diyaloğunuz için sonraki sorular oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
     }
 }
 
 // --- RÜYA ANALİZİ ---
 export const analyzeDreamWithContext = async (dreamText: string, userVault: any): Promise<DreamAnalysisResult | null> => {
-  const safetyCheck = await assessTextSafety(dreamText, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   const recentLogs = await getRecentJourneyLogEntries(3);
   const context = `
     ### KULLANICI KASASI (Kişinin Özü) ###
@@ -144,17 +97,13 @@ export const analyzeDreamWithContext = async (dreamText: string, userVault: any)
     return parseAndValidateJson(jsonString, DreamAnalysisSchema);
   } catch (err) {
     console.error('[analyzeDreamWithContext] API çağrı hatası:', err);
-    throw new Error("Rüya analizi oluşturulamadı.");
+    throw new ApiError("Rüya yorumunuz oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 };
 
 // --- SEANS HAFIZA ANALİZİ ---
 export async function analyzeSessionForMemory(transcript: string, userVault: any): Promise<SessionMemory | null> {
-  // GÖREV 1: Gardiyan kontrolü
-  const safetyCheck = await assessTextSafety(transcript, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   const prompt = `
     ### ROL & GÖREV ###
     Sen, bir psikanalist ve hikaye anlatıcısının ruhuna sahip bir AI'sın. Görevin, aşağıdaki terapi dökümünün derinliklerine inerek hem ruhsal özünü hem de somut gerçeklerini çıkarmaktır. Yargılama, sadece damıt.
@@ -172,9 +121,9 @@ export async function analyzeSessionForMemory(transcript: string, userVault: any
   try {
     const jsonString = await invokeGemini(prompt, POWERFUL_MODEL, config);
     return parseAndValidateJson(jsonString, SessionMemorySchema);
-  } catch (e) {
-    console.error("analyzeSessionForMemory API çağrı hatası:", e);
-    throw new Error("Seans hafıza analizi oluşturulamadı.");
+  } catch (err) {
+    console.error("analyzeSessionForMemory API çağrı hatası:", err);
+    throw new ApiError("Seans hafıza analizi oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
@@ -185,10 +134,7 @@ export async function analyzeSessionForMemory(transcript: string, userVault: any
 // hatayı yukarı fırlatır ya da biz bir `try-catch` ile yakalayıp anlamlı bir fallback döneriz.
 
 export async function generateTherapistReply(therapistId: string, userMessage: string, intraSessionChatHistory: string, userVault: any): Promise<string> {
-  const safetyCheck = await assessTextSafety(userMessage, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   try {
     const recentLogEntries = await getRecentJourneyLogEntries(5);
     const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
@@ -215,21 +161,16 @@ export async function generateTherapistReply(therapistId: string, userMessage: s
       "${userMessage}"
       ### Görevin ###
       Bu bağlama uygun, 2-3 cümlelik sıcak ve empatik bir yanıt ver. Doğal ol. Sadece yanıtını yaz.`.trim();
-    if (safetyCheck.level === 'sensitive_topic') {
-      prompt = `DİKKAT: Konu hassas. Ekstra şefkatli ve destekleyici ol.\n` + prompt;
-    }
+    // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
     return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.85, maxOutputTokens: 300 });
   } catch (error) {
     console.error("[generateTherapistReply] Hata:", error);
-    throw new Error("Terapist yanıtı oluşturulamadı.");
+    throw new ApiError("Terapist yanıtı oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
 export async function generateDailyReflectionResponse(todayNote: string, todayMood: string, userVault: any): Promise<string> {
-  const safetyCheck = await assessTextSafety(todayNote, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   try {
     const userName = userVault?.profile?.nickname;
 
@@ -244,15 +185,12 @@ export async function generateDailyReflectionResponse(todayNote: string, todayMo
     return await invokeGemini(prompt, FAST_MODEL, { temperature: 0.7, maxOutputTokens: 150 });
   } catch (error) {
     console.error("[generateDailyReflectionResponse] Hata:", error);
-    throw new Error("Günlük yansıma yanıtı oluşturulamadı.");
+    throw new ApiError("Günlük yansıma yanıtı oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
 export async function generateCumulativeSummary(previousSummary: string, newConversationChunk: string, userVault: any): Promise<string> {
-  const safetyCheck = await assessTextSafety(newConversationChunk, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   try {
     const prompt = `
 ### GÖREV ###
@@ -283,289 +221,39 @@ ${newConversationChunk}
     return await invokeGemini(prompt, FAST_MODEL, config);
   } catch (error) {
     console.error("[generateCumulativeSummary] Hata:", error);
-    throw new Error("Seans özeti oluşturulamadı.");
+    throw new ApiError("Seans özeti oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
 export async function generateStructuredAnalysisReport(days: number, userVault: any): Promise<string> {
   try {
-    // --- 1. GÜVENLİK KONTROLÜ - TÜM METİN VERİLERİ ---
-    const vault = userVault || {}; // userVault artık garanti gelecek, ama null/undefined kontrolü için {} olarak default bırakabiliriz
+    console.log(`[ANALYSIS-PIPELINE] Adım 1: ${days} günlük veri çekiliyor...`);
+    const events = await fetchAndValidateAnalysisEvents(days);
     
-    // UserVault içindeki metin alanlarını kontrol et
-    const vaultTextFields = [
-      vault.profile?.nickname,
-      vault.profile?.bio,
-      ...(vault.themes || []),
-      ...(vault.keyInsights || []),
-      ...(Object.values(vault.coreBeliefs || {}))
-    ].filter(Boolean);
-
-    for (const textField of vaultTextFields) {
-      if (typeof textField === 'string') {
-        const safetyCheck = await assessTextSafety(textField, classifyTextSafety);
-        if (!safetyCheck.isSafeForAI) {
-          throw new Error(safetyCheck.response!);
-        }
-      }
-    }
-
-    // --- 2. VERİ TOPLAMA ---
-    const eventsFromPeriod = await getEventsForLast(days);
-    if (eventsFromPeriod.length < 3) {
-      throw new Error(`Yetersiz veri: ${eventsFromPeriod.length} olay bulundu, en az 3 olay gerekli.`);
-    }
-
-    // --- 3. KRİTİK GÜVENLİK KONTROLÜ - EVENTS İÇİNDEKİ TÜM METİNLER ---
-    const safeEvents = await validateAndSanitizeEvents(eventsFromPeriod);
-    if (safeEvents.length === 0) {
-      throw new Error("Güvenlik kontrolünden geçen veri bulunamadı. Analiz yapılamıyor.");
-    }
-
-    // --- 4. AKILLI VERİ YOĞUNLAŞTIRMA ---
-    const compressedDataFeed = await compressEventsForAnalysis(safeEvents, days);
-
-    // --- 5. KULLANICI PROFİLİ HAZIRLAMA ---
-    const userProfile = buildUserProfile(vault);
-
-    // --- 6. ANALİZ PROMPT'U ---
-    const prompt = buildAnalysisPrompt(days, userProfile, compressedDataFeed);
-
-    const config: GenerationConfig = {
+    console.log(`[ANALYSIS-PIPELINE] Adım 2: ${events.length} olay işleniyor...`);
+    const processedData = await processAndCompressEvents(events, days);
+    
+    console.log('[ANALYSIS-PIPELINE] Adım 3: Final prompt oluşturuluyor...');
+    const prompt = buildFinalPrompt(days, userVault, processedData);
+    
+    console.log('[ANALYSIS-PIPELINE] Adım 4: Yapay zeka çağrısı yapılıyor...');
+    return await invokeGemini(prompt, POWERFUL_MODEL, { 
       temperature: 0.6,
       maxOutputTokens: 8192,
-    };
-
-    return await invokeGemini(prompt, POWERFUL_MODEL, config);
-  } catch (error) {
-    console.error("[generateStructuredAnalysisReport] Hata:", error);
-    throw new Error("Analiz raporu oluşturulamadı.");
-  }
-}
-
-// YENİ: Events içindeki tüm metinleri güvenlik kontrolünden geçir
-async function validateAndSanitizeEvents(events: AppEvent[]): Promise<any[]> {
-  const safeEvents: any[] = [];
-  
-  for (const event of events) {
-    try {
-      // Event'in tüm metin alanlarını topla
-      const textFields = extractTextFieldsFromEvent(event);
-      
-      // Her metin alanını güvenlik kontrolünden geçir
-      let hasUnsafeContent = false;
-      for (const textField of textFields) {
-        if (textField && typeof textField === 'string' && textField.trim().length > 0) {
-          const safetyCheck = await assessTextSafety(textField, classifyTextSafety);
-          if (!safetyCheck.isSafeForAI) {
-            console.warn(`🚨 [SECURITY] Event ${event.id} (${event.type}) güvenlik kontrolünden geçemedi: ${safetyCheck.response}`);
-            hasUnsafeContent = true;
-            break;
-          }
-        }
-      }
-      
-      // Güvenli olan event'i ekle
-      if (!hasUnsafeContent) {
-        const sanitizedEvent = sanitizeEventForAnalysis(event);
-        safeEvents.push(sanitizedEvent);
-      } else {
-        console.log(`⚠️ [SECURITY] Event ${event.id} analizden çıkarıldı - güvenlik nedeniyle`);
-      }
-    } catch (error) {
-      console.error(`❌ [SECURITY] Event ${event.id} güvenlik kontrolü sırasında hata:`, error);
-      // Hata durumunda event'i güvenlik için çıkar
-    }
-  }
-  
-  return safeEvents;
-}
-
-// YENİ: Event'ten tüm metin alanlarını çıkar
-function extractTextFieldsFromEvent(event: AppEvent): string[] {
-  const textFields: string[] = [];
-  
-  // Event'in data alanındaki tüm metinleri topla
-  if (event.data) {
-    // data.text varsa ekle
-    if (event.data.text && typeof event.data.text === 'string') {
-      textFields.push(event.data.text);
-    }
-    
-    // data.messages varsa (diary_entry, session events için)
-    if (event.data.messages && Array.isArray(event.data.messages)) {
-      event.data.messages.forEach((msg: any) => {
-        if (msg.text && typeof msg.text === 'string') {
-          textFields.push(msg.text);
-        }
-      });
-    }
-    
-    // data.dreamText varsa (dream_analysis için)
-    if (event.data.dreamText && typeof event.data.dreamText === 'string') {
-      textFields.push(event.data.dreamText);
-    }
-    
-    // data.analysis varsa (dream_analysis için)
-    if (event.data.analysis && typeof event.data.analysis === 'object') {
-      const analysis = event.data.analysis;
-      if (analysis.interpretation && typeof analysis.interpretation === 'string') {
-        textFields.push(analysis.interpretation);
-      }
-      if (analysis.summary && typeof analysis.summary === 'string') {
-        textFields.push(analysis.summary);
-      }
-    }
-    
-    // SADECE BİLİNEN VE GÜVENLİ ALANLAR - GENEL DÖNGÜ KALDIRILDI
-    // Diğer olası metin alanları artık manuel olarak kontrol edilir
-  }
-  
-  return textFields;
-}
-
-// YENİ: Akıllı veri yoğunlaştırma fonksiyonu
-async function compressEventsForAnalysis(events: any[], days: number): Promise<any[]> {
-  const MAX_TOKENS = 8000; // Güvenli limit
-  let currentTokens = 0;
-  const compressedData: any[] = [];
-
-  // Öncelik sırası: journey_log_entry > dream_analysis > diary_entry > session events
-  const priorityOrder = ['journey_log_entry', 'dream_analysis', 'diary_entry', 'text_session', 'voice_session', 'video_session'];
-  
-  for (const eventType of priorityOrder) {
-    const typeEvents = events.filter(e => e.type === eventType);
-    
-    for (const event of typeEvents) {
-      const eventTokens = estimateTokenCount(JSON.stringify(event));
-      
-      if (currentTokens + eventTokens < MAX_TOKENS) {
-        compressedData.push(event);
-        currentTokens += eventTokens;
-      } else {
-        break; // Token limiti aşıldı
-      }
-    }
-    
-    if (currentTokens >= MAX_TOKENS * 0.9) break; // %90'a ulaştıysa dur
-  }
-
-  return compressedData;
-}
-
-// YENİ: Gelişmiş token tahmini
-function estimateTokenCount(text: string): number {
-  // Daha doğru token tahmini: Türkçe için 1 token ≈ 3.5 karakter
-  return Math.ceil(text.length / 3.5);
-}
-
-// GÜNCELLENMİŞ: Event temizleme fonksiyonu
-function sanitizeEventForAnalysis(event: AppEvent): any {
-  const cleanEvent = {
-    type: event.type,
-    created_at: event.created_at,
-    mood: event.mood,
-    data: { ...event.data }
-  };
-
-  // Hassas verileri temizle ve güvenli hale getir
-  if (cleanEvent.data.text && cleanEvent.data.text.length > 300) {
-    // İlk 300 karakteri al, sonra güvenli bir şekilde kısalt
-    const safeText = cleanEvent.data.text.substring(0, 300);
-    // Cümle sonunda kesilmişse, son cümleyi tamamla
-    const lastSentenceEnd = safeText.lastIndexOf('.');
-    const lastQuestionEnd = safeText.lastIndexOf('?');
-    const lastExclamationEnd = safeText.lastIndexOf('!');
-    const lastEnd = Math.max(lastSentenceEnd, lastQuestionEnd, lastExclamationEnd);
-    
-    if (lastEnd > 200) { // En az 200 karakter olsun
-      cleanEvent.data.text = safeText.substring(0, lastEnd + 1) + ' (devamı kısaltıldı)';
-    } else {
-      cleanEvent.data.text = safeText + ' (kısaltıldı)';
-    }
-  }
-
-  // Messages array'ini de güvenli hale getir
-  if (cleanEvent.data.messages && Array.isArray(cleanEvent.data.messages)) {
-    cleanEvent.data.messages = cleanEvent.data.messages.map((msg: any) => {
-      if (msg.text && typeof msg.text === 'string' && msg.text.length > 200) {
-        return {
-          ...msg,
-          text: msg.text.substring(0, 200) + ' (kısaltıldı)'
-        };
-      }
-      return msg;
     });
+  
+  } catch (error) {
+    console.error("[generateStructuredAnalysisReport] Orkestrasyon sırasında hata!", error);
+    if (isAppError(error)) throw error;
+    throw new ApiError("Analiz raporu oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
-
-  return cleanEvent;
 }
 
-function buildUserProfile(vault: any): string {
-  const profile = vault.profile || {};
-  const traits = vault.traits || {};
-  const themes = vault.themes || [];
-  const insights = vault.keyInsights || [];
-
-  const profileParts = [];
-
-  if (profile.nickname) profileParts.push(`İsim: ${profile.nickname}`);
-  if (traits.confidence !== undefined) profileParts.push(`Güven: %${Math.round(traits.confidence * 100)}`);
-  if (traits.anxiety_level !== undefined) profileParts.push(`Kaygı: %${Math.round(traits.anxiety_level * 100)}`);
-  if (traits.writing_style) profileParts.push(`Yazı stili: ${traits.writing_style}`);
-  if (themes.length > 0) profileParts.push(`Ana temalar: ${themes.join(', ')}`);
-  if (insights.length > 0) profileParts.push(`Önemli içgörüler: ${insights.slice(0, 3).join(', ')}`);
-
-  return profileParts.length > 0 ? profileParts.join(' | ') : 'Profil bilgisi yetersiz';
-}
-
-function buildAnalysisPrompt(days: number, userProfile: string, events: any[]): string {
-  return `
-Çıktının en başına büyük harflerle ve kalın olmadan sadece şu başlığı ekle: "Son ${days} Günlük Analiz"
-
-Kullanıcının son ${days} günlük duygu durumu analizi için aşağıdaki yapıda detaylı ancak özlü bir rapor oluştur:
-
-## 1. Genel Bakış
-• Haftalık duygu dağılımı (ana duyguların yüzdeli dağılımı)
-• Öne çıkan pozitif/negatif eğilimler
-• Haftanın en belirgin 3 özelliği
-
-## 2. Duygusal Dalgalanmalar
-• Gün içi değişimler (sabah-akşam karşılaştırması)
-• Haftalık trend (hafta başı vs hafta sonu)
-• Duygu yoğunluğu gradyanı (1-10 arası skala tahmini)
-
-## 3. Tetikleyici Analizi
-• En sık tekrarlanan 3 olumsuz tetikleyici
-• Etkili başa çıkma mekanizmaları
-• Kaçırılan fırsatlar (gözden kaçan pozitif anlar)
-
-## 4. Kişiye Özel Tavsiyeler
-• Profil verilerine göre (${userProfile}) uyarlanmış 3 somut adım
-• Haftaya özel mini hedefler
-• Acil durum stratejisi (kriz anları için)
-
-**Teknik Talimatlar:**
-1. Rapor maksimum 600 kelime olsun
-2. Her bölüm 3-4 maddeli paragraf şeklinde
-3. Sayısal verileri yuvarlayarak yaz (%Yüzde, X/Y oran gibi)
-4. Günlük konuşma dili kullan (akademik jargon yok)
-5. **Markdown formatını kullan** - başlıklar için ##, madde işaretleri için •, vurgular için **kalın**
-6. Pozitif vurguyu koru (eleştirel değil yapıcı olsun)
-7. Eğer kullanıcı profili varsa, yanıtında kullanıcının ismiyle hitap et
-8. Başka hiçbir başlık, özet, giriş veya kapanış cümlesi ekleme. Sadece yukarıdaki başlık ve ardından 4 ana bölüm gelsin
-
-**Veriler:**
-${JSON.stringify(events, null, 2)}
-  `.trim();
-}
+// Eski fonksiyonlar artık analysis_pipeline klasörüne taşındı
 
 export async function generateNextDreamQuestion(dreamAnalysis: DreamAnalysisResult, conversationHistory: { text: string; role: 'user' }[], userVault: any): Promise<string | null> {
   const userMessages = conversationHistory.filter(m => m.role === 'user').map(m => m.text).join('\n\n');
-  const safetyCheck = await assessTextSafety(userMessages, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   try {
     const formattedHistory = conversationHistory
       .map((m, i) => `Kullanıcının ${i + 1}. Cevabı: ${m.text}`)
@@ -604,16 +292,13 @@ ${formattedHistory || "Henüz kullanıcıdan bir cevap alınmadı. Diyaloğu ba�
     return nextQuestion.endsWith('?') ? nextQuestion : nextQuestion + '?';
   } catch (err) {
     console.error('[generateNextDreamQuestion] Soru üretilirken hata:', err);
-    throw new Error("Rüya sorusu oluşturulamadı.");
+    throw new ApiError("Rüya sorusu oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
 export async function generateFinalDreamFeedback(dreamAnalysis: DreamAnalysisResult, userAnswers: { text: string }[], userVault: any): Promise<string> {
   const allAnswers = userAnswers.map(ans => ans.text).join('\n\n');
-  const safetyCheck = await assessTextSafety(allAnswers, classifyTextSafety);
-  if (!safetyCheck.isSafeForAI) {
-    throw new Error(safetyCheck.response!);
-  }
+  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
   try {
     // Truncate interpretation and answers if too long to avoid MAX_TOKENS
     const maxInterpretationLength = 1200;
@@ -658,7 +343,7 @@ ${formattedAnswers}
     return finalFeedback;
   } catch (err) {
     console.error('[generateFinalDreamFeedback] Geri bildirim üretilirken hata:', err);
-    throw new Error("Rüya geri bildirimi oluşturulamadı.");
+    throw new ApiError("Rüya geri bildirimi oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
@@ -722,7 +407,7 @@ export async function invokeGemini(prompt: string, model: string, config?: Gener
     return reply;
   } catch (err: any) {
     console.error('[invokeGemini] Hatası:', err.message);
-    throw err;
+    throw new ApiError("AI servisi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.");
   }
 }
 
