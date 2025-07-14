@@ -1,20 +1,19 @@
 // app/(onboarding)/step2.tsx
-import { useLocalSearchParams, useRouter } from 'expo-router/';
+import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useOnboardingStore } from '../../store/onboardingStore';
 
-const QUESTION = "Son zamanlarda kaygı seviyen nasıldı?";
+const QUESTION = "Son zamanlarda zihnini en çok meşgul eden, uykularını kaçıran düşünce nedir?";
 
 export default function Step2Screen() {
   const [answer, setAnswer] = useState('');
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
 
   const handleNext = () => {
-    router.push({
-      pathname: '/onboarding/step3',
-      params: { ...params, q2: QUESTION, a2: answer }
-    });
+    setOnboardingAnswer(3, QUESTION, answer);
+    router.push('/onboarding/step3');
   };
 
   return (

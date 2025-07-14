@@ -2,18 +2,18 @@
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useOnboardingStore } from '../../store/onboardingStore';
 
-const QUESTION = "Kendine güveninle ilgili ne düşünüyorsun?";
+const QUESTION = "Kendini en güçlü ve yetenekli hissettiğin bir anı anlatır mısın?";
 
 export default function Step1Screen() {
   const [answer, setAnswer] = useState('');
   const router = useRouter();
+  const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
 
   const handleNext = () => {
-    router.push({
-      pathname: '/onboarding/step2',
-      params: { q1: QUESTION, a1: answer }
-    });
+    setOnboardingAnswer(2, QUESTION, answer);
+    router.push('/onboarding/step2');
   };
 
   return (

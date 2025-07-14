@@ -6,7 +6,6 @@ import React, { useState } from 'react';
 import { ActivityIndicator, LayoutAnimation, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthLayout } from '../components/AuthLayout';
-import { updateUserVault, VaultData } from '../services/vault.service';
 import { authScreenStyles as styles } from '../styles/auth';
 import { signUpWithEmail } from '../utils/auth';
 
@@ -48,8 +47,8 @@ export default function RegisterScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             const user = await signUpWithEmail(email, password);
             if (!user) throw new Error("Kullanıcı oluşturulamadı.");
-            const initialVault: VaultData = { profile: { nickname: nickname.trim() } };
-            await updateUserVault(initialVault);
+            // const initialVault: VaultData = { profile: { nickname: nickname.trim() } };
+            // await updateUserVault(initialVault); // ARTIK GEREKSİZ
             router.replace('/');
         } catch (error: any) {
             if (error.message && error.message.includes('already in use')) {

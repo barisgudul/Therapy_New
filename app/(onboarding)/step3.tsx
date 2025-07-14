@@ -1,20 +1,19 @@
 // app/(onboarding)/step3.tsx
-import { useLocalSearchParams, useRouter } from 'expo-router/';
+import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useOnboardingStore } from '../../store/onboardingStore';
 
-const QUESTION = "Hayatında en çok neyi değiştirmek isterdin?";
+const QUESTION = "Eğer sihirli bir değneğin olsaydı ve hayatında tek bir şeyi düzeltebilecek olsaydın, bu ne olurdu ve neden?";
 
 export default function Step3Screen() {
   const [answer, setAnswer] = useState('');
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
 
   const handleNext = () => {
-    router.push({
-      pathname: '/onboarding/step4',
-      params: { ...params, q3: QUESTION, a3: answer }
-    });
+    setOnboardingAnswer(4, QUESTION, answer);
+    router.push('/onboarding/step4');
   };
 
   return (

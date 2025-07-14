@@ -3,7 +3,7 @@ import { ZodSchema, z } from 'zod';
 import { InteractionContext } from '../types/context';
 import { ApiError, ValidationError, getErrorMessage, isAppError } from '../utils/errors';
 import { parseAndValidateJson } from '../utils/jsonValidator';
-import { DiaryStart, DiaryStartSchema, DreamAnalysisResult, DreamAnalysisSchema, NextQuestionsSchema, SessionMemory, SessionMemorySchema } from "../utils/schemas";
+import { DiaryStart, DiaryStartSchema, DreamAnalysisResult, DreamAnalysisSchema, NextQuestionsSchema, SessionMemory, SessionMemorySchema, TraitsSchema } from "../utils/schemas";
 import { supabase } from '../utils/supabase';
 import { fetchMinimumRequiredEvents } from './analysis_pipeline/1_fetcher';
 import { processAndCompressEvents } from './analysis_pipeline/2_processor';
@@ -15,6 +15,9 @@ import type { Traits } from './trait.service';
 const FAST_MODEL = 'gemini-2.5-flash';
 const POWERFUL_MODEL = 'gemini-2.5-pro';
 const GENIOUS_MODEL = POWERFUL_MODEL;
+
+// YENİ EKLE: Terapist Kişilik Tipleri
+type TherapistPersonality = 'calm' | 'motivational' | 'analytical' | 'default';
 
 // ------------------- GENERATION CONFIG TİPİ -------------------
 type GenerationConfig = {
@@ -115,54 +118,6 @@ export async function analyzeSessionForMemory(context: InteractionContext): Prom
 // Bu fonksiyonlar `sendToGemini`'yi doğrudan kullanır. Hata durumunda, ya `sendToGemini`
 // hatayı yukarı fırlatır ya da biz bir `try-catch` ile yakalayıp anlamlı bir fallback döneriz.
 
-
-export async function generateTherapistReply(context: InteractionContext): Promise<string> {
-  // Gerekli verileri artık bağlamdan alıyoruz.
-  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
-  const userVault = context.initialVault;
-  
-  try {
-    const recentLogEntries = await getRecentJourneyLogEntries(5);
-    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
-    
-    // DerivedData'dan mood bilgisini al
-    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
-    const moodTrend = context.derivedData.moodTrend;
-    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
-    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
-    
-    let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
-    if (userVault?.traits) {
-      const traits = userVault.traits;
-      const summaries: string[] = [];
-      if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
-      if (typeof traits.anxiety_level === 'number') summaries.push(`kaygı: ${(traits.anxiety_level * 100).toFixed(0)}%`);
-      if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
-      if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
-    }
-    
-    const personalities: Record<string, string> = { default: "Sen empatik ve destekleyici bir terapistsin." };
-    const personality = personalities[therapistId] || personalities.default;
-    
-    let prompt = `
-      ### Kolektif Bilinç ###
-      Rolün: ${personality}. Aşağıdaki bilgileri, kullanıcıyı yıllardır tanıyormuş gibi sezgisel bir yanıt için kullan, asla tekrarlama.
-      ${traitsSummary}
-      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
-      ${journeyLogContext}
-      ### Aktif Oturum ###
-      ${intraSessionChatHistory}
-      ### Son Mesaj ###
-      "${userMessage}"
-      ### Görevin ###
-      Bu bağlama uygun, 2-3 cümlelik sıcak ve empatik bir yanıt ver. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
-    
-    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.85, maxOutputTokens: 300 });
-  } catch (error) {
-    console.error("[generateTherapistReply] Hata:", getErrorMessage(error));
-    throw new ApiError("Terapist yanıtı oluşturulamadı.");
-  }
-}
 
 export async function generateDailyReflectionResponse(context: InteractionContext): Promise<string> {
   const { todayNote, todayMood } = context.initialEvent.data;
@@ -393,155 +348,85 @@ ${formattedAnswers}
     `.trim();
 
     try {
-        const jsonString = await invokeGemini(prompt, POWERFUL_MODEL, { responseMimeType: 'application/json' });
-        return JSON.parse(jsonString);
+        // Artık hem JSON çıkarımını hem de doğrulamayı tek fonksiyonla yapıyoruz.
+        return await invokeAndValidate(prompt, POWERFUL_MODEL, TraitsSchema, {
+            responseMimeType: 'application/json'
+        });
     } catch(error) { 
         console.error("analyzeOnboardingAnswers hatası:", getErrorMessage(error));
+        // throw new ApiError'ın devam etmesi doğru, böylece orkestratör hatayı yakalayabilir.
         throw new ApiError("Kişilik analizi oluşturulamadı.");
     }
 }
 
-export async function generateCalmingTherapistReply(context: InteractionContext): Promise<string> {
-  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
+/**
+ * Kullanıcının durumuna ve belirlenen kişiliğe göre dinamik bir terapist yanıtı üretir.
+ * Bu fonksiyon, dört ayrı fonksiyonun görevini tek başına üstlenir.
+ * @param context Etkileşim bağlamı
+ * @param personality Hedeflenen terapist kişiliği ('calm', 'motivational', vb.)
+ * @returns Yapay zeka tarafından üretilmiş terapist yanıtı
+ */
+export async function generateAdaptiveTherapistReply(context: InteractionContext, personality: TherapistPersonality): Promise<string> {
+  const { userMessage, intraSessionChatHistory } = context.initialEvent.data;
   const userVault = context.initialVault;
+
+  // Kişilik tanımları merkezileştirildi. Yeni kişilik eklemek istersen sadece burayı değiştirirsin.
+  const personalityDescriptions: Record<TherapistPersonality, string> = {
+    default: "Sen empatik ve destekleyici bir terapistsin. Amacın güvenli bir alan yaratmak.",
+    calm: "Sen sakinleştirici ve güven verici bir terapistsin. Topraklanma ve güvenlik hissi üzerine odaklanıyorsun.",
+    motivational: "Sen motivasyonel ve cesaretlendirici bir koçsun. Kullanıcının iç gücünü ve potansiyelini ortaya çıkarmasına yardım ediyorsun.",
+    analytical: "Sen analitik ve derinlemesine düşünen bir terapistsin. Olaylar arasındaki gizli bağlantıları ve davranış kalıplarını ortaya çıkarıyorsun."
+  };
   
+  const selectedPersonalityDescription = personalityDescriptions[personality] || personalityDescriptions.default;
+
   try {
     const recentLogEntries = await getRecentJourneyLogEntries(5);
-    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
+    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar (Seyir Defteri)\n- ${recentLogEntries.join('\n- ')}` : "";
     
     const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
     const moodTrend = context.derivedData.moodTrend;
     const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
-    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
+    const trendContext = moodTrend ? `\nMood Trendi: ${moodTrend === 'pozitif_trend' ? 'Pozitife doğru' : moodTrend === 'negatif_trend' ? 'Negatife doğru' : 'Kararsız'}` : "";
     
     let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
     if (userVault?.traits) {
-      const traits = userVault.traits;
+      const traits = userVault.traits as Partial<Traits> & { motivation?: number };
       const summaries: string[] = [];
       if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
       if (typeof traits.anxiety_level === 'number') summaries.push(`kaygı: ${(traits.anxiety_level * 100).toFixed(0)}%`);
-      if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
-      if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
-    }
-    
-    const personalities: Record<string, string> = { 
-      default: "Sen sakinleştirici ve güven verici bir terapistsin. Kullanıcının kaygısını azaltmak için özel teknikler kullanıyorsun." 
-    };
-    const personality = personalities[therapistId] || personalities.default;
-    
-    let prompt = `
-      ### Kolektif Bilinç ###
-      Rolün: ${personality}. Kullanıcı yüksek kaygı seviyesinde. Görevin onu sakinleştirmek ve güven vermek.
-      ${traitsSummary}
-      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
-      ${journeyLogContext}
-      ### Aktif Oturum ###
-      ${intraSessionChatHistory}
-      ### Son Mesaj ###
-      "${userMessage}"
-      ### Görevin ###
-      Bu kullanıcıya özellikle sakinleştirici, güven verici ve rahatlatıcı bir yanıt ver. Nefes teknikleri, güvenlik hissi ve umut ver. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
-    
-    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.7, maxOutputTokens: 300 });
-  } catch (error) {
-    console.error("[generateCalmingTherapistReply] Hata:", getErrorMessage(error));
-    throw new ApiError("Sakinleştirici terapist yanıtı oluşturulamadı.");
-  }
-}
-
-export async function generateMotivationalTherapistReply(context: InteractionContext): Promise<string> {
-  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
-  const userVault = context.initialVault;
-  
-  try {
-    const recentLogEntries = await getRecentJourneyLogEntries(5);
-    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
-    
-    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
-    const moodTrend = context.derivedData.moodTrend;
-    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
-    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
-    
-    let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
-    if (userVault?.traits) {
-      const traits = userVault.traits;
-      const summaries: string[] = [];
-      if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
-      if (typeof traits.motivation === 'number') summaries.push(`motivasyon: ${(traits.motivation * 100).toFixed(0)}%`);
-      if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
-      if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
-    }
-    
-    const personalities: Record<string, string> = { 
-      default: "Sen motivasyonel ve cesaretlendirici bir terapistsin. Kullanıcının iç gücünü ortaya çıkarmasına yardım ediyorsun." 
-    };
-    const personality = personalities[therapistId] || personalities.default;
-    
-    let prompt = `
-      ### Kolektif Bilinç ###
-      Rolün: ${personality}. Kullanıcının motivasyonu düşük. Görevin onu cesaretlendirmek ve iç gücünü hatırlatmak.
-      ${traitsSummary}
-      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
-      ${journeyLogContext}
-      ### Aktif Oturum ###
-      ${intraSessionChatHistory}
-      ### Son Mesaj ###
-      "${userMessage}"
-      ### Görevin ###
-      Bu kullanıcıya özellikle motivasyonel, cesaretlendirici ve güçlendirici bir yanıt ver. Küçük başarıları takdir et, gelecek hedefler belirle. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
-    
-    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.8, maxOutputTokens: 300 });
-  } catch (error) {
-    console.error("[generateMotivationalTherapistReply] Hata:", getErrorMessage(error));
-    throw new ApiError("Motivasyonel terapist yanıtı oluşturulamadı.");
-  }
-}
-
-export async function generateAnalyticalTherapistReply(context: InteractionContext): Promise<string> {
-  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
-  const userVault = context.initialVault;
-  
-  try {
-    const recentLogEntries = await getRecentJourneyLogEntries(5);
-    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
-    
-    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
-    const moodTrend = context.derivedData.moodTrend;
-    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
-    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
-    
-    let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
-    if (userVault?.traits) {
-      const traits = userVault.traits;
-      const summaries: string[] = [];
+      // motivasyon trait'i traitKeys içinde yok, ama AI çıktısında olabilir, bu yüzden string key ile de kontrol et
+      const motivation = (traits as any).motivation ?? traits['motivation'];
+      if (typeof motivation === 'number') summaries.push(`motivasyon: ${(motivation * 100).toFixed(0)}%`);
       if (typeof traits.openness === 'number') summaries.push(`açıklık: ${(traits.openness * 100).toFixed(0)}%`);
-      if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
       if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
       if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
     }
     
-    const personalities: Record<string, string> = { 
-      default: "Sen analitik ve derinlemesine düşünen bir terapistsin. Kullanıcının kendini daha iyi anlamasına yardım ediyorsun." 
-    };
-    const personality = personalities[therapistId] || personalities.default;
+    const prompt = `
+### Kolektif Bilinç (BUNLARI YANITINDA ASLA TEKRARLAMA, SADECE SEZ)
+Rolün: ${selectedPersonalityDescription}
+${traitsSummary}
+Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
+${journeyLogContext}
+
+### Aktif Oturum (Mevcut Konuşma)
+${intraSessionChatHistory || "Bu, konuşmanın ilk mesajı."}
+
+### Son Mesaj (Yanıt Vermen Gereken Mesaj)
+"${userMessage}"
+
+### Görevin (TALİMATLARA KESİNLİKLE UY)
+1.  Verilen ROLE bürün.
+2.  Tüm Kolektif Bilinci kullanarak kullanıcıyı yıllardır tanıyormuş gibi sezgisel, doğal ve 2-3 cümlelik sıcak bir yanıt ver.
+3.  Asla "Rolüm gereği..." gibi ifadeler kullanma. SADECE YANITINI YAZ.`.trim();
     
-    let prompt = `
-      ### Kolektif Bilinç ###
-      Rolün: ${personality}. Kullanıcı analitik düşünme eğiliminde. Görevin derinlemesine içgörüler sunmak.
-      ${traitsSummary}
-      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
-      ${journeyLogContext}
-      ### Aktif Oturum ###
-      ${intraSessionChatHistory}
-      ### Son Mesaj ###
-      "${userMessage}"
-      ### Görevin ###
-      Bu kullanıcıya özellikle analitik, derinlemesine ve içgörü odaklı bir yanıt ver. Pattern'ları fark et, bağlantıları kur. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
-    
-    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.6, maxOutputTokens: 300 });
+    // Model ve konfigürasyon burada dinamik olarak ayarlanabilir, şimdilik sabit bırakıyoruz.
+    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.8, maxOutputTokens: 300 });
+
   } catch (error) {
-    console.error("[generateAnalyticalTherapistReply] Hata:", getErrorMessage(error));
-    throw new ApiError("Analitik terapist yanıtı oluşturulamadı.");
+    console.error(`[generateAdaptiveTherapistReply] Hata (Kişilik: ${personality}):`, getErrorMessage(error));
+    throw new ApiError("Terapist yanıtı oluşturulamadı.");
   }
 }
 

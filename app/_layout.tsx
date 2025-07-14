@@ -11,7 +11,7 @@ import 'react-native-reanimated';
 import { AuthProvider, useAuth } from '../context/Auth';
 
 const InitialLayout = () => {
-  const { session, loading: authLoading } = useAuth();
+  const { session, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   
@@ -20,11 +20,11 @@ const InitialLayout = () => {
   });
 
   // DEĞİŞİKLİK 1: Yükleme durumunu daha net hale getirdik.
-  const isLoading = authLoading || !fontsLoaded;
+  const loading = isLoading || !fontsLoaded;
 
   useEffect(() => {
     // Yükleme devam ediyorsa, yönlendirme yapmayı deneme!
-    if (isLoading) {
+    if (loading) {
       return;
     }
 
@@ -35,11 +35,11 @@ const InitialLayout = () => {
     } else if (session && inAuthGroup) {
       router.replace('/');
     }
-  }, [isLoading, session, segments, router]); // Artık sadece isLoading durumuna tepki veriyor.
+  }, [loading, session, segments, router]); // Artık sadece loading durumuna tepki veriyor.
 
   // DEĞİŞİKLİK 2: Yükleme tamamlanana kadar sadece dönen çubuğu göster.
   // Bu, alttaki <Stack>'in erken render olmasını engeller.
-  if (isLoading) {
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#0a7ea4" />

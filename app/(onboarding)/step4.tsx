@@ -1,20 +1,19 @@
 // app/(onboarding)/step4.tsx
-import { useLocalSearchParams, useRouter } from 'expo-router/';
+import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useOnboardingStore } from '../../store/onboardingStore';
 
-const QUESTION = "Duygularını başkalarıyla paylaşmak senin için ne kadar kolay?";
+const QUESTION = "Zor bir duygu yaşadığında, bunu içinde mi tutarsın yoksa birine anlatır mısın? Genellikle kimi seçersin?";
 
 export default function Step4Screen() {
   const [answer, setAnswer] = useState('');
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
 
   const handleNext = () => {
-    router.push({
-      pathname: '/onboarding/summary',
-      params: { ...params, q4: QUESTION, a4: answer }
-    });
+    setOnboardingAnswer(5, QUESTION, answer);
+    router.push('/onboarding/summary');
   };
 
   return (

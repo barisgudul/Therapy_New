@@ -58,32 +58,33 @@ export async function processUserMessage(userId: string, event: AppEvent): Promi
 // === AKILLI KARAR VERME FONKSİYONLARI ===
 
 /**
- * Kullanıcının durumuna göre en uygun terapist yanıt fonksiyonunu seçer
+ * Kullanıcının durumuna göre en uygun terapist KİŞİLİĞİNİ seçer ve
+ * bu kişilikle adaptif yanıt fonksiyonunu çağırır.
  */
 function selectTherapistFunction(context: InteractionContext): Promise<string> {
   const { traits } = context.initialVault;
   
-  // Kaygı seviyesi yüksekse sakinleştirici yaklaşım
+  // Kaygı seviyesi yüksekse 'sakinleştirici' yaklaşım
   if (traits?.anxiety_level && traits.anxiety_level > 0.7) {
-    console.log(`[ORCHESTRATOR] Yüksek kaygı tespit edildi (${(traits.anxiety_level * 100).toFixed(0)}%). Sakinleştirici yaklaşım seçiliyor.`);
-    return AiService.generateCalmingTherapistReply(context);
+    console.log(`[ORCHESTRATOR] Yüksek kaygı tespit edildi (${(traits.anxiety_level * 100).toFixed(0)}%). 'calm' kişiliği seçiliyor.`);
+    return AiService.generateAdaptiveTherapistReply(context, 'calm'); // <-- YENİ VE ADAPTİF
   }
   
-  // Motivasyon düşükse motivasyonel yaklaşım
+  // Motivasyon düşükse 'motivasyonel' yaklaşım
   if (traits?.motivation && traits.motivation < 0.4) {
-    console.log(`[ORCHESTRATOR] Düşük motivasyon tespit edildi (${(traits.motivation * 100).toFixed(0)}%). Motivasyonel yaklaşım seçiliyor.`);
-    return AiService.generateMotivationalTherapistReply(context);
+    console.log(`[ORCHESTRATOR] Düşük motivasyon tespit edildi (${(traits.motivation * 100).toFixed(0)}%). 'motivational' kişiliği seçiliyor.`);
+    return AiService.generateAdaptiveTherapistReply(context, 'motivational'); // <-- YENİ VE ADAPTİF
   }
   
-  // Açıklık yüksekse analitik yaklaşım
+  // Açıklık yüksekse 'analitik' yaklaşım
   if (traits?.openness && traits.openness > 0.7) {
-    console.log(`[ORCHESTRATOR] Yüksek açıklık tespit edildi (${(traits.openness * 100).toFixed(0)}%). Analitik yaklaşım seçiliyor.`);
-    return AiService.generateAnalyticalTherapistReply(context);
+    console.log(`[ORCHESTRATOR] Yüksek açıklık tespit edildi (${(traits.openness * 100).toFixed(0)}%). 'analytical' kişiliği seçiliyor.`);
+    return AiService.generateAdaptiveTherapistReply(context, 'analytical'); // <-- YENİ VE ADAPTİF
   }
   
-  // Varsayılan yaklaşım
-  console.log(`[ORCHESTRATOR] Standart terapist yaklaşımı seçiliyor.`);
-  return AiService.generateTherapistReply(context);
+  // Hiçbir koşul karşılanmazsa 'varsayılan' yaklaşım
+  console.log(`[ORCHESTRATOR] Standart ('default') terapist kişiliği seçiliyor.`);
+  return AiService.generateAdaptiveTherapistReply(context, 'default'); // <-- YENİ VE ADAPTİF
 }
 
 /**

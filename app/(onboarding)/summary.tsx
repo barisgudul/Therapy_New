@@ -1,26 +1,43 @@
 // app/(onboarding)/summary.tsx
-import { useLocalSearchParams } from 'expo-router/';
+import { useRouter } from 'expo-router/';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from '../../context/Auth';
 import { analyzeOnboardingAnswers } from '../../services/ai.service';
+import { EventType } from '../../services/event.service';
+import { useOnboardingStore } from '../../store/onboardingStore';
 import { useVaultStore } from '../../store/vaultStore';
 
 export default function SummaryScreen() {
-  const params = useLocalSearchParams();
+  const { user } = useAuth();
   const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault);
   const currentVault = useVaultStore((s) => s.vault);
+  const answers = useOnboardingStore((s) => s.answers);
+  const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
+  const router = useRouter();
   const [status, setStatus] = useState('AI analiz yapıyor...');
 
   useEffect(() => {
     const runAnalysis = async () => {
-      // Parametreleri anlamlı bir objeye dönüştür
-      const answers: Record<string, string> = {};
-      for (let i = 1; i <= 4; i++) {
-        const q = params[`q${i}`] as string;
-        const a = params[`a${i}`] as string;
-        if (q && a) answers[q] = a;
-      }
-      const aiTraits = await analyzeOnboardingAnswers(answers);
+      // AppEvent için zorunlu alanlar: id, user_id, type, timestamp, created_at, data
+      const now = new Date();
+      const fakeEvent = {
+        id: uuidv4(),
+        user_id: user?.id || '',
+        type: 'ai_analysis' as EventType,
+        timestamp: now.getTime(),
+        created_at: now.toISOString(),
+        data: { answers },
+      };
+      const fakeContext = {
+        transactionId: uuidv4(),
+        userId: user?.id || '',
+        initialVault: currentVault,
+        initialEvent: fakeEvent,
+        derivedData: {},
+      };
+      const aiTraits = await analyzeOnboardingAnswers(fakeContext);
       if (aiTraits) {
         setStatus('Profilin oluşturuldu. Harika bir başlangıç!');
         const newVault = {
@@ -29,16 +46,17 @@ export default function SummaryScreen() {
           metadata: { ...currentVault?.metadata, onboardingCompleted: true }
         };
         await updateAndSyncVault(newVault);
+        resetOnboarding();
       } else {
         setStatus('Analiz başarısız oldu, ama sorun değil. Seni zamanla tanıyacağız.');
       }
       setTimeout(() => {
-        // Ana ekrana yönlendirme vs. burada yapılabilir
+        router.replace('/');
       }, 1500);
     };
     runAnalysis();
-    // eslint-disable-next-line
-  }, []);
+    // currentVault, updateAndSyncVault, answers, resetOnboarding, router bağımlılıklara eklendi
+  }, [currentVault, updateAndSyncVault, answers, resetOnboarding, router, user]);
 
   return (
     <View style={styles.container}>
