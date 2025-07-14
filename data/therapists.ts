@@ -1,30 +1,32 @@
 // data/therapists.ts
-import { ImageSourcePropType } from 'react-native';
+
+import type { Ionicons } from '@expo/vector-icons';
+
+// Ionicons'un kabul ettiği ikon isimlerinin tipini alıyoruz
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 // Tip Tanımı
-export interface TherapistData {
+export type TherapistData = {
   id: string;
   name: string;
+  thumbnail: any;
+  photo: any;
   title: string;
-  thumbnail: ImageSourcePropType;
-  photo: ImageSourcePropType;
-  specialties: string[];
-  approach: string;
-  philosophy: string;
+  persona: string;
+  icon: IconName; // Artık sadece geçerli Ionicons isimleri!
   style: string;
-  icon: 'heart-circle' | 'sunny' | 'rocket' | 'happy' | 'bulb' | 'people' | 'trophy';
+  specialties: string[];
+  philosophy: string;
   about: string;
+  approach: string;
   methods: string[];
-  imageId: string; // Terapist profilinde ve diğer sayfalarda parametre olarak geçecek benzersiz ID
-  persona: string; // Avatar ekranı için kısa açıklama
-}
+};
 
 // Terapistlerin merkezi ve tek veri kaynağı
 export const ALL_THERAPISTS: TherapistData[] = [
   {
-    id: '1',
+    id: 'therapist1',
     name: 'Dr. Elif',
-    imageId: 'therapist1',
     thumbnail: require('../assets/Terapist_1.jpg'),
     photo: require('../assets/Terapist_1.jpg'),
     title: 'AI Klinik Psikolog',
@@ -43,9 +45,8 @@ export const ALL_THERAPISTS: TherapistData[] = [
     ]
   },
   {
-    id: '2',
+    id: 'therapist2',
     name: 'Dr. Can',
-    imageId: 'therapist2',
     thumbnail: require('../assets/Terapist_2.jpg'),
     photo: require('../assets/Terapist_2.jpg'),
     title: 'AI Psikolojik Danışman',
@@ -66,9 +67,8 @@ export const ALL_THERAPISTS: TherapistData[] = [
     ]
   },
   {
-    id: '3',
+    id: 'therapist3',
     name: 'Dr. Lina',
-    imageId: 'therapist3',
     thumbnail: require('../assets/Terapist_3.jpg'),
     photo: require('../assets/Terapist_3.jpg'),
     title: 'AI Aile Terapisti',
@@ -87,9 +87,8 @@ export const ALL_THERAPISTS: TherapistData[] = [
     ]
   },
   {
-    id: '4',
-    name: 'Coach Can',
-    imageId: 'coach1',
+    id: 'coach1',
+    name: 'Can Koç',
     thumbnail: require('../assets/coach-can.jpg'),
     photo: require('../assets/coach-can.jpg'),
     title: 'Yaşam Koçu',
@@ -112,8 +111,4 @@ export const ALL_THERAPISTS: TherapistData[] = [
 // Yardımcı fonksiyonlar
 export const getTherapistById = (id: string): TherapistData | undefined => {
   return ALL_THERAPISTS.find(therapist => therapist.id === id);
-};
-
-export const getTherapistByImageId = (imageId: string): TherapistData | undefined => {
-  return ALL_THERAPISTS.find(therapist => therapist.imageId === imageId);
 }; 

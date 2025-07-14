@@ -26,6 +26,8 @@ export interface AppEvent {
   data: Record<string, any>;
 }
 
+export type EventPayload = Omit<AppEvent, 'id' | 'user_id' | 'timestamp' | 'created_at'>;
+
 export async function logEvent(event: Omit<AppEvent, 'id' | 'user_id' | 'timestamp' | 'created_at'>): Promise<string | null> {
   try {
     const { data: { user } } = await supabase.auth.getUser();

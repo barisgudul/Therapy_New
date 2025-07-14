@@ -2,40 +2,46 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { commonStyles } from '../../constants/Styles';
 import { getTherapistById } from '../../data/therapists';
-import { getUserVault, updateUserVault, VaultData } from '../../services/vault.service';
+import { updateUserVault } from '../../services/api.service';
+import { getUserVault, VaultData } from '../../services/vault.service';
 
 export default function TherapistProfileScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const therapist = getTherapistById(id);
+  const [isSaving, setIsSaving] = useState(false);
 
   const selectTherapist = async () => {
-    if (!therapist) return;
+    if (!therapist || isSaving) return;
+    setIsSaving(true);
     try {
-        const currentVault = await getUserVault() || {};
-        const newVault: VaultData = {
-            ...currentVault,
-            preferences: {
-                ...currentVault.preferences,
-                selectedTherapistId: therapist.id
-            }
-        };
-        await updateUserVault(newVault);
-        console.log(`✅ [Vault] Terapist seçimi güncellendi: ${therapist.id}`);
-        router.push({
-            pathname: '/therapy_options',
-            params: { therapistId: therapist.id }
-        });
+      const currentVault = await getUserVault() || {};
+      const newVault: VaultData = {
+        ...currentVault,
+        preferences: {
+          ...currentVault.preferences,
+          selectedTherapistId: therapist.id
+        }
+      };
+      const { error } = await updateUserVault(newVault);
+      if (error) throw new Error(error);
+      console.log(`✅ [Vault] Terapist seçimi başarıyla güncellendi: ${therapist.id}`);
+      router.push({
+        pathname: '/therapy/therapy_options',
+        params: { therapistId: therapist.id }
+      });
     } catch (error) {
-        console.error('Terapist seçimi kaydedilemedi:', error);
-        // kullanıcıya bir uyarı gösterebilirsiniz.
+      console.error('Terapist seçimi kaydedilemedi:', error);
+      Alert.alert("Hata", "Seçiminiz kaydedilemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.");
+    } finally {
+      setIsSaving(false);
     }
-};
+  };
 
   if (!therapist) {
     return (
@@ -122,21 +128,26 @@ export default function TherapistProfileScreen() {
           </View>
 
           <TouchableOpacity
-            style={styles.startButton}
+            style={[styles.startButton, isSaving && { opacity: 0.7 }]}
             onPress={selectTherapist}
             activeOpacity={0.7}
+            disabled={isSaving}
           >
-            <LinearGradient
-              colors={['#F8FAFF', '#FFFFFF']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.startButtonGradient}
-            >
-              <View style={styles.startButtonContent}>
-                <Ionicons name="arrow-forward-circle" size={24} color={Colors.light.tint} />
-                <Text style={styles.startButtonText}>Terapi Seçenekleri</Text>
-              </View>
-            </LinearGradient>
+            {isSaving ? (
+              <ActivityIndicator color={Colors.light.tint} />
+            ) : (
+              <LinearGradient
+                colors={['#F8FAFF', '#FFFFFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.startButtonGradient}
+              >
+                <View style={styles.startButtonContent}>
+                  <Ionicons name="arrow-forward-circle" size={24} color={Colors.light.tint} />
+                  <Text style={styles.startButtonText}>Terapi Seçenekleri</Text>
+                </View>
+              </LinearGradient>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

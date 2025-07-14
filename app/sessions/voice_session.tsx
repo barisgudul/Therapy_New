@@ -1,15 +1,14 @@
 // app/sessions/voice_session.tsx
+
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams, useRouter } from 'expo-router/';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
   BackHandler,
-  Dimensions,
   Easing,
   Image,
   StyleSheet,
@@ -20,247 +19,122 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import { ALL_THERAPISTS, getTherapistByImageId } from '../../data/therapists';
+import { ALL_THERAPISTS, TherapistData, getTherapistById } from '../../data/therapists';
 import { useVoiceSession } from '../../hooks/useVoice';
-import {
-  analyzeSessionForMemory,
-  generateCumulativeSummary,
-  generateTherapistReply,
-  mergeVaultData,
-} from '../../services/ai.service';
-import { logEvent } from '../../services/event.service';
-import { addJourneyLogEntry } from '../../services/journey.service';
-import { getUserVault, updateUserVault } from '../../services/vault.service';
-import { useVaultStore } from '../../store/vaultStore';
+import { processUserMessage } from '../../services/api.service';
+import { EventPayload } from '../../services/event.service';
+import { supabase } from '../../utils/supabase';
 
-/* -------------------------------------------------------------------------- */
-/* TYPES & CONSTS                                                             */
-/* -------------------------------------------------------------------------- */
-
-const { width } = Dimensions.get('window');
-
-
-
-const therapistNames: Record<string, string> = {
-  therapist1: 'Terapist 1',
-  therapist2: 'Terapist 2',
-  therapist3: 'Terapist 3',
-  coach1: 'Koç 1',
-};
-
-export type ChatMessage = {
-  id: string;
-  sender: 'user' | 'ai';
-  text: string;
-};
-
-/* -------------------------------------------------------------------------- */
-/* COMPONENT                                                                  */
-/* -------------------------------------------------------------------------- */
+export type ChatMessage = { id: string; sender: 'user' | 'ai'; text: string; };
 
 export default function VoiceSessionScreen() {
-  // therapistId'nin yanına mood'u da ekle
-  const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
-  const navigation = useNavigation();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const router = useRouter();
-  const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
-  const [currentMood, setCurrentMood] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sessionSummary, setSessionSummary] = useState<string>("");
-  const [intraSessionSummary, setIntraSessionSummary] = useState('');
-  const messageCountForSummary = useRef(0);
+    const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
+    const router = useRouter();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
-  // Mood ve terapist bilgisini parametrelerden alıp state'e ata
-  useEffect(() => {
-    // 1. Mood'u parametreden alıp state'e ata
-    if (mood) {
-        setCurrentMood(mood);
-    }
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [selectedTherapist, setSelectedTherapist] = useState<TherapistData | null>(null);
+    const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    // 2. Terapist bilgisini merkezi 'ALL_THERAPISTS' dizisinden ID ile bul
-    if (therapistId) {
-        const therapist = getTherapistByImageId(therapistId);
-        setSelectedTherapist(therapist);
-    } else {
-        // ID gelmezse bir varsayılan ata (güvenlik önlemi)
-        setSelectedTherapist(ALL_THERAPISTS[0]); 
-    }
-  }, [therapistId, mood]);
+    useEffect(() => {
+        if (therapistId) {
+            const therapist = getTherapistById(therapistId);
+            setSelectedTherapist(therapist || ALL_THERAPISTS[0]);
+        } else {
+            setSelectedTherapist(ALL_THERAPISTS[0]);
+        }
+    }, [therapistId]);
 
-  /* ---------------------------- STATE & REFS ---------------------------- */  
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-
-  /* ---------------------------- VOICE HOOK ------------------------------ */  
-  const {
-    isRecording,
-    isProcessing: isSpeechProcessing,
-    startRecording,
-    stopRecording,
-    cleanup,
-    speakText,
-  } = useVoiceSession({
-    onTranscriptReceived: async (userText) => {
-      if (!userText) return;
-
-      // 1. Yeni kullanıcı mesajını oluştur.
-      const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
-      // 2. Mesaj listesini TEK SEFERDE GÜNCELLE ve bir değişkende tut.
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
-
-      // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) ---
-      let currentChatHistoryForPrompt = '';
-      const summaryTrigger = 7; // Her 7 mesajda bir
-
-      // Mevcut seans içindeki tüm mesajlar AI'a gönderilmeden önce özetleniyor
-      if (updatedMessages.length > messageCountForSummary.current + summaryTrigger) {
-          const conversationChunk = updatedMessages
-              .slice(messageCountForSummary.current)
-              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-              .join('\n');
-          
-          const vaultStore = useVaultStore.getState();
-          const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk, vaultStore.vault);
-          setIntraSessionSummary(updatedSummary);
-          messageCountForSummary.current = updatedMessages.length;
-          currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özeti gönder
-      } else {
-          // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
-          const recentMessages = updatedMessages
-              .slice(messageCountForSummary.current)
-              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-              .join('\n');
-          currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
-      }
-
-      try {
-        const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-          ? therapistId as "therapist1" | "therapist3" | "coach1" 
-          : "therapist1";
-
-        // 5. AI'dan yanıt al.
-        const vaultStore = useVaultStore.getState();
-        const rawAiResponse = await generateTherapistReply(
-          validTherapistId,
-          userText,
-          currentChatHistoryForPrompt,
-          vaultStore.vault
-        );
-
-        // 6. ---- ÇÖZÜM BURADA: AI yanıtını temizle ----
-        const cleanedAiResponse = rawAiResponse.trim();
-
-        // 7. Temizlenmiş AI yanıtıyla son bir kez mesaj listesini güncelle.
-        const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: cleanedAiResponse };
-        setMessages(prev => [...prev, aiMessage]);
-        // 8. Temizlenmiş metni seslendir.
-        speakText(cleanedAiResponse, validTherapistId);
-
-      } catch (error) {
-        console.error('AI yanıt hatası:', error);
-        const errorMessage = "Üzgünüm, şu anda bir sorunla karşılaştım. Lütfen biraz sonra tekrar deneyin.".trim();
-        const aiErrorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage };
-        setMessages(prev => [...prev, aiErrorMessage]);
-        speakText(errorMessage, therapistId as string);
-      }
-    },
-    onSpeechStarted: () => {},
-    onSpeechEnded: () => {},
-    therapistId: therapistId as string,
-  });
-
-  /* ------------------------------ EFFECTS ------------------------------- */  // cleanup on unmount
-  useEffect(() => {
-    return () => {
-      cleanup(); // async fonksiyon, promise dönse de burada beklenmez
-    };
-  }, [cleanup]);
-
-  // Move onBackPress and handleSessionEnd to top-level
-  const handleSessionEnd = async () => {
-    await stopRecording?.();
-    // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
-    if (messages.length > 2) {
-      await logEvent({
-        type: 'voice_session',
-        mood: currentMood,
-        data: { therapistId, messages },
-      });
-    } else {
-      router.replace('/feel/after_feeling');
-      return;
-    }
-
-    // --- MAKRO HAFIZA İŞLEME RİTÜELİ ---
-    // Arka planda çalışması için bu bloğu bir try-catch içine alabiliriz.
-    try {
-      console.log("Hafıza işleme ritüeli başlıyor...");
-      const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
-
-      // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
-      const vaultStore = useVaultStore.getState();
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript, vaultStore.vault);
-      if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
-
-      // 2. Seyir Defterine Not Düş
-      await addJourneyLogEntry(memoryPieces.log);
-
-      // 3. Kasayı Güncelle
-      const currentVault = await getUserVault() || {};
-      const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
-      await updateUserVault(newVault);
-
-      console.log("Hafıza işleme ritüeli başarıyla tamamlandı.");
-    } catch (error) {
-      console.error("Seans sonu hafıza işleme hatası:", error);
-      // Bu hata, kullanıcının akışını engellememeli.
-    }
-    
-    // Kullanıcıyı bir sonraki ekrana yönlendir.
-    router.replace('/feel/after_feeling');
-  };
-  const onBackPress = () => {
-    Alert.alert(
-      'Seansı Sonlandır',
-      'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sonlandır',
-          style: 'destructive',
-          onPress: async () => {
-            await handleSessionEnd();
-          },
+    const { isRecording, isProcessing, startRecording, stopRecording, cleanup, speakText } = useVoiceSession({
+        onTranscriptReceived: async (userText) => {
+            if (!userText) return;
+            const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
+            const updatedMessages = [...messages, userMessage];
+            setMessages(updatedMessages);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const eventToProcess: EventPayload = {
+                type: 'voice_session',
+                data: {
+                    userMessage: userText,
+                    therapistId,
+                    initialMood: mood,
+                    intraSessionChatHistory: updatedMessages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n')
+                }
+            };
+            const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+            if (error || !aiReplyText) {
+                const errorMessage = "Üzgünüm, şu an bir sorun yaşıyorum.";
+                setMessages(prev => [...prev, { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage }]);
+                speakText(errorMessage, therapistId);
+            } else {
+                const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: aiReplyText };
+                setMessages(prev => [...prev, aiMessage]);
+                speakText(aiReplyText, therapistId);
+            }
         },
-      ]
-    );
-    return true;
-  };
+        therapistId,
+    });
 
-  const triggerPulse = (start: boolean = true) => {
-    if (start) {
-      pulseAnim.setValue(1);
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.2, duration: 400, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-        Animated.timing(pulseAnim, { toValue: 1.1, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-      ]).start();
-    } else {
-      Animated.spring(pulseAnim, {
-        toValue: 1,
-        friction: 4,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => {
-      subscription.remove();
+    const triggerPulse = (start: boolean = true) => {
+        if (start) {
+            pulseAnim.setValue(1);
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                ])
+            ).start();
+        } else {
+            pulseAnim.stopAnimation(() => {
+                Animated.spring(pulseAnim, { toValue: 1, useNativeDriver: true }).start();
+            });
+        }
     };
-  }, [messages, router, therapistId, currentMood]);
+
+    const handleSessionEnd = async () => {
+        await stopRecording?.();
+        if (messages.length > 1) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const sessionEndPayload: EventPayload = {
+                    type: 'voice_session',
+                    data: {
+                        isSessionEnd: true,
+                        therapistId,
+                        initialMood: mood,
+                        messages,
+                        transcript: messages.map(m => `${m.sender}: ${m.text}`).join('\n')
+                    }
+                };
+                await processUserMessage(user.id, sessionEndPayload);
+            }
+        }
+        router.replace('/feel/after_feeling');
+    };
+
+    const onBackPress = () => {
+        Alert.alert(
+            'Seansı Sonlandır',
+            'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
+            [
+                { text: 'İptal', style: 'cancel' },
+                {
+                    text: 'Sonlandır',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await handleSessionEnd();
+                    },
+                },
+            ]
+        );
+        return true;
+    };
+    useEffect(() => {
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, [messages, therapistId, mood]);
 
   /* ---------------------------- HELPERS --------------------------------- */
   const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -314,15 +188,15 @@ export default function VoiceSessionScreen() {
             styles.circle,
             {
               backgroundColor: isRecording ? '#F8FAFF' : '#fff',
-              borderColor: isSpeechProcessing ? '#FFD700' : (isRecording ? Colors.light.tint : '#E3E8F0'),
-              borderWidth: isRecording || isSpeechProcessing ? 2 : 1,
+              borderColor: isProcessing ? '#FFD700' : (isRecording ? Colors.light.tint : '#E3E8F0'),
+              borderWidth: isRecording || isProcessing ? 2 : 1,
               shadowColor: isRecording ? Colors.light.tint : '#B0B8C1',
               shadowOpacity: isRecording ? 0.13 : 0.07,
               transform: [{ scale: pulseAnim }],
             },
           ]}
         >
-          {isSpeechProcessing ? (
+          {isProcessing ? (
             <ActivityIndicator size="large" color={Colors.light.tint} />
           ) : (
             <>
@@ -343,17 +217,17 @@ export default function VoiceSessionScreen() {
 
         <View style={styles.controls}>
           <TouchableOpacity
-            disabled={isSpeechProcessing || isRecording}
+            disabled={isProcessing || isRecording}
             onPress={() => {
-              if (!isRecording && !isSpeechProcessing) {
+              if (!isRecording && !isProcessing) {
                 triggerPulse(true);
                 startRecording();
               }
             }}
-            style={[styles.button, isSpeechProcessing || isRecording ? styles.btnMuted : styles.btnActive]}
+            style={[styles.button, isProcessing || isRecording ? styles.btnMuted : styles.btnActive]}
             activeOpacity={0.85}
           >
-            <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={32} color={isSpeechProcessing || isRecording ? '#aaa' : Colors.light.tint} />
+            <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={32} color={isProcessing || isRecording ? '#aaa' : Colors.light.tint} />
           </TouchableOpacity>
           {isRecording && (
             <TouchableOpacity

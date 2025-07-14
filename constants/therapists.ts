@@ -1,3 +1,4 @@
+// constants/therapists.ts
 // Bu dosya, tüm uygulama genelinde terapist verilerini merkezi olarak tutar.
 
 export const therapists = {

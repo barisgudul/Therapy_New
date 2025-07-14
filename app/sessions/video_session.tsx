@@ -1,4 +1,5 @@
 // app/sessions/video_session.tsx
+
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,11 +7,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  Animated,
   BackHandler,
   Dimensions,
   Image,
-  PermissionsAndroid,
   Platform,
   StyleSheet,
   Text,
@@ -20,281 +19,133 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import { ALL_THERAPISTS, getTherapistByImageId } from '../../data/therapists';
+import { ALL_THERAPISTS, TherapistData, getTherapistById } from '../../data/therapists';
 import { useVoiceSession } from '../../hooks/useVoice';
-import {
-  analyzeSessionForMemory,
-  generateCumulativeSummary,
-  generateTherapistReply,
-  mergeVaultData,
-} from '../../services/ai.service';
-import { logEvent } from '../../services/event.service';
-import { addJourneyLogEntry } from '../../services/journey.service';
-import { getUserVault, updateUserVault } from '../../services/vault.service';
-import { useVaultStore } from '../../store/vaultStore';
+import { processUserMessage } from '../../services/api.service';
+import { EventPayload } from '../../services/event.service';
+import { supabase } from '../../utils/supabase';
 
 const { width, height } = Dimensions.get('window');
 const PIP_SIZE = 100;
 const BOUNDARY_TOP = 40;
 const BOUNDARY_BOTTOM = 200;
 const BOUNDARY_SIDE = 0;
-
-
-
-export type ChatMessage = {
-  id: string;
-  sender: 'user' | 'ai';
-  text: string;
-};
+export type ChatMessage = { id: string; sender: 'user' | 'ai'; text: string; };
 
 export default function VideoSessionScreen() {
-  // therapistId'nin yanına mood'u da ekle
-  const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
-  const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const [permission, requestPermission] = useCameraPermissions();
-  const [currentMood, setCurrentMood] = useState<string>('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [intraSessionSummary, setIntraSessionSummary] = useState('');
-  const messageCountForSummary = useRef(0);
+    const { therapistId, mood } = useLocalSearchParams<{ therapistId: string; mood?: string; }>();
+    const router = useRouter();
+    const colorScheme = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
-  // Doğru terapist objesini bul
-      const therapist = getTherapistByImageId(therapistId);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [selectedTherapist, setSelectedTherapist] = useState<TherapistData | null>(null);
+    const [permission, requestPermission] = useCameraPermissions();
+    const [cameraVisible, setCameraVisible] = useState(true);
+    const [pipPosition, setPipPosition] = useState({ x: width - PIP_SIZE - 20, y: 120 });
+    const [isDragging, setIsDragging] = useState(false);
+    const lastTouch = useRef({ x: 0, y: 0 });
 
-  const [cameraVisible, setCameraVisible] = useState(true);
-  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
-  const [volume, setVolume] = useState<number>(0);
-  const [pipPosition, setPipPosition] = useState({ x: width - PIP_SIZE - BOUNDARY_SIDE, y: 120 });
-  const [isDragging, setIsDragging] = useState(false);
-  const lastTouch = useRef({ x: 0, y: 0 });
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        if (therapistId) {
+            const therapist = getTherapistById(therapistId);
+            setSelectedTherapist(therapist || ALL_THERAPISTS[0]);
+        } else {
+            setSelectedTherapist(ALL_THERAPISTS[0]);
+        }
+    }, [therapistId]);
 
-  const handleTouchStart = (event: any) => {
-    const { pageX, pageY } = event.nativeEvent;
-    lastTouch.current = { x: pageX, y: pageY };
-    setIsDragging(true);
-  };
-
-  const handleTouchMove = (event: any) => {
-    if (!isDragging) return;
-
-    const { pageX, pageY } = event.nativeEvent;
-    const deltaX = pageX - lastTouch.current.x;
-    const deltaY = pageY - lastTouch.current.y;
-
-    const maxX = width - PIP_SIZE - BOUNDARY_SIDE;
-    const minX = BOUNDARY_SIDE;
-    const maxY = height - PIP_SIZE - BOUNDARY_BOTTOM;
-    const minY = BOUNDARY_TOP;
-
-    const newX = Math.min(Math.max(pipPosition.x + deltaX, minX), maxX);
-    const newY = Math.min(Math.max(pipPosition.y + deltaY, minY), maxY);
-
-    setPipPosition({ x: newX, y: newY });
-    lastTouch.current = { x: pageX, y: pageY };
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  // Mood'u parametreden alıp state'e ata
-  useEffect(() => {
-    if (mood) {
-      setCurrentMood(mood);
-    }
-  }, [mood]);
-
-  /* ---------------------------- VOICE HOOK ------------------------------ */
-  const {
-    isRecording,
-    isProcessing: isSpeechProcessing,
-    startRecording,
-    stopRecording,
-    cleanup,
-    speakText,
-  } = useVoiceSession({
-    onTranscriptReceived: async (userText) => {
-      if (!userText) return;
-
-      // 1. Kullanıcı mesajını anında UI'da göster
-      const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
-      const updatedMessagesWithUser = [...messages, userMessage];
-      setMessages(updatedMessagesWithUser);
-
-      // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) - Aynen kalıyor, doğru ---
-      let currentChatHistoryForPrompt = '';
-      const summaryTrigger = 7; 
-      if (updatedMessagesWithUser.length > messageCountForSummary.current + summaryTrigger) {
-          const conversationChunk = updatedMessagesWithUser
-              .slice(messageCountForSummary.current)
-              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-              .join('\n');
-          const vaultStore = useVaultStore.getState();
-        const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk, vaultStore.vault);
-          setIntraSessionSummary(updatedSummary);
-          messageCountForSummary.current = updatedMessagesWithUser.length;
-          currentChatHistoryForPrompt = updatedSummary;
-      } else {
-          const recentMessages = updatedMessagesWithUser
-              .slice(messageCountForSummary.current)
-              .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-              .join('\n');
-          currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
-      }
-
-      try {
-        const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-          ? therapistId as "therapist1" | "therapist3" | "coach1" 
-          : "therapist1";
-        const vaultStore = useVaultStore.getState();
-        const aiResponse = await generateTherapistReply(
-          validTherapistId,
-          userText,
-          currentChatHistoryForPrompt,
-          vaultStore.vault
-        );
-        const cleanedAiResponse = aiResponse.trim();
-        const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: cleanedAiResponse };
-        setMessages(prev => [...prev, aiMessage]);
-        speakText(cleanedAiResponse);
-      } catch (error) {
-        console.error('AI yanıt hatası:', error);
-        const errorMessage = "Üzgünüm, şu anda yanıt veremiyorum.";
-        const aiErrorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage };
-        setMessages(prev => [...prev, aiErrorMessage]);
-        speakText(errorMessage);
-      }
-    },
-    onSpeechStarted: () => Animated.timing(fadeAnim, { toValue: 1.1, duration: 400, useNativeDriver: true }).start(),
-    onSpeechEnded: () => Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start(),
-    onSoundLevelChange: (level) => setVolume(level),
-    therapistId: therapistId as string,
-  });
-
-  useEffect(() => {
-    requestPermissions();
-    return () => {
-      cleanup();
+    const handleTouchStart = (event: any) => {
+        setIsDragging(true);
+        lastTouch.current = { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY };
     };
-  }, []);
 
-  // Pulsing circle anim
-  useEffect(() => {
-    pulseAnim.setValue(1);
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: isRecording ? 1.1 : 1.2,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }, [isRecording]);
+    const handleTouchMove = (event: any) => {
+        if (!isDragging) return;
+        const { pageX, pageY } = event.nativeEvent;
+        const newX = pipPosition.x + (pageX - lastTouch.current.x);
+        const newY = pipPosition.y + (pageY - lastTouch.current.y);
+        lastTouch.current = { x: pageX, y: pageY };
+        const clampedX = Math.max(BOUNDARY_SIDE, Math.min(newX, width - PIP_SIZE - BOUNDARY_SIDE));
+        const clampedY = Math.max(BOUNDARY_TOP, Math.min(newY, height - PIP_SIZE - BOUNDARY_BOTTOM));
+        setPipPosition({ x: clampedX, y: clampedY });
+    };
 
-  const requestPermissions = async () => {
-    // Kamera izni
-    if (Platform.OS === 'android') {
-      const cameraGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.CAMERA,
-        {
-          title: 'Kamera İzni',
-          message: 'Görüntülü görüşme için kameraya erişim gerekiyor',
-          buttonPositive: 'Tamam',
-        }
-      );
+    const handleTouchEnd = () => setIsDragging(false);
 
-      const micGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: 'Mikrofon İzni',
-          message: 'Sesli terapi için mikrofona erişim gerekiyor',
-          buttonPositive: 'Tamam',
-        }
-      );
-      setMicPermissionGranted(micGranted === PermissionsAndroid.RESULTS.GRANTED);
-    } else {
-      await requestPermission();
-      setMicPermissionGranted(true);
-    }
-  };
-
-  // Move onBackPress and handleSessionEnd to top-level
-  const handleSessionEnd = async () => {
-    await stopRecording?.();
-    // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
-    if (messages.length > 2) {
-      await logEvent({
-        type: 'video_session',
-        mood: currentMood,
-        data: { therapistId, messages },
-      });
-    } else {
-      router.replace('/feel/after_feeling');
-      return;
-    }
-
-    // --- MAKRO HAFIZA İŞLEME RİTÜELİ ---
-    // Arka planda çalışması için bu bloğu bir try-catch içine alabiliriz.
-    try {
-      console.log("Hafıza işleme ritüeli başlıyor...");
-      const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
-
-      // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
-      const vaultStore = useVaultStore.getState();
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript, vaultStore.vault);
-      if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
-
-      // 2. Seyir Defterine Not Düş
-      await addJourneyLogEntry(memoryPieces.log);
-
-      // 3. Kasayı Güncelle
-      const currentVault = await getUserVault() || {};
-      const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
-      await updateUserVault(newVault);
-
-      console.log("Hafıza işleme ritüeli başarıyla tamamlandı.");
-    } catch (error) {
-      console.error("Seans sonu hafıza işleme hatası:", error);
-      // Bu hata, kullanıcının akışını engellememeli.
-    }
-    
-    // Kullanıcıyı bir sonraki ekrana yönlendir.
-    router.replace('/feel/after_feeling');
-  };
-
-  const onBackPress = () => {
-    Alert.alert(
-      'Seansı Sonlandır',
-      'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sonlandır',
-          style: 'destructive',
-          onPress: async () => {
-            await handleSessionEnd();
-          },
+    const { isRecording, startRecording, stopRecording, cleanup, speakText } = useVoiceSession({
+        onTranscriptReceived: async (userText) => {
+            if (!userText) return;
+            const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
+            const updatedMessages = [...messages, userMessage];
+            setMessages(updatedMessages);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const eventToProcess: EventPayload = {
+                type: 'video_session',
+                data: {
+                    userMessage: userText,
+                    therapistId,
+                    initialMood: mood,
+                    intraSessionChatHistory: updatedMessages.map(m => `${m.sender}: ${m.text}`).join('\n')
+                }
+            };
+            const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+            if (error || !aiReplyText) {
+                const errorMessage = "Üzgünüm, bir sorun oluştu.";
+                setMessages(prev => [...prev, { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage }]);
+                speakText(errorMessage, therapistId);
+            } else {
+                const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: aiReplyText };
+                setMessages(prev => [...prev, aiMessage]);
+                speakText(aiReplyText, therapistId);
+            }
         },
-      ]
-    );
-    return true;
-  };
+        therapistId,
+    });
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => {
-      subscription.remove();
+    const handleSessionEnd = async () => {
+        await stopRecording?.();
+        if (messages.length > 1) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const sessionEndPayload: EventPayload = {
+                    type: 'video_session',
+                    data: {
+                        isSessionEnd: true,
+                        therapistId,
+                        initialMood: mood,
+                        messages,
+                        transcript: messages.map(m => `${m.sender}: ${m.text}`).join('\n')
+                    }
+                };
+                await processUserMessage(user.id, sessionEndPayload);
+            }
+        }
+        router.replace('/feel/after_feeling');
     };
-  }, [messages, router, therapistId, currentMood]);
+
+    const onBackPress = () => {
+        Alert.alert(
+            'Seansı Sonlandır',
+            'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
+            [
+                { text: 'İptal', style: 'cancel' },
+                {
+                    text: 'Sonlandır',
+                    style: 'destructive',
+                    onPress: async () => {
+                        await handleSessionEnd();
+                    },
+                },
+            ]
+        );
+        return true;
+    };
+    useEffect(() => {
+        const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+        return () => subscription.remove();
+    }, [messages, therapistId, mood]);
 
   return (
     <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
@@ -311,14 +162,14 @@ export default function VideoSessionScreen() {
 
       <View style={styles.modalContainer}>
         <Image 
-                          source={therapist?.photo || ALL_THERAPISTS[0].photo} 
+                          source={selectedTherapist?.photo || ALL_THERAPISTS[0].photo} 
           style={styles.therapistImage}
         />
         <View style={styles.therapistInfoBox}>
           <Text style={styles.therapistName}> 
-            {therapist?.name || 'Terapist'}
+            {selectedTherapist?.name || 'Terapist'}
           </Text>
-          <Text style={styles.therapistTitle}>{therapist?.title}</Text>
+          <Text style={styles.therapistTitle}>{selectedTherapist?.title}</Text>
         </View>
       </View>
 

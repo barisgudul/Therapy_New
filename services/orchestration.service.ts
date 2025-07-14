@@ -3,7 +3,8 @@
 import { v4 as uuidv4 } from 'uuid';
 import { InteractionContext } from '../types/context';
 import * as AiService from './ai.service';
-import { AppEvent } from './event.service';
+import * as EventService from './event.service';
+import { EventPayload } from './event.service';
 import * as JourneyService from './journey.service';
 import * as VaultService from './vault.service';
 
@@ -11,23 +12,29 @@ import * as VaultService from './vault.service';
  * Kullanıcıdan gelen yeni bir terapi mesajını işler.
  * Bu fonksiyon, dinamik ve öğrenen bir AI beyni gibi davranır.
  */
-export async function processUserMessage(userId: string, event: AppEvent): Promise<string> {
+export async function processUserMessage(userId: string, eventPayload: EventPayload): Promise<string> {
   
   // 1. İŞLEM BAŞLIYOR: Bağlamı oluştur.
-  console.log(`[ORCHESTRATOR] Yeni işlem başlıyor: ${event.type}`);
+  console.log(`[ORCHESTRATOR] Yeni işlem başlıyor: ${eventPayload.type}`);
   const initialVault = await VaultService.getUserVault() ?? {};
   
   const context: InteractionContext = {
     transactionId: uuidv4(),
     userId,
     initialVault,
-    initialEvent: event,
+    initialEvent: {
+      ...eventPayload,
+      id: uuidv4(),
+      user_id: userId,
+      timestamp: Date.now(),
+      created_at: new Date().toISOString()
+    },
     derivedData: {},
   };
   
   // 2. AKILLI ORKESTRA ŞEFİ: Kullanıcının durumuna göre karar ver.
   try {
-    switch (event.type) {
+    switch (eventPayload.type) {
       case 'text_session':
       case 'voice_session':
       case 'video_session':
@@ -46,7 +53,7 @@ export async function processUserMessage(userId: string, event: AppEvent): Promi
         return await handleDailyReflection(context);
       
       default:
-        throw new Error(`Bilinmeyen event tipi: ${event.type}`);
+        throw new Error(`Bilinmeyen event tipi: ${eventPayload.type}`);
     }
     
   } catch (error) {
@@ -143,34 +150,41 @@ function analyzeMoodTrend(context: InteractionContext): string | null {
  * Akıllı terapi seansı akışı
  */
 async function handleTherapySession(context: InteractionContext): Promise<string> {
-  console.log(`[ORCHESTRATOR] Akıllı terapi seansı başlatılıyor: ${context.transactionId}`);
-  
-  // Adım 1: Kullanıcının durumuna göre terapist yanıtı üret
-  const reply = await selectTherapistFunction(context);
-  context.derivedData.generatedReply = reply;
-  
-  // Adım 2: Mood trend'ini analiz et
-  const moodTrend = analyzeMoodTrend(context);
-  if (moodTrend) {
-    context.derivedData.moodTrend = moodTrend;
-    console.log(`[ORCHESTRATOR] Mood trend tespit edildi: ${moodTrend}`);
-  }
-  
-  // Adım 3: Seans hafıza analizi yap
-  const memory = await AiService.analyzeSessionForMemory(context);
-  if (memory) {
-    context.derivedData.identifiedThemes = memory.vaultUpdate?.themes;
-    if (memory.vaultUpdate) {
-      const updatedVault = AiService.mergeVaultData(context.initialVault, memory.vaultUpdate);
-      await VaultService.updateUserVault(updatedVault);
+  const isSessionEnd = context.initialEvent.data.isSessionEnd === true;
+
+  if (isSessionEnd) {
+    console.log(`[ORCHESTRATOR] Seans sonu hafıza işlemi başlatılıyor: ${context.transactionId}`);
+    await EventService.logEvent({
+      type: context.initialEvent.type,
+      mood: context.initialEvent.data.finalMood,
+      data: {
+        therapistId: context.initialEvent.data.therapistId,
+        messages: context.initialEvent.data.messages,
+        // Diğer önemli meta-veriler...
+      }
+    });
+    const memory = await AiService.analyzeSessionForMemory(context);
+    if (memory) {
+      if (memory.vaultUpdate) {
+        const updatedVault = AiService.mergeVaultData(context.initialVault, memory.vaultUpdate);
+        await VaultService.updateUserVault(updatedVault);
+      }
+      if (memory.log) {
+        await JourneyService.addJourneyLogEntry(memory.log);
+      }
     }
-    if (memory.log) {
-      await JourneyService.addJourneyLogEntry(memory.log);
+    console.log(`[ORCHESTRATOR] Seans sonu işlemi tamamlandı.`);
+    return "SESSION_ENDED_OK";
+  } else {
+    console.log(`[ORCHESTRATOR] Seans içi yanıt üretiliyor: ${context.transactionId}`);
+    const reply = await selectTherapistFunction(context);
+    context.derivedData.generatedReply = reply;
+    const moodTrend = analyzeMoodTrend(context);
+    if (moodTrend) {
+      context.derivedData.moodTrend = moodTrend;
     }
+    return reply;
   }
-  
-  console.log(`[ORCHESTRATOR] Akıllı terapi seansı tamamlandı: ${context.transactionId}`);
-  return reply;
 }
 
 /**

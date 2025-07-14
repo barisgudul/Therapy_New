@@ -20,12 +20,10 @@ import {
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
-import { ALL_THERAPISTS, getTherapistByImageId } from '../../data/therapists';
-import { analyzeSessionForMemory, generateCumulativeSummary, generateTherapistReply, mergeVaultData } from '../../services/ai.service';
-import { logEvent } from '../../services/event.service';
-import { addJourneyLogEntry } from '../../services/journey.service';
-import { getUserVault, updateUserVault } from '../../services/vault.service';
-import { useVaultStore } from '../../store/vaultStore';
+import { ALL_THERAPISTS, getTherapistById } from '../../data/therapists';
+import { processUserMessage } from '../../services/api.service'; // <-- Artık api.service'den
+import { EventPayload } from '../../services/event.service';
+import { supabase } from '../../utils/supabase';
 
 
 export default function TextSessionScreen() {
@@ -100,41 +98,26 @@ export default function TextSessionScreen() {
   const handleSessionEnd = async () => {
     // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
     if (messages.length > 2) {
-      await logEvent({
-        type: 'text_session',
-        mood: currentMood,
-        data: { therapistId, messages }
-      });
+      // Sadece Orkestratör'ü bilgilendir. logEvent yok!
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const sessionEndPayload: EventPayload = {
+          type: 'text_session',
+          data: {
+            therapistId,
+            initialMood: mood,
+            finalMood: currentMood,
+            transcript: messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n'),
+            messages,
+            isSessionEnd: true
+          }
+        };
+        await processUserMessage(user.id, sessionEndPayload);
+      }
     } else {
       router.replace('/feel/after_feeling');
       return;
     }
-
-    // --- MAKRO HAFIZA İŞLEME RİTÜELİ ---
-    // Arka planda çalışması için bu bloğu bir try-catch içine alabiliriz.
-    try {
-      console.log("Hafıza işleme ritüeli başlıyor...");
-      const fullTranscript = messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n');
-
-      // 1. Bilinci Damıt: AI'dan hafıza parçacıklarını iste
-      const vaultStore = useVaultStore.getState();
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript, vaultStore.vault);
-      if (!memoryPieces) throw new Error("Hafıza parçacıkları oluşturulamadı.");
-
-      // 2. Seyir Defterine Not Düş
-      await addJourneyLogEntry(memoryPieces.log);
-
-      // 3. Kasayı Güncelle
-      const currentVault = await getUserVault() || {};
-      const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
-      await updateUserVault(newVault);
-
-      console.log("Hafıza işleme ritüeli başarıyla tamamlandı.");
-    } catch (error) {
-      console.error("Seans sonu hafıza işleme hatası:", error);
-      // Bu hata, kullanıcının akışını engellememeli.
-    }
-    
     // Kullanıcıyı bir sonraki ekrana yönlendir.
     router.replace('/feel/after_feeling');
   };
@@ -173,7 +156,7 @@ export default function TextSessionScreen() {
 
     // 2. Terapist bilgisini merkezi 'ALL_THERAPISTS' dizisinden ID ile bul
     if (therapistId) {
-        const therapist = getTherapistByImageId(therapistId);
+        const therapist = getTherapistById(therapistId);
         setSelectedTherapist(therapist);
     } else {
         // ID gelmezse bir varsayılan ata (güvenlik önlemi)
@@ -186,72 +169,44 @@ const sendMessage = async () => {
   const trimmedInput = input.trim();
   if (!trimmedInput || isTyping) return;
 
-  setInput(''); // Input'u hemen temizle
+  setInput('');
 
   const userMessage = { sender: 'user' as const, text: trimmedInput };
-  const newMessagesForUI = [...messages, userMessage];
-  
-  // UI'ı anında kullanıcı mesajıyla güncelle
-  setMessages(newMessagesForUI);
+  setMessages(prev => [...prev, userMessage]);
   setIsTyping(true);
 
-  // --- MİKRO YÖNETİM (SEANS İÇİ ÖZETLEME) ---
-  let currentChatHistoryForPrompt = '';
-  const summaryTrigger = 7; // Her 7 mesajda bir
+  // Tüm konuşma geçmişini hazırla
+  const fullConversationHistory = [...messages, userMessage]
+    .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
+    .join('\n');
 
-  // Mevcut seans içindeki tüm mesajlar AI'a gönderilmeden önce özetleniyor
-  if (newMessagesForUI.length > messageCountForSummary.current + summaryTrigger) {
-      const conversationChunk = newMessagesForUI
-          .slice(messageCountForSummary.current)
-          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-          .join('\n');
-      
-              const vaultStore = useVaultStore.getState();
-        const updatedSummary = await generateCumulativeSummary(intraSessionSummary, conversationChunk, vaultStore.vault);
-      setIntraSessionSummary(updatedSummary);
-      messageCountForSummary.current = newMessagesForUI.length;
-      currentChatHistoryForPrompt = updatedSummary; // Prompt'a sadece güncel özete gönder
-  } else {
-      // Henüz özetleme zamanı gelmediyse, önceki özete son mesajları ekle
-      const recentMessages = newMessagesForUI
-          .slice(messageCountForSummary.current)
-          .map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`)
-          .join('\n');
-      currentChatHistoryForPrompt = `${intraSessionSummary}\n${recentMessages}`;
-  }
-  
-  // --- AI YANITINI AL ---
-  try {
-    const validTherapistId = (therapistId === "therapist1" || therapistId === "therapist3" || therapistId === "coach1") 
-      ? therapistId as "therapist1" | "therapist3" | "coach1" 
-      : "therapist1";
-    
-    const vaultStore = useVaultStore.getState();
-    const aiReplyText = await generateTherapistReply(
-      validTherapistId,
-      trimmedInput,
-      currentChatHistoryForPrompt,
-      vaultStore.vault
-    );
+  const eventToProcess: EventPayload = {
+    type: 'text_session',
+    data: {
+      userMessage: trimmedInput,
+      intraSessionChatHistory: fullConversationHistory,
+      therapistId,
+      initialMood: mood,
+    }
+  };
 
-    const aiMessage = { 
-      sender: 'ai' as const, 
-      text: aiReplyText || "Kusura bakma, bir yanıt oluşturamadım."
-    };
-    
-    // Şimdi de AI'ın yanıtını ekleyerek UI'ı tekrar güncelle
-    setMessages(prev => [...prev, aiMessage]);
-
-  } catch (err) {
-    console.error("generateTherapistReply hatası:", err);
-    const errorMessage = { 
-      sender: 'ai' as const, 
-      text: "Üzgünüm, bir sorunla karşılaştım."
-    };
-    setMessages(prev => [...prev, errorMessage]);
-  } finally {
+  const { data: { user } } = await supabase.auth.getUser();
+  if(!user) {
     setIsTyping(false);
+    return;
   }
+
+  const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+
+  if (error || !aiReplyText) {
+    console.error("[sendMessage API] Hatası:", error);
+    const errorMessage = { sender: 'ai' as const, text: error || "Bir sorun oluştu." };
+    setMessages(prev => [...prev, errorMessage]);
+  } else {
+    const aiMessage = { sender: 'ai' as const, text: aiReplyText };
+    setMessages(prev => [...prev, aiMessage]);
+  }
+  setIsTyping(false);
 };
 
   return (
