@@ -20,13 +20,17 @@ import {
 // @ts-ignore
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
+import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
+import { useAuth } from '../context/Auth';
 import { generateStructuredAnalysisReport } from '../services/ai.service';
-import { AppEvent, deleteEventById, getAIAnalysisEvents, getEventsForLast, getOldestEventDate, logEvent } from '../services/event.service';
+import { AppEvent, deleteEventById, getAIAnalysisEvents, getOldestEventDate, logEvent } from '../services/event.service';
 import { useVaultStore } from '../store/vaultStore';
+import { InteractionContext } from '../types/context';
 
 export default function AISummaryScreen() {
+  const { user } = useAuth();
   const router = useRouter();
 
   const [maxDays, setMaxDays] = useState(7);
@@ -83,31 +87,39 @@ export default function AISummaryScreen() {
 
 const fetchSummary = async () => {
   if (loading) return;
-  setLoading(true); // İLK SATIR - Hemen yükleme durumunu başlat
-  
+  setLoading(true);
+
   try {
-    // Vault store'un yüklü olduğundan emin ol
-    const vaultStore = useVaultStore.getState();
-    if (vaultStore.isLoading || !vaultStore.vault) {
-      console.log('🔄 [AI-SUMMARY] Vault yükleniyor...');
-      await vaultStore.fetchVault();
+    const vault = useVaultStore.getState().vault;
+    if (!vault) {
+      throw new Error("Vault verisi bulunamadı, analiz başlatılamıyor.");
     }
 
-    const eventsForAnalysis = await getEventsForLast(selectedDays);
-    if (eventsForAnalysis.length < 3) {
-      Alert.alert("Yetersiz Veri", `Seçilen ${selectedDays} günlük periyotta analiz edilecek yeterli olay bulunamadı. En az 3 farklı olay gerekli.`);
-      setLoading(false);
-      return;
-    }
+    // Adım 1: InteractionContext objesini TAM ve DOĞRU bir şekilde oluştur.
+    const context: InteractionContext = {
+      transactionId: uuidv4(),
+      userId: user!.id, // user'ın yüklendiğinden eminiz (_layout sayesinde)
+      initialVault: vault,
+      initialEvent: {
+        id: uuidv4(),
+        user_id: user!.id, // Babasız çocuk yok. Herkesin kimliği belli.
+        type: 'ai_analysis', // Bu olay bir analiz isteğidir.
+        timestamp: Date.now(),
+        created_at: new Date().toISOString(),
+        data: {
+          days: selectedDays, // Beynin bekledeği veri bu. Kaç gün olduğu.
+        },
+      },
+      derivedData: {}
+    };
 
-    console.log(`📊 [AI-SUMMARY] ${eventsForAnalysis.length} olay analiz ediliyor...`);
-    const result = await generateStructuredAnalysisReport(selectedDays, vaultStore.vault);
+    console.log(`📊 [AI-SUMMARY] ${selectedDays} günlük analiz için beyne komut gönderiliyor...`);
+    const result = await generateStructuredAnalysisReport(context); // <<< BEYNE TEK, KUTSAL BİR ARGÜMAN GİDİYOR.
 
-    // ---- ANA BAĞLANTI NOKTASI ----
-    // Analiz sonucunu yeni bir olay olarak Supabase'e kaydet.
+    // ---- Hafıza Döngüsünü Mühürle ----
     const newAnalysisEventId = await logEvent({
         type: 'ai_analysis',
-        mood: 'neutral', // veya analizden bir mood çıkarılabilir
+        mood: 'neutral', // Bu analizlerin bir ruh hali olmaz.
         data: {
             text: result.trim(),
             analyzedDays: selectedDays,
@@ -115,24 +127,24 @@ const fetchSummary = async () => {
     });
 
     if (newAnalysisEventId) {
-        // Yeni oluşturulan olayı hemen listeye ekleyerek anında UI güncellemesi sağla
+        // Optimistik UI: Yeni oluşturulan olayı hemen listeye ekle.
         const newEvent: AppEvent = {
             id: newAnalysisEventId,
             type: 'ai_analysis',
-            user_id: '', // getUser ile alınabilir ama UI için şart değil
+            user_id: user!.id,
             timestamp: Date.now(),
             created_at: new Date().toISOString(),
             data: { text: result.trim(), analyzedDays: selectedDays }
         };
         setAnalysisEvents(prevEvents => [newEvent, ...prevEvents]);
-        console.log('✅ [AI-SUMMARY] Yeni analiz başarıyla oluşturuldu ve kaydedildi.');
+        console.log('✅ [AI-SUMMARY] Yeni analiz başarıyla oluşturuldu ve kalıcı hafızaya kaydedildi.');
     }
 
     setActiveSummary(result.trim());
     setModalVisible(true);
 
-  } catch (e) {
-    console.error("❌ [AI-SUMMARY] Bütünsel İçgörü Raporu oluşturma hatası:", e);
+  } catch (e: any) {
+    console.error("❌ [AI-SUMMARY] Bütünsel İçgörü Raporu oluşturma hatası:", e.message);
     Alert.alert("Hata", "Analiz oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.");
   } finally {
     setLoading(false);

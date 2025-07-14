@@ -30,10 +30,14 @@ import {
   View
 } from 'react-native';
 
+import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
+import { useAuth } from '../context/Auth';
 import { generateDailyReflectionResponse } from '../services/ai.service';
 import { logEvent } from '../services/event.service';
 import { useVaultStore } from '../store/vaultStore';
+import { InteractionContext } from '../types/context';
+import { getErrorMessage } from '../utils/errors';
 
 
 //-------------------------------------------------------------
@@ -274,46 +278,87 @@ export default function DailyWriteScreen() {
 
   const animatePress = () => { Animated.sequence([ Animated.timing(scaleAnim, { toValue: 0.96, duration: 120, useNativeDriver: true }), Animated.spring(scaleAnim, { toValue: 1, friction: 5, useNativeDriver: true }), ]).start(); };
 
+  const { user } = useAuth();
+  const vault = useVaultStore((s) => s.vault);
+  const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault);
+
   async function saveSession() {
     if (!note || saving) return;
     setSaving(true);
-    setAiMessage('AI analiz ediyor...');
+    setAiMessage('Size özel bir yansıma hazırlanıyor...');
     setFeedbackVisible(true);
+    
     try {
-      const vaultStore = useVaultStore.getState();
-      const personalized = await generateDailyReflectionResponse(note, MOOD_LEVELS[moodValue].label, vaultStore.vault);
+      const todayMood = MOOD_LEVELS[moodValue].label;
+
+      // Adım 1: Backend'in beklediği InteractionContext objesini TAM VE DOĞRU oluştur.
+      const context: InteractionContext = {
+        transactionId: uuidv4(),
+        userId: user?.id || '',
+        initialVault: vault!,
+        initialEvent: {
+          id: uuidv4(),
+          user_id: user?.id || '',
+          type: 'daily_reflection',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          data: {
+            todayNote: note,
+            todayMood: todayMood
+          }
+        },
+        derivedData: {}
+      };
+
+      // Adım 2: Doğru şekilde beyni çağır.
+      const personalized = await generateDailyReflectionResponse(context);
       setAiMessage(personalized);
+
     } catch (err) {
-      setAiMessage('Sunucu hatası, lütfen tekrar deneyin.');
+      console.error("AI yansıması oluşturulurken hata:", getErrorMessage(err));
+      setAiMessage('Şu anda bir sorun oluştu. Lütfen daha sonra tekrar deneyin.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   async function closeFeedback() {
     setFeedbackVisible(false);
-    const mood = MOOD_LEVELS[moodValue].label;
+    
+    const todayMood = MOOD_LEVELS[moodValue].label;
+    const todayString = new Date().toISOString().split('T')[0];
 
     try {
-      // 1. SADECE Merkezi Olay Kaydını Yap.
+      // Adım 1: Merkezi olay kaydı (Bu zaten doğruydu)
       await logEvent({
         type: 'daily_reflection',
-        mood: mood,
-        data: {
-          text: note,         // veri yapısını standartlaştıralım, 'text' olsun
-          aiResponse: aiMessage // AI'ın cevabını da kaydedelim, çok değerli bir veri!
-        }
+        mood: todayMood,
+        data: { text: note, aiResponse: aiMessage }
       });
-      console.log('✅ Günlük yansıması merkezi olarak kaydedildi.');
+
+      // Adım 2: KALICI HAFIZAYI (Vault) GÜNCELLEME EMRİ
+      const currentVault = useVaultStore.getState().vault;
+      if (currentVault) {
+        const newVault = {
+          ...currentVault,
+          metadata: {
+            ...currentVault.metadata,
+            lastDailyReflectionDate: todayString, // Bugünün tarihi
+            dailyMessageContent: aiMessage        // GÜNÜN MESAJI!
+          }
+        };
+        await updateAndSyncVault(newVault);
+        console.log('✅ Günlük yansıma Vault\'a başarıyla işlendi.');
+      }
 
     } catch (err) {
-      console.error("Günlük yansıması kaydı sırasında hata:", err);
-      // Hata olsa bile kullanıcıyı ana ekrana yönlendir.
+      console.error("Günlük yansıması kaydı/güncellemesi sırasında hata:", err);
     }
-    // 2. Ekranı Temizle ve Ana Sayfaya Dön.
+
+    // Adım 3: Ekranı temizle ve ana menüye dön
     setNote('');
-    setInputVisible(false);
     setAiMessage('');
-    router.replace('/'); // replace kullanarak geri tuşuyla bu sayfaya dönmesini engelle
+    router.replace('/');
   }
 
   // Animasyon stilleri

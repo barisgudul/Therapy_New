@@ -16,12 +16,15 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
+import { useAuth } from '../context/Auth';
 import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../services/ai.service';
 import { AppEvent, canUserWriteNewDiary, deleteEventById, getEventsForLast, logEvent } from '../services/event.service';
 import { addJourneyLogEntry } from '../services/journey.service';
-import { getUserVault, updateUserVault } from '../services/vault.service';
 import { useVaultStore } from '../store/vaultStore';
+import { InteractionContext } from '../types/context';
+import { getErrorMessage } from '../utils/errors';
 
 interface Message {
   text: string;
@@ -31,6 +34,9 @@ interface Message {
 
 export default function DiaryScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const vault = useVaultStore((state) => state.vault);
+  const updateAndSyncVault = useVaultStore((state) => state.updateAndSyncVault);
   const [isWritingMode, setIsWritingMode] = useState(false);
   const [isViewingDiary, setIsViewingDiary] = useState(false);
   const [selectedDiary, setSelectedDiary] = useState<AppEvent | null>(null);
@@ -88,46 +94,81 @@ export default function DiaryScreen() {
     setMessages(prev => [...prev, newMessage]);
   };
 
-  // İlk Adım: handleInitialEntry - Kullanıcı ilk metnini modal'dan gönderdiğinde çalışır.
+  // Adım 1: Kullanıcı ilk metnini yazdığında.
   const handleInitialEntry = async () => {
     if (!currentInput.trim()) return;
+    setIsLoading(true);
+    addMessage(currentInput, true);
 
-    setIsLoading(true); // ActivityIndicator'ı tetikler
-    addMessage(currentInput, true); // Kullanıcının ilk yazısını ekrana bas
-    
-    const { mood, questions } = await generateDiaryStart(currentInput);
-    // Gelen mood'u bir state'te tutabiliriz, kaydederken kullanmak üzere.
-    // setDiaryMood(mood); 
+    try {
+      const context: InteractionContext = {
+        transactionId: uuidv4(),
+        userId: user!.id,
+        initialVault: vault!,
+        initialEvent: {
+          id: uuidv4(),
+          user_id: user!.id,
+          type: 'diary_entry',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          data: { initialEntry: currentInput.trim() },
+        },
+        derivedData: {},
+      };
 
-    setCurrentQuestions(questions); // AI'dan gelen 3 soruyu state'e ata
-    setStep(1); // Bir sonraki adıma geç
-    setCurrentInput(''); // Input'u temizle
+      const { mood, questions } = await generateDiaryStart(context);
+      setCurrentQuestions(questions);
+      setStep(1);
+
+    } catch (error) {
+      console.error("Günlük başlatma hatası:", getErrorMessage(error));
+      addMessage("Şu anda bir sorun oluştu, lütfen daha sonra tekrar deneyin.", false);
+    }
+
+    setCurrentInput('');
     setIsLoading(false);
-    handleModalClose(); // Modalı kapatıp, ana ekranda soru butonlarını göster
+    handleModalClose();
   };
 
-  // Orta Adımlar: handleQuestionResponse - Kullanıcı bir soru seçip modal'dan cevap verdiğinde çalışır.
+  // Adım 2: Kullanıcı bir AI sorusuna cevap verdiğinde.
   const handleQuestionResponse = async () => {
     if (!currentInput.trim()) return;
-
     setIsLoading(true);
-    // Seçilen soruyu ve kullanıcının cevabını ekrana bas
-    addMessage(selectedQuestion, false); // Soruyu AI mesajı gibi göster
-    addMessage(currentInput, true);     // Cevabı kullanıcı mesajı gibi göster
+    addMessage(selectedQuestion, false);
+    addMessage(currentInput, true);
 
-    if (step < 3) {
-      // Bir sonraki soru setini oluştur
-      const conversationHistory = [...messages, {text: currentInput, isUser: true, timestamp: 0}]
-        .map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`)
+    try {
+      const history = [...messages, { text: currentInput, isUser: true, timestamp: 0 }]
+        .map(m => `${m.isUser ? 'User' : 'AI'}: ${m.text}`)
         .join('\n');
-        
-      const nextQuestions = await generateDiaryNextQuestions(conversationHistory);
+
+      const context: InteractionContext = {
+        transactionId: uuidv4(),
+        userId: user!.id,
+        initialVault: vault!,
+        initialEvent: {
+          id: uuidv4(),
+          user_id: user!.id,
+          type: 'diary_entry',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          data: { conversationHistory: history },
+        },
+        derivedData: {},
+      };
+
+      const nextQuestions = await generateDiaryNextQuestions(context);
       setCurrentQuestions(nextQuestions);
       setStep(prev => prev + 1);
-    } else {
-      // 3. soru da cevaplandı, tamamlama adımına geç.
-      setCurrentQuestions([]);
-      setStep(4);
+
+      if (step >= 3) {
+        setCurrentQuestions([]);
+        setStep(4);
+        addMessage("Bu derinlemesine keşif için teşekkürler. Dilersen bu anlamlı sohbeti günlüğüne kaydedebilirsin.", false);
+      }
+    } catch (error) {
+      console.error("Sonraki soruları üretme hatası:", getErrorMessage(error));
+      addMessage("Cevabını işlerken bir sorun oluştu. Lütfen kaydetmeyi dene veya baştan başla.", false);
     }
 
     setCurrentInput('');
@@ -136,49 +177,61 @@ export default function DiaryScreen() {
     handleModalClose();
   };
 
-  // Günlük kaydetme fonksiyonu
+  // Adım 3: Günlüğü kalıcı hafızaya işleme.
   const saveDiary = async () => {
     if (messages.length === 0 || isSaving) return;
-    setSaveModalVisible(true);
     setIsSaving(true);
-    
-    // 1. HAM GÜNLÜĞÜ KAYDET
-    // Artık messages dizisi tüm diyalogu içeriyor.
-    const loggedEventId = await logEvent({
-      type: 'diary_entry',
-      mood: 'belirsiz', // Basit mood, daha sonra iyileştirilebilir
-      data: { 
-        messages: messages // Bu, kullanıcının tekrar okuması için.
-      }
-    });
+    setSaveModalVisible(true);
 
-    // 2. HASAT: Arka planda Kolektif Bilinç'i besle
+    let loggedEventId = null;
+
     try {
+      // 1. Orijinal sohbeti olduğu gibi kaydet. Bu, kullanıcının günlüğü.
+      loggedEventId = await logEvent({
+        type: 'diary_entry',
+        mood: 'mixed',
+        data: { messages: messages }
+      });
+      console.log("✅ Günlük diyaloğu ham olarak kaydedildi:", loggedEventId);
+
+      // 2. HASAT: Bu sohbetten anlam çıkarıp uzun süreli belleği (Vault) besle.
       const fullTranscript = messages.map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`).join('\n');
-      
-      // Bu zenginleştirilmiş metni işlemek için analyzeSessionForMemory kullanabiliriz.
-      const memoryPieces = await analyzeSessionForMemory(fullTranscript, useVaultStore.getState().vault); 
+      const memoryContext: InteractionContext = {
+        transactionId: uuidv4(),
+        userId: user!.id,
+        initialVault: vault!,
+        initialEvent: {
+          id: loggedEventId || uuidv4(),
+          user_id: user!.id,
+          type: 'diary_entry',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          data: { transcript: fullTranscript }
+        },
+        derivedData: {},
+      };
 
+      const memoryPieces = await analyzeSessionForMemory(memoryContext);
+
+      // 3. ENTEGRASYON: Çıkarılan anlamı Vault ve Journey Log'a işle.
       if (memoryPieces) {
-        const logEntry = `Bir günlük keşfi yapıldı. Ana tema: ${memoryPieces.log}`;
-        await addJourneyLogEntry(logEntry);
-
-        const currentVault = await getUserVault() || {};
-        const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
-        await updateUserVault(newVault);
+        await addJourneyLogEntry(memoryPieces.log);
+        const newVault = mergeVaultData(vault!, memoryPieces.vaultUpdate);
+        await updateAndSyncVault(newVault);
+        console.log("✅ Günlükten çıkarılan anlam Vault'a işlendi.");
       }
-    } catch (e) {
-      console.error("Günlük sonrası hafıza işleme hatası:", e);
+
+    } catch(error) {
+      console.error("Günlüğü kaydederken veya işlerken hata:", getErrorMessage(error));
+      Alert.alert("Kayıt Hatası", "Günlüğün kaydedilirken bir sorun oluştu.");
     }
-    
-    // 3. EKRANI TEMİZLE VE ÇIKIŞ YAP
+
+    // 4. Nihai temizlik ve çıkış
     await loadDiaryEvents();
     setIsSaving(false);
     setSaveModalVisible(false);
     setIsWritingMode(false);
     setMessages([]);
-    setCurrentInput('');
-    setCurrentQuestions([]);
     setStep(0);
   };
 
@@ -247,15 +300,28 @@ export default function DiaryScreen() {
           text: 'Sil',
           style: 'destructive',
           onPress: async () => {
+            if (!selectedDiary) return;
+
+            const eventToDeleteId = selectedDiary.id;
+            const originalDiaryEvents = [...diaryEvents]; // Geri alma ihtimaline karşı listenin bir kopyasını al
+
+            // ADIM 1: UI'I ANINDA GÜNCELLE (İYİMSER OL)
+            setDiaryEvents(prev => prev.filter(e => e.id !== eventToDeleteId));
+            setSelectedDiary(null); // Görüntüleme ekranından çık
+            setIsViewingDiary(false);
+            console.log(`[OPTIMISTIC-UI] Günlük (${eventToDeleteId}) arayüzden anında kaldırıldı.`);
+
+            // ADIM 2: ARKA PLANDA BACKEND'İ ÇAĞIR
             try {
-              await deleteEventById(selectedDiary.id);
-              await loadDiaryEvents(); // Listeyi yenile
-              setSelectedDiary(null);
-              setIsViewingDiary(false);
-              Alert.alert('Başarılı', 'Günlük başarıyla silindi.');
+                await deleteEventById(eventToDeleteId);
+                console.log(`✅ [DB-DELETE] Günlük (${eventToDeleteId}) veritabanından başarıyla silindi.`);
+                // Başarılı olduğunda bir şey yapmaya gerek yok, çünkü UI zaten güncel.
             } catch (error) {
-              console.error('Günlük silinirken hata:', error);
-              Alert.alert('Hata', 'Günlük silinirken bir hata oluştu.');
+                console.error("⛔️ [DB-DELETE-FAIL] Günlük silme işlemi backend'de başarısız oldu:", error);
+                Alert.alert('Hata', 'Günlük silinirken bir sorun oluştu. Lütfen tekrar deneyin.');
+
+                // ADIM 3: BAŞARISIZ OLURSA HER ŞEYİ GERİ AL
+                setDiaryEvents(originalDiaryEvents);
             }
           },
         },
@@ -395,7 +461,7 @@ export default function DiaryScreen() {
               </Text>
             </View>
             <View style={styles.writingPageContent}>
-              {selectedDiary?.data?.messages?.map((message: any, index: number) => (
+              {selectedDiary?.data?.messages?.map((message: Message, index: number) => (
                 <View key={index} style={styles.writingMessageBlock}>
                   <View style={styles.writingMessageHeader}>
                     <Ionicons 
