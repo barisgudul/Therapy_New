@@ -1,9 +1,11 @@
 // services/ai.service.ts
-import { ApiError, isAppError } from '../utils/errors';
+import { ZodSchema, z } from 'zod';
+import { InteractionContext } from '../types/context';
+import { ApiError, ValidationError, getErrorMessage, isAppError } from '../utils/errors';
 import { parseAndValidateJson } from '../utils/jsonValidator';
 import { DiaryStart, DiaryStartSchema, DreamAnalysisResult, DreamAnalysisSchema, NextQuestionsSchema, SessionMemory, SessionMemorySchema } from "../utils/schemas";
 import { supabase } from '../utils/supabase';
-import { fetchAndValidateAnalysisEvents } from './analysis_pipeline/1_fetcher';
+import { fetchMinimumRequiredEvents } from './analysis_pipeline/1_fetcher';
 import { processAndCompressEvents } from './analysis_pipeline/2_processor';
 import { buildFinalPrompt } from './analysis_pipeline/3_builder';
 import { getRecentJourneyLogEntries } from './journey.service';
@@ -25,106 +27,86 @@ type GenerationConfig = {
 // === ZOD DOĞRULAMALI FONKSİYONLAR ===
 // -------------------------------------------------------------
 
-// --- GÜNLÜK AKIŞI: Başlangıç ---
-export async function generateDiaryStart(initialEntry: string): Promise<DiaryStart> {
-    // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
-    const fallback: DiaryStart = { mood: "belirsiz", questions: ["Bu hissin kaynağı ne olabilir?", "Bu durumla ilgili neyi değiştirmek isterdin?", "Bu konu hakkında başka kimseyle konuştun mu?"] };
-    const prompt = `
-        Bir kullanıcının günlük başlangıç yazısını analiz et. Görevin:
-        1. Yazıdaki baskın duyguyu tek kelimeyle belirle (mood).
-        2. Bu duygu ve metinden yola çıkarak, kullanıcının daha derine inmesini sağlayacak 3 farklı ve açık uçlu soru üret (questions).
-
-        METİN: "${initialEntry}"
-
-        ÇIKTI (Sadece JSON): { "mood": "belirlediğin_duygu", "questions": ["soru1", "soru2", "soru3"] }`;
-    const config: GenerationConfig = { responseMimeType: 'application/json', temperature: 0.5 };
-
+async function invokeAndValidate<T extends ZodSchema>(
+    prompt: string, 
+    model: string, 
+    schema: T, 
+    config?: GenerationConfig
+): Promise<z.infer<T>> {
     try {
-        const jsonString = await invokeGemini(prompt, FAST_MODEL, config);
-        return parseAndValidateJson(jsonString, DiaryStartSchema) || fallback;
-    } catch (err) {
-        console.error("generateDiaryStart API çağrı hatası:", err);
-        throw new ApiError("Günlük başlangıç analizi oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+        const jsonString = await invokeGemini(prompt, model, config);
+        const result = parseAndValidateJson(jsonString, schema);
+        if (result === null) {
+            throw new ValidationError("Yapay zekadan gelen veri beklenen formata uymuyor.");
+        }
+        return result;
+    } catch (error) {
+        if (isAppError(error)) throw error;
+        throw new ApiError(`Model (${model}) çağrılırken bir hata oluştu.`);
+    }
+}
+
+// --- GÜNLÜK AKIŞI: Başlangıç ---
+export async function generateDiaryStart(context: InteractionContext): Promise<DiaryStart> {
+    const { initialEntry } = context.initialEvent.data;
+    const prompt = `Bir kullanıcının günlük başlangıç yazısını analiz et. Görevin:
+1. Yazıdaki baskın duyguyu tek kelimeyle belirle (mood).
+2. Bu duygu ve metinden yola çıkarak, kullanıcının daha derine inmesini sağlayacak 3 farklı ve açık uçlu soru üret (questions).
+
+METİN: "${initialEntry}"
+
+ÇIKTI (Sadece JSON): { "mood": "belirlediğin_duygu", "questions": ["soru1", "soru2", "soru3"] }`;
+    try {
+        return await invokeAndValidate(prompt, FAST_MODEL, DiaryStartSchema, { responseMimeType: 'application/json', temperature: 0.5 });
+    } catch (error) {
+        console.error("generateDiaryStart hatası:", getErrorMessage(error));
+        return { mood: "belirsiz", questions: ["Bu hissin kaynağı ne olabilir?", "Bu durumla ilgili neyi değiştirmek isterdin?", "Bu konu hakkında başka kimseyle konuştun mu?"] };
     }
 }
 
 // --- GÜNLÜK AKIŞI: Sonraki Sorular ---
-export async function generateDiaryNextQuestions(conversationHistory: string): Promise<string[]> {
-    // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
-    const fallback = ["Bu konuda başka ne söylemek istersin?", "Bu durum seni gelecekte nasıl etkileyebilir?", "Hissettiğin bu duyguya bir isim verecek olsan ne olurdu?"];
-    const prompt = `
-        Bir günlük diyalogu devam ediyor. Kullanıcının son cevabına dayanarak, sohbeti bir adım daha ileri taşıyacak 3 YENİ ve FARKLI soru üret.
-        KONUŞMA GEÇMİŞİ:
-        ${conversationHistory}
+export async function generateDiaryNextQuestions(context: InteractionContext): Promise<string[]> {
+    const { conversationHistory } = context.initialEvent.data;
+    const prompt = `Bir günlük diyalogu devam ediyor. Kullanıcının son cevabına dayanarak, sohbeti bir adım daha ileri taşıyacak 3 YENİ ve FARKLI soru üret.
+KONUŞMA GEÇMİŞİ:
+${conversationHistory}
 
-        ÇIKTI (Sadece JSON): { "questions": ["yeni_soru1", "yeni_soru2", "yeni_soru3"] }`;
-        
-    const config: GenerationConfig = { responseMimeType: 'application/json', temperature: 0.6 };
-
-     try {
-        const jsonString = await invokeGemini(prompt, FAST_MODEL, config);
-        const data = parseAndValidateJson(jsonString, NextQuestionsSchema);
-        return data?.questions || fallback;
-    } catch (err) {
-        console.error("generateDiaryNextQuestions API çağrı hatası:", err);
-        throw new ApiError("Günlük diyaloğunuz için sonraki sorular oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+ÇIKTI (Sadece JSON): { "questions": ["yeni_soru1", "yeni_soru2", "yeni_soru3"] }`;
+    try {
+        const result = await invokeAndValidate(prompt, FAST_MODEL, NextQuestionsSchema, { responseMimeType: 'application/json', temperature: 0.6 });
+        return result.questions;
+    } catch (error) {
+        console.error("generateDiaryNextQuestions hatası:", getErrorMessage(error));
+        return ["Bu konuda başka ne söylemek istersin?", "Bu durum seni gelecekte nasıl etkileyebilir?", "Hissettiğin bu duyguya bir isim verecek olsan ne olurdu?"];
     }
 }
 
 // --- RÜYA ANALİZİ ---
-export const analyzeDreamWithContext = async (dreamText: string, userVault: any): Promise<DreamAnalysisResult | null> => {
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
-  const recentLogs = await getRecentJourneyLogEntries(3);
-  const context = `
-    ### KULLANICI KASASI (Kişinin Özü) ###
-    ${userVault ? JSON.stringify(userVault) : "Henüz veri yok."}
-    ### SON ZAMANLARDAKİ ETKİLEŞİMLER (Seyir Defterinden Fısıltılar) ###
-    - ${recentLogs.join('\n- ')}`;
-
-  const prompt = `
-    ### ROL & GÖREV ###
-    Sen, Jung'un arketip bilgeliği, Freud'un psikanalitik derinliği ve bir dedektifin keskin gözlem yeteneğine sahip bir AI'sın. Görevin, SADECE bir rüyayı yorumlamak DEĞİL, bu rüyanın, danışanın sana sunduğu yaşam bağlamı (Kasası ve Seyir Defteri) içindeki anlamını ve kökenini ortaya çıkarmaktır. Derin bağlantılar kur.
-    ### VERİLER ###
-    1.  **Yaşam Bağlamı (Kolektif Bilinç):** ${context}
-    2.  **Analiz Edilecek Rüya Metni:** "${dreamText}"
-    ### ÇIKTI FORMATI (KESİNLİKLE UYULMALIDIR) ###
-    Lütfen yanıtını başka hiçbir metin eklemeden, doğrudan aşağıdaki JSON formatında ver:
-    { "title": "Rüya için kısa, merak uyandıran bir başlık.", "summary": "Rüyanın 1-2 cümlelik genel özeti.", "themes": ["Rüyanın ana temaları (örn: 'kontrol kaybı', 'takdir edilme arzusu')"], "interpretation": "Rüyanın derinlemesine, sembolik ve psikolojik yorumu.", "crossConnections": [{"connection": "Rüyadaki [sembol], kullanıcının hayatındaki [olay] ile bağlantılı olabilir.", "evidence": "Bu bağlantıyı neden düşündüğünün bir cümlelik açıklaması."}], "questions": ["Kullanıcının bu bağlantıları düşünmesini sağlayacak 2 adet derin, açık uçlu soru."] }`;
-
-  const config: GenerationConfig = { responseMimeType: 'application/json' };
-  try {
-    const jsonString = await invokeGemini(prompt, POWERFUL_MODEL, config);
-    return parseAndValidateJson(jsonString, DreamAnalysisSchema);
-  } catch (err) {
-    console.error('[analyzeDreamWithContext] API çağrı hatası:', err);
-    throw new ApiError("Rüya yorumunuz oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
-  }
-};
+export async function analyzeDreamWithContext(context: InteractionContext): Promise<DreamAnalysisResult> {
+    const { dreamText } = context.initialEvent.data;
+    const userVault = context.initialVault;
+    const recentLogs = await getRecentJourneyLogEntries(3);
+    const ctx = `### KULLANICI KASASI (Kişinin Özü) ###\n${userVault ? JSON.stringify(userVault) : "Henüz veri yok."}\n### SON ZAMANLARDAKİ ETKİLEŞİMLER (Seyir Defterinden Fısıltılar) ###\n- ${recentLogs.join('\n- ')}`;
+    const prompt = `### ROL & GÖREV ###\nSen, Jung'un arketip bilgeliği, Freud'un psikanalitik derinliği ve bir dedektifin keskin gözlem yeteneğine sahip bir AI'sın. Görevin, SADECE bir rüyayı yorumlamak DEĞİL, bu rüyanın, danışanın sana sunduğu yaşam bağlamı (Kasası ve Seyir Defteri) içindeki anlamını ve kökenini ortaya çıkarmaktır. Derin bağlantılar kur.\n### VERİLER ###\n1.  **Yaşam Bağlamı (Kolektif Bilinç):** ${ctx}\n2.  **Analiz Edilecek Rüya Metni:** "${dreamText}"\n### ÇIKTI FORMATI (KESİNLİKLE UYULMALIDIR) ###\nLütfen yanıtını başka hiçbir metin eklemeden, doğrudan aşağıdaki JSON formatında ver:\n{ "title": "Rüya için kısa, merak uyandıran bir başlık.", "summary": "Rüyanın 1-2 cümlelik genel özeti.", "themes": ["Rüyanın ana temaları (örn: 'kontrol kaybı', 'takdir edilme arzusu')"], "interpretation": "Rüyanın derinlemesine, sembolik ve psikolojik yorumu.", "crossConnections": [{"connection": "Rüyadaki [sembol], kullanıcının hayatındaki [olay] ile bağlantılı olabilir.", "evidence": "Bu bağlantıyı neden düşündüğünün bir cümlelik açıklaması."}], "questions": ["Kullanıcının bu bağlantıları düşünmesini sağlayacak 2 adet derin, açık uçlu soru."] }`;
+    try {
+        return await invokeAndValidate(prompt, POWERFUL_MODEL, DreamAnalysisSchema, { responseMimeType: 'application/json' });
+    } catch (error) {
+        console.error("analyzeDreamWithContext hatası:", getErrorMessage(error));
+        throw new ApiError("Rüya yorumu oluşturulamadı.");
+    }
+}
 
 // --- SEANS HAFIZA ANALİZİ ---
-export async function analyzeSessionForMemory(transcript: string, userVault: any): Promise<SessionMemory | null> {
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
-  const prompt = `
-    ### ROL & GÖREV ###
-    Sen, bir psikanalist ve hikaye anlatıcısının ruhuna sahip bir AI'sın. Görevin, aşağıdaki terapi dökümünün derinliklerine inerek hem ruhsal özünü hem de somut gerçeklerini çıkarmaktır. Yargılama, sadece damıt.
-    
-    ### KULLANICI KASASI (Kişinin Özü) ###
-    ${userVault ? JSON.stringify(userVault) : "Henüz veri yok."}
-    
-    ### ÇIKTI FORMATI ###
-    Yanıtın KESİNLİKLE aşağıdaki JSON formatında olmalıdır. Başka hiçbir metin ekleme.
-    { "log": "Bu seansın 1-2 cümlelik, şiirsel ama net özeti. Bu, bir 'seyir defteri'ne yazılacak bir giriş gibi olmalı.", "vaultUpdate": { "themes": ["Yeni ortaya çıkan veya pekişen 1-3 ana tema"], "coreBeliefs": { "ortaya_çıkan_temel_inanç_veya_değişimi": "'Yeterince iyi değilim' inancı somutlaştı." }, "keyInsights": ["Kullanıcının bu seansta vardığı en önemli 1-2 farkındalık."] } }
-    ### SEANS DÖKÜMÜ ###
-    ${transcript}`;
-
-  const config: GenerationConfig = { responseMimeType: 'application/json' };
-  try {
-    const jsonString = await invokeGemini(prompt, POWERFUL_MODEL, config);
-    return parseAndValidateJson(jsonString, SessionMemorySchema);
-  } catch (err) {
-    console.error("analyzeSessionForMemory API çağrı hatası:", err);
-    throw new ApiError("Seans hafıza analizi oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
-  }
+export async function analyzeSessionForMemory(context: InteractionContext): Promise<SessionMemory> {
+    const transcript = context.initialEvent.data.transcript || context.initialEvent.data.userMessage || "";
+    const userVault = context.initialVault;
+    const prompt = `### ROL & GÖREV ###\nSen, bir psikanalist ve hikaye anlatıcısının ruhuna sahip bir AI'sın. Görevin, aşağıdaki terapi dökümünün derinliklerine inerek hem ruhsal özünü hem de somut gerçeklerini çıkarmaktır. Yargılama, sadece damıt.\n\n### KULLANICI KASASI (Kişinin Özü) ###\n${userVault ? JSON.stringify(userVault) : "Henüz veri yok."}\n\n### ÇIKTI FORMATI ###\nYanıtın KESİNLİKLE aşağıdaki JSON formatında olmalıdır. Başka hiçbir metin ekleme.\n{ "log": "Bu seansın 1-2 cümlelik, şiirsel ama net özeti. Bu, bir 'seyir defteri'ne yazılacak bir giriş gibi olmalı.", "vaultUpdate": { "themes": ["Yeni ortaya çıkan veya pekişen 1-3 ana tema"], "coreBeliefs": { "ortaya_çıkan_temel_inanç_veya_değişimi": "'Yeterince iyi değilim' inancı somutlaştı." }, "keyInsights": ["Kullanıcının bu seansta vardığı en önemli 1-2 farkındalık."] } }\n### SEANS DÖKÜMÜ ###\n${transcript}`;
+    try {
+        return await invokeAndValidate(prompt, POWERFUL_MODEL, SessionMemorySchema, { responseMimeType: 'application/json' });
+    } catch (error) {
+        console.error("analyzeSessionForMemory hatası:", getErrorMessage(error));
+        throw new ApiError("Seans hafıza analizi oluşturulamadı.");
+    }
 }
 
 // -------------------------------------------------------------
@@ -133,11 +115,22 @@ export async function analyzeSessionForMemory(transcript: string, userVault: any
 // Bu fonksiyonlar `sendToGemini`'yi doğrudan kullanır. Hata durumunda, ya `sendToGemini`
 // hatayı yukarı fırlatır ya da biz bir `try-catch` ile yakalayıp anlamlı bir fallback döneriz.
 
-export async function generateTherapistReply(therapistId: string, userMessage: string, intraSessionChatHistory: string, userVault: any): Promise<string> {
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
+
+export async function generateTherapistReply(context: InteractionContext): Promise<string> {
+  // Gerekli verileri artık bağlamdan alıyoruz.
+  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
   try {
     const recentLogEntries = await getRecentJourneyLogEntries(5);
     const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
+    
+    // DerivedData'dan mood bilgisini al
+    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
+    const moodTrend = context.derivedData.moodTrend;
+    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
+    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
+    
     let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
     if (userVault?.traits) {
       const traits = userVault.traits;
@@ -147,30 +140,34 @@ export async function generateTherapistReply(therapistId: string, userMessage: s
       if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
       if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
     }
+    
     const personalities: Record<string, string> = { default: "Sen empatik ve destekleyici bir terapistsin." };
     const personality = personalities[therapistId] || personalities.default;
+    
     let prompt = `
       ### Kolektif Bilinç ###
       Rolün: ${personality}. Aşağıdaki bilgileri, kullanıcıyı yıllardır tanıyormuş gibi sezgisel bir yanıt için kullan, asla tekrarlama.
       ${traitsSummary}
-      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}
+      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
       ${journeyLogContext}
       ### Aktif Oturum ###
       ${intraSessionChatHistory}
       ### Son Mesaj ###
       "${userMessage}"
       ### Görevin ###
-      Bu bağlama uygun, 2-3 cümlelik sıcak ve empatik bir yanıt ver. Doğal ol. Sadece yanıtını yaz.`.trim();
-    // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
+      Bu bağlama uygun, 2-3 cümlelik sıcak ve empatik bir yanıt ver. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
+    
     return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.85, maxOutputTokens: 300 });
   } catch (error) {
-    console.error("[generateTherapistReply] Hata:", error);
-    throw new ApiError("Terapist yanıtı oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+    console.error("[generateTherapistReply] Hata:", getErrorMessage(error));
+    throw new ApiError("Terapist yanıtı oluşturulamadı.");
   }
 }
 
-export async function generateDailyReflectionResponse(todayNote: string, todayMood: string, userVault: any): Promise<string> {
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
+export async function generateDailyReflectionResponse(context: InteractionContext): Promise<string> {
+  const { todayNote, todayMood } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
   try {
     const userName = userVault?.profile?.nickname;
 
@@ -184,13 +181,15 @@ export async function generateDailyReflectionResponse(todayNote: string, todayMo
       
     return await invokeGemini(prompt, FAST_MODEL, { temperature: 0.7, maxOutputTokens: 150 });
   } catch (error) {
-    console.error("[generateDailyReflectionResponse] Hata:", error);
-    throw new ApiError("Günlük yansıma yanıtı oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+    console.error("[generateDailyReflectionResponse] Hata:", getErrorMessage(error));
+    throw new ApiError("Günlük yansıma yanıtı oluşturulamadı.");
   }
 }
 
-export async function generateCumulativeSummary(previousSummary: string, newConversationChunk: string, userVault: any): Promise<string> {
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
+export async function generateCumulativeSummary(context: InteractionContext): Promise<string> {
+  const { previousSummary, newConversationChunk } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
   try {
     const prompt = `
 ### GÖREV ###
@@ -220,15 +219,18 @@ ${newConversationChunk}
     };
     return await invokeGemini(prompt, FAST_MODEL, config);
   } catch (error) {
-    console.error("[generateCumulativeSummary] Hata:", error);
-    throw new ApiError("Seans özeti oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+    console.error("[generateCumulativeSummary] Hata:", getErrorMessage(error));
+    throw new ApiError("Seans özeti oluşturulamadı.");
   }
 }
 
-export async function generateStructuredAnalysisReport(days: number, userVault: any): Promise<string> {
+export async function generateStructuredAnalysisReport(context: InteractionContext): Promise<string> {
+  const { days } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
   try {
     console.log(`[ANALYSIS-PIPELINE] Adım 1: ${days} günlük veri çekiliyor...`);
-    const events = await fetchAndValidateAnalysisEvents(days);
+    const events = await fetchMinimumRequiredEvents(days);
     
     console.log(`[ANALYSIS-PIPELINE] Adım 2: ${events.length} olay işleniyor...`);
     const processedData = await processAndCompressEvents(events, days);
@@ -243,17 +245,18 @@ export async function generateStructuredAnalysisReport(days: number, userVault: 
     });
   
   } catch (error) {
-    console.error("[generateStructuredAnalysisReport] Orkestrasyon sırasında hata!", error);
+    console.error("[generateStructuredAnalysisReport] Orkestrasyon sırasında hata!", getErrorMessage(error));
     if (isAppError(error)) throw error;
-    throw new ApiError("Analiz raporu oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+    throw new ApiError("Analiz raporu oluşturulamadı.");
   }
 }
 
 // Eski fonksiyonlar artık analysis_pipeline klasörüne taşındı
 
-export async function generateNextDreamQuestion(dreamAnalysis: DreamAnalysisResult, conversationHistory: { text: string; role: 'user' }[], userVault: any): Promise<string | null> {
-  const userMessages = conversationHistory.filter(m => m.role === 'user').map(m => m.text).join('\n\n');
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
+export async function generateNextDreamQuestion(context: InteractionContext): Promise<string | null> {
+  const { dreamAnalysis, conversationHistory } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
   try {
     const formattedHistory = conversationHistory
       .map((m, i) => `Kullanıcının ${i + 1}. Cevabı: ${m.text}`)
@@ -290,15 +293,16 @@ ${formattedHistory || "Henüz kullanıcıdan bir cevap alınmadı. Diyaloğu ba�
     const nextQuestion = await invokeGemini(prompt, FAST_MODEL, config);
     // Gemini'nin soru işaretini eklemediği durumlar için
     return nextQuestion.endsWith('?') ? nextQuestion : nextQuestion + '?';
-  } catch (err) {
-    console.error('[generateNextDreamQuestion] Soru üretilirken hata:', err);
-    throw new ApiError("Rüya sorusu oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+  } catch (error) {
+    console.error('[generateNextDreamQuestion] Soru üretilirken hata:', getErrorMessage(error));
+    throw new ApiError("Rüya sorusu oluşturulamadı.");
   }
 }
 
-export async function generateFinalDreamFeedback(dreamAnalysis: DreamAnalysisResult, userAnswers: { text: string }[], userVault: any): Promise<string> {
-  const allAnswers = userAnswers.map(ans => ans.text).join('\n\n');
-  // GÜVENLİK KONTROLÜ ARTIK API-GATEWAY'DE YAPILIYOR
+export async function generateFinalDreamFeedback(context: InteractionContext): Promise<string> {
+  const { dreamAnalysis, userAnswers } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
   try {
     // Truncate interpretation and answers if too long to avoid MAX_TOKENS
     const maxInterpretationLength = 1200;
@@ -341,9 +345,9 @@ ${formattedAnswers}
 
     const finalFeedback = await invokeGemini(prompt, FAST_MODEL, config);
     return finalFeedback;
-  } catch (err) {
-    console.error('[generateFinalDreamFeedback] Geri bildirim üretilirken hata:', err);
-    throw new ApiError("Rüya geri bildirimi oluşturulurken yapay zeka servisine ulaşılamadı. Lütfen daha sonra tekrar deneyin.");
+  } catch (error) {
+    console.error('[generateFinalDreamFeedback] Geri bildirim üretilirken hata:', getErrorMessage(error));
+    throw new ApiError("Rüya geri bildirimi oluşturulamadı.");
   }
 }
 
@@ -368,10 +372,11 @@ export function mergeVaultData(currentVault: any, vaultUpdate: any): any {
 // --- ONBOARDING ANALİZİ: Kullanıcı cevaplarından trait çıkarımı ---
 /**
  * Kullanıcının onboarding cevaplarını analiz eder ve trait skorları döndürür.
- * @param answers Kullanıcının onboarding akışında verdiği cevaplar (her adım bir cevap)
+ * @param context InteractionContext içinde answers verisi
  * @returns traits: { confidence, anxiety, motivation, openness, stress }
  */
-export async function analyzeOnboardingAnswers(answers: Record<string, string>): Promise<Partial<Traits> | null> {
+export async function analyzeOnboardingAnswers(context: InteractionContext): Promise<Partial<Traits>> {
+    const { answers } = context.initialEvent.data;
     const formattedAnswers = Object.values(answers).join('\n - ');
     const prompt = `
 Aşağıda bir kullanıcının onboarding sürecinde verdiği cevaplar var. Her bir cevabı analiz et ve aşağıdaki trait'ler için 0-1 arası bir skor tahmini yap:
@@ -390,7 +395,154 @@ ${formattedAnswers}
     try {
         const jsonString = await invokeGemini(prompt, POWERFUL_MODEL, { responseMimeType: 'application/json' });
         return JSON.parse(jsonString);
-    } catch(e) { return null; }
+    } catch(error) { 
+        console.error("analyzeOnboardingAnswers hatası:", getErrorMessage(error));
+        throw new ApiError("Kişilik analizi oluşturulamadı.");
+    }
+}
+
+export async function generateCalmingTherapistReply(context: InteractionContext): Promise<string> {
+  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
+  try {
+    const recentLogEntries = await getRecentJourneyLogEntries(5);
+    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
+    
+    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
+    const moodTrend = context.derivedData.moodTrend;
+    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
+    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
+    
+    let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
+    if (userVault?.traits) {
+      const traits = userVault.traits;
+      const summaries: string[] = [];
+      if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
+      if (typeof traits.anxiety_level === 'number') summaries.push(`kaygı: ${(traits.anxiety_level * 100).toFixed(0)}%`);
+      if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
+      if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
+    }
+    
+    const personalities: Record<string, string> = { 
+      default: "Sen sakinleştirici ve güven verici bir terapistsin. Kullanıcının kaygısını azaltmak için özel teknikler kullanıyorsun." 
+    };
+    const personality = personalities[therapistId] || personalities.default;
+    
+    let prompt = `
+      ### Kolektif Bilinç ###
+      Rolün: ${personality}. Kullanıcı yüksek kaygı seviyesinde. Görevin onu sakinleştirmek ve güven vermek.
+      ${traitsSummary}
+      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
+      ${journeyLogContext}
+      ### Aktif Oturum ###
+      ${intraSessionChatHistory}
+      ### Son Mesaj ###
+      "${userMessage}"
+      ### Görevin ###
+      Bu kullanıcıya özellikle sakinleştirici, güven verici ve rahatlatıcı bir yanıt ver. Nefes teknikleri, güvenlik hissi ve umut ver. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
+    
+    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.7, maxOutputTokens: 300 });
+  } catch (error) {
+    console.error("[generateCalmingTherapistReply] Hata:", getErrorMessage(error));
+    throw new ApiError("Sakinleştirici terapist yanıtı oluşturulamadı.");
+  }
+}
+
+export async function generateMotivationalTherapistReply(context: InteractionContext): Promise<string> {
+  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
+  try {
+    const recentLogEntries = await getRecentJourneyLogEntries(5);
+    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
+    
+    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
+    const moodTrend = context.derivedData.moodTrend;
+    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
+    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
+    
+    let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
+    if (userVault?.traits) {
+      const traits = userVault.traits;
+      const summaries: string[] = [];
+      if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
+      if (typeof traits.motivation === 'number') summaries.push(`motivasyon: ${(traits.motivation * 100).toFixed(0)}%`);
+      if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
+      if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
+    }
+    
+    const personalities: Record<string, string> = { 
+      default: "Sen motivasyonel ve cesaretlendirici bir terapistsin. Kullanıcının iç gücünü ortaya çıkarmasına yardım ediyorsun." 
+    };
+    const personality = personalities[therapistId] || personalities.default;
+    
+    let prompt = `
+      ### Kolektif Bilinç ###
+      Rolün: ${personality}. Kullanıcının motivasyonu düşük. Görevin onu cesaretlendirmek ve iç gücünü hatırlatmak.
+      ${traitsSummary}
+      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
+      ${journeyLogContext}
+      ### Aktif Oturum ###
+      ${intraSessionChatHistory}
+      ### Son Mesaj ###
+      "${userMessage}"
+      ### Görevin ###
+      Bu kullanıcıya özellikle motivasyonel, cesaretlendirici ve güçlendirici bir yanıt ver. Küçük başarıları takdir et, gelecek hedefler belirle. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
+    
+    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.8, maxOutputTokens: 300 });
+  } catch (error) {
+    console.error("[generateMotivationalTherapistReply] Hata:", getErrorMessage(error));
+    throw new ApiError("Motivasyonel terapist yanıtı oluşturulamadı.");
+  }
+}
+
+export async function generateAnalyticalTherapistReply(context: InteractionContext): Promise<string> {
+  const { therapistId, userMessage, intraSessionChatHistory } = context.initialEvent.data;
+  const userVault = context.initialVault;
+  
+  try {
+    const recentLogEntries = await getRecentJourneyLogEntries(5);
+    const journeyLogContext = recentLogEntries.length > 0 ? `### Geçmişten Gelen Fısıltılar ###\n- ${recentLogEntries.join('\n- ')}` : "";
+    
+    const currentMood = context.derivedData.dominantMood || userVault?.currentMood;
+    const moodTrend = context.derivedData.moodTrend;
+    const moodContext = currentMood ? `\nMevcut Ruh Hali: ${currentMood}` : "";
+    const trendContext = moodTrend ? `\nMood Trend: ${moodTrend === 'pozitif_trend' ? 'Pozitif trend' : moodTrend === 'negatif_trend' ? 'Negatif trend' : 'Kararsız trend'}` : "";
+    
+    let traitsSummary = "Kullanıcının kişilik özellikleri hakkında henüz belirgin bir veri yok.";
+    if (userVault?.traits) {
+      const traits = userVault.traits;
+      const summaries: string[] = [];
+      if (typeof traits.openness === 'number') summaries.push(`açıklık: ${(traits.openness * 100).toFixed(0)}%`);
+      if (typeof traits.confidence === 'number') summaries.push(`güven: ${(traits.confidence * 100).toFixed(0)}%`);
+      if (traits.writing_style) summaries.push(`yazı stili: ${traits.writing_style}`);
+      if (summaries.length > 0) traitsSummary = `Kullanıcının bilinen özellikleri: ${summaries.join(', ')}.`;
+    }
+    
+    const personalities: Record<string, string> = { 
+      default: "Sen analitik ve derinlemesine düşünen bir terapistsin. Kullanıcının kendini daha iyi anlamasına yardım ediyorsun." 
+    };
+    const personality = personalities[therapistId] || personalities.default;
+    
+    let prompt = `
+      ### Kolektif Bilinç ###
+      Rolün: ${personality}. Kullanıcı analitik düşünme eğiliminde. Görevin derinlemesine içgörüler sunmak.
+      ${traitsSummary}
+      Ana Temalar: ${userVault?.themes?.join(', ') || 'Belirlenmedi'}${moodContext}${trendContext}
+      ${journeyLogContext}
+      ### Aktif Oturum ###
+      ${intraSessionChatHistory}
+      ### Son Mesaj ###
+      "${userMessage}"
+      ### Görevin ###
+      Bu kullanıcıya özellikle analitik, derinlemesine ve içgörü odaklı bir yanıt ver. Pattern'ları fark et, bağlantıları kur. ${currentMood ? `Kullanıcının ${currentMood} ruh halini dikkate al.` : ''} ${moodTrend ? `Mood trend'ini (${moodTrend}) göz önünde bulundur.` : ''} Doğal ol. Sadece yanıtını yaz.`.trim();
+    
+    return await invokeGemini(prompt, GENIOUS_MODEL, { temperature: 0.6, maxOutputTokens: 300 });
+  } catch (error) {
+    console.error("[generateAnalyticalTherapistReply] Hata:", getErrorMessage(error));
+    throw new ApiError("Analitik terapist yanıtı oluşturulamadı.");
+  }
 }
 
 export async function invokeGemini(prompt: string, model: string, config?: GenerationConfig): Promise<string> {

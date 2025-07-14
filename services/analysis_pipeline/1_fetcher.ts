@@ -5,12 +5,12 @@ import { AppEvent, getEventsForLast } from '../event.service';
 
 /**
  * Belirtilen gün sayısına göre olayları veritabanından çeker ve
- * analiz için yeterli veri olup olmadığını kontrol eder.
+ * analiz için minimum gerekli veri miktarını kontrol eder.
  * @param days Analiz edilecek gün sayısı.
  * @returns Yeterli sayıda AppEvent dizisi.
  * @throws {InsufficientDataError} Eğer 3'ten az olay bulunursa.
  */
-export async function fetchAndValidateAnalysisEvents(days: number): Promise<AppEvent[]> {
+export async function fetchMinimumRequiredEvents(days: number): Promise<AppEvent[]> {
   try {
     console.log(`[FETCHER] ${days} günlük olaylar çekiliyor...`);
     const eventsFromPeriod = await getEventsForLast(days);
