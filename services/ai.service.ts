@@ -209,12 +209,16 @@ export async function generateStructuredAnalysisReport(context: InteractionConte
 // Eski fonksiyonlar artık analysis_pipeline klasörüne taşındı
 
 export async function generateNextDreamQuestion(context: InteractionContext): Promise<string | null> {
-  const { dreamAnalysis, conversationHistory } = context.initialEvent.data;
-  const userVault = context.initialVault;
+  // FONKSİYONUN BAŞINDA CONTEXT'TEN VERİLERİ ÇEK
+  const { initialEvent, initialVault } = context;
+  const dreamAnalysis = initialEvent.data.dreamAnalysisResult || initialEvent.data.analysis;
+  const conversationHistory = initialEvent.data.fullDialogue || [];
+  const userVault = initialVault;
   
   try {
     const formattedHistory = conversationHistory
-      .map((m, i) => `Kullanıcının ${i + 1}. Cevabı: ${m.text}`)
+      .filter((m: any) => m.role === 'user')
+      .map((m: any, i: number) => `Kullanıcının ${i + 1}. Cevabı: ${m.text}`)
       .join('\n');
 
     const prompt = `
@@ -255,8 +259,11 @@ ${formattedHistory || "Henüz kullanıcıdan bir cevap alınmadı. Diyaloğu ba�
 }
 
 export async function generateFinalDreamFeedback(context: InteractionContext): Promise<string> {
-  const { dreamAnalysis, userAnswers } = context.initialEvent.data;
-  const userVault = context.initialVault;
+  // AYNI ŞEKİLDE CONTEXT'TEN VERİLERİ ÇEK
+  const { initialEvent, initialVault } = context;
+  const dreamAnalysis = initialEvent.data.dreamAnalysisResult || initialEvent.data.analysis;
+  const userAnswers = initialEvent.data.fullDialogue.filter((m: any) => m.role === 'user');
+  const userVault = initialVault;
   
   try {
     // Truncate interpretation and answers if too long to avoid MAX_TOKENS
@@ -266,7 +273,7 @@ export async function generateFinalDreamFeedback(context: InteractionContext): P
       ? dreamAnalysis.interpretation.slice(0, maxInterpretationLength) + '... (kısaltıldı)'
       : dreamAnalysis.interpretation;
     const formattedAnswers = userAnswers
-      .map((ans, i) => {
+      .map((ans: any, i: number) => {
         let t = ans.text || '';
         if (t.length > maxAnswerLength) t = t.slice(0, maxAnswerLength) + '... (kısaltıldı)';
         return `Soru ${i + 1}'e Verilen Cevap: "${t}"`;

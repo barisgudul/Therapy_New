@@ -191,30 +191,71 @@ async function handleTherapySession(context: InteractionContext): Promise<string
  * Rüya analizi akışı
  */
 async function handleDreamAnalysis(context: InteractionContext): Promise<string> {
-  console.log(`[ORCHESTRATOR] Rüya analizi başlatılıyor: ${context.transactionId}`);
-  
-  // Adım 1: Rüyayı analiz et
-  const dreamAnalysis = await AiService.analyzeDreamWithContext(context);
-  context.derivedData.dreamAnalysis = dreamAnalysis;
-  if (dreamAnalysis?.themes) {
-    context.derivedData.identifiedThemes = dreamAnalysis.themes;
-  }
-  // Adım 2: İlk soruyu üret
-  const firstQuestion = await AiService.generateNextDreamQuestion(context);
-  context.derivedData.currentQuestion = firstQuestion;
-  // Adım 3: Rüya analizi sonucunu döndür
-  const result = {
-    analysis: dreamAnalysis,
-    nextQuestion: firstQuestion
-  };
-  // Hafıza güncelleme ve loglama (örnek: rüya temalarını vault'a ekle)
-  if (dreamAnalysis?.themes) {
-    const updatedVault = AiService.mergeVaultData(context.initialVault, { themes: dreamAnalysis.themes });
-    await VaultService.updateUserVault(updatedVault);
-    await JourneyService.addJourneyLogEntry(`Rüya analizi: Temalar - ${dreamAnalysis.themes.join(', ')}`);
-  }
-  console.log(`[ORCHESTRATOR] Rüya analizi tamamlandı: ${context.transactionId}`);
-  return JSON.stringify(result);
+    const { initialEvent, initialVault } = context;
+    const isFollowUp = initialEvent.data.isFollowUp === true;
+
+    // --- BU BİR DEVAM DİYALOĞU MU?
+    if (isFollowUp) {
+        console.log(`[ORCHESTRATOR] Rüya diyaloğu devam ediyor: ${context.transactionId}`);
+        
+        const userAnswers = initialEvent.data.fullDialogue.filter((m: any) => m.role === 'user');
+        const MAX_INTERACTIONS = 3;
+
+        // --- DİYALOG BİTTİ Mİ? SON GERİ BİLDİRİMİ ÜRET
+        if (userAnswers.length >= MAX_INTERACTIONS) {
+            return await AiService.generateFinalDreamFeedback(context); // Artık context yolluyoruz
+        } 
+        // --- HAYIR, DİYALOĞA DEVAM ET. YENİ SORU ÜRET
+        else {
+            return await AiService.generateNextDreamQuestion(context); // Artık context yolluyoruz
+        }
+    } 
+    // --- BU İLK ANALİZ İSTEĞİ
+    else {
+        console.log(`[ORCHESTRATOR] Yeni rüya analizi başlatılıyor: ${context.transactionId}`);
+      
+        // İlk analiz adımları...
+        const dreamAnalysis = await AiService.analyzeDreamWithContext(context);
+      
+        // Hafıza güncelleme ve loglama
+        if (dreamAnalysis?.themes) {
+            const updatedVault = AiService.mergeVaultData(context.initialVault, { themes: dreamAnalysis.themes });
+            await VaultService.updateUserVault(updatedVault);
+            await JourneyService.addJourneyLogEntry(`Rüya analizi: Temalar - ${dreamAnalysis.themes.join(', ')}`);
+        }
+        
+        // Ücretsiz kullanım hakkını kaydetmek için vault'u güncelle
+        const vault = context.initialVault;
+        const newFreeUsage = {
+            ...(vault.freeUsage || {}),
+            lastFreeDreamAnalysis: new Date().toISOString()
+        };
+        const updatedVault = {
+            ...AiService.mergeVaultData(vault, { themes: dreamAnalysis?.themes || [] }),
+            freeUsage: newFreeUsage // Yeni kullanım bilgisini ekle
+        };
+        await VaultService.updateUserVault(updatedVault);
+
+        // Analizle birlikte İLK SORUYU DA DÖNDÜR
+        const firstQuestionContext: InteractionContext = { ...context, derivedData: { dreamAnalysis } };
+        const firstQuestion = await AiService.generateNextDreamQuestion(firstQuestionContext);
+      
+        const resultForClient = {
+            analysis: dreamAnalysis,
+            // İlk soru null gelebilir, bu yüzden bir fallback ekle
+            nextQuestion: firstQuestion || "Bu yorumlar sana ne hissettirdi?"
+        };
+
+        // Bu ilk analiz olayını, sonucuyla birlikte veritabanına logla
+        await EventService.logEvent({
+            type: 'dream_analysis',
+            data: { dreamText: initialEvent.data.dreamText, analysis: dreamAnalysis, dialogue: [] },
+        });
+
+        console.log('[ORCHESTRATOR] Ücretsiz rüya analizi kullanım tarihi Vault\'a kaydedildi.');
+        console.log(`[ORCHESTRATOR] Yeni rüya analizi tamamlandı ve loglandı.`);
+        return JSON.stringify(resultForClient);
+    }
 }
 
 /**

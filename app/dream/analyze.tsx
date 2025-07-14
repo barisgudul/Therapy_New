@@ -17,10 +17,9 @@ import {
   View
 } from 'react-native';
 
-import { analyzeDreamWithContext } from '../../services/ai.service';
-import { logEvent } from '../../services/event.service';
-import { addJourneyLogEntry } from '../../services/journey.service';
-import { useVaultStore } from '../../store/vaultStore';
+import { processUserMessage } from '../../services/api.service';
+import { EventPayload } from '../../services/event.service';
+import { supabase } from '../../utils/supabase';
 
 const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
 
@@ -42,7 +41,7 @@ export default function AnalyzeDreamScreen() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const handleAnalyzePress = async () => {
+    const handleAnalyzePress = async () => {
     if (dream.trim().length < 20) {
       setError('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
       return;
@@ -50,43 +49,47 @@ export default function AnalyzeDreamScreen() {
     setError(null);
     Keyboard.dismiss();
     setIsLoading(true);
-          try {
-        // 1. KOLEKTİF BİLİNÇ İLE ANALİZ ET
-        const vaultStore = useVaultStore.getState();
-        const result = await analyzeDreamWithContext(dream, vaultStore.vault); 
 
-        if (result) {
-          // 2. YENİ 'dream_analysis' OLAYINI KAYDET
-          const eventId = await logEvent({
-            type: 'dream_analysis',
-            data: { dreamText: dream, analysis: result, dialogue: [] },
-          });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Kullanıcı bulunamadı!");
 
-          // 3. HAFIZAYI GÜNCELLE: Analizin özünü Seyir Defteri'ne ekle
-          // Bu sayede gelecekteki analizler bu rüyadan haberdar olacak.
-          const logEntry = `Bir rüya analizi yapıldı. Başlık: "${result.title}". Ana temalar: ${result.themes.join(', ')}.`;
-          await addJourneyLogEntry(logEntry);
-          
-          // 4. Kullanım sayacını kaydet (opsiyonel)
-
-          // 5. Navigasyon için tam olay objesini oluştur
-          const eventForNavigation = {
-              id: eventId,
-              timestamp: Date.now(),
-              type: 'dream_analysis',
-              data: { dreamText: dream, analysis: result, dialogue: [] }
-          };
-
-          // 6. Sonuç sayfasına yönlendir
-          router.replace({
-            pathname: './result',
-            params: { eventData: JSON.stringify(eventForNavigation), isNewAnalysis: "true" },
-          });
-
-          setDream('');
-        } else {
-          setError('Rüyanız analiz edilirken bir sorun oluştu. Lütfen tekrar deneyin.');
+      // 1. ORKESTRATÖR'E GÖNDERİLECEK OLAYI OLUŞTUR
+      const dreamAnalysisPayload: EventPayload = {
+        type: 'dream_analysis',
+        data: {
+          dreamText: dream
         }
+      };
+
+      // 2. ZEKA İŞİNİ YAPSIN DİYE BEYNİ ÇAĞIR
+      // processUserMessage, arka planda analyzeDreamWithContext'i, logEvent'i
+      // ve vault'u güncellemeyi zaten yapacak.
+      const { data: resultString, error: apiError } = await processUserMessage(user.id, dreamAnalysisPayload);
+
+      if (apiError || !resultString) {
+        throw new Error(apiError || "Analizden geçerli bir yanıt alınamadı.");
+      }
+      
+      // Gelen yanıt JSON olduğu için parse et
+      const resultData = JSON.parse(resultString);
+      
+      // 3. YENİ BİR OLAY OBJESİ OLUŞTURMAYA GEREK YOK, AMA NAVİGASYON İÇİN EVENT ID LAZIM.
+      // logEvent zaten Orkestratör'de yapılıyor. Şimdilik bu kısmı basitleştirelim.
+      // Yönlendirme için sadece analizin kendisi yeterli.
+      const navigationEventData = {
+          id: 'temp-' + Date.now(), // Geçici ID, result ekranı ID'ye ihtiyaç duyuyor.
+          timestamp: Date.now(),
+          type: 'dream_analysis',
+          data: { dreamText: dream, analysis: resultData.analysis, dialogue: [] }
+      }
+
+      // 4. Sonuç sayfasına yönlendir
+      router.replace({
+        pathname: './result',
+        params: { eventData: JSON.stringify(navigationEventData), isNewAnalysis: "true" },
+      });
+
     } catch (e: any) {
       console.error("Analiz hatası: ", e);
       setError('Beklenmedik bir hata oluştu: ' + e.message);

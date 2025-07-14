@@ -6,9 +6,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { generateFinalDreamFeedback, generateNextDreamQuestion } from '../../services/ai.service';
-import { AppEvent, updateEventData } from '../../services/event.service';
-import { useVaultStore } from '../../store/vaultStore';
+import { processUserMessage } from '../../services/api.service';
+import { AppEvent, EventPayload, updateEventData } from '../../services/event.service';
+import { supabase } from '../../utils/supabase';
 
 const COSMIC_COLORS = {
     background: ['#0d1117', '#1A2947'] as [string, string],
@@ -99,44 +99,51 @@ export default function DreamResultScreen() {
 
         Keyboard.dismiss();
         const userMessage: DialogueMessage = { text: messageText, role: 'user' };
-        let currentDialogue = [...dialogue, userMessage];
-        setDialogue(currentDialogue);
+        const updatedDialogue = [...dialogue, userMessage];
+        setDialogue(updatedDialogue);
         setUserInput('');
         setIsReplying(true);
-        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 300);
 
         try {
-            // 2. Kullanıcı mesajıyla birlikte diyaloğun son halini KAYDET
-            await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
-            const userAnswers = currentDialogue.filter((m): m is { text: string; role: 'user' } => m.role === 'user');
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error("Kullanıcı girişi bulunamadı!");
 
-            if (userAnswers.length < MAX_INTERACTIONS) {
-                const vaultStore = useVaultStore.getState();
-                const nextQuestion = await generateNextDreamQuestion(event.data.analysis, userAnswers, vaultStore.vault);
-                if (nextQuestion) {
-                    const aiMessage: DialogueMessage = { text: nextQuestion, role: 'model' };
-                    currentDialogue.push(aiMessage);
-                    setDialogue([...currentDialogue]);
-                    await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
-                } else {
-                    throw new Error("AI sonraki soruyu oluşturamadı.");
-                }
-            } else {
-                const vaultStore = useVaultStore.getState();
-                const finalFeedback = await generateFinalDreamFeedback(event.data.analysis, userAnswers, vaultStore.vault);
-                if (finalFeedback) {
-                    const finalAiMessage: DialogueMessage = { text: finalFeedback, role: 'model' };
-                    currentDialogue.push(finalAiMessage);
-                    setDialogue([...currentDialogue]);
-                    await updateEventData(event.id, { ...event.data, dialogue: currentDialogue });
-                } else {
-                    throw new Error("AI final geri bildirimini oluşturamadı.");
-                }
-                setIsChatCompleted(true);
+          // 1. ORKESTRATÖR İÇİN OLAYI HAZIRLA
+          // Artık aptalca ayrı ayrı parametre yok. Tek bir paket.
+          const dreamDialoguePayload: EventPayload = {
+            type: 'dream_analysis', // Orkestratör bu tipe göre davranacak
+            data: {
+              isFollowUp: true, // Bunun ilk analiz değil, bir diyalog devamı olduğunu belirt
+              event_id: event.id, // Hangi rüya hakkında konuştuğumuzu belirt
+              fullDialogue: updatedDialogue, // Konuşmanın tamamı
+              dreamAnalysisResult: event.data.analysis, // Orijinal analiz sonucu
             }
-        } catch (error: any) {
-            console.error("⛔️ Mesaj gönderme/AI yanıt hatası:", error.message);
-            Alert.alert("Hata", `Mesaj gönderilemedi: ${error.message}`);
+          };
+
+          // 2. TEK BİR ÇAĞRI: Beyni göreve çağır.
+          const { data: aiReplyText, error } = await processUserMessage(user.id, dreamDialoguePayload);
+
+          if (error || !aiReplyText) throw new Error(error || "AI'dan bir yanıt alınamadı.");
+
+          // 3. GELEN YANITI İŞLE VE GÜNCELLE
+          const aiMessage: DialogueMessage = { text: aiReplyText, role: 'model' };
+          const finalDialogue = [...updatedDialogue, aiMessage];
+          setDialogue(finalDialogue);
+
+          // 4. VERİTABANINI SON HALİYLE GÜNCELLE
+          await updateEventData(event.id, { ...event.data, dialogue: finalDialogue });
+
+          // Diyalogun bitip bitmediğini kontrol et
+          const userMessageCount = finalDialogue.filter(m => m.role === 'user').length;
+          if(userMessageCount >= MAX_INTERACTIONS){
+            setIsChatCompleted(true);
+          }
+          
+        } catch (e: any) {
+            console.error("⛔️ Rüya diyaloğu hatası:", e.message);
+            Alert.alert("Hata", "Yanıt alınamadı: " + e.message);
+            // Hata durumunda, kullanıcının gönderdiği mesajı geri alabiliriz.
+            setDialogue(prev => prev.slice(0, -1));
         } finally {
             setIsReplying(false);
         }

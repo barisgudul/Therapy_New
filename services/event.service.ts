@@ -1,5 +1,6 @@
 // services/event.service.ts
 import { supabase } from '../utils/supabase';
+import { getUserVault } from './vault.service';
 
 export const EVENT_TYPES = [
   'daily_reflection',
@@ -86,24 +87,31 @@ export async function updateEventData(eventId: string, newData: Record<string, a
 
 export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean; daysRemaining: number }> {
   try {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const recentDreamAnalyses = await getEventsForLast(7);
-    const lastAnalysis = recentDreamAnalyses.find(e => e.type === 'dream_analysis');
-    if (!lastAnalysis) {
+    const vault = await getUserVault();
+    const lastAnalysisTimestamp = vault?.freeUsage?.lastFreeDreamAnalysis;
+    
+    // Eğer daha önce hiç analiz yapılmamışsa, tabii ki hakkı var.
+    if (!lastAnalysisTimestamp) {
       return { canAnalyze: true, daysRemaining: 0 };
     }
-    const lastAnalysisDate = new Date(lastAnalysis.created_at);
+
+    const lastAnalysisDate = new Date(lastAnalysisTimestamp);
+    // Son analiz tarihinin üzerine 7 gün ekle
     const nextAvailableDate = new Date(lastAnalysisDate.getTime() + 7 * 24 * 60 * 60 * 1000);
     const now = new Date();
+
     if (now >= nextAvailableDate) {
+      // 7 gün geçmiş, hakkı var.
       return { canAnalyze: true, daysRemaining: 0 };
     } else {
+      // Henüz 7 gün dolmamış. Kalan süreyi hesapla.
       const diffTime = nextAvailableDate.getTime() - now.getTime();
       const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return { canAnalyze: false, daysRemaining: daysRemaining };
+      return { canAnalyze: false, daysRemaining };
     }
   } catch (e) {
+    console.error("⛔️ Rüya analizi hakkı kontrol hatası:", e);
+    // Bir hata olursa, tedbiren hakkı yok say.
     return { canAnalyze: false, daysRemaining: 7 };
   }
 }
