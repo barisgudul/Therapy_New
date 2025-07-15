@@ -13,6 +13,7 @@ export const EVENT_TYPES = [
   'diary_entry',
   'dream_analysis',
   'ai_analysis',
+  'onboarding_completed',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];

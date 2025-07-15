@@ -1,37 +1,27 @@
 // app/(onboarding)/step2.tsx
 import { useRouter } from 'expo-router/';
-import React, { useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
 import { useOnboardingStore } from '../../store/onboardingStore';
-
-const QUESTION = "Son zamanlarda zihnini en çok meşgul eden, uykularını kaçıran düşünce nedir?";
+import { OnboardingStep } from './_components/OnboardingStep';
 
 export default function Step2Screen() {
-  const [answer, setAnswer] = useState('');
-  const router = useRouter();
-  const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
+    const router = useRouter();
+    const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
+    
+    const QUESTION = "Hayatında gerçekten neyi başarmak veya değiştirmek istersin? En büyük hayalin nedir?";
 
-  const handleNext = () => {
-    setOnboardingAnswer(3, QUESTION, answer);
-    router.push('/onboarding/step3');
-  };
+    const handleNext = (answer: string) => {
+        setOnboardingAnswer(2, QUESTION, answer);
+        router.push('/(onboarding)/step3');
+    };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.question}>{QUESTION}</Text>
-      <TextInput
-        style={styles.input}
-        value={answer}
-        onChangeText={setAnswer}
-        placeholder="Cevabını yaz..."
-      />
-      <Button title="İleri" onPress={handleNext} disabled={!answer.trim()} />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  question: { fontSize: 20, marginBottom: 20 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 20 }
-}); 
+    return (
+        <OnboardingStep 
+            step={2} 
+            totalSteps={4}
+            question={QUESTION}
+            icon="rocket-outline"
+            onNextPress={handleNext}
+        />
+    );
+} 

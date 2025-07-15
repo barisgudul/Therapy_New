@@ -52,6 +52,9 @@ export async function processUserMessage(userId: string, eventPayload: EventPayl
       case 'daily_reflection':
         return await handleDailyReflection(context);
       
+      case 'onboarding_completed':
+        return await handleOnboardingCompletion(context);
+      
       default:
         throw new Error(`Bilinmeyen event tipi: ${eventPayload.type}`);
     }
@@ -330,4 +333,27 @@ async function handleDailyReflection(context: InteractionContext): Promise<strin
   }
   console.log(`[ORCHESTRATOR] Gelişmiş günlük yansıma tamamlandı: ${context.transactionId}`);
   return reflection;
+}
+
+/**
+ * Onboarding tamamlama akışı
+ */
+async function handleOnboardingCompletion(context: InteractionContext): Promise<string> {
+  console.log(`[ORCHESTRATOR] Onboarding tamamlandı, analiz başlıyor: ${context.transactionId}`);
+  
+  // 1. Cevaplardan kişilik özelliklerini (trait) çıkar
+  const traits = await AiService.analyzeOnboardingAnswers(context);
+  
+  // 2. Yeni trait'leri mevcut vault ile birleştir ve onboarding'in tamamlandığına dair damga vur
+  const newVaultData = {
+    ...context.initialVault,
+    traits: { ...context.initialVault.traits, ...traits },
+    metadata: { ...context.initialVault.metadata, onboardingCompleted: true }
+  };
+
+  // 3. Kullanıcının ruhunu (Vault) güncelle
+  await VaultService.updateUserVault(newVaultData);
+
+  // UI'a başarılı olduğuna dair bir sinyal döndür, UI bu mesaja göre davranabilir.
+  return "ANALYSIS_SUCCESSFUL";
 } 

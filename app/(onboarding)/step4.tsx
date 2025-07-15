@@ -1,37 +1,36 @@
 // app/(onboarding)/step4.tsx
 import { useRouter } from 'expo-router/';
-import React, { useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
+import { logEvent } from '../../services/api.service';
 import { useOnboardingStore } from '../../store/onboardingStore';
-
-const QUESTION = "Zor bir duygu yaşadığında, bunu içinde mi tutarsın yoksa birine anlatır mısın? Genellikle kimi seçersin?";
+import { OnboardingStep } from './_components/OnboardingStep';
 
 export default function Step4Screen() {
-  const [answer, setAnswer] = useState('');
-  const router = useRouter();
-  const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
+    const router = useRouter();
+    const setOnboardingAnswer = useOnboardingStore((s) => s.setAnswer);
 
-  const handleNext = () => {
-    setOnboardingAnswer(5, QUESTION, answer);
-    router.push('/onboarding/summary');
-  };
+    const QUESTION = "Kendinle ilgili en çok neyi takdir ediyorsun ve en çok neyi geliştirmek istersin?";
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.question}>{QUESTION}</Text>
-      <TextInput
-        style={styles.input}
-        value={answer}
-        onChangeText={setAnswer}
-        placeholder="Cevabını yaz..."
-      />
-      <Button title="Bitir" onPress={handleNext} disabled={!answer.trim()} />
-    </View>
-  );
-}
+    const handleFinish = async (answer: string) => {
+        setOnboardingAnswer(4, QUESTION, answer);
+        const allAnswers = useOnboardingStore.getState().answers;
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  question: { fontSize: 20, marginBottom: 20 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, marginBottom: 20 }
-}); 
+        await logEvent({
+            type: 'onboarding_completed',
+            data: { answers: allAnswers },
+        });
+
+        router.push('/(onboarding)/summary');
+    };
+
+    return (
+        <OnboardingStep
+            step={4}
+            totalSteps={4}
+            question={QUESTION}
+            icon="person-circle-outline"
+            onNextPress={handleFinish}
+            isLastStep={true}
+        />
+    );
+} 
