@@ -1,3 +1,4 @@
+import 'react-native-get-random-values';
 // app/_layout.tsx
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';

@@ -7,7 +7,7 @@ import { MotiView } from 'moti';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { processUserMessage } from '../../services/api.service';
-import { AppEvent, EventPayload, updateEventData } from '../../services/event.service';
+import { AppEvent, EventPayload } from '../../services/event.service';
 import { supabase } from '../../utils/supabase';
 
 const COSMIC_COLORS = {
@@ -130,8 +130,8 @@ export default function DreamResultScreen() {
           const finalDialogue = [...updatedDialogue, aiMessage];
           setDialogue(finalDialogue);
 
-          // 4. VERİTABANINI SON HALİYLE GÜNCELLE
-          await updateEventData(event.id, { ...event.data, dialogue: finalDialogue });
+          // 4. VERİTABANINI SON HALİYLE GÜNCELLE - REMOVED: This causes bigint error with temp ID
+          // await updateEventData(event.id, { ...event.data, dialogue: finalDialogue });
 
           // Diyalogun bitip bitmediğini kontrol et
           const userMessageCount = finalDialogue.filter(m => m.role === 'user').length;
@@ -185,9 +185,6 @@ export default function DreamResultScreen() {
                         <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 200}}>
                             <View style={styles.cardHeader}><Ionicons name="key-outline" size={22} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Ana Temalar</Text></View>
                             <View style={styles.tagsContainer}>{event.data.analysis?.themes?.map((tag: string) => <MotiView key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></MotiView>)}</View>
-                        </MotiView>
-                        <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 300}}>
-                            {/* Semboller ve Olası Anlamları kartı kaldırıldı */}
                         </MotiView>
                         <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 400}}>
                             <View style={styles.cardHeader}><Ionicons name="compass-outline" size={24} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Derinlemesine Yorum</Text></View>

@@ -80,7 +80,17 @@ export async function processUserMessage(userId: string, eventPayload: EventPayl
  * bu kişilikle adaptif yanıt fonksiyonunu çağırır.
  */
 function selectTherapistFunction(context: InteractionContext): Promise<string> {
-  const { traits } = context.initialVault;
+  const { initialEvent, initialVault } = context;
+  const eventData = initialEvent.data as EventService.TextSessionEventData;
+
+  // ÖNCELİK 1: Eğer event ile doğrudan bir kişilik gönderildiyse, onu kullan!
+  if (eventData.therapistPersona) {
+    console.log(`[ORCHESTRATOR] Doğrudan kişilik kullanılıyor: ${eventData.therapistPersona}`);
+    return AiService.generateAdaptiveTherapistReply(context, eventData.therapistPersona);
+  }
+
+  // --- Fallback (Eğer persona gönderilmediyse, özelliklere göre adaptif seçim yap) ---
+  const { traits } = initialVault;
   
   // Kaygı seviyesi yüksekse 'sakinleştirici' yaklaşım
   if (traits?.anxiety_level && traits.anxiety_level > 0.7) {
@@ -248,7 +258,17 @@ async function handleDreamAnalysis(context: InteractionContext): Promise<string>
         await VaultService.updateUserVault(updatedVault);
 
         // Analizle birlikte İLK SORUYU DA DÖNDÜR
-        const firstQuestionContext: InteractionContext = { ...context, derivedData: { dreamAnalysis } };
+        const firstQuestionContext: InteractionContext = { 
+            ...context, 
+            initialEvent: { // We need to modify the event payload
+                ...context.initialEvent,
+                data: {
+                    ...context.initialEvent.data,
+                    // The function expects 'analysis' or 'dreamAnalysisResult'
+                    analysis: dreamAnalysis 
+                }
+            }
+        };
         const firstQuestion = await AiService.generateNextDreamQuestion(firstQuestionContext);
       
         const resultForClient = {

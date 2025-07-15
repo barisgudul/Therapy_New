@@ -16,6 +16,7 @@ import {
     Keyboard,
     KeyboardAvoidingView,
     Platform,
+    Pressable,
     StyleSheet,
     Text,
     TextInput,
@@ -27,7 +28,6 @@ import Animated, {
     Easing,
     FadeIn,
     FadeInDown,
-    FadeOut,
     interpolate,
     interpolateColor,
     useAnimatedStyle,
@@ -35,7 +35,7 @@ import Animated, {
     withDelay,
     withRepeat,
     withSpring,
-    withTiming,
+    withTiming
 } from 'react-native-reanimated';
 import { getEventsForLast, logEvent } from '../../services/event.service';
 
@@ -242,12 +242,17 @@ export default function MoodComparisonScreen() {
 
                 <View style={styles.mainContent}>
                     {step === 'reveal' && (
-                        <Animated.View entering={FadeIn.delay(800).duration(1000)} exiting={FadeOut.duration(300)} style={styles.revealContainer}>
-                            <Text style={styles.headerText}>{data.before.label} <Ionicons name="arrow-forward" /> {data.after.label}</Text>
-                            <TouchableOpacity style={[styles.reflectionButton]} onPress={handleStartReflection}>
-                                <Text style={[styles.reflectionButtonText, { color: theme.final.tint }]}>Yansımanı Paylaş</Text>
-                            </TouchableOpacity>
-                        </Animated.View>
+                        <TouchableOpacity style={styles.revealContainer} onPress={handleStartReflection} activeOpacity={0.9}>
+                            <Animated.View entering={FadeIn.delay(800).duration(1000)}>
+                                <Text style={styles.headerText}>{data.before.label} <Ionicons name="arrow-forward" /> {data.after.label}</Text>
+                            </Animated.View>
+                            <Animated.View entering={FadeIn.delay(1000).duration(1000)}>
+                                <View style={styles.footerHint}>
+                                    <Ionicons name="hand-left-outline" size={16} color="#E2E8F0" />
+                                    <Text style={styles.footerHintText}>Devam etmek için dokun</Text>
+                                </View>
+                            </Animated.View>
+                        </TouchableOpacity>
                     )}
                     {step === 'synthesis' && (
                         <Animated.View style={styles.synthesisContainer} entering={FadeInDown.duration(1000)}>
@@ -258,9 +263,14 @@ export default function MoodComparisonScreen() {
                 </View>
 
                 {step === 'synthesis' && (
-                    <Animated.View style={styles.footer} entering={FadeIn.delay(800)}>
-                        <TouchableOpacity style={styles.finishButton} onPress={() => router.replace('/')}><Text style={styles.finishButtonText}>Ana Sayfa</Text></TouchableOpacity>
-                    </Animated.View>
+                    <Pressable style={styles.fullScreenExitPressable} onPress={() => router.replace('/')}>
+                        <Animated.View style={styles.footer} entering={FadeIn.delay(800)}>
+                            <View style={styles.footerHint}>
+                                <Ionicons name="home-outline" size={16} color="#A0AEC0" />
+                                <Text style={styles.footerHintText}>Ana sayfaya dönmek için dokun</Text>
+                            </View>
+                        </Animated.View>
+                    </Pressable>
                 )}
             </View>
 
@@ -306,7 +316,14 @@ const styles = StyleSheet.create({
     mainContent: { flex: 1, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
     footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === 'ios' ? 50 : 30, alignItems: 'center', zIndex: 15 },
     centeredModalBackdrop: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(10,10,20,0.7)', zIndex: 20 },
-    revealContainer: { flex: 1, justifyContent: 'space-between', alignItems: 'center', paddingTop: Platform.OS === 'ios' ? 120 : 100, paddingBottom: height * 0.15 },
+    revealContainer: {
+        flex: 1,
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: Platform.OS === 'ios' ? 120 : 100,
+        paddingBottom: height * 0.15,
+    },
     synthesisContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, paddingTop: TOP_LOTUS_SIZE },
     headerText: { fontSize: 18, fontWeight: '500', color: '#E2E8F0' },
     reflectionButton: { paddingVertical: 18, paddingHorizontal: 35, borderRadius: 30, },
@@ -341,4 +358,29 @@ const styles = StyleSheet.create({
     },
     submitButton: { alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 30 },
     submitButtonText: { fontSize: 16, fontWeight: 'bold', color: '#1A202C' },
+    fullScreenPressable: {
+        flex: 1,
+        width: '100%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: Platform.OS === 'ios' ? 120 : 100,
+        paddingBottom: height * 0.15,
+    },
+    footerHint: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        opacity: 0.6
+    },
+    footerHintText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#E2E8F0',
+        marginLeft: 8,
+    },
+    fullScreenExitPressable: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 25, // Diğer her şeyin üzerinde olmasını garanti et
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+    },
 });

@@ -4,21 +4,23 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import {
-    ActivityIndicator,
-    Alert, // <-- YENİ: Onay penceresi için import edildi
-    Animated,
-    Easing, // <-- YENİ: Buraya eklendi
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    UIManager,
-    View
+  ActivityIndicator,
+  Alert, // <-- YENİ: Onay penceresi için import edildi
+  Animated,
+  Easing, // <-- YENİ: Buraya eklendi
+  Image, // <-- YENİ: Terapist fotoğrafı için eklendi
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View
 } from 'react-native';
 // YENİ: deleteEventById fonksiyonu import edildi
 import { useRouter } from 'expo-router/';
+import { ALL_THERAPISTS } from '../data/therapists';
 import { AppEvent, deleteEventById, EventType, getEventsForLast } from '../services/event.service';
 
 // Android'de LayoutAnimation'ı etkinleştir
@@ -96,7 +98,14 @@ const SelectionCard: React.FC<{ title: string; description: string; icon: keyof 
 );
 
 // ---- YENİ: AKICI VE GENİŞ SEÇİM KARTI (FLOWCARD) ----
-const FlowCard: React.FC<{ icon: keyof typeof Ionicons.glyphMap; title: string; description: string; onPress: () => void; }> = ({ icon, title, description, onPress }) => {
+const FlowCard: React.FC<{ 
+    icon: keyof typeof Ionicons.glyphMap; 
+    title: string; 
+    description: string; 
+    onPress: () => void;
+    count: number;
+    features: string[];
+}> = ({ icon, title, description, onPress, count, features }) => {
     return (
         <Pressable onPress={onPress} style={({ pressed }) => [styles.flowCard, { transform: [{ scale: pressed ? 0.985 : 1 }] }] }>
             <LinearGradient colors={theme.serenityCardBackground} style={styles.flowCardGradient}>
@@ -106,6 +115,21 @@ const FlowCard: React.FC<{ icon: keyof typeof Ionicons.glyphMap; title: string; 
                 <View style={styles.flowTextContainer}>
                     <Text style={styles.flowTitle}>{title}</Text>
                     <Text style={styles.flowDescription}>{description}</Text>
+                    
+                    <View style={styles.countContainer}>
+                        <Ionicons name="file-tray-full-outline" size={16} color={theme.tint} />
+                        <Text style={styles.countText}>{count > 0 ? `${count} kayıt bulundu` : 'Henüz kayıt yok'}</Text>
+                    </View>
+
+                    <View style={styles.featuresContainer}>
+                      {features.map((feature, index) => (
+                        <View key={index} style={styles.featureTag}>
+                          <Ionicons name="checkmark-circle" size={14} color={theme.tint} style={styles.featureIcon} />
+                          <Text style={styles.featureText}>{feature}</Text>
+                        </View>
+                      ))}
+                    </View>
+
                 </View>
                 <Ionicons name="chevron-forward" size={24} color={theme.serenityAccent} />
             </LinearGradient>
@@ -121,6 +145,9 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
   const summaryTitle = firstUserMessage.length > 25 
       ? firstUserMessage.substring(0, 25) + '...'
       : firstUserMessage;
+  
+  const therapist = ALL_THERAPISTS.find(t => t.id === event.data.therapistId);
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.summaryCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
         <LinearGradient colors={[theme.card, '#F9FBFF']} style={styles.summaryCardGradient}>
@@ -128,6 +155,17 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
                 <Ionicons name="calendar-outline" size={18} color={theme.tint} />
                 <Text style={styles.summaryDateText}>{formattedDate}</Text>
             </View>
+            
+            {therapist && (
+              <View style={styles.therapistInfoContainer}>
+                <Image source={therapist.photo} style={styles.therapistImage} />
+                <View>
+                  <Text style={styles.therapistName}>{therapist.name}</Text>
+                  <Text style={styles.therapistSpecialty}>{therapist.title}</Text>
+                </View>
+              </View>
+            )}
+
             <Text style={styles.summaryTitle}>{summaryTitle}</Text>
             <Text style={styles.summaryText} numberOfLines={2}>
                 {firstUserMessage}
@@ -284,7 +322,7 @@ export default function PremiumHistoryScreen() {
   // Fix typo in function name
   const handleNavigateToPremium = () => {
       console.log("Navigating to AvatarScreen...");
-      router.replace('/avatar');
+      router.replace('/therapy/avatar');
   };
 
   // YENİ: Silme işlemini yöneten fonksiyon
@@ -318,6 +356,10 @@ export default function PremiumHistoryScreen() {
 
   const renderContent = () => {
     if (isLoading) { return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.tint} /></View>; }
+
+    const textSessionsCount = allEvents.filter(e => e.type === 'text_session').length;
+    const voiceSessionsCount = allEvents.filter(e => e.type === 'voice_session').length;
+
     switch (viewMode) {
       case 'menu':
         return (
@@ -337,19 +379,23 @@ export default function PremiumHistoryScreen() {
                       description="Düşüncelerinizi kelimelerin akışında görün." 
                       icon="chatbubble-ellipses-outline" 
                       onPress={() => handleSelectSessionType('text_session')} 
+                      count={textSessionsCount}
+                      features={['Anahtar Kelimeler', 'Duygu Analizi', 'Öz-yansıtma']}
                   />
                   <FlowCard 
                       title="Sesli Görüşmeler"
                       description="İfade ettiğiniz duyguların özüne dönün." 
                       icon="mic-outline" 
                       onPress={() => handleSelectSessionType('voice_session')} 
+                      count={voiceSessionsCount}
+                      features={['Tonlama Analizi', 'İçgörü Keşfi', 'Anlık Döküm']}
                   />
-                  <FlowCard 
+                  {/* <FlowCard 
                       title="Görüntülü Seanslar"
                       description="O anki bağın ve anlayışın izlerini takip edin." 
                       icon="videocam-outline" 
                       onPress={() => handleSelectSessionType('video_session')} 
-                  />
+                  /> */}
               </View>
             </ScrollView>
           </>
@@ -359,7 +405,7 @@ export default function PremiumHistoryScreen() {
         const sessionTitles = { 
             text_session: "Yazılarınız", 
             voice_session: "Ses Kayıtlarınız", 
-            video_session: "Görüşmeleriniz" 
+            // video_session: "Görüşmeleriniz" 
         };
         const title = sessionTitles[selectedSessionType!] || "Geçmiş Seanslar";
         return (
@@ -423,7 +469,7 @@ const styles = StyleSheet.create({
 
   // ---- YENİ: DİKEY AKIŞ (FLOW) STİLLERİ
   cardsFlowContainer: {
-    paddingHorizontal: 20, // Kenarlardan ferahlık
+    // paddingHorizontal: 20, // Ana konteynerin padding'i yeterli
     gap: 20, // Kartlar arası cömert boşluk
   },
   flowCard: {
@@ -467,6 +513,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: theme.serenityTextSoft,
     lineHeight: 20,
+    marginBottom: 12, // Added margin to create space for new elements
   },
   // ---- SummaryCard için gerekli stiller ----
   summaryCard: { borderRadius: 24, overflow: 'hidden', shadowColor: theme.shadow, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4, borderWidth: 1, borderColor: theme.divider },
@@ -482,6 +529,66 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255, 237, 237, 0.7)',
+  },
+
+  therapistInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.divider,
+  },
+  therapistImage: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      marginRight: 12,
+  },
+  therapistName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+  },
+  therapistSpecialty: {
+      fontSize: 13,
+      color: theme.softText,
+      marginTop: 2,
+  },
+
+  // FlowCard'a eklenen yeni elementler için stiller
+  countContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  countText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.tint,
+    marginLeft: 6,
+  },
+  featuresContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  featureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(93,161,217,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  featureIcon: {
+    marginRight: 6,
+  },
+  featureText: {
+    fontSize: 12,
+    color: theme.tint,
+    fontWeight: '500',
   },
 
   // ---- YENİ: SERENITY CARD STİLLERİ (ANİMASYON İÇİN GÜNCELLENDİ) ----
@@ -568,26 +675,30 @@ const styles = StyleSheet.create({
 
   // ---- YENİ: GİRİŞ BÖLÜMÜ STİLLERİ ----
   introContainer: {
-    paddingHorizontal: 16,
+    // paddingHorizontal: 16, // Ana konteynerin padding'i yeterli
     marginBottom: 32,
     marginTop: 16,
+    alignItems: 'center',
   },
   introTitle: {
-    fontSize: 34,
-    fontWeight: '300',
-    color: theme.serenityText,
+    fontSize: 28,
+    fontWeight: '600',
+    color: theme.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   introDescription: {
-    fontSize: 17,
-    color: theme.serenityTextSoft,
+    fontSize: 16,
+    color: theme.softText,
     textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 24,
+    maxWidth: '95%',
   },
   // GENEL MENU KONTEYNERİ
   menuContainer: {
-    paddingBottom: 60, // En altta boşluk
+    flexGrow: 1,
+    justifyContent: 'flex-start', // İçeriği yukarıdan başlatır
+    paddingBottom: 40,
   },
   summaryListContainer: { gap: 16, marginTop: 24, paddingBottom: 40 },
 });

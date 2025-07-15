@@ -7,6 +7,8 @@ import { textToSpeech, transcribeAudio } from '../utils/gcpServices';
 
 interface UseVoiceSessionProps {
   onTranscriptReceived?: (transcript: string) => void;
+  // YENİ: Seslendirme durumunu bildirmek için daha genel bir callback
+  onSpeechPlaybackStatusUpdate?: (status: { isPlaying: boolean }) => void;
   onSpeechStarted?: () => void;
   onSpeechEnded?: () => void;
   onSoundLevelChange?: (level: number) => void;
@@ -15,6 +17,7 @@ interface UseVoiceSessionProps {
 
 export const useVoiceSession = ({
   onTranscriptReceived,
+  onSpeechPlaybackStatusUpdate, // YENİ
   onSpeechStarted,
   onSpeechEnded,
   onSoundLevelChange,
@@ -64,7 +67,7 @@ export const useVoiceSession = ({
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
         shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false
+        playThroughEarpieceAndroid: false // Android'de hoparlörden çalsın
       });
       console.log("   -> Audio mode set.");
 
@@ -141,12 +144,21 @@ export const useVoiceSession = ({
 
       if (uri) {
         try {
+          console.log('🎯 [VOICE-HOOK] Ses tanıma başlatılıyor...', { uri, fileExists: true });
           const text = await transcribeAudio(uri);
+          console.log('📝 [VOICE-HOOK] Ses tanıma tamamlandı:', {
+            text,
+            length: text?.length,
+            isEmpty: !text || text.trim().length === 0
+          });
           onTranscriptReceived?.(text);
         } catch (err) {
-          // console.error('[useVoice] transcribeAudio error:', err);
+          console.error('❌ [VOICE-HOOK] Ses tanıma hatası:', err);
           onTranscriptReceived?.('');
         }
+      } else {
+        console.log('⚠️ [VOICE-HOOK] Ses dosyası URI bulunamadı');
+        onTranscriptReceived?.('');
       }
     } catch (err) {
       console.error('🔴 FAILED TO STOP RECORDING:', err);
@@ -159,26 +171,37 @@ export const useVoiceSession = ({
   // speakText fonksiyonundan yaş parametresini kaldır
   const speakText = useCallback(async (text: string, therapistIdArg?: string) => {
     try {
+      // Ses çalmadan önce hoparlör moduna geç
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false, // Sadece oynatım için
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: false,
+        playThroughEarpieceAndroid: false // Hoparlörden çalsın
+      });
+
       // therapistId'yi gcpServices'e iletiyoruz (artık userAge yok)
       const url = await textToSpeech(text, therapistIdArg || therapistId);
       const { sound: s } = await Audio.Sound.createAsync(
         { uri: url },
-        { 
-          shouldPlay: true,
-          volume: 1.0,
-          isMuted: false
-        },
+        { shouldPlay: true, volume: 1.0, isMuted: false },
         (status) => {
-          if (status.isLoaded && status.didJustFinish) {
-            s.unloadAsync();
+          if (status.isLoaded) {
+            console.log('🔊 [VOICE-HOOK] Playback status update:', { isPlaying: status.isPlaying, didJustFinish: status.didJustFinish });
+            onSpeechPlaybackStatusUpdate?.({ isPlaying: status.isPlaying });
+            if (status.didJustFinish) {
+              s.unloadAsync();
+              onSpeechPlaybackStatusUpdate?.({ isPlaying: false });
+            }
           }
         }
       );
       sound.current = s;
     } catch (err) {
       console.warn('Ses çalınamadı:', err);
+      onSpeechPlaybackStatusUpdate?.({ isPlaying: false });
     }
-  }, [therapistId]);
+  }, [therapistId, onSpeechPlaybackStatusUpdate]);
 
   const cleanup = useCallback(async () => {
     if (levelTimer.current) clearInterval(levelTimer.current);

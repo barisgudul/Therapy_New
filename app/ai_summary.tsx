@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Markdown from 'react-native-markdown-display';
 // @ts-ignore
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
@@ -29,21 +30,42 @@ import { AppEvent, deleteEventById, getAIAnalysisEvents, getOldestEventDate, log
 import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
 
+// Helper function to create a clean preview from markdown text
+// This version preserves line breaks and paragraph structure for a cleaner preview.
+const stripMarkdownForPreview = (markdown: string): string => {
+  if (!markdown) {
+    return "Özet bulunmuyor.";
+  }
+  return (
+    markdown
+      // Remove heading markers (e.g., ##, ###) but keep the text
+      .replace(/^#+\s/gm, '')
+      // Remove bold and italic markers
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      // Remove list markers (bullet points, dashes)
+      .replace(/^[\s]*[•-]\s/gm, '')
+      // Collapse consecutive blank lines into one
+      .replace(/\n\s*\n/g, '\n')
+      .trim()
+  );
+};
+
 export default function AISummaryScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const [maxDays, setMaxDays] = useState(7);
-  const [selectedDays, setSelectedDays] = useState(7);
+  const [maxDays, setMaxDays] = useState(1);
+  const [selectedDays, setSelectedDays] = useState(1);
   const [analysisEvents, setAnalysisEvents] = useState<AppEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Başlangıçta yükleniyor durumunda başlat
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
 
   // Kayıtlı özetleri yükle
   useEffect(() => {
     const initializePage = async () => {
-        setLoading(true); // İLK SATIR - Hemen yükleme durumunu başlat
+        setLoading(true); 
         try {
             // Vault store'u yükle
             const vaultStore = useVaultStore.getState();
@@ -64,10 +86,11 @@ export default function AISummaryScreen() {
                 const today = new Date();
                 const diffTime = Math.abs(today.getTime() - oldestEventDate.getTime());
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                const cappedDays = Math.min(diffDays, 365); // Zaten 365 yapılmıştı, şimdi sadece oldestEventDate'i doğru kullan
-                setMaxDays(cappedDays > 0 ? cappedDays : 1);
-                setSelectedDays(cappedDays > 0 ? cappedDays : 1);
-                console.log(`📅 [AI-SUMMARY] Analiz aralığı: ${cappedDays} gün olarak ayarlandı.`);
+                const cappedDays = Math.min(diffDays, 365); 
+                const finalDays = cappedDays > 0 ? cappedDays : 1;
+                setMaxDays(finalDays);
+                setSelectedDays(finalDays);
+                console.log(`📅 [AI-SUMMARY] Analiz aralığı: ${finalDays} gün olarak ayarlandı.`);
             } else { // Hiç olay yoksa
                 setMaxDays(1);
                 setSelectedDays(1);
@@ -283,6 +306,12 @@ const fetchSummary = async () => {
       <View style={styles.content}>
         <View style={styles.controlsBox}>
           <Text style={styles.inputLabel}>Kaç günlük veriyi analiz edelim?</Text>
+          {loading ? (
+             <View style={{height: 70, justifyContent: 'center', alignItems: 'center'}}>
+                <ActivityIndicator color={Colors.light.tint}/>
+                <Text style={{color: Colors.light.tint, marginTop: 8, fontSize: 12}}>Verileriniz Hesaplanıyor...</Text>
+            </View>
+          ) : (
           <Slider
             minimumValue={1}
             maximumValue={maxDays}
@@ -297,6 +326,7 @@ const fetchSummary = async () => {
               <View style={styles.thumbInner}><Text style={styles.thumbText}>{selectedDays}</Text></View>
             )}
           />
+          )}
           <TouchableOpacity 
             style={[styles.analyzeButton, loading && { opacity: 0.6 }]} 
             disabled={loading} 
@@ -359,7 +389,7 @@ const fetchSummary = async () => {
                       })}
                     </Text>
                   </View>
-                  <Text style={styles.summaryCardText} numberOfLines={3}>{item.data.text}</Text>
+                  <Text style={styles.summaryCardText} numberOfLines={3}>{stripMarkdownForPreview(item.data.text)}</Text>
                   <TouchableOpacity
                     onPress={() => deleteSummary(item.id)}
                     style={styles.deleteButton}
@@ -396,9 +426,13 @@ const fetchSummary = async () => {
             <Text style={styles.modalTitle}>AI Duygu Analizi</Text>
             <View style={styles.modalDivider} />
             <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalText}>
-                {activeSummary || "Analiz yüklenemedi."}
-              </Text>
+              {activeSummary ? (
+                <Markdown style={markdownStyles}>{activeSummary}</Markdown>
+              ) : (
+                <Text style={styles.modalText}>
+                  {"Analiz yüklenemedi."}
+                </Text>
+              )}
             </ScrollView>
             <TouchableOpacity
               onPress={exportToPDF}
@@ -418,6 +452,45 @@ const fetchSummary = async () => {
     </LinearGradient>
   );
 }
+
+const markdownStyles = StyleSheet.create({
+  heading2: {
+    color: Colors.light.tint,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 16,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(93,161,217,0.1)',
+    paddingBottom: 8,
+  },
+  heading3: {
+    color: '#1A1F36',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  body: {
+    fontSize: 15,
+    color: '#4A5568',
+    lineHeight: 24,
+  },
+  strong: {
+    fontWeight: 'bold',
+  },
+  bullet_list: {
+    marginTop: 8,
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  list_item: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+    lineHeight: 22,
+  },
+});
 
 const styles = StyleSheet.create({
   container: {

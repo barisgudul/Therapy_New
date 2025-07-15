@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
     if (textToAnalyze && typeof textToAnalyze === 'string' && textToAnalyze.trim().length > 0) {
       const safetyLevel = await classifyTextForSafety(textToAnalyze);
 
-      // Yüksek riskli (level 2 ve 3) içeriklere kapıyı kapat.
-      if (safetyLevel === 'level_3_high_alert' || safetyLevel === 'level_2_moderate_risk') {
+      // Yüksek riskli (sadece level 3) içeriklere kapıyı kapat.
+      if (safetyLevel === 'level_3_high_alert') {
         console.warn(`🚨 GÜVENLİK İHLALİ: API Gateway'de '${safetyLevel}' seviyesinde riskli içerik engellendi.`);
         // Frontend'e ANLAŞILIR bir hata dönüyoruz.
         return new Response(JSON.stringify({

@@ -17,7 +17,6 @@ import {
   View,
   useColorScheme
 } from 'react-native';
-import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, TherapistData, getTherapistById } from '../../data/therapists';
 import { useVoiceSession } from '../../hooks/useVoice';
@@ -35,7 +34,12 @@ export default function VoiceSessionScreen() {
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [selectedTherapist, setSelectedTherapist] = useState<TherapistData | null>(null);
-    const pulseAnim = useRef(new Animated.Value(1)).current;
+    const [isProcessingAI, setIsProcessingAI] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    
+    // YENİ: Tek bir yerden yönetilen animasyon değerleri
+    const circleScale = useRef(new Animated.Value(1)).current;
+    const dotOpacity = useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         if (therapistId) {
@@ -47,23 +51,40 @@ export default function VoiceSessionScreen() {
     }, [therapistId]);
 
     const { isRecording, isProcessing, startRecording, stopRecording, cleanup, speakText } = useVoiceSession({
+        onSpeechPlaybackStatusUpdate: (status) => {
+            console.log('🗣️ [VOICE-SESSION] Speaking status update received:', { isPlaying: status.isPlaying });
+            setIsSpeaking(status.isPlaying);
+        },
         onTranscriptReceived: async (userText) => {
             if (!userText) return;
+            
+            console.log('🧠 [VOICE-SESSION] AI Processing START');
+            setIsProcessingAI(true);
+
             const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
-            const updatedMessages = [...messages, userMessage];
-            setMessages(updatedMessages);
+            setMessages(prev => [...prev, userMessage]);
+
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                setIsProcessingAI(false);
+                return;
+            }
+
             const eventToProcess: EventPayload = {
                 type: 'voice_session',
                 data: {
-                    userMessage: userText,
+                    userMessage: userMessage.text,
                     therapistId,
                     initialMood: mood,
-                    intraSessionChatHistory: updatedMessages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n')
+                    intraSessionChatHistory: [...messages, userMessage].map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n')
                 }
             };
+
             const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+            
+            console.log('🧠 [VOICE-SESSION] AI Processing END');
+            setIsProcessingAI(false);
+
             if (error || !aiReplyText) {
                 const errorMessage = "Üzgünüm, şu an bir sorun yaşıyorum.";
                 setMessages(prev => [...prev, { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage }]);
@@ -77,21 +98,47 @@ export default function VoiceSessionScreen() {
         therapistId,
     });
 
-    const triggerPulse = (start: boolean = true) => {
-        if (start) {
-            pulseAnim.setValue(1);
+    // GÜNCELLENMİŞ ve KESİNTİSİZ: 3 aşamalı animasyon yöneticisi
+    useEffect(() => {
+        circleScale.stopAnimation();
+        dotOpacity.stopAnimation();
+
+        if (isRecording) {
+            // --- DİNLİYOR ANİMASYONU (Beğenilen) ---
             Animated.loop(
                 Animated.sequence([
-                    Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-                    Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(circleScale, { toValue: 1.1, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(circleScale, { toValue: 1, duration: 1000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                ])
+            ).start();
+        } else if (isProcessing || isProcessingAI) {
+            // --- DÜŞÜNÜYOR ANİMASYONU (Yeniden tasarlandı) ---
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(circleScale, { toValue: 1.07, duration: 1600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(circleScale, { toValue: 1, duration: 1600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                ])
+            ).start();
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(dotOpacity, { toValue: 0.3, duration: 1600, useNativeDriver: true }),
+                    Animated.timing(dotOpacity, { toValue: 1, duration: 1600, useNativeDriver: true }),
+                ])
+            ).start();
+        } else if (isSpeaking) {
+            // --- KONUŞUYOR ANİMASYONU (Yeniden tasarlandı) ---
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(circleScale, { toValue: 1.12, duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(circleScale, { toValue: 1, duration: 500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
                 ])
             ).start();
         } else {
-            pulseAnim.stopAnimation(() => {
-                Animated.spring(pulseAnim, { toValue: 1, useNativeDriver: true }).start();
-            });
+            // --- DURMA HALİ ---
+            Animated.spring(circleScale, { toValue: 1, useNativeDriver: true }).start();
+            Animated.spring(dotOpacity, { toValue: 1, useNativeDriver: true }).start();
         }
-    };
+    }, [isRecording, isProcessing, isProcessingAI, isSpeaking]);
 
     const handleSessionEnd = async () => {
         await stopRecording?.();
@@ -171,10 +218,6 @@ export default function VoiceSessionScreen() {
             {selectedTherapist?.name || 'Terapist'}
           </Text>
           <Text style={styles.therapistTitleRow}>{selectedTherapist?.title}</Text>
-          <View style={styles.timerContainer}>
-            <Ionicons name="time-outline" size={16} color="#8A94A6" />
-            <SessionTimer onSessionEnd={handleSessionEnd} />
-          </View>
         </View>
       </View>
 
@@ -192,7 +235,7 @@ export default function VoiceSessionScreen() {
               borderWidth: isRecording || isProcessing ? 2 : 1,
               shadowColor: isRecording ? Colors.light.tint : '#B0B8C1',
               shadowOpacity: isRecording ? 0.13 : 0.07,
-              transform: [{ scale: pulseAnim }],
+              transform: [{ scale: circleScale }], // İKİ ANİMASYONU BİRLEŞTİR
             },
           ]}
         >
@@ -206,11 +249,18 @@ export default function VoiceSessionScreen() {
                   {
                     borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
                     opacity: isRecording ? 0.18 : 0.10,
-                    transform: [{ scale: pulseAnim }],
+                    transform: [{ scale: circleScale }],
                   },
                 ]}
               />
-              <View style={styles.brandDot} />
+              <Animated.View
+                style={[
+                  styles.brandDot,
+                  {
+                    opacity: dotOpacity,
+                  },
+                ]}
+              />
             </>
           )}
         </Animated.View>
@@ -220,7 +270,6 @@ export default function VoiceSessionScreen() {
             disabled={isProcessing || isRecording}
             onPress={() => {
               if (!isRecording && !isProcessing) {
-                triggerPulse(true);
                 startRecording();
               }
             }}
@@ -232,7 +281,6 @@ export default function VoiceSessionScreen() {
           {isRecording && (
             <TouchableOpacity
               onPress={() => {
-                triggerPulse(false);
                 stopRecording();
               }}
               style={[styles.button, styles.btnActive]}
@@ -375,9 +423,9 @@ const styles = StyleSheet.create({
     color: '#2D3748',
   },
   circle: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
+    width: 180, // BÜYÜTÜLDÜ
+    height: 180, // BÜYÜTÜLDÜ
+    borderRadius: 90, // BÜYÜTÜLDÜ
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
@@ -393,10 +441,10 @@ const styles = StyleSheet.create({
   },
   brandWave: {
     position: 'absolute',
-    width: 108,
-    height: 108,
-    borderRadius: 54,
-    borderWidth: 2,
+    width: 160, // BÜYÜTÜLDÜ
+    height: 160, // BÜYÜTÜLDÜ
+    borderRadius: 80, // BÜYÜTÜLDÜ
+    borderWidth: 3, // Daha belirgin
     borderColor: 'rgba(93,161,217,0.25)',
     zIndex: 1,
     opacity: 0.15,
@@ -405,9 +453,9 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
   },
   brandDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 30, // BÜYÜTÜLDÜ
+    height: 30, // BÜYÜTÜLDÜ
+    borderRadius: 15, // BÜYÜTÜLDÜ
     backgroundColor: Colors.light.tint,
     borderWidth: 2,
     borderColor: '#FFFFFF',

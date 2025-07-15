@@ -4,17 +4,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Keyboard,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Keyboard,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
@@ -22,6 +22,7 @@ import { useAuth } from '../context/Auth';
 import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../services/ai.service';
 import { AppEvent, canUserWriteNewDiary, deleteEventById, getEventsForLast, logEvent } from '../services/event.service';
 import { addJourneyLogEntry } from '../services/journey.service';
+import { VaultData } from '../services/vault.service';
 import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
 import { getErrorMessage } from '../utils/errors';
@@ -44,7 +45,7 @@ export default function DiaryScreen() {
   const [currentInput, setCurrentInput] = useState('');
   const [step, setStep] = useState(0); // 0: İlk yazı, 1: 1. soru seti, 2: 2. soru seti, 3: 3. soru seti, 4: Tamamlama
   const [currentQuestions, setCurrentQuestions] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false); // Tek bir loading state yeterli
+  const [isLoading, setIsLoading] = useState(true); // Başlangıçta yükleniyor olarak ayarla
   const [diaryEvents, setDiaryEvents] = useState<AppEvent[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState('');
@@ -52,6 +53,41 @@ export default function DiaryScreen() {
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const spinAnim = useRef(new Animated.Value(0)).current;
   const modalPosition = useRef(new Animated.Value(0)).current;
+
+  const processDiaryInBackground = async (diaryMessages: Message[], currentVault: VaultData, currentUserId: string) => {
+    try {
+      console.log("🔥 [BACKGROUND-PROCESS] Günlük analizi arka planda başlatılıyor...");
+      
+      const fullTranscript = diaryMessages.map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`).join('\n');
+      
+      const memoryContext: InteractionContext = {
+          transactionId: uuidv4(),
+          userId: currentUserId,
+          initialVault: currentVault,
+          initialEvent: {
+              id: uuidv4(),
+              user_id: currentUserId,
+              type: 'diary_analysis_background',
+              timestamp: Date.now(),
+              created_at: new Date().toISOString(),
+              data: { transcript: fullTranscript }
+          },
+          derivedData: {},
+      };
+
+      const memoryPieces = await analyzeSessionForMemory(memoryContext);
+
+      if (memoryPieces) {
+          await addJourneyLogEntry(memoryPieces.log);
+          const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
+          await updateAndSyncVault(newVault);
+          console.log("✅ [BACKGROUND-PROCESS] Günlükten çıkarılan anlam Vault'a işlendi.");
+      }
+    } catch (error) {
+      console.error("⛔️ [BACKGROUND-PROCESS] Günlük işlenirken arka planda hata oluştu:", getErrorMessage(error));
+    }
+  };
+
 
   useEffect(() => {
     loadDiaryEvents();
@@ -82,6 +118,8 @@ export default function DiaryScreen() {
     } catch (error) {
       console.error('Günlük olayları yüklenirken hata:', error);
       Alert.alert('Hata', 'Günlük olayları yüklenirken bir hata oluştu.');
+    } finally {
+      setIsLoading(false); // Her durumda yüklemeyi bitir
     }
   };
 
@@ -183,56 +221,36 @@ export default function DiaryScreen() {
     setIsSaving(true);
     setSaveModalVisible(true);
 
-    let loggedEventId = null;
-
     try {
-      // 1. Orijinal sohbeti olduğu gibi kaydet. Bu, kullanıcının günlüğü.
-      loggedEventId = await logEvent({
+      // 1. ÖNCE KULLANICININ VERİSİNİ ANINDA KAYDET. BU EN ÖNEMLİ ADIM.
+      await logEvent({
         type: 'diary_entry',
         mood: 'mixed',
         data: { messages: messages }
       });
-      console.log("✅ Günlük diyaloğu ham olarak kaydedildi:", loggedEventId);
+      console.log("✅ Günlük diyaloğu ham olarak kaydedildi.");
 
-      // 2. HASAT: Bu sohbetten anlam çıkarıp uzun süreli belleği (Vault) besle.
-      const fullTranscript = messages.map(m => `${m.isUser ? 'Kullanıcı' : 'AI'}: ${m.text}`).join('\n');
-      const memoryContext: InteractionContext = {
-        transactionId: uuidv4(),
-        userId: user!.id,
-        initialVault: vault!,
-        initialEvent: {
-          id: loggedEventId || uuidv4(),
-          user_id: user!.id,
-          type: 'diary_entry',
-          timestamp: Date.now(),
-          created_at: new Date().toISOString(),
-          data: { transcript: fullTranscript }
-        },
-        derivedData: {},
-      };
+      // 2. ARAYÜZÜ HEMEN SERBEST BIRAK. KULLANICIYI BEKLETME.
+      await loadDiaryEvents();
+      setIsSaving(false);
+      setSaveModalVisible(false);
+      setIsWritingMode(false);
+      
+      // 3. AĞIR İŞİ (YAPAY ZEKA ANALİZİ) ARKA PLANDA BAŞLAT.
+      // 'await' kullanmıyoruz, böylece fonksiyonun bitmesini beklemiyoruz.
+      processDiaryInBackground(messages, vault!, user!.id);
 
-      const memoryPieces = await analyzeSessionForMemory(memoryContext);
-
-      // 3. ENTEGRASYON: Çıkarılan anlamı Vault ve Journey Log'a işle.
-      if (memoryPieces) {
-        await addJourneyLogEntry(memoryPieces.log);
-        const newVault = mergeVaultData(vault!, memoryPieces.vaultUpdate);
-        await updateAndSyncVault(newVault);
-        console.log("✅ Günlükten çıkarılan anlam Vault'a işlendi.");
-      }
+      // 4. State'i temizle
+      setMessages([]);
+      setStep(0);
 
     } catch(error) {
-      console.error("Günlüğü kaydederken veya işlerken hata:", getErrorMessage(error));
+      console.error("Günlüğü kaydederken kritik hata (ilk kayıt):", getErrorMessage(error));
       Alert.alert("Kayıt Hatası", "Günlüğün kaydedilirken bir sorun oluştu.");
+      // Hata durumunda UI'ı serbest bırak.
+      setIsSaving(false);
+      setSaveModalVisible(false);
     }
-
-    // 4. Nihai temizlik ve çıkış
-    await loadDiaryEvents();
-    setIsSaving(false);
-    setSaveModalVisible(false);
-    setIsWritingMode(false);
-    setMessages([]);
-    setStep(0);
   };
 
   // Soru seçildiğinde
@@ -347,7 +365,12 @@ export default function DiaryScreen() {
       <View style={styles.content}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.diaryContainer}>
-            {diaryEvents.length === 0 ? (
+            {isLoading ? (
+              <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', height: 300}}>
+                  <ActivityIndicator size="large" color={Colors.light.tint} />
+                  <Text style={{marginTop: 15, color: Colors.light.tint, fontSize: 16, fontWeight: '500'}}>Günlüklerin Yükleniyor...</Text>
+              </View>
+            ) : diaryEvents.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyStateIconContainer}>
                   <LinearGradient

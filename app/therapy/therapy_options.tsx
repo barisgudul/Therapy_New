@@ -7,16 +7,16 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { Colors } from '../../constants/Colors';
 
 const therapyOptions = [
-  {
-    id: 'video',
-    title: 'Görüntülü Görüşme',
-    description: 'Terapistinizle yüz yüze görüşme imkanı. Vücut dilinizi ve duygularınızı daha iyi anlayabilir.',
-    icon: 'videocam-outline',
-    colors: ['#E0ECFD', '#F4E6FF'] as const,
-    route: '/sessions/video_session',
-    duration: '30 dakika',
-    features: ['Yüz Yüze İletişim', 'Güvenli Platform', 'Profesyonel Destek']
-  },
+  // {
+  //   id: 'video',
+  //   title: 'Görüntülü Görüşme',
+  //   description: 'Terapistinizle yüz yüze görüşme imkanı. Vücut dilinizi ve duygularınızı daha iyi anlayabilir.',
+  //   icon: 'videocam-outline',
+  //   colors: ['#E0ECFD', '#F4E6FF'] as const,
+  //   route: '/sessions/video_session',
+  //   duration: '30 dakika',
+  //   features: ['Yüz Yüze İletişim', 'Güvenli Platform', 'Profesyonel Destek']
+  // },
   {
     id: 'voice',
     title: 'Sesli Görüşme',

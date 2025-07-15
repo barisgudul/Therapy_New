@@ -73,14 +73,38 @@ export default function VideoSessionScreen() {
 
     const handleTouchEnd = () => setIsDragging(false);
 
-    const { isRecording, startRecording, stopRecording, cleanup, speakText } = useVoiceSession({
+    // Güncellenmiş video_session.tsx - useVoiceSession kısmı
+
+    const { isRecording, isProcessing, startRecording, stopRecording, cleanup, speakText } = useVoiceSession({
         onTranscriptReceived: async (userText) => {
-            if (!userText) return;
+            console.log('🎤 [VIDEO-SESSION] onTranscriptReceived çağrıldı:', { userText, length: userText?.length });
+            
+            if (!userText) {
+                console.log('❌ [VIDEO-SESSION] Boş metin, işlem iptal ediliyor');
+                return;
+            }
+            
+            console.log('📝 [VIDEO-SESSION] Kullanıcı mesajı oluşturuluyor...');
             const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', text: userText };
             const updatedMessages = [...messages, userMessage];
             setMessages(updatedMessages);
+            
+            // Kullanıcıya hemen feedback ver
+            const thinkingMessage: ChatMessage = { 
+                id: `thinking-${Date.now()}`, 
+                sender: 'ai', 
+                text: 'Düşünüyorum...' 
+            };
+            setMessages(prev => [...prev, thinkingMessage]);
+            
+            console.log('👤 [VIDEO-SESSION] Kullanıcı kontrolü yapılıyor...');
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                console.log('❌ [VIDEO-SESSION] Kullanıcı bulunamadı');
+                return;
+            }
+            
+            console.log('📦 [VIDEO-SESSION] Event payload hazırlanıyor...');
             const eventToProcess: EventPayload = {
                 type: 'video_session',
                 data: {
@@ -90,16 +114,51 @@ export default function VideoSessionScreen() {
                     intraSessionChatHistory: updatedMessages.map(m => `${m.sender}: ${m.text}`).join('\n')
                 }
             };
+            
+            console.log('🧠 [VIDEO-SESSION] AI işlemi başlatılıyor...', { 
+                userId: user.id, 
+                eventType: eventToProcess.type,
+                messageLength: userText.length,
+                therapistId
+            });
+            
             const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+            
+            console.log('🔄 [VIDEO-SESSION] AI yanıtı alındı:', { 
+                hasReply: !!aiReplyText, 
+                hasError: !!error,
+                replyLength: aiReplyText?.length,
+                error: error
+            });
+            
             if (error || !aiReplyText) {
+                console.log('❌ [VIDEO-SESSION] AI hatası, fallback mesaj kullanılıyor');
                 const errorMessage = "Üzgünüm, bir sorun oluştu.";
-                setMessages(prev => [...prev, { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage }]);
+                
+                // "Düşünüyorum..." mesajını hata mesajıyla değiştir
+                setMessages(prev => prev.map(msg => 
+                    msg.text === 'Düşünüyorum...' 
+                        ? { ...msg, text: errorMessage }
+                        : msg
+                ));
+                
+                console.log('🔊 [VIDEO-SESSION] Hata mesajı seslendiriliyor...');
                 speakText(errorMessage, therapistId);
             } else {
-                const aiMessage: ChatMessage = { id: `ai-${Date.now()}`, sender: 'ai', text: aiReplyText };
-                setMessages(prev => [...prev, aiMessage]);
+                console.log('✅ [VIDEO-SESSION] Başarılı yanıt, mesaj ekleniyor ve seslendiriliyor...');
+                
+                // "Düşünüyorum..." mesajını gerçek yanıtla değiştir
+                setMessages(prev => prev.map(msg => 
+                    msg.text === 'Düşünüyorum...' 
+                        ? { ...msg, text: aiReplyText }
+                        : msg
+                ));
+                
+                console.log('🔊 [VIDEO-SESSION] AI yanıtı seslendiriliyor...');
                 speakText(aiReplyText, therapistId);
             }
+            
+            console.log('🏁 [VIDEO-SESSION] onTranscriptReceived tamamlandı');
         },
         therapistId,
     });

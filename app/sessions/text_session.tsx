@@ -35,6 +35,7 @@ export default function TextSessionScreen() {
   const [messages, setMessages] = useState<{ sender: 'user' | 'ai', text: string }[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isEnding, setIsEnding] = useState(false); // YENİ: Seans sonlandırma kilidi
   const [isSaving, setIsSaving] = useState(false);
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [currentMood, setCurrentMood] = useState<string>('');
@@ -95,34 +96,41 @@ export default function TextSessionScreen() {
   };
 
   // Move onBackPress and handleSessionEnd to top-level
-  const handleSessionEnd = async () => {
+  const handleSessionEnd = () => {
+    // YENİ: Eğer zaten sonlandırma işlemi başladıysa, tekrar çalıştırma
+    if (isEnding) return;
+    setIsEnding(true); // Kilidi aktif et
+
     // Önce seansın ham kaydını her zamanki gibi tut. Bu, transkriptler için gerekli.
     if (messages.length > 2) {
       // Sadece Orkestratör'ü bilgilendir. logEvent yok!
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const sessionEndPayload: EventPayload = {
-          type: 'text_session',
-          data: {
-            therapistId,
-            initialMood: mood,
-            finalMood: currentMood,
-            transcript: messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n'),
-            messages,
-            isSessionEnd: true
-          }
-        };
-        await processUserMessage(user.id, sessionEndPayload);
-      }
-    } else {
-      router.replace('/feel/after_feeling');
-      return;
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          const sessionEndPayload: EventPayload = {
+            type: 'text_session',
+            data: {
+              therapistId,
+              initialMood: mood,
+              finalMood: currentMood,
+              transcript: messages.map(m => `${m.sender === 'user' ? 'Danışan' : 'Terapist'}: ${m.text}`).join('\n'),
+              messages,
+              isSessionEnd: true
+            }
+          };
+          // Bu fonksiyon artık arka planda çalışıyor, await'e gerek yok.
+          processUserMessage(user.id, sessionEndPayload);
+        }
+      });
     }
-    // Kullanıcıyı bir sonraki ekrana yönlendir.
+
+    // Kullanıcıyı ANINDA bir sonraki ekrana yönlendir.
     router.replace('/feel/after_feeling');
   };
 
   const onBackPress = () => {
+    // YENİ: Eğer zaten sonlandırma işlemi başladıysa, uyarıyı tekrar gösterme
+    if (isEnding) return true;
+    
     Alert.alert(
       'Seansı Sonlandır',
       'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
@@ -131,8 +139,8 @@ export default function TextSessionScreen() {
         {
           text: 'Sonlandır',
           style: 'destructive',
-          onPress: async () => {
-            await handleSessionEnd();
+          onPress: () => {
+            handleSessionEnd();
           },
         },
       ]
@@ -145,7 +153,7 @@ export default function TextSessionScreen() {
     return () => {
       subscription.remove();
     };
-  }, [messages, router, therapistId, currentMood]);
+  }, [messages, router, therapistId, currentMood, isEnding]); // YENİ: isEnding bağımlılığını ekle
 
   // Mood ve terapist bilgisini parametrelerden alıp state'e ata
   useEffect(() => {
@@ -160,7 +168,7 @@ export default function TextSessionScreen() {
         setSelectedTherapist(therapist);
     } else {
         // ID gelmezse bir varsayılan ata (güvenlik önlemi)
-        setSelectedTherapist(ALL_THERAPISTS[0]); 
+        setSelectedTherapist(ALL_THERAPISTS[0]);
     }
   }, [therapistId, mood]);
 
@@ -186,6 +194,7 @@ const sendMessage = async () => {
       userMessage: trimmedInput,
       intraSessionChatHistory: fullConversationHistory,
       therapistId,
+      therapistPersona: selectedTherapist?.personaKey,
       initialMood: mood,
     }
   };
@@ -210,9 +219,9 @@ const sendMessage = async () => {
 };
 
   return (
-    <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
-        start={{x: 0, y: 0}} 
-        end={{x: 1, y: 1}} 
+    <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
+        start={{x: 0, y: 0}}
+        end={{x: 1, y: 1}}
         style={styles.container}>
       <TouchableOpacity onPress={onBackPress} style={styles.back}>
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
@@ -224,18 +233,18 @@ const sendMessage = async () => {
       {/* Terapist avatar ve adı */}
       <View style={styles.therapistHeaderRow}>
         <View style={styles.avatarGradientBox}>
-          <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
-              start={{x: 0, y: 0}} 
-              end={{x: 1, y: 1}} 
+          <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
+              start={{x: 0, y: 0}}
+              end={{x: 1, y: 1}}
               style={styles.avatarGradient}>
-            <Image 
-                              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail} 
+            <Image
+                              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
               style={styles.therapistAvatarXL}
             />
           </LinearGradient>
         </View>
         <View style={styles.therapistInfoBoxRow}>
-          <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}> 
+          <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}>
             {selectedTherapist?.name || 'Terapist'}
           </Text>
           <Text style={[styles.therapistTitleRow, { color: isDark ? '#fff' : '#5D6D7E' }]}>
@@ -320,7 +329,7 @@ const sendMessage = async () => {
             />
             <TouchableOpacity
               onPress={sendMessage}
-              style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]} 
+              style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]}
               disabled={isTyping || !input.trim()}
             >
               <LinearGradient

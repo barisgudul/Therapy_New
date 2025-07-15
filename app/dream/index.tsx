@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useCallback, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     SafeAreaView,
@@ -29,8 +30,12 @@ const COSMIC_COLORS = {
 export default function DreamJournalScreen() {
   const router = useRouter();
   const [analyses, setAnalyses] = useState<AppEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadAnalyses = useCallback(async () => {
+    // Veri yüklemesi başlamadan önce tekrar true yapmakta fayda var,
+    // özellikle pull-to-refresh gibi senaryolar için.
+    setIsLoading(true);
     try {
       // Son 365 günün olaylarını çek
       const allEvents = await getEventsForLast(365);
@@ -39,6 +44,8 @@ export default function DreamJournalScreen() {
       setAnalyses(dreamEvents);
     } catch (e) {
       console.error('Rüya analizleri yüklenemedi:', e);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -130,29 +137,36 @@ export default function DreamJournalScreen() {
             <Text style={styles.headerSubtext}>Bilinçaltınızı analizlerle keşfedin.</Text>
         </View>
 
-        <FlatList
-          data={analyses}
-          renderItem={renderDreamCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="moon-outline" size={60} color={COSMIC_COLORS.textSecondary} />
-              <Text style={styles.emptyTitle}>Henüz analiz edilmiş bir rüya yok.</Text>
-              <Text style={styles.emptySubtitle}>Aşağıdaki butona dokunarak ilk rüya analizinizi alın.</Text>
-            </View>
-          }
-        />
+        {isLoading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={COSMIC_COLORS.accent} />
+            <Text style={{ ...styles.emptySubtitle, marginTop: 20 }}>Analizler Yükleniyor...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={analyses}
+            renderItem={renderDreamCard}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Ionicons name="moon-outline" size={60} color={COSMIC_COLORS.textSecondary} />
+                <Text style={styles.emptyTitle}>Henüz analiz edilmiş bir rüya yok.</Text>
+                <Text style={styles.emptySubtitle}>Aşağıdaki butona dokunarak ilk rüya analizinizi alın.</Text>
+              </View>
+            }
+          />
+        )}
 
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.newDreamButton}
             onPress={handleNewDreamPress}
           >
-            <LinearGradient colors={['#F8FAFF', '#FFFFFF']} style={styles.newDreamButtonGradient}>
-                <Ionicons name="add" size={24} color={COSMIC_COLORS.accent} />
-                <Text style={styles.newDreamButtonText}>Yeni Rüya Analizi al</Text>
-            </LinearGradient>
+            <View style={styles.newDreamButtonContent}>
+              <Ionicons name="add" size={24} color={COSMIC_COLORS.textPrimary} />
+              <Text style={styles.newDreamButtonText}>Yeni Rüya Analizi</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -171,9 +185,21 @@ const styles = StyleSheet.create({
   cardDate: { color: COSMIC_COLORS.textSecondary, fontSize: 14 },
   deleteIcon: { padding: 10 },
   footer: { padding: 20, borderTopColor: COSMIC_COLORS.cardBorder, borderTopWidth: 1 },
-  newDreamButton: { borderRadius: 28, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: {width: 0, height: 5}, elevation: 10 },
-  newDreamButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 56, borderRadius: 28 },
-  newDreamButtonText: { color: COSMIC_COLORS.accent, fontSize: 17, fontWeight: '600', marginLeft: 8 },
+  newDreamButton: { 
+    height: 56,
+    borderRadius: 28, 
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  newDreamButtonContent: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center' 
+  },
+  newDreamButtonText: { color: COSMIC_COLORS.textPrimary, fontSize: 17, fontWeight: '600', marginLeft: 8 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: '20%' },
   emptyTitle: { color: COSMIC_COLORS.textPrimary, fontSize: 22, fontWeight: 'bold', marginTop: 20 },
   emptySubtitle: { color: COSMIC_COLORS.textSecondary, fontSize: 16, textAlign: 'center', marginTop: 10, maxWidth: '80%' }

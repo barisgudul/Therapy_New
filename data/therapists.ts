@@ -13,6 +13,7 @@ export type TherapistData = {
   photo: any;
   title: string;
   persona: string;
+  personaKey: string;
   icon: IconName; // Artık sadece geçerli Ionicons isimleri!
   style: string;
   specialties: string[];
@@ -31,6 +32,7 @@ export const ALL_THERAPISTS: TherapistData[] = [
     photo: require('../assets/Terapist_1.jpg'),
     title: 'AI Klinik Psikolog',
     persona: 'Şefkatli ve duygusal, anaç tavırlı',
+    personaKey: 'default',
     icon: 'heart-circle',
     style: 'Empati ve dinleme öncelikli, duygulara odaklanır',
     specialties: ['Duygusal zorluklar', 'Özşefkat', 'İlişki terapisi'],
@@ -45,34 +47,13 @@ export const ALL_THERAPISTS: TherapistData[] = [
     ]
   },
   {
-    id: 'therapist2',
-    name: 'Dr. Can',
-    thumbnail: require('../assets/Terapist_2.jpg'),
-    photo: require('../assets/Terapist_2.jpg'),
-    title: 'AI Psikolojik Danışman',
-    persona: 'Pozitif ve motive edici, dinamik',
-    icon: 'sunny',
-    style: 'Enerjik ve pozitif yaklaşımım, danışanlarımı cesaretlendirir ve değişim için motive eder.',
-    specialties: ['Stres yönetimi', 'Kariyer danışmanlığı', 'Motivasyon', 'Performans artırma'],
-    philosophy: '"Bugün küçük bir adım, yarın büyük bir değişimin başlangıcıdır."',
-    about: 'Selam! Ben Dr. Can. Hayata pozitif bakışımla, güçlü yönlerini keşfetmen ve hedeflerine ulaşman için seni desteklerim. Seanslarımda motive edici, pratik ve genç bir enerji sunarım. Hedef belirleme ve değişim konularında yanındayım.',
-    approach: 'Genç ruhlu ve motive edici bir terapist olarak, danışanlarımın içsel güçlerini keşfetmelerine yardımcı oluyorum. Her bireyin benzersiz olduğuna inanır, kişiye özel çözümler sunarım.',
-    methods: [
-      'Bilişsel Davranışçı Terapi',
-      'Çözüm Odaklı Terapi',
-      'Motivasyonel Görüşme',
-      'Hedef Belirleme Teknikleri',
-      'Performans Koçluğu',
-      'Zaman Yönetimi'
-    ]
-  },
-  {
     id: 'therapist3',
     name: 'Dr. Lina',
     thumbnail: require('../assets/Terapist_3.jpg'),
     photo: require('../assets/Terapist_3.jpg'),
     title: 'AI Aile Terapisti',
     persona: 'Huzurlu ve empatik, aile odaklı',
+    personaKey: 'calm',
     icon: 'people',
     style: 'Empati ve anlayış üzerine kurulu, ilişkileri güçlendirmeye odaklanır',
     specialties: ['Aile içi iletişim', 'Çocuk & Ergen', 'Travma sonrası destek'],
@@ -88,11 +69,12 @@ export const ALL_THERAPISTS: TherapistData[] = [
   },
   {
     id: 'coach1',
-    name: 'Can Koç',
+    name: 'Koç Can',
     thumbnail: require('../assets/coach-can.jpg'),
     photo: require('../assets/coach-can.jpg'),
     title: 'Yaşam Koçu',
     persona: 'Dinamik ve ilham verici, pratik odaklı',
+    personaKey: 'motivational',
     icon: 'rocket',
     style: 'Enerjik, motive edici ve hedef odaklı',
     specialties: ['Kişisel gelişim', 'Hedef belirleme', 'Performans artırma'],

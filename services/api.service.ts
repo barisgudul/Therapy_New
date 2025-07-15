@@ -25,6 +25,17 @@ async function apiCall<T>(promise: Promise<T>): Promise<{ data: T | null; error:
   }
 }
 
+// ARKA PLAN GÖREVİ İÇİN YENİ FONKSİYON
+function runInBackground(promise: Promise<any>, taskName: string) {
+    promise
+        .then(() => console.log(`✅ [BG_TASK] '${taskName}' başarıyla tamamlandı.`))
+        .catch(error => {
+            const errorMessage = getErrorMessage(error);
+            console.error(`⛔️ [BG_TASK_ERROR] '${taskName}' hatası:`, errorMessage, error);
+        });
+}
+
+
 // Fonksiyonları buraya taşı. Örnek:
 import { logEvent as _logEvent, AppEvent, EventPayload } from './event.service';
 export async function logEvent(event: Omit<AppEvent, 'id' | 'user_id' | 'timestamp' | 'created_at'>) {
@@ -38,6 +49,11 @@ export async function updateUserVault(vaultData: VaultData) {
 
 import { processUserMessage as _processUserMessage } from './orchestration.service';
 export async function processUserMessage(userId: string, event: EventPayload) {
+    // Eğer seans sonu ise, arka planda çalıştır ve bekleme
+    if (event.data.isSessionEnd) {
+        runInBackground(_processUserMessage(userId, event), 'process-session-end');
+        return { data: "SESSION_END_REQUESTED", error: null };
+    }
     return apiCall(_processUserMessage(userId, event));
 }
 // ... Diğer asenkron servis fonksiyonları da buraya eklenebilir ... 

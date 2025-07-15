@@ -14,6 +14,7 @@ export const EVENT_TYPES = [
   'dream_analysis',
   'ai_analysis',
   'onboarding_completed',
+  'diary_analysis_background',
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -190,4 +191,13 @@ export async function getOldestEventDate(): Promise<Date | null> {
     console.error('⛔️ En eski olay tarihi çekme hatası:', (error as Error).message);
     throw error;
   }
+}
+
+// Bir metin tabanlı terapi seansı sırasındaki olaylar
+export type TextSessionEventData = {
+  userMessage: string;
+  therapistId: string;
+  therapistPersona?: string; // AI kişiliğini doğrudan iletmek için eklendi
+  initialMood?: string;
+  finalMood?: string;
 }
