@@ -1,12 +1,20 @@
 // services/orchestration.service.ts
 
-import { v4 as uuidv4 } from 'uuid';
 import { InteractionContext } from '../types/context';
 import * as AiService from './ai.service';
 import * as EventService from './event.service';
 import { EventPayload } from './event.service';
 import * as JourneyService from './journey.service';
 import * as VaultService from './vault.service';
+
+// React Native uyumlu UUID generator
+function generateId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 /**
  * Kullanıcıdan gelen yeni bir terapi mesajını işler.
@@ -19,12 +27,12 @@ export async function processUserMessage(userId: string, eventPayload: EventPayl
   const initialVault = await VaultService.getUserVault() ?? {};
   
   const context: InteractionContext = {
-    transactionId: uuidv4(),
+    transactionId: generateId(),
     userId,
     initialVault,
     initialEvent: {
       ...eventPayload,
-      id: uuidv4(),
+      id: generateId(),
       user_id: userId,
       timestamp: Date.now(),
       created_at: new Date().toISOString()
@@ -339,21 +347,16 @@ async function handleDailyReflection(context: InteractionContext): Promise<strin
  * Onboarding tamamlama akışı
  */
 async function handleOnboardingCompletion(context: InteractionContext): Promise<string> {
-  console.log(`[ORCHESTRATOR] Onboarding tamamlandı, analiz başlıyor: ${context.transactionId}`);
+  console.log(`[ORCHESTRATOR] Onboarding tamamlandı, cevaplar kaydediliyor: ${context.transactionId}`);
   
-  // 1. Cevaplardan kişilik özelliklerini (trait) çıkar
-  const traits = await AiService.analyzeOnboardingAnswers(context);
+  // AI analizi yapma - sadece cevapları kaydet
+  // Trait analizi daha sonra yapılacak, şimdilik masraftan kaçın
   
-  // 2. Yeni trait'leri mevcut vault ile birleştir ve onboarding'in tamamlandığına dair damga vur
-  const newVaultData = {
-    ...context.initialVault,
-    traits: { ...context.initialVault.traits, ...traits },
-    metadata: { ...context.initialVault.metadata, onboardingCompleted: true }
-  };
-
-  // 3. Kullanıcının ruhunu (Vault) güncelle
-  await VaultService.updateUserVault(newVaultData);
-
-  // UI'a başarılı olduğuna dair bir sinyal döndür, UI bu mesaja göre davranabilir.
-  return "ANALYSIS_SUCCESSFUL";
+  // Vault güncelleme summary.tsx'te yapılıyor, burada tekrar yapma
+  // Conflict'i önlemek için sadece log at
+  
+  console.log(`[ORCHESTRATOR] Onboarding cevapları başarıyla kaydedildi: ${context.transactionId}`);
+  
+  // UI'a başarılı olduğuna dair bir sinyal döndür
+  return "ONBOARDING_SAVED";
 } 

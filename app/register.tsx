@@ -6,14 +6,16 @@ import React, { useState } from 'react';
 import { ActivityIndicator, LayoutAnimation, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import { AuthInput } from '../components/AuthInput';
 import { AuthLayout } from '../components/AuthLayout';
+import { useOnboardingStore } from '../store/onboardingStore';
 import { authScreenStyles as styles } from '../styles/auth';
 import { signUpWithEmail } from '../utils/auth';
 
 export default function RegisterScreen() {
     const router = useRouter();
+    const setNickname = useOnboardingStore((s) => s.setNickname);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [nickname, setNickname] = useState('');
+    const [nickname, setNicknameLocal] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [step, setStep] = useState(0);
@@ -47,9 +49,11 @@ export default function RegisterScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             const user = await signUpWithEmail(email, password);
             if (!user) throw new Error("Kullanıcı oluşturulamadı.");
+            // Nickname'i onboarding store'una kaydet
+            setNickname(nickname.trim());
             // const initialVault: VaultData = { profile: { nickname: nickname.trim() } };
             // await updateUserVault(initialVault); // ARTIK GEREKSİZ
-            router.replace('/');
+            router.replace('/(onboarding)/step1');
         } catch (error: any) {
             if (error.message && error.message.includes('already in use')) {
                 setError('Bu e-posta adresi zaten kullanımda.');
@@ -90,7 +94,7 @@ export default function RegisterScreen() {
                 {/* ADIM 2: Kullanıcı Adı */}
                 {step === 1 && (
                      <View style={styles.inputWrapper}>
-                        <AuthInput iconName="person-outline" placeholder="Tercih ettiğin isim" value={nickname} onChangeText={setNickname} autoFocus={true} onSubmitEditing={handleRegister} />
+                        <AuthInput iconName="person-outline" placeholder="Tercih ettiğin isim" value={nickname} onChangeText={setNicknameLocal} autoFocus={true} onSubmitEditing={handleRegister} />
                     </View>
                 )}
 

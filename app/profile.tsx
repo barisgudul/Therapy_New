@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
+import { useAuth } from '../context/Auth';
 import { useVaultStore } from '../store/vaultStore';
 
 // MİMARİ SADAKATİ
@@ -42,20 +43,51 @@ const initialProfileState: LocalProfileState = {
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { session, user } = useAuth();
 
     // Verinin tek, merkezi ve reaktif kaynağı: Zustand Store'umuz.
     const vault = useVaultStore((state) => state.vault);
     const updateAndSyncVault = useVaultStore((state) => state.updateAndSyncVault);
     const isLoadingVault = useVaultStore((state) => state.isLoading);
+    const fetchVault = useVaultStore((state) => state.fetchVault);
+    const vaultError = useVaultStore((state) => state.error);
+    const debugVaultState = useVaultStore((state) => state.debugVaultState);
 
     // Tüm profil verileri için TEK bir state.
     const [localProfile, setLocalProfile] = useState<LocalProfileState>(initialProfileState);
     const [isSaving, setIsSaving] = useState(false);
     const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
+    // Vault'u yükle
+    useEffect(() => {
+        console.log('🔍 [PROFILE] Vault durumu:', {
+            vault: vault ? 'Var' : 'Yok',
+            isLoadingVault,
+            vaultProfile: vault?.profile ? 'Var' : 'Yok',
+            vaultOnboarding: vault?.onboarding ? 'Var' : 'Yok',
+            vaultMetadata: vault?.metadata ? 'Var' : 'Yok',
+            onboardingCompleted: vault?.metadata?.onboardingCompleted
+        });
+        
+        // Sadece vault yok ve loading değilse fetch et
+        if (!vault && !isLoadingVault) {
+            console.log('🚀 [PROFILE] fetchVault çağrılıyor');
+            fetchVault().catch(error => {
+                console.error('❌ [PROFILE] Vault yükleme hatası:', error);
+            });
+        }
+    }, [vault, isLoadingVault, fetchVault]);
+
     // Vault verisi yüklendiğinde veya değiştiğinde, yerel state'i güncelle.
     useEffect(() => {
+        console.log('🔄 [PROFILE] Vault değişti, profil güncelleniyor:', {
+            hasVault: !!vault,
+            hasProfile: !!vault?.profile,
+            nickname: vault?.profile?.nickname
+        });
+        
         if (vault?.profile) {
+            console.log('✅ [PROFILE] Profil bulundu, güncelleniyor');
             setLocalProfile({
                 nickname: vault.profile.nickname || '',
                 birthDate: vault.profile.birthDate || '',
@@ -64,6 +96,18 @@ export default function ProfileScreen() {
                 previousTherapy: vault.profile.previousTherapy || '',
                 relationshipStatus: vault.profile.relationshipStatus || '',
                 gender: vault.profile.gender || '',
+            });
+        } else if (vault) {
+            // Vault var ama profile yok - başlangıç değerleriyle doldur
+            console.log('⚠️ [PROFILE] Vault var ama profile yok, default değerlerle doldur');
+            setLocalProfile({
+                nickname: 'Kullanıcı',
+                birthDate: '',
+                expectation: '',
+                therapyGoals: '',
+                previousTherapy: '',
+                relationshipStatus: '',
+                gender: '',
             });
         }
     }, [vault]);
@@ -111,7 +155,26 @@ export default function ProfileScreen() {
             <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView showsVerticalScrollIndicator={false}>
                     {isLoadingVault ? (
-                        <ActivityIndicator size="large" />
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="large" color={Colors.light.tint} />
+                            <Text style={styles.loadingText}>Profil yükleniyor...</Text>
+                            <TouchableOpacity 
+                                style={styles.debugButton} 
+                                onPress={debugVaultState}
+                            >
+                                <Text style={styles.debugButtonText}>Debug Bilgisi</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : vaultError ? (
+                        <View style={styles.errorContainer}>
+                            <Text style={styles.errorText}>Hata: {vaultError}</Text>
+                            <TouchableOpacity 
+                                style={styles.retryButton} 
+                                onPress={() => fetchVault()}
+                            >
+                                <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+                            </TouchableOpacity>
+                        </View>
                     ) : (
                         <View style={styles.form}>
                             <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
@@ -551,5 +614,50 @@ const styles = StyleSheet.create({
   modalButtonTextSecondary: {
     color: Colors.light.tint,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#4A5568',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  debugButton: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: 12,
+    padding: 8,
+    marginTop: 16,
+  },
+  debugButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#E53E3E',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: 12,
+    padding: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

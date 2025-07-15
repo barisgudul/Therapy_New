@@ -1,4 +1,4 @@
-// app/(onboarding)/_components/OnboardingStep.tsx
+// components/OnboardingStep.tsx
 
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
@@ -16,8 +16,8 @@ import {
     TouchableWithoutFeedback,
     View
 } from 'react-native';
-import { Colors } from '../../../constants/Colors'; // Auth stilinden alıyoruz.
-import { Spacing } from '../../../constants/Design'; // Auth stilinden alıyoruz.
+import { Colors } from '../constants/Colors';
+import { Spacing } from '../constants/Design';
 
 // AuthInput bileşenini Auth ekranlarından kopyalayıp buraya alıyoruz ki her şey bir yerde dursun.
 interface AuthInputProps extends TextInputProps {
@@ -45,7 +45,7 @@ interface OnboardingStepProps {
   isLastStep?: boolean;
 }
 
-export function OnboardingStep({
+export default function OnboardingStep({
   step,
   totalSteps,
   question,

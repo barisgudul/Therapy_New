@@ -29,10 +29,18 @@ const InitialLayout = () => {
     }
 
     const inAuthGroup = segments[0] === 'login' || segments[0] === 'register';
+    const inOnboardingGroup = segments[0] === '(onboarding)';
+
+    // Onboarding sırasında otomatik yönlendirme yapma
+    if (inOnboardingGroup) {
+      return;
+    }
 
     if (!session && !inAuthGroup) {
       router.replace('/login');
-    } else if (session && inAuthGroup) {
+    } else if (session && inAuthGroup && segments[0] === 'login') {
+      // Sadece login sayfasından gelen kullanıcıları ana sayfaya yönlendir
+      // Register sayfasındaki kullanıcıları onboarding'e gitmek için bırak
       router.replace('/');
     }
   }, [loading, session, segments, router]); // Artık sadece loading durumuna tepki veriyor.
@@ -59,6 +67,7 @@ function RootNavigation() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" /> 
         <Stack.Screen name="register" />
+        <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="index" />
       </Stack>
       <StatusBar style="auto" />

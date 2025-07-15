@@ -1,8 +1,8 @@
 // app/(onboarding)/step3.tsx
 import { useRouter } from 'expo-router/';
 import React from 'react';
+import OnboardingStep from '../../components/OnboardingStep';
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { OnboardingStep } from './_components/OnboardingStep';
 
 export default function Step3Screen() {
     const router = useRouter();

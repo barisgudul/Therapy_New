@@ -4,6 +4,20 @@ import { supabase } from '../utils/supabase';
 export interface VaultData {
   traits?: Record<string, any>;
   memories?: any[];
+  onboarding?: Record<string, string>;
+  profile?: {
+    nickname?: string;
+    birthDate?: string;
+    expectation?: string;
+    therapyGoals?: string;
+    previousTherapy?: string;
+    relationshipStatus?: 'single' | 'in_relationship' | 'married' | 'complicated' | '';
+    gender?: 'male' | 'female' | 'other' | '';
+  };
+  metadata?: {
+    onboardingCompleted?: boolean;
+    [key: string]: any;
+  };
   [key: string]: any;
 }
 
