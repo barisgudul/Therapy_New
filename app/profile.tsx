@@ -1,7 +1,7 @@
 // app/profile.tsx (SON. NİHAİ. KUSURSUZ.)
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router/';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router/';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -46,8 +46,8 @@ export default function ProfileScreen() {
     const router = useRouter();
     const { session, user } = useAuth();
 
-    // Subscription hook'u
-    const { isPremium, planName, loading: subscriptionLoading } = useSubscription();
+    // Subscription hook'u ve refresh fonksiyonu
+    const { isPremium, planName, loading: subscriptionLoading, refresh: refreshSubscription } = useSubscription();
 
     // Verinin tek, merkezi ve reaktif kaynağı: Zustand Store'umuz.
     const vault = useVaultStore((state) => state.vault);
@@ -61,6 +61,14 @@ export default function ProfileScreen() {
     const [localProfile, setLocalProfile] = useState<LocalProfileState>(initialProfileState);
     const [isSaving, setIsSaving] = useState(false);
     const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+
+    // EKRAN ODAKLANDIĞINDA ÇALIŞACAK EFFECT
+    useFocusEffect(
+        useCallback(() => {
+            console.log('🔄 [PROFILE] Ekran odaklandı, abonelik durumu yenileniyor.');
+            refreshSubscription();
+        }, [])
+    );
 
     // Vault'u yükle
     useEffect(() => {
@@ -159,31 +167,33 @@ export default function ProfileScreen() {
                 </View>
             );
         }
+        
+        const isPaidPlan = planName !== 'Free' && planName;
 
         return (
             <TouchableOpacity 
-                style={[styles.premiumStatusCard, isPremium && styles.premiumStatusCardActive]}
+                style={[styles.premiumStatusCard, isPaidPlan && styles.premiumStatusCardActive]}
                 onPress={() => router.push('/subscription')}
                 activeOpacity={0.8}
             >
                 <View style={styles.premiumStatusContent}>
                     <View style={styles.premiumStatusLeft}>
                         <Ionicons 
-                            name={isPremium ? 'diamond' : 'diamond-outline'} 
+                            name={isPaidPlan ? 'diamond' : 'diamond-outline'} 
                             size={24} 
-                            color={isPremium ? '#6366F1' : '#9CA3AF'} 
+                            color={isPaidPlan ? '#6366F1' : '#9CA3AF'} 
                         />
                         <View style={styles.premiumStatusTextContainer}>
-                            <Text style={[styles.premiumStatusTitle, isPremium && styles.premiumStatusTitleActive]}>
-                                {isPremium ? 'Premium Aktif' : 'Premium Planı'}
+                            <Text style={[styles.premiumStatusTitle, isPaidPlan && styles.premiumStatusTitleActive]}>
+                                {planName ? `${planName} Planı` : "Free Plan"}
                             </Text>
                             <Text style={styles.premiumStatusSubtitle}>
-                                {isPremium ? `${planName} Plan` : 'Sınırsız özellikler'}
+                                {isPaidPlan ? 'Mevcut planınız aktif' : 'Daha fazla özellik için yükseltin'}
                             </Text>
                         </View>
                     </View>
                     <View style={styles.premiumStatusRight}>
-                        {isPremium ? (
+                        {isPaidPlan ? (
                             <View style={styles.premiumBadge}>
                                 <Text style={styles.premiumBadgeText}>Aktif</Text>
                             </View>

@@ -18,11 +18,13 @@ export interface SubscriptionPlan {
 export interface PlanFeatures {
   diary_write_daily: number; // günlük diary yazma limiti
   daily_write_daily: number; // günlük daily_write limiti
-  dream_analysis_weekly: number; // haftalık rüya analizi limiti
+  dream_analysis_weekly?: number; // haftalık rüya analizi limiti (opsiyonel)
+  dream_analysis_daily?: number; // günlük rüya analizi limiti (opsiyonel)
   text_sessions: boolean; // premium only
   voice_sessions: boolean; // premium only
   video_sessions: boolean; // premium only
   ai_reports: boolean; // premium only
+  ai_reports_daily?: number; // günlük AI rapor limiti (opsiyonel)
   therapist_count: number; // premium only
   session_history_days: number; // premium only
   pdf_export: boolean; // premium only
@@ -65,7 +67,8 @@ export interface FeatureUsageResult {
 export const FEATURE_TYPES = {
   DIARY_WRITE: 'diary_write',
   DAILY_WRITE: 'daily_write',
-  DREAM_ANALYSIS: 'dream_analysis'
+  DREAM_ANALYSIS: 'dream_analysis',
+  AI_REPORTS: 'ai_reports' // AI Raporları da limitli olabilir
 } as const;
 
 export type FeatureType = typeof FEATURE_TYPES[keyof typeof FEATURE_TYPES];
@@ -148,7 +151,7 @@ export async function getCurrentSubscription(userId: string): Promise<{
     subscription: {
       id: subscription.subscription_id,
       user_id: userId,
-      plan_id: subscription.subscription_id,
+      plan_id: subscription.plan_id, // plan_id eklendi
       status: subscription.status,
       starts_at: '',
       ends_at: subscription.ends_at,
@@ -157,7 +160,7 @@ export async function getCurrentSubscription(userId: string): Promise<{
       updated_at: ''
     },
     plan: {
-      id: subscription.subscription_id,
+      id: subscription.plan_id, // plan_id eklendi
       name: subscription.plan_name,
       features: subscription.features,
       price: 0,
@@ -182,33 +185,65 @@ export async function getUserPlanStatus(userId: string): Promise<{
   const currentSub = await getCurrentSubscription(userId);
 
   if (!currentSub) {
-    // Ücretsiz plan varsayılan
+    // Ücretsiz planı veritabanından çek
+    const { data: freePlan, error } = await supabase
+      .from('subscription_plans')
+      .select('*')
+      .eq('name', 'Free')
+      .single();
+
+    if (error || !freePlan) {
+      console.error('Varsayılan Free planı veritabanından çekilemedi:', error);
+      // Fallback (güvenlik için)
+      return {
+        isPremium: false,
+        planName: 'Free',
+        features: {
+          diary_write_daily: 1,
+          daily_write_daily: 1,
+          dream_analysis_weekly: 1,
+          text_sessions: false,
+          voice_sessions: false,
+          video_sessions: false,
+          ai_reports: false,
+          therapist_count: 0,
+          session_history_days: 7,
+          pdf_export: false,
+          priority_support: false,
+        },
+      };
+    }
+    
     return {
       isPremium: false,
-      planName: 'Free',
-      features: {
-        diary_write_daily: 1,
-        daily_write_daily: 1,
-        dream_analysis_weekly: 1,
-        text_sessions: false,
-        voice_sessions: false,
-        video_sessions: false,
-        ai_reports: false,
-        therapist_count: 0,
-        session_history_days: 0,
-        pdf_export: false,
-        priority_support: false
-      }
+      planName: freePlan.name,
+      features: freePlan.features as PlanFeatures,
     };
   }
 
   return {
-    isPremium: currentSub.plan.name !== 'Free',
+    isPremium: currentSub.plan.name === 'Premium',
     planName: currentSub.plan.name,
     features: currentSub.plan.features,
     expiresAt: currentSub.subscription.ends_at
   };
 }
+
+/**
+ * KULLANICI PLANI YÜKSELTME - TEST İÇİN
+ */
+export async function upgradeUserPlanForTesting(userId: string, planName: string): Promise<void> {
+    const { error } = await supabase.rpc('assign_plan_for_user', {
+        user_id_to_update: userId,
+        plan_name_to_assign: planName,
+    });
+
+    if (error) {
+        console.error(`📋 Test için plan (${planName}) atanamadı:`, error);
+        throw new ApiError(`Plan ataması başarısız: ${error.message}`);
+    }
+}
+
 
 /**
  * Kullanıcıya premium plan atar
@@ -293,7 +328,7 @@ export async function checkFeatureUsage(userId: string, featureType: FeatureType
   const { data, error } = await supabase
     .rpc('check_feature_usage', { 
       user_uuid: userId, 
-      feature_name: featureType 
+      feature_name_base: featureType // Parametre adı güncellendi
     });
 
   if (error) {
@@ -317,7 +352,7 @@ export async function incrementFeatureUsage(userId: string, featureType: Feature
   const { data, error } = await supabase
     .rpc('increment_feature_usage', { 
       user_uuid: userId, 
-      feature_name: featureType 
+      feature_name_base: featureType // Parametre adı güncellendi
     });
 
   if (error) {
@@ -390,6 +425,13 @@ export async function trackDailyWriteUsage(userId: string): Promise<boolean> {
  */
 export async function trackDreamAnalysisUsage(userId: string): Promise<boolean> {
   return await incrementFeatureUsage(userId, FEATURE_TYPES.DREAM_ANALYSIS);
+}
+
+/**
+ * AI Rapor kullanımını artırır
+ */
+export async function trackAIReportUsage(userId:string): Promise<boolean> {
+    return await incrementFeatureUsage(userId, FEATURE_TYPES.AI_REPORTS);
 }
 
 // ===============================

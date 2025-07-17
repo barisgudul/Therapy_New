@@ -4,18 +4,21 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useColorScheme,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    useColorScheme,
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
 import { useSubscription, useSubscriptionPlans, useUsageStats } from '../hooks/useSubscription';
+import * as API from '../services/api.service';
+import { SubscriptionPlan } from '../services/subscription.service';
 
 const { width } = Dimensions.get('window');
 
@@ -25,87 +28,105 @@ export default function SubscriptionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   
-  const { isPremium, planName, features, loading: subscriptionLoading } = useSubscription();
-  const { plans, loading: plansLoading } = useSubscriptionPlans();
-  const { textSessions, voiceSessions, videoSessions, dreamAnalysis, aiReports } = useUsageStats();
+  const { isPremium, planName, refresh: refreshSubscription } = useSubscription();
+  const { plans, loading: plansLoading, refresh: refreshPlans } = useSubscriptionPlans();
+  const { diary_write, daily_write, dream_analysis, ai_reports, loading: usageLoading, refresh: refreshUsage } = useUsageStats();
   
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
 
-  const handleUpgrade = async (planId: string) => {
+  const handleUpgrade = async (plan: SubscriptionPlan) => {
+    if (!user) {
+        Alert.alert('Hata', 'Kullanıcı bulunamadı.');
+        return;
+    }
+    
     setIsUpgrading(true);
     try {
-      // Burada payment integration olacak
-      // Şimdilik sadece alert gösteriyorum
+      // Bu bir test fonksiyonudur. Gerçek uygulamada RevenueCat gibi bir servis kullanılır.
+      await API.upgradeUserPlanForTesting(user.id, plan.name);
+      
       Alert.alert(
-        'Ödeme Sistemi',
-        'Ödeme sistemi entegrasyonu yakında eklenecek. Şu an test amaçlı kullanabilirsiniz.',
+        'Başarılı!',
+        `Tebrikler, ${plan.name} planına başarıyla geçiş yaptınız.`,
         [
-          { text: 'Tamam', style: 'cancel' },
           { 
-            text: 'Test Premium Aktif Et', 
-            onPress: () => {
-              // Test amaçlı - gerçek uygulamada payment gateway olacak
-              Alert.alert('Başarılı', 'Premium plan test amaçlı aktif edildi!');
+            text: 'Harika!', 
+            onPress: async () => {
+              // Arayüzün güncel bilgileri yansıtması için state'leri yenile
+              await Promise.all([
+                  refreshSubscription(),
+                  refreshUsage(),
+              ]);
               router.back();
             }
           }
         ]
       );
-    } catch (error) {
-      Alert.alert('Hata', 'Yükseltme işlemi sırasında bir hata oluştu.');
+    } catch (error: any) {
+      Alert.alert('Yükseltme Hatası', error.message || 'Plan değiştirilirken bir sorun oluştu.');
     } finally {
       setIsUpgrading(false);
     }
   };
 
   const renderFeatureComparison = () => {
+    // Bu veriyi dinamik olarak planlardan oluşturmak daha iyi olabilir,
+    // ancak şimdilik manuel olarak bırakıyorum.
     const comparisonData = [
       {
         feature: 'Günlük Metin Seansları',
-        free: '3 adet',
+        free: '❌',
+        plus: '✅',
         premium: 'Sınırsız',
         icon: 'chatbubble-outline'
       },
       {
-        feature: 'Ses Seansları',
+        feature: 'Ses & Video Seansları',
         free: '❌',
+        plus: '❌',
         premium: 'Sınırsız',
         icon: 'mic-outline'
       },
       {
-        feature: 'Video Seansları',
-        free: '❌',
-        premium: 'Sınırsız',
-        icon: 'videocam-outline'
-      },
-      {
         feature: 'Rüya Analizi',
-        free: '2 adet/ay',
+        free: '1 adet/hafta',
+        plus: '1 adet/gün',
         premium: 'Sınırsız',
         icon: 'moon-outline'
       },
       {
         feature: 'AI Raporları',
-        free: '1 adet/hafta',
+        free: '❌',
+        plus: '1 adet/gün',
         premium: 'Sınırsız',
         icon: 'analytics-outline'
       },
       {
-        feature: 'Tüm Terapistler',
-        free: '1 terapist',
-        premium: 'Tüm terapistler',
+        feature: 'Terapist Seçimi',
+        free: 'Limitli',
+        plus: '1 Terapist',
+        premium: 'Tüm Terapistler',
         icon: 'people-outline'
+      },
+      {
+        feature: 'Seans Geçmişi',
+        free: '7 gün',
+        plus: '90 gün',
+        premium: 'Sınırsız',
+        icon: 'time-outline'
       },
       {
         feature: 'PDF Export',
         free: '❌',
+        plus: '❌',
         premium: '✅',
         icon: 'download-outline'
       },
       {
         feature: 'Öncelikli Destek',
         free: '❌',
+        plus: '❌',
         premium: '✅',
         icon: 'headset-outline'
       }
@@ -118,16 +139,18 @@ export default function SubscriptionScreen() {
           <View style={styles.tableHeader}>
             <Text style={styles.tableHeaderText}>Özellik</Text>
             <Text style={styles.tableHeaderText}>Ücretsiz</Text>
+            <Text style={styles.tableHeaderText}>+Plus</Text>
             <Text style={styles.tableHeaderText}>Premium</Text>
           </View>
           {comparisonData.map((item, index) => (
-            <View key={index} style={styles.tableRow}>
+            <View key={index} style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}>
               <View style={styles.featureCell}>
                 <Ionicons name={item.icon as any} size={16} color={Colors.light.tint} />
                 <Text style={styles.featureText}>{item.feature}</Text>
               </View>
               <Text style={styles.freeText}>{item.free}</Text>
-              <Text style={styles.premiumText}>{item.premium}</Text>
+              <Text style={styles.plusText}>{item.plus}</Text>
+              <Text style={styles.premiumCellText}>{item.premium}</Text>
             </View>
           ))}
         </View>
@@ -137,147 +160,133 @@ export default function SubscriptionScreen() {
 
   const renderUsageStats = () => {
     const usageData = [
-      { label: 'Metin Seansları', current: textSessions, icon: 'chatbubble-outline' },
-      { label: 'Ses Seansları', current: voiceSessions, icon: 'mic-outline' },
-      { label: 'Video Seansları', current: videoSessions, icon: 'videocam-outline' },
-      { label: 'Rüya Analizi', current: dreamAnalysis, icon: 'moon-outline' },
-      { label: 'AI Raporları', current: aiReports, icon: 'analytics-outline' }
+      { label: 'Günlük Yazma', current: daily_write, icon: 'create-outline' },
+      { label: 'Rüya Analizi', current: dream_analysis, icon: 'moon-outline' },
+      { label: 'AI Raporları', current: ai_reports, icon: 'analytics-outline' },
+      { label: 'Günlük Keşfi', current: diary_write, icon: 'book-outline' }
     ];
+
+    if (usageLoading) {
+        return (
+             <View style={styles.usageContainer}>
+                <ActivityIndicator/>
+             </View>
+        )
+    }
 
     return (
       <View style={styles.usageContainer}>
-        <Text style={styles.usageTitle}>Günlük Kullanım Durumu</Text>
-        {usageData.map((item, index) => (
-          <View key={index} style={styles.usageItem}>
-            <View style={styles.usageItemHeader}>
-              <Ionicons name={item.icon as any} size={20} color={Colors.light.tint} />
-              <Text style={styles.usageItemLabel}>{item.label}</Text>
-            </View>
-            <View style={styles.usageProgressContainer}>
-              <View style={styles.usageProgressBar}>
-                <View 
-                  style={[
-                    styles.usageProgress,
-                    { 
-                      width: item.current.limit_count === -1 ? '100%' : 
-                             `${Math.min((item.current.used_count / item.current.limit_count) * 100, 100)}%`,
-                      backgroundColor: item.current.limit_count === -1 ? '#10B981' : 
-                                     item.current.used_count >= item.current.limit_count ? '#EF4444' : 
-                                     item.current.used_count / item.current.limit_count > 0.8 ? '#F59E0B' : '#10B981'
-                    }
-                  ]}
-                />
+        <Text style={styles.usageTitle}>Kalan Kullanım Hakları</Text>
+        {usageData.map((item, index) => {
+            if (!item.current) return null; // Veri henüz yüklenmediyse gösterme
+            const percentage = item.current.limit_count > 0 
+                ? (item.current.used_count / item.current.limit_count) * 100
+                : 0;
+
+            return (
+              <View key={index} style={styles.usageItem}>
+                <View style={styles.usageItemHeader}>
+                  <Ionicons name={item.icon as any} size={20} color={Colors.light.tint} />
+                  <Text style={styles.usageItemLabel}>{item.label}</Text>
+                </View>
+                <View style={styles.usageProgressContainer}>
+                  <View style={styles.usageProgressBar}>
+                    <View 
+                      style={[
+                        styles.usageProgress,
+                        { 
+                          width: item.current.limit_count === -1 ? '100%' : `${percentage}%`,
+                          backgroundColor: item.current.limit_count === -1 ? '#10B981' : 
+                                         !item.current.can_use ? '#EF4444' : 
+                                         percentage > 80 ? '#F59E0B' : '#10B981'
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.usageProgressText}>
+                    {item.current.limit_count === -1 ? 'Sınırsız' : `${item.current.limit_count - item.current.used_count} hak`}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.usageProgressText}>
-                {item.current.limit_count === -1 ? '∞' : `${item.current.used_count}/${item.current.limit_count}`}
-              </Text>
-            </View>
-          </View>
-        ))}
+            )
+        })}
       </View>
     );
   };
 
-  const renderPlanCard = (plan: any) => {
+  const renderPlanCard = (plan: SubscriptionPlan) => {
     const isCurrentPlan = planName === plan.name;
-    const isSelected = selectedPlan === plan.id;
-    const isFree = plan.name === 'Free';
+    const isSelected = selectedPlanId === plan.id;
+    
+    const planColors = {
+        'Free': { border: '#D1D5DB', bg: 'white', name: '#6B7280', price: '#6B7280' },
+        '+Plus': { border: '#3B82F6', bg: '#EFF6FF', name: '#1D4ED8', price: '#3B82F6' },
+        'Premium': { border: '#8B5CF6', bg: '#F5F3FF', name: '#5B21B6', price: '#8B5CF6' },
+    }
+    const colors = planColors[plan.name as keyof typeof planColors] || planColors.Free;
 
     return (
       <TouchableOpacity
         key={plan.id}
         style={[
           styles.planCard,
-          isCurrentPlan && styles.currentPlanCard,
-          isSelected && styles.selectedPlanCard,
-          isFree && styles.freePlanCard
+          { borderColor: colors.border, backgroundColor: isSelected ? colors.bg : 'white' },
+          isCurrentPlan && { backgroundColor: colors.bg, borderWidth: 2 },
         ]}
-        onPress={() => !isCurrentPlan && setSelectedPlan(plan.id)}
+        onPress={() => !isCurrentPlan && setSelectedPlanId(plan.id)}
         activeOpacity={0.8}
       >
-        {!isFree && (
-          <View style={styles.planBadge}>
-            <Ionicons name="diamond" size={16} color="white" />
-            <Text style={styles.planBadgeText}>Premium</Text>
+        {plan.name !== 'Free' && (
+          <View style={[styles.planBadge, {backgroundColor: colors.price}]}>
+            <Ionicons name={plan.name === 'Premium' ? "diamond" : "star"} size={16} color="white" />
+            <Text style={styles.planBadgeText}>{plan.name}</Text>
           </View>
         )}
         
         <View style={styles.planHeader}>
-          <Text style={[styles.planName, isFree && styles.freePlanName]}>
+          <Text style={[styles.planName, {color: colors.name}]}>
             {plan.name}
           </Text>
           <View style={styles.planPriceContainer}>
-            <Text style={[styles.planPrice, isFree && styles.freePlanPrice]}>
-              {isFree ? 'Ücretsiz' : `₺${plan.price}`}
+            <Text style={[styles.planPrice, {color: colors.price}]}>
+              {plan.price === 0 ? 'Ücretsiz' : `₺${plan.price}`}
             </Text>
-            {!isFree && (
+            {plan.price > 0 && (
               <Text style={styles.planDuration}>
-                /{plan.duration_days === 30 ? 'ay' : 'gün'}
+                / ay
               </Text>
             )}
           </View>
         </View>
 
         <View style={styles.planFeatures}>
-          <Text style={styles.planFeaturesTitle}>Özellikler:</Text>
-          {Object.entries(plan.features).map(([key, value]) => {
-            const featureLabels: { [key: string]: string } = {
-              text_sessions_daily: 'Günlük metin seansları',
-              voice_sessions_daily: 'Günlük ses seansları',
-              video_sessions_daily: 'Günlük video seansları',
-              dream_analysis_monthly: 'Aylık rüya analizi',
-              ai_reports_weekly: 'Haftalık AI raporları',
-              therapist_count: 'Terapist sayısı',
-              session_history_days: 'Seans geçmişi',
-              pdf_export: 'PDF export',
-              priority_support: 'Öncelikli destek'
-            };
-
-            if (typeof value === 'boolean') {
-              return (
-                <View key={key} style={styles.planFeature}>
-                  <Ionicons 
-                    name={value ? 'checkmark-circle' : 'close-circle'} 
-                    size={16} 
-                    color={value ? '#10B981' : '#EF4444'} 
-                  />
-                  <Text style={styles.planFeatureText}>
-                    {featureLabels[key] || key}
-                  </Text>
-                </View>
-              );
-            }
-
-            return (
-              <View key={key} style={styles.planFeature}>
-                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-                <Text style={styles.planFeatureText}>
-                  {featureLabels[key] || key}: {value === -1 ? 'Sınırsız' : String(value)}
-                </Text>
-              </View>
-            );
-          })}
+          {/* Özellikleri dinamik olarak göstermek daha doğru olacaktır */}
+          <Text style={styles.planFeatureText}>
+              {plan.name === 'Free' && 'Temel özelliklere başlangıç için.'}
+              {plan.name === '+Plus' && 'Sınırsız metin seansı ve günlük analizler.'}
+              {plan.name === 'Premium' && 'Tüm özelliklere sınırsız erişim.'}
+          </Text>
         </View>
 
         {isCurrentPlan ? (
-          <View style={styles.currentPlanButton}>
-            <Text style={styles.currentPlanButtonText}>Mevcut Plan</Text>
+          <View style={[styles.currentPlanButton, {backgroundColor: colors.border}]}>
+            <Text style={styles.currentPlanButtonText}>Mevcut Planınız</Text>
           </View>
-        ) : !isFree && (
+        ) : (
           <TouchableOpacity
             style={[
               styles.upgradePlanButton,
               isSelected && styles.selectedUpgradeButton
             ]}
-            onPress={() => handleUpgrade(plan.id)}
-            disabled={isUpgrading}
+            onPress={() => handleUpgrade(plan)}
+            disabled={isUpgrading || selectedPlanId !== plan.id}
           >
             <LinearGradient
-              colors={['#6366F1', '#8B5CF6']}
+              colors={ isSelected ? [colors.price, colors.border] : ['#D1D5DB', '#9CA3AF']}
               style={styles.upgradePlanButtonGradient}
             >
               <Text style={styles.upgradePlanButtonText}>
-                {isUpgrading ? 'Yükseltiliyor...' : 'Yükselt'}
+                {isUpgrading && selectedPlanId === plan.id ? 'Yükseltiliyor...' : `Planı Seç`}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -286,10 +295,11 @@ export default function SubscriptionScreen() {
     );
   };
 
-  if (subscriptionLoading || plansLoading) {
+  if (plansLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Yükleniyor...</Text>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+        <Text style={styles.loadingText}>Planlar Yükleniyor...</Text>
       </View>
     );
   }
@@ -313,15 +323,15 @@ export default function SubscriptionScreen() {
             <Ionicons 
               name={isPremium ? 'diamond' : 'person'} 
               size={24} 
-              color={isPremium ? '#6366F1' : '#6B7280'} 
+              color={isPremium ? '#8B5CF6' : '#6B7280'} 
             />
             <Text style={styles.currentStatusTitle}>
-              Mevcut Plan: {planName}
+              Mevcut Plan: <Text style={{color: isPremium ? '#8B5CF6' : '#374151'}}>{planName}</Text>
             </Text>
           </View>
           {isPremium && (
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumBadgeText}>Premium Aktif</Text>
+            <View style={[styles.premiumBadge, {backgroundColor: '#8B5CF6'}]}>
+              <Text style={styles.premiumBadgeText}>Premium</Text>
             </View>
           )}
         </View>
@@ -331,8 +341,8 @@ export default function SubscriptionScreen() {
 
         {/* Plans */}
         <View style={styles.plansContainer}>
-          <Text style={styles.plansTitle}>Planları Karşılaştır</Text>
-          {plans.map(plan => renderPlanCard(plan))}
+          <Text style={styles.plansTitle}>Planını Yükselt</Text>
+          {plans.sort((a,b) => a.price - b.price).map(plan => renderPlanCard(plan))}
         </View>
 
         {/* Feature Comparison */}
@@ -652,41 +662,54 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     paddingVertical: 12,
     paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   tableHeaderText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: '#374151',
     textAlign: 'center',
   },
   tableRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+  },
+  tableRowAlt: {
+      backgroundColor: '#F9FAFB'
   },
   featureCell: {
-    flex: 1,
+    flex: 1.5,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingRight: 8,
   },
   featureText: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.light.text,
     marginLeft: 8,
+    fontWeight: '500',
   },
   freeText: {
     flex: 1,
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 13,
+    color: '#4B5563',
     textAlign: 'center',
   },
-  premiumText: {
+  plusText: {
     flex: 1,
-    fontSize: 12,
-    color: '#10B981',
+    fontSize: 13,
+    color: '#1D4ED8',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  premiumCellText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#5B21B6',
     textAlign: 'center',
     fontWeight: '600',
   },

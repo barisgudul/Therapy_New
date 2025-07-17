@@ -75,10 +75,12 @@ import {
     getUserPlanStatus as _getUserPlanStatus,
     getUserUsageStats as _getUserUsageStats,
     isPremiumUser as _isPremiumUser,
+    trackAIReportUsage as _trackAIReportUsage,
     trackDailyWriteUsage as _trackDailyWriteUsage,
     // Usage tracking
     trackDiaryWriteUsage as _trackDiaryWriteUsage,
-    trackDreamAnalysisUsage as _trackDreamAnalysisUsage
+    trackDreamAnalysisUsage as _trackDreamAnalysisUsage, // Eklendi
+    upgradeUserPlanForTesting as _upgradeUserPlanForTesting // Eklendi
 } from './subscription.service';
 
 export async function getAllPlans() {
@@ -140,6 +142,10 @@ export async function trackDreamAnalysisUsage(userId: string) {
     return apiCall(_trackDreamAnalysisUsage(userId));
 }
 
+export async function trackAIReportUsage(userId: string) {
+    return apiCall(_trackAIReportUsage(userId));
+}
+
 // Premium features
 export async function canUsePDFExport(userId: string) {
     return apiCall(_canUsePDFExport(userId));
@@ -151,6 +157,11 @@ export async function canUseAllTherapists(userId: string) {
 
 export async function isPremiumUser(userId: string) {
     return apiCall(_isPremiumUser(userId));
+}
+
+// Test-only functions
+export async function upgradeUserPlanForTesting(userId: string, planName: string) {
+    return apiCall(_upgradeUserPlanForTesting(userId, planName));
 }
 
 // ... Diğer asenkron servis fonksiyonları da buraya eklenebilir ... 

@@ -16,7 +16,8 @@ import {
     View
 } from 'react-native';
 
-import { AppEvent, canUserAnalyzeDream, deleteEventById, getEventsForLast } from '../../services/event.service';
+import { getRemainingUsage, useFeatureAccess } from '../../hooks/useSubscription';
+import { AppEvent, deleteEventById, getEventsForLast } from '../../services/event.service';
 
 const COSMIC_COLORS = {
   background: ['#0d1117', '#1A2947'] as [string, string],
@@ -31,6 +32,7 @@ export default function DreamJournalScreen() {
   const router = useRouter();
   const [analyses, setAnalyses] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const dreamAnalysisFeature = useFeatureAccess('dream_analysis');
 
   const loadAnalyses = useCallback(async () => {
     // Veri yüklemesi başlamadan önce tekrar true yapmakta fayda var,
@@ -86,13 +88,28 @@ export default function DreamJournalScreen() {
 };
 
   const handleNewDreamPress = async () => {
-    const { canAnalyze, daysRemaining } = await canUserAnalyzeDream();
-    if (canAnalyze) {
+    // hook'tan gelen güncel durumu kullan
+    if (dreamAnalysisFeature.loading) {
+        Alert.alert("Lütfen bekleyin...", "Kullanım haklarınız kontrol ediliyor.");
+        return;
+    }
+
+    if (dreamAnalysisFeature.can_use) {
       router.push('/dream/analyze');
     } else {
+      const remaining = getRemainingUsage(dreamAnalysisFeature.used_count, dreamAnalysisFeature.limit_count);
+      const limit = dreamAnalysisFeature.limit_count;
+      let message = `Bu dönem için rüya analizi hakkınız dolmuştur.`;
+      
+      // Periyodu belirlemek için daha akıllı bir yol (örneğin API'den periyot bilgisi almak) gerekebilir.
+      // Şimdilik genel bir mesaj gösterelim.
+      if (limit > 0) {
+          message = `Bu periyot için ${limit} rüya analizi hakkınızın tamamını kullandınız.`
+      }
+
       Alert.alert(
-        "Haftalık Limit Doldu",
-        `Bir sonraki ücretsiz rüya analizine ${daysRemaining} gün kaldı. Limitsiz analiz için Premium'u keşfedebilirsin.`,
+        "Kullanım Limiti Doldu",
+        `${message} Sınırsız analiz ve diğer tüm premium özellikler için planınızı yükseltebilirsiniz.`,
         [
           { text: "Tamam" },
           { text: "Premium'a Göz At", onPress: () => router.push('/subscription') }

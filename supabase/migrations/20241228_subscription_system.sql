@@ -58,8 +58,8 @@ CREATE TABLE payment_history (
 );
 
 -- Default Free Plan ekle - SADECE diary, daily_write ve haftada 1 rüya analizi
-INSERT INTO subscription_plans (name, price, currency, duration_days, features) VALUES
-('Free', 0.00, 'TRY', 30, '{
+INSERT INTO subscription_plans (id, name, price, currency, duration_days, features) VALUES
+('f9a429a8-9d7a-4d32-9a59-a5f7b824f9a0', 'Free', 0.00, 'TRY', 30, '{
     "diary_write_daily": 1,
     "daily_write_daily": 1,
     "dream_analysis_weekly": 1,
@@ -68,18 +68,33 @@ INSERT INTO subscription_plans (name, price, currency, duration_days, features) 
     "video_sessions": false,
     "ai_reports": false,
     "therapist_count": 0,
-    "session_history_days": 0,
+    "session_history_days": 7,
     "pdf_export": false,
     "priority_support": false
 }'),
-('Premium', 39.99, 'TRY', 30, '{
+('a1b2c3d4-e5f6-7890-1234-567890abcdef', '+Plus', 999.99, 'TRY', 30, '{
+    "diary_write_daily": 1,
+    "daily_write_daily": 1,
+    "dream_analysis_daily": 1,
+    "text_sessions": true,
+    "voice_sessions": false,
+    "video_sessions": false,
+    "ai_reports": true,
+    "ai_reports_daily": 1,
+    "therapist_count": 1,
+    "session_history_days": 90,
+    "pdf_export": true,
+    "priority_support": false
+}'),
+('1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d', 'Premium', 3999.99, 'TRY', 30, '{
     "diary_write_daily": -1,
     "daily_write_daily": -1,
-    "dream_analysis_weekly": -1,
+    "dream_analysis_daily": -1,
     "text_sessions": true,
     "voice_sessions": true,
     "video_sessions": true,
     "ai_reports": true,
+    "ai_reports_daily": -1,
     "therapist_count": -1,
     "session_history_days": -1,
     "pdf_export": true,
@@ -126,6 +141,7 @@ CREATE INDEX idx_payment_history_user_id ON payment_history(user_id);
 CREATE OR REPLACE FUNCTION get_user_current_subscription(user_uuid UUID)
 RETURNS TABLE (
     subscription_id UUID,
+    plan_id UUID,
     plan_name VARCHAR(50),
     features JSONB,
     status VARCHAR(20),
@@ -135,6 +151,7 @@ BEGIN
     RETURN QUERY
     SELECT 
         us.id,
+        sp.id,
         sp.name,
         sp.features,
         us.status,
@@ -149,8 +166,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to check feature usage - GÜNCELLENDİ
-CREATE OR REPLACE FUNCTION check_feature_usage(user_uuid UUID, feature_name VARCHAR(50))
+-- Function to check feature usage - GÜNCELLENDİ: Dinamik reset periyodu
+CREATE OR REPLACE FUNCTION check_feature_usage(user_uuid UUID, feature_name_base VARCHAR(50))
 RETURNS TABLE (
     can_use BOOLEAN,
     used_count INTEGER,
@@ -162,16 +179,8 @@ DECLARE
     feature_limit INTEGER;
     reset_date_value DATE;
     reset_type_value VARCHAR(20);
+    actual_feature_name VARCHAR(100);
 BEGIN
-    -- Reset type'ını belirle
-    IF feature_name = 'dream_analysis' THEN
-        reset_type_value := 'weekly';
-        reset_date_value := date_trunc('week', CURRENT_DATE)::DATE;
-    ELSE
-        reset_type_value := 'daily';
-        reset_date_value := CURRENT_DATE;
-    END IF;
-    
     -- Get current subscription
     SELECT * INTO current_subscription FROM get_user_current_subscription(user_uuid) LIMIT 1;
     
@@ -179,12 +188,27 @@ BEGIN
     IF current_subscription IS NULL THEN
         SELECT features INTO current_subscription FROM subscription_plans WHERE name = 'Free' LIMIT 1;
     END IF;
-    
-    -- Get feature limit from subscription
-    IF feature_name = 'dream_analysis' THEN
-        feature_limit := (current_subscription.features ->> 'dream_analysis_weekly')::INTEGER;
+
+    -- Dinamik olarak özellik adını ve reset periyodunu bul
+    IF (current_subscription.features ->> (feature_name_base || '_daily')) IS NOT NULL THEN
+        actual_feature_name := feature_name_base || '_daily';
+        reset_type_value := 'daily';
+        reset_date_value := CURRENT_DATE;
+        feature_limit := (current_subscription.features ->> actual_feature_name)::INTEGER;
+    ELSIF (current_subscription.features ->> (feature_name_base || '_weekly')) IS NOT NULL THEN
+        actual_feature_name := feature_name_base || '_weekly';
+        reset_type_value := 'weekly';
+        reset_date_value := date_trunc('week', CURRENT_DATE)::DATE;
+        feature_limit := (current_subscription.features ->> actual_feature_name)::INTEGER;
+    ELSIF (current_subscription.features ->> (feature_name_base || '_monthly')) IS NOT NULL THEN
+        actual_feature_name := feature_name_base || '_monthly';
+        reset_type_value := 'monthly';
+        reset_date_value := date_trunc('month', CURRENT_DATE)::DATE;
+        feature_limit := (current_subscription.features ->> actual_feature_name)::INTEGER;
     ELSE
-        feature_limit := (current_subscription.features ->> (feature_name || '_daily'))::INTEGER;
+        -- Bu özelliğe erişim hakkı yok
+        RETURN QUERY SELECT false, 0, 0;
+        RETURN;
     END IF;
     
     -- -1 means unlimited
@@ -192,14 +216,19 @@ BEGIN
         RETURN QUERY SELECT true, 0, -1;
         RETURN;
     END IF;
+
+    IF feature_limit = 0 THEN
+        RETURN QUERY SELECT false, 0, 0;
+        RETURN;
+    END IF;
     
     -- Get or create usage record
     INSERT INTO usage_tracking (user_id, feature_type, used_count, limit_count, reset_date, reset_type)
-    VALUES (user_uuid, feature_name, 0, feature_limit, reset_date_value, reset_type_value)
+    VALUES (user_uuid, actual_feature_name, 0, feature_limit, reset_date_value, reset_type_value)
     ON CONFLICT (user_id, feature_type, reset_date) DO NOTHING;
     
     SELECT * INTO usage_record FROM usage_tracking 
-    WHERE user_id = user_uuid AND feature_type = feature_name AND reset_date = reset_date_value;
+    WHERE user_id = user_uuid AND feature_type = actual_feature_name AND reset_date = reset_date_value;
     
     RETURN QUERY SELECT 
         (usage_record.used_count < usage_record.limit_count),
@@ -208,31 +237,47 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to increment usage - GÜNCELLENDİ
-CREATE OR REPLACE FUNCTION increment_feature_usage(user_uuid UUID, feature_name VARCHAR(50))
+-- Function to increment usage - GÜNCELLENDİ: Dinamik reset periyodu
+CREATE OR REPLACE FUNCTION increment_feature_usage(user_uuid UUID, feature_name_base VARCHAR(50))
 RETURNS BOOLEAN AS $$
 DECLARE
     reset_date_value DATE;
     usage_check RECORD;
+    current_subscription RECORD;
+    actual_feature_name VARCHAR(100);
 BEGIN
-    -- Reset date'i belirle
-    IF feature_name = 'dream_analysis' THEN
-        reset_date_value := date_trunc('week', CURRENT_DATE)::DATE;
-    ELSE
-        reset_date_value := CURRENT_DATE;
-    END IF;
-    
-    -- Check if user can use this feature
-    SELECT * INTO usage_check FROM check_feature_usage(user_uuid, feature_name) LIMIT 1;
+    -- Önce kullanıcının bu özelliği kullanıp kullanamayacağını kontrol et
+    SELECT * INTO usage_check FROM check_feature_usage(user_uuid, feature_name_base) LIMIT 1;
     
     IF NOT usage_check.can_use THEN
         RETURN FALSE;
     END IF;
+
+    -- Kullanım artışı için doğru reset tarihini ve özellik adını bul
+    -- Get current subscription to find the right feature key (_daily, _weekly, etc.)
+    SELECT * INTO current_subscription FROM get_user_current_subscription(user_uuid) LIMIT 1;
+    IF current_subscription IS NULL THEN
+        SELECT features INTO current_subscription FROM subscription_plans WHERE name = 'Free' LIMIT 1;
+    END IF;
     
+    IF (current_subscription.features ->> (feature_name_base || '_daily')) IS NOT NULL THEN
+        actual_feature_name := feature_name_base || '_daily';
+        reset_date_value := CURRENT_DATE;
+    ELSIF (current_subscription.features ->> (feature_name_base || '_weekly')) IS NOT NULL THEN
+        actual_feature_name := feature_name_base || '_weekly';
+        reset_date_value := date_trunc('week', CURRENT_DATE)::DATE;
+    ELSIF (current_subscription.features ->> (feature_name_base || '_monthly')) IS NOT NULL THEN
+        actual_feature_name := feature_name_base || '_monthly';
+        reset_date_value := date_trunc('month', CURRENT_DATE)::DATE;
+    ELSE
+        -- Bu durum check_feature_usage tarafından yakalanmalıydı, ama yine de güvenlik kontrolü
+        RETURN FALSE;
+    END IF;
+
     -- Increment usage
     UPDATE usage_tracking 
     SET used_count = used_count + 1, updated_at = NOW()
-    WHERE user_id = user_uuid AND feature_type = feature_name AND reset_date = reset_date_value;
+    WHERE user_id = user_uuid AND feature_type = actual_feature_name AND reset_date = reset_date_value;
     
     RETURN TRUE;
 END;
@@ -274,6 +319,40 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- YENİ FONKSİYON: Test için kullanıcıya plan atama
+CREATE OR REPLACE FUNCTION assign_plan_for_user(user_id_to_update UUID, plan_name_to_assign VARCHAR(50))
+RETURNS VOID AS $$
+DECLARE
+    target_plan_id UUID;
+    target_plan_duration INTEGER;
+BEGIN
+    -- Get target plan ID and duration
+    SELECT id, duration_days INTO target_plan_id, target_plan_duration 
+    FROM subscription_plans WHERE name = plan_name_to_assign LIMIT 1;
+
+    IF target_plan_id IS NULL THEN
+        RAISE EXCEPTION 'Plan not found: %', plan_name_to_assign;
+    END IF;
+
+    -- Deactivate all other active subscriptions for the user
+    UPDATE user_subscriptions
+    SET status = 'cancelled', auto_renew = false, updated_at = NOW()
+    WHERE user_id = user_id_to_update AND status = 'active';
+
+    -- Insert new active subscription
+    INSERT INTO user_subscriptions (user_id, plan_id, status, starts_at, ends_at, auto_renew)
+    VALUES (
+        user_id_to_update, 
+        target_plan_id, 
+        'active', 
+        NOW(), 
+        NOW() + (target_plan_duration || ' days')::INTERVAL,
+        true
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
 -- Function to assign free plan to new users
 CREATE OR REPLACE FUNCTION assign_free_plan_to_new_user()
 RETURNS TRIGGER AS $$
@@ -284,8 +363,8 @@ BEGIN
     SELECT id INTO free_plan_id FROM subscription_plans WHERE name = 'Free' LIMIT 1;
     
     -- Assign free plan to new user
-    INSERT INTO user_subscriptions (user_id, plan_id, status, starts_at, ends_at)
-    VALUES (NEW.id, free_plan_id, 'active', NOW(), NOW() + INTERVAL '30 days');
+    INSERT INTO user_subscriptions (user_id, plan_id, status, starts_at, ends_at, auto_renew)
+    VALUES (NEW.id, free_plan_id, 'active', NOW(), NOW() + INTERVAL '30 days', false);
     
     RETURN NEW;
 END;

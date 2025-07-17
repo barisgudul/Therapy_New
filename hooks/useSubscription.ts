@@ -1,12 +1,5 @@
 // hooks/useSubscription.ts
 
-// 🔥 TEST MODU: OTOMATIK PREMIUM
-// ==============================
-// Şu anda tüm kullanıcılar otomatik olarak Premium olarak ayarlanmış.
-// Free plan'a dönmek için hook'lardaki test yorumlarını arayın ve değiştirin.
-// Aranacak: "🔥 OTOMATIK PREMIUM - TEST AMAÇLI"
-// ==============================
-
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/Auth';
 import * as API from '../services/api.service';
@@ -15,16 +8,17 @@ import { FeatureUsageResult, PlanFeatures, SubscriptionPlan } from '../services/
 export interface SubscriptionStatus {
   isPremium: boolean;
   planName: string;
-  features: PlanFeatures;
+  features: PlanFeatures | null;
   expiresAt?: string;
   loading: boolean;
   error: string | null;
 }
 
 export interface UsageStats {
-  diaryWrite: FeatureUsageResult;
-  dailyWrite: FeatureUsageResult;
-  dreamAnalysis: FeatureUsageResult;
+  diary_write: FeatureUsageResult;
+  daily_write: FeatureUsageResult;
+  dream_analysis: FeatureUsageResult;
+  ai_reports: FeatureUsageResult;
   loading: boolean;
   error: string | null;
 }
@@ -33,27 +27,24 @@ export interface UsageStats {
 export function useSubscription() {
   const { user } = useAuth();
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus>({
-    isPremium: true, // 🔥 OTOMATIK PREMIUM - TEST AMAÇLI
-    planName: 'Premium',
-    features: {
-      diary_write_daily: -1, // Sınırsız
-      daily_write_daily: -1, // Sınırsız
-      dream_analysis_weekly: -1, // Sınırsız
-      text_sessions: true,
-      voice_sessions: true,
-      video_sessions: true,
-      ai_reports: true,
-      therapist_count: -1,
-      session_history_days: -1,
-      pdf_export: true,
-      priority_support: true
-    },
+    isPremium: false,
+    planName: 'Free',
+    features: null,
     loading: true,
     error: null
   });
 
   const refreshSubscriptionStatus = async () => {
-    if (!user) return;
+    if (!user) {
+        setSubscriptionStatus({
+            isPremium: false,
+            planName: 'Free',
+            features: null, // Burada null olabilir, çünkü plan özellikleri daha sonra yüklenir
+            loading: false,
+            error: "Kullanıcı bulunamadı"
+        });
+        return;
+    }
 
     try {
       setSubscriptionStatus(prev => ({ ...prev, loading: true, error: null }));
@@ -61,52 +52,37 @@ export function useSubscription() {
       const { data, error } = await API.getUserPlanStatus(user.id);
       
       if (error) {
-        console.warn('⚠️ Subscription backend hatası, premium plan kullanılıyor (test):', error);
-        // Backend hatası varsa premium plan kullan (TEST AMAÇLI)
-        setSubscriptionStatus(prev => ({
-          ...prev,
-          isPremium: true,
-          planName: 'Premium',
-          loading: false,
-          error: null
-        }));
-        return;
+        throw new Error(error);
+      }
+      
+      if (data) {
+          setSubscriptionStatus({
+            isPremium: data.isPremium,
+            planName: data.planName,
+            features: data.features,
+            expiresAt: data.expiresAt,
+            loading: false,
+            error: null
+          });
+      } else {
+        throw new Error("Kullanıcı plan durumu alınamadı.");
       }
 
-      // Backend çalışsa bile premium kullan (TEST AMAÇLI)
-      setSubscriptionStatus({
-        isPremium: true,
-        planName: 'Premium',
-        features: {
-          diary_write_daily: -1,
-          daily_write_daily: -1,
-          dream_analysis_weekly: -1,
-          text_sessions: true,
-          voice_sessions: true,
-          video_sessions: true,
-          ai_reports: true,
-          therapist_count: -1,
-          session_history_days: -1,
-          pdf_export: true,
-          priority_support: true
-        },
-        loading: false,
-        error: null
-      });
-    } catch (err) {
-      console.warn('⚠️ Subscription hata yakalama, premium plan kullanılıyor (test):', err);
+    } catch (err: any) {
+      console.warn('⚠️ Subscription hook hatası:', err.message);
       setSubscriptionStatus(prev => ({
         ...prev,
-        isPremium: true,
-        planName: 'Premium',
         loading: false,
-        error: null
+        error: err.message
       }));
     }
   };
 
   useEffect(() => {
-    refreshSubscriptionStatus();
+    // Auth hook'u hazır olduğunda ve kullanıcı değiştiğinde çalıştır
+    if (user) {
+        refreshSubscriptionStatus();
+    }
   }, [user]);
 
   return {
@@ -115,13 +91,14 @@ export function useSubscription() {
   };
 }
 
-// Hook: Günlük/haftalık kullanım istatistiklerini takip et (sadece freemium features)
+// Hook: Günlük/haftalık kullanım istatistiklerini takip et
 export function useUsageStats() {
   const { user } = useAuth();
   const [usageStats, setUsageStats] = useState<UsageStats>({
-    diaryWrite: { can_use: true, used_count: 0, limit_count: -1 }, // 🔥 OTOMATIK PREMIUM - TEST AMAÇLI
-    dailyWrite: { can_use: true, used_count: 0, limit_count: -1 }, // Sınırsız
-    dreamAnalysis: { can_use: true, used_count: 0, limit_count: -1 }, // Sınırsız
+    diary_write: { can_use: false, used_count: 0, limit_count: 0 },
+    daily_write: { can_use: false, used_count: 0, limit_count: 0 },
+    dream_analysis: { can_use: false, used_count: 0, limit_count: 0 },
+    ai_reports: { can_use: false, used_count: 0, limit_count: 0 },
     loading: true,
     error: null
   });
@@ -135,59 +112,51 @@ export function useUsageStats() {
       const { data, error } = await API.getUserUsageStats(user.id);
       
       if (error) {
-        console.warn('⚠️ Usage stats backend hatası, premium değerler kullanılıyor (test):', error);
-        setUsageStats(prev => ({
-          ...prev,
-          loading: false,
-          error: null
-        }));
-        return;
+        throw new Error(error);
+      }
+      
+      if (data) {
+          setUsageStats({
+            diary_write: data.diary_write,
+            daily_write: data.daily_write,
+            dream_analysis: data.dream_analysis,
+            ai_reports: data.ai_reports,
+            loading: false,
+            error: null
+          });
+      } else {
+        throw new Error("Kullanım istatistikleri alınamadı.");
       }
 
-      // Backend çalışsa bile premium kullan (TEST AMAÇLI)
-      setUsageStats({
-        diaryWrite: { can_use: true, used_count: 0, limit_count: -1 },
-        dailyWrite: { can_use: true, used_count: 0, limit_count: -1 },
-        dreamAnalysis: { can_use: true, used_count: 0, limit_count: -1 },
-        loading: false,
-        error: null
-      });
-    } catch (err) {
-      console.warn('⚠️ Usage stats hata yakalama, premium değerler kullanılıyor (test):', err);
+    } catch (err: any) {
+      console.warn('⚠️ Usage stats hook hatası:', err.message);
       setUsageStats(prev => ({ 
         ...prev, 
         loading: false,
-        error: null
+        error: err.message
       }));
     }
   };
 
   useEffect(() => {
-    refreshUsageStats();
+    if (user) {
+        refreshUsageStats();
+    }
   }, [user]);
-
-  // Premium özellikler için sınırsız data
-  const premiumFeatures = {
-    textSessions: { can_use: true, used_count: 0, limit_count: -1 },
-    voiceSessions: { can_use: true, used_count: 0, limit_count: -1 },
-    videoSessions: { can_use: true, used_count: 0, limit_count: -1 },
-    aiReports: { can_use: true, used_count: 0, limit_count: -1 }
-  };
 
   return {
     ...usageStats,
-    ...premiumFeatures,
     refresh: refreshUsageStats
   };
 }
 
-// Hook: Belirli bir freemium özellik için kullanım kontrolü
-export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'dream_analysis' | 'text' | 'voice' | 'video' | 'dream' | 'ai_report') {
+// Hook: Belirli bir özellik için kullanım kontrolü
+export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'dream_analysis' | 'text_sessions' | 'voice_sessions' | 'video_sessions' | 'ai_reports' | 'pdf_export' | 'all_therapists') {
   const { user } = useAuth();
   const [featureAccess, setFeatureAccess] = useState<FeatureUsageResult & { loading: boolean; error: string | null }>({
-    can_use: true, // 🔥 OTOMATIK PREMIUM - TEST AMAÇLI
+    can_use: false,
     used_count: 0,
-    limit_count: -1, // Sınırsız
+    limit_count: 0,
     loading: true,
     error: null
   });
@@ -200,6 +169,7 @@ export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'd
       
       let result;
       
+      // API çağrılarını `subscription.service`'deki base isimlerle eşleştir
       switch (featureType) {
         case 'diary_write':
           result = await API.canUseDiaryWrite(user.id);
@@ -210,60 +180,58 @@ export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'd
         case 'dream_analysis':
           result = await API.canUseDreamAnalysis(user.id);
           break;
-        case 'text':
+        case 'text_sessions':
           result = await API.canUseTherapySessions(user.id);
           break;
-        case 'voice':
+        case 'voice_sessions':
           result = await API.canUseVoiceSessions(user.id);
           break;
-        case 'video':
+        case 'video_sessions':
           result = await API.canUseVideoSessions(user.id);
           break;
-        case 'dream':
-          result = await API.canUseDreamAnalysis(user.id);
-          break;
-        case 'ai_report':
+        case 'ai_reports':
           result = await API.canUseAIReports(user.id);
           break;
+        case 'pdf_export':
+            result = await API.canUsePDFExport(user.id);
+            break;
+        case 'all_therapists':
+            result = await API.canUseAllTherapists(user.id);
+            break;
         default:
           throw new Error('Geçersiz özellik tipi');
       }
 
       if (result.error) {
-        console.warn(`⚠️ ${featureType} özellik kontrolü hatası, premium değerler kullanılıyor (test):`, result.error);
-        
-        // Premium değerleri (TEST AMAÇLI)
-        setFeatureAccess(prev => ({
-          ...prev,
-          can_use: true,
-          used_count: 0,
-          limit_count: -1, // Sınırsız
-          loading: false,
-          error: null
-        }));
-        return;
+        throw new Error(result.error);
       }
 
-      // Backend çalışsa bile premium kullan (TEST AMAÇLI)
+      if (typeof result.data === 'boolean') {
+          // Bu, premium özellik kontrolünden (canUseTherapySessions vb.) gelen bir sonuçtur
+          setFeatureAccess({
+              can_use: result.data,
+              used_count: 0,
+              limit_count: result.data ? -1 : 0, // Premium ise sınırsız, değilse 0
+              loading: false,
+              error: null
+          });
+      } else if (result.data && typeof result.data.can_use !== 'undefined') {
+          // Bu, freemium özellik kontrolünden (canUseDiaryWrite vb.) gelen bir sonuçtur
+          setFeatureAccess({
+              ...result.data,
+              loading: false,
+              error: null
+          });
+      } else {
+          throw new Error("Özellik erişim verisi alınamadı.");
+      }
+
+    } catch (err: any) {
+      console.warn(`⚠️ ${featureType} özellik kontrolü hook hatası:`, err.message);
       setFeatureAccess(prev => ({
         ...prev,
-        can_use: true,
-        used_count: 0,
-        limit_count: -1, // Sınırsız
         loading: false,
-        error: null
-      }));
-    } catch (err) {
-      console.warn(`⚠️ ${featureType} özellik kontrolü hata yakalama, premium değerler kullanılıyor (test):`, err);
-      
-      // Premium değerleri (TEST AMAÇLI)
-      setFeatureAccess(prev => ({
-        ...prev,
-        can_use: true,
-        used_count: 0,
-        limit_count: -1, // Sınırsız
-        loading: false,
-        error: null
+        error: err.message
       }));
     }
   };
@@ -275,6 +243,7 @@ export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'd
     try {
       let result;
       
+      // Sadece sayılabilir özellikleri takip et
       switch (featureType) {
         case 'diary_write':
           result = await API.trackDiaryWriteUsage(user.id);
@@ -285,25 +254,36 @@ export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'd
         case 'dream_analysis':
           result = await API.trackDreamAnalysisUsage(user.id);
           break;
+        case 'ai_reports':
+            result = await API.trackAIReportUsage(user.id);
+            break;
         default:
-          return false;
+          // Premium özelliklerin (text, voice, video) kullanımı burada takip edilmez.
+          // Onlar seans bazlı olaylarla (events) loglanabilir.
+          return true; // Kullanıma izin ver ama sayacı artırma
+      }
+
+      if (result.error) {
+          throw new Error(result.error);
       }
 
       if (result.data) {
-        // Kullanım artırıldıysa durumu güncelle
+        // Kullanım artırıldıysa durumu yenile
         await checkFeatureAccess();
         return true;
       }
 
       return false;
-    } catch (err) {
-      console.error('Kullanım takibi yapılamadı:', err);
+    } catch (err: any) {
+      console.error('Kullanım takibi yapılamadı:', err.message);
       return false;
     }
   };
 
   useEffect(() => {
-    checkFeatureAccess();
+    if(user) {
+        checkFeatureAccess();
+    }
   }, [user, featureType]);
 
   return {
@@ -313,17 +293,19 @@ export function useFeatureAccess(featureType: 'diary_write' | 'daily_write' | 'd
   };
 }
 
-// Hook: Premium özellikler için kontrol
+// Hook: Premium özellikler için kontrol (DEPRECATED - Yerine useFeatureAccess kullanılacak)
+// Bu hook artık gereksiz çünkü useFeatureAccess hem freemium hem premium özellikleri kontrol edebilir.
+// Geriye dönük uyumluluk için bırakılabilir veya kaldırılabilir. Şimdilik bırakıyorum.
 export function usePremiumFeatures() {
   const { user } = useAuth();
   const [premiumFeatures, setPremiumFeatures] = useState({
-    canUseTherapySessions: true, // 🔥 OTOMATIK PREMIUM - TEST AMAÇLI
-    canUseVoiceSessions: true,
-    canUseVideoSessions: true,
-    canUseAIReports: true,
-    canUsePDFExport: true,
-    canUseAllTherapists: true,
-    hasPrioritySupport: true,
+    canUseTherapySessions: false,
+    canUseVoiceSessions: false,
+    canUseVideoSessions: false,
+    canUseAIReports: false,
+    canUsePDFExport: false,
+    canUseAllTherapists: false,
+    hasPrioritySupport: false, // Bu özellik `features` objesinden direkt okunabilir
     loading: true,
     error: null as string | null
   });
@@ -334,80 +316,43 @@ export function usePremiumFeatures() {
     try {
       setPremiumFeatures(prev => ({ ...prev, loading: true, error: null }));
       
-      const [
-        therapyResult,
-        voiceResult,
-        videoResult,
-        aiReportResult,
-        pdfResult,
-        therapistResult
-      ] = await Promise.all([
-        API.canUseTherapySessions(user.id),
-        API.canUseVoiceSessions(user.id),
-        API.canUseVideoSessions(user.id),
-        API.canUseAIReports(user.id),
-        API.canUsePDFExport(user.id),
-        API.canUseAllTherapists(user.id)
-      ]);
+      // Tek bir API çağrısı ile tüm planı ve özellikleri alalım
+      const { data, error } = await API.getUserPlanStatus(user.id);
 
-      if (therapyResult.error || voiceResult.error || videoResult.error || 
-          aiReportResult.error || pdfResult.error || therapistResult.error) {
-        console.warn('⚠️ Premium özellikler backend hatası, premium plan kullanılıyor (test):', {
-          therapyResult: therapyResult.error,
-          voiceResult: voiceResult.error,
-          videoResult: videoResult.error,
-          aiReportResult: aiReportResult.error,
-          pdfResult: pdfResult.error,
-          therapistResult: therapistResult.error
-        });
-        
-        // Premium değerleri (TEST AMAÇLI)
-        setPremiumFeatures({
-          canUseTherapySessions: true,
-          canUseVoiceSessions: true,
-          canUseVideoSessions: true,
-          canUseAIReports: true,
-          canUsePDFExport: true,
-          canUseAllTherapists: true,
-          hasPrioritySupport: true,
-          loading: false,
-          error: null
-        });
-        return;
+      if (error) {
+        throw new Error(error);
       }
 
-      // Backend çalışsa bile premium kullan (TEST AMAÇLI)
-      setPremiumFeatures({
-        canUseTherapySessions: true,
-        canUseVoiceSessions: true,
-        canUseVideoSessions: true,
-        canUseAIReports: true,
-        canUsePDFExport: true,
-        canUseAllTherapists: true,
-        hasPrioritySupport: true,
-        loading: false,
-        error: null
-      });
-    } catch (err) {
-      console.warn('⚠️ Premium özellikler hata yakalama, premium plan kullanılıyor (test):', err);
+      if (data && data.features) {
+        setPremiumFeatures({
+            canUseTherapySessions: data.features.text_sessions,
+            canUseVoiceSessions: data.features.voice_sessions,
+            canUseVideoSessions: data.features.video_sessions,
+            canUseAIReports: data.features.ai_reports,
+            canUsePDFExport: data.features.pdf_export,
+            canUseAllTherapists: data.features.therapist_count === -1,
+            hasPrioritySupport: data.features.priority_support,
+            loading: false,
+            error: null
+        });
+      } else {
+        throw new Error("Premium özellikler alınamadı.");
+      }
       
-      // Premium değerleri (TEST AMAÇLI)
-      setPremiumFeatures({
-        canUseTherapySessions: true,
-        canUseVoiceSessions: true,
-        canUseVideoSessions: true,
-        canUseAIReports: true,
-        canUsePDFExport: true,
-        canUseAllTherapists: true,
-        hasPrioritySupport: true,
+    } catch (err: any) {
+      console.warn('⚠️ Premium özellikler hook hatası:', err.message);
+      setPremiumFeatures(prev => ({
+        ...prev,
         loading: false,
-        error: null
-      });
+        error: err.message
+      }));
     }
   };
 
   useEffect(() => {
-    checkPremiumFeatures();
+    if (user) {
+        checkPremiumFeatures();
+    }
   }, [user]);
 
   return {
@@ -435,128 +380,25 @@ export function useSubscriptionPlans() {
       const { data, error } = await API.getAllPlans();
       
       if (error) {
-        console.warn('⚠️ Planlar backend hatası, varsayılan planlar kullanılıyor:', error);
-        
-        // Varsayılan planlar
-        const defaultPlans = [
-          {
-            id: 'free',
-            name: 'Free',
-            price: 0,
-            currency: 'TRY',
-            duration_days: 30,
-            features: {
-              diary_write_daily: 1,
-              daily_write_daily: 1,
-              dream_analysis_weekly: 1,
-              text_sessions: false,
-              voice_sessions: false,
-              video_sessions: false,
-              ai_reports: false,
-              therapist_count: 0,
-              session_history_days: 0,
-              pdf_export: false,
-              priority_support: false
-            },
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          },
-          {
-            id: 'premium',
-            name: 'Premium',
-            price: 39.99,
-            currency: 'TRY',
-            duration_days: 30,
-            features: {
-              diary_write_daily: -1,
-              daily_write_daily: -1,
-              dream_analysis_weekly: -1,
-              text_sessions: true,
-              voice_sessions: true,
-              video_sessions: true,
-              ai_reports: true,
-              therapist_count: -1,
-              session_history_days: -1,
-              pdf_export: true,
-              priority_support: true
-            },
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        ];
-
-        setPlans({
-          plans: defaultPlans,
-          loading: false,
-          error: null
-        });
-        return;
+        throw new Error(error);
       }
 
-      setPlans({
-        plans: data,
-        loading: false,
-        error: null
-      });
-    } catch (err) {
-      console.warn('⚠️ Planlar hata yakalama, varsayılan planlar kullanılıyor:', err);
+      if (data) {
+          setPlans({
+            plans: data,
+            loading: false,
+            error: null
+          });
+      } else {
+        throw new Error("Planlar alınamadı.");
+      }
+    } catch (err: any) {
+      console.warn('⚠️ Planlar hook hatası:', err.message);
       
-      // Varsayılan planlar
-      const defaultPlans = [
-        {
-          id: 'free',
-          name: 'Free',
-          price: 0,
-          currency: 'TRY',
-          duration_days: 30,
-          features: {
-            diary_write_daily: 1,
-            daily_write_daily: 1,
-            dream_analysis_weekly: 1,
-            text_sessions: false,
-            voice_sessions: false,
-            video_sessions: false,
-            ai_reports: false,
-            therapist_count: 0,
-            session_history_days: 0,
-            pdf_export: false,
-            priority_support: false
-          },
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        },
-        {
-          id: 'premium',
-          name: 'Premium',
-          price: 39.99,
-          currency: 'TRY',
-          duration_days: 30,
-          features: {
-            diary_write_daily: -1,
-            daily_write_daily: -1,
-            dream_analysis_weekly: -1,
-            text_sessions: true,
-            voice_sessions: true,
-            video_sessions: true,
-            ai_reports: true,
-            therapist_count: -1,
-            session_history_days: -1,
-            pdf_export: true,
-            priority_support: true
-          },
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ];
-
       setPlans({
-        plans: defaultPlans,
+        plans: [],
         loading: false,
-        error: null
+        error: err.message
       });
     }
   };
