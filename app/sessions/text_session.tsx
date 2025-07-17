@@ -4,23 +4,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Animated,
-  BackHandler,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  useColorScheme
+    Alert,
+    Animated,
+    BackHandler,
+    FlatList,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+    useColorScheme
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, getTherapistById } from '../../data/therapists';
+import { usePremiumFeatures } from '../../hooks/useSubscription';
 import { processUserMessage } from '../../services/api.service'; // <-- Artık api.service'den
 import { EventPayload } from '../../services/event.service';
 import { supabase } from '../../utils/supabase';
@@ -44,6 +45,9 @@ export default function TextSessionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
+
+  // Premium kontrolleri için hook
+  const { canUseTherapySessions, loading: premiumLoading } = usePremiumFeatures();
 
   // Typing animation state
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -218,6 +222,45 @@ const sendMessage = async () => {
   setIsTyping(false);
 };
 
+  // Premium kontrolü - eğer premium değilse, premium gate göster
+  if (!premiumLoading && !canUseTherapySessions) {
+    return (
+      <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
+          start={{x: 0, y: 0}}
+          end={{x: 1, y: 1}}
+          style={styles.container}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+          <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+        </TouchableOpacity>
+        
+        <View style={styles.premiumPrompt}>
+          <LinearGradient
+            colors={['#6366F1', '#8B5CF6']}
+            style={styles.premiumCard}
+          >
+            <View style={styles.premiumHeader}>
+              <Ionicons name="diamond" size={32} color="white" />
+              <Text style={styles.premiumTitle}>Premium Özellik</Text>
+            </View>
+            
+            <Text style={styles.premiumDescription}>
+              Terapi seansları Premium üyelerde kullanılabilir. 
+              Premium planla sınırsız terapi seansı yapabilirsiniz.
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.premiumButton}
+              onPress={() => router.push('/subscription')}
+            >
+              <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
+              <Ionicons name="arrow-forward" size={20} color="#6366F1" />
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </LinearGradient>
+    );
+  }
+
   return (
     <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
         start={{x: 0, y: 0}}
@@ -227,10 +270,8 @@ const sendMessage = async () => {
         <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
       </TouchableOpacity>
 
-      {/* Session Timer */}
       <SessionTimer onSessionEnd={handleSessionEnd} />
 
-      {/* Terapist avatar ve adı */}
       <View style={styles.therapistHeaderRow}>
         <View style={styles.avatarGradientBox}>
           <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
@@ -238,7 +279,7 @@ const sendMessage = async () => {
               end={{x: 1, y: 1}}
               style={styles.avatarGradient}>
             <Image
-                              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
+              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
               style={styles.therapistAvatarXL}
             />
           </LinearGradient>
@@ -259,7 +300,6 @@ const sendMessage = async () => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
       >
         <View style={styles.content}>
-          {/* MESSAGES */}
           <FlatList
             ref={flatListRef}
             data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
@@ -311,7 +351,6 @@ const sendMessage = async () => {
             showsVerticalScrollIndicator={false}
           />
 
-          {/* INPUT FIELD */}
           <View style={styles.inputBar}>
             <TextInput
               ref={inputRef}
@@ -644,5 +683,50 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.8)',
+  },
+  premiumPrompt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  premiumCard: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+  },
+  premiumHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  premiumTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
+  },
+  premiumDescription: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    opacity: 0.9,
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  premiumButton: {
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  premiumButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6366F1',
   },
 });

@@ -39,7 +39,7 @@ const CompletedDialogueView = ({ router }: { router: any }) => (
         <Text style={styles.dialogueLockText}>
             Bu rüya üzerine diyalog tamamlandı. Limitsiz diyalog ve analiz için Premium'u keşfedebilirsin.
         </Text>
-         <TouchableOpacity style={styles.premiumButton} onPress={() => router.push('/premium')}>
+         <TouchableOpacity style={styles.premiumButton} onPress={() => router.push('/subscription')}>
             <Text style={styles.premiumButtonText}>Premium'a Göz At</Text>
         </TouchableOpacity>
     </View>

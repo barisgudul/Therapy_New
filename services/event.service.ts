@@ -1,6 +1,5 @@
 // services/event.service.ts
 import { supabase } from '../utils/supabase';
-import { getUserVault } from './vault.service';
 
 export const EVENT_TYPES = [
   'daily_reflection',
@@ -88,6 +87,11 @@ export async function updateEventData(eventId: string, newData: Record<string, a
 }
 
 export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean; daysRemaining: number }> {
+  // 🔥 TEST MODU: OTOMATİK PREMİUM - RUYA ANALİZİ SINISIZ
+  console.log('🔥 [TEST] Rüya analizi otomatik premium - sınırsız erişim');
+  return { canAnalyze: true, daysRemaining: 0 };
+
+  /* ESKİ KOD - TEST SONRASI AKTİF EDİLECEK
   try {
     const vault = await getUserVault();
     const lastAnalysisTimestamp = vault?.freeUsage?.lastFreeDreamAnalysis;
@@ -116,9 +120,15 @@ export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean; days
     // Bir hata olursa, tedbiren hakkı yok say.
     return { canAnalyze: false, daysRemaining: 7 };
   }
+  */
 }
 
 export async function canUserWriteNewDiary(): Promise<{ canWrite: boolean; message: string }> {
+  // 🔥 TEST MODU: OTOMATİK PREMİUM - GÜNLÜK YAZMA SINISIZ  
+  console.log('🔥 [TEST] Günlük yazma otomatik premium - sınırsız erişim');
+  return { canWrite: true, message: '' };
+
+  /* ESKİ KOD - TEST SONRASI AKTİF EDİLECEK
   try {
     const recentEvents = await getEventsForLast(1);
     const lastDiaryEntry = recentEvents.find(e => e.type === 'diary_entry');
@@ -140,6 +150,7 @@ export async function canUserWriteNewDiary(): Promise<{ canWrite: boolean; messa
     console.error('Günlük yazma izni kontrolü hatası:', (error as Error).message);
     throw error;
   }
+  */
 }
 
 export async function getSessionEventsForUser(): Promise<AppEvent[]> {

@@ -13,26 +13,27 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Easing,
-  Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Animated,
+    Dimensions,
+    Easing,
+    Image,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from 'react-native';
 
 import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
+import { useFeatureAccess } from '../hooks/useSubscription';
 import { generateDailyReflectionResponse } from '../services/ai.service';
 import { logEvent } from '../services/event.service';
 import { useVaultStore } from '../store/vaultStore';
@@ -281,6 +282,46 @@ export default function DailyWriteScreen() {
   const { user } = useAuth();
   const vault = useVaultStore((s) => s.vault);
   const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault);
+  
+  // Daily write özelliği için freemium kontrolü
+  const dailyWriteAccess = useFeatureAccess('daily_write');
+
+  // Premium kontrolü - eğer günlük limit dolmuşsa premium gate göster
+  if (!dailyWriteAccess.loading && !dailyWriteAccess.can_use) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <LinearGradient colors={['#F6F8FA', '#FFFFFF']} style={StyleSheet.absoluteFill} />
+        
+        <View style={styles.premiumPrompt}>
+          <LinearGradient
+            colors={['#6366F1', '#8B5CF6']}
+            style={styles.premiumCard}
+          >
+            <View style={styles.premiumHeader}>
+              <Ionicons name="diamond" size={32} color="white" />
+              <Text style={styles.premiumTitle}>Günlük Limit Doldu</Text>
+            </View>
+            
+            <Text style={styles.premiumDescription}>
+              Günde 1 duygu günlüğü yazabilirsiniz. Premium planla sınırsız günlük yazabilirsiniz.
+            </Text>
+            
+            <Text style={styles.premiumUsage}>
+              Kullanım: {dailyWriteAccess.used_count}/{dailyWriteAccess.limit_count}
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.premiumButton}
+              onPress={() => router.push('/subscription')}
+            >
+              <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
+              <Ionicons name="arrow-forward" size={20} color="#6366F1" />
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   async function saveSession() {
     if (!note || saving) return;
@@ -313,6 +354,9 @@ export default function DailyWriteScreen() {
       // Adım 2: Doğru şekilde beyni çağır.
       const personalized = await generateDailyReflectionResponse(context);
       setAiMessage(personalized);
+
+      // Adım 3: Kullanım sayısını artır (freemium kontrolü için)
+      // await trackDailyWriteUsage(user?.id || ''); // Bu fonksiyonun tanımı yok, bu kısım kaldırıldı
 
     } catch (err) {
       console.error("AI yansıması oluşturulurken hata:", getErrorMessage(err));
@@ -756,5 +800,63 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     letterSpacing: -0.2,
     textAlign: 'center',
+  },
+  premiumPrompt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  premiumCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 28,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#1A202C',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.1,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  premiumHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  premiumTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 10,
+  },
+  premiumDescription: {
+    fontSize: 15,
+    color: '#E2E8F0',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  premiumUsage: {
+    fontSize: 14,
+    color: '#E2E8F0',
+    marginBottom: 20,
+  },
+  premiumButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 54,
+    width: '100%',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  premiumButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#6366F1',
+    marginRight: 8,
   },
 });

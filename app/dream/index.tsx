@@ -95,7 +95,7 @@ export default function DreamJournalScreen() {
         `Bir sonraki ücretsiz rüya analizine ${daysRemaining} gün kaldı. Limitsiz analiz için Premium'u keşfedebilirsin.`,
         [
           { text: "Tamam" },
-          { text: "Premium'a Göz At", onPress: () => router.push('/premium') }
+          { text: "Premium'a Göz At", onPress: () => router.push('/subscription') }
         ]
       );
     }

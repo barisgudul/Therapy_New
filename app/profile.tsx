@@ -3,20 +3,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
+import { useSubscription } from '../hooks/useSubscription';
 import { useVaultStore } from '../store/vaultStore';
 
 // MİMARİ SADAKATİ
@@ -44,6 +45,9 @@ const initialProfileState: LocalProfileState = {
 export default function ProfileScreen() {
     const router = useRouter();
     const { session, user } = useAuth();
+
+    // Subscription hook'u
+    const { isPremium, planName, loading: subscriptionLoading } = useSubscription();
 
     // Verinin tek, merkezi ve reaktif kaynağı: Zustand Store'umuz.
     const vault = useVaultStore((state) => state.vault);
@@ -145,15 +149,68 @@ export default function ProfileScreen() {
         setDatePickerVisible(false);
     };
 
+    // Premium Status Card Component
+    const PremiumStatusCard = () => {
+        if (subscriptionLoading) {
+            return (
+                <View style={styles.premiumStatusCard}>
+                    <ActivityIndicator size="small" color={Colors.light.tint} />
+                    <Text style={styles.premiumStatusText}>Yükleniyor...</Text>
+                </View>
+            );
+        }
+
+        return (
+            <TouchableOpacity 
+                style={[styles.premiumStatusCard, isPremium && styles.premiumStatusCardActive]}
+                onPress={() => router.push('/subscription')}
+                activeOpacity={0.8}
+            >
+                <View style={styles.premiumStatusContent}>
+                    <View style={styles.premiumStatusLeft}>
+                        <Ionicons 
+                            name={isPremium ? 'diamond' : 'diamond-outline'} 
+                            size={24} 
+                            color={isPremium ? '#6366F1' : '#9CA3AF'} 
+                        />
+                        <View style={styles.premiumStatusTextContainer}>
+                            <Text style={[styles.premiumStatusTitle, isPremium && styles.premiumStatusTitleActive]}>
+                                {isPremium ? 'Premium Aktif' : 'Premium Planı'}
+                            </Text>
+                            <Text style={styles.premiumStatusSubtitle}>
+                                {isPremium ? `${planName} Plan` : 'Sınırsız özellikler'}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.premiumStatusRight}>
+                        {isPremium ? (
+                            <View style={styles.premiumBadge}>
+                                <Text style={styles.premiumBadgeText}>Aktif</Text>
+                            </View>
+                        ) : (
+                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                        )}
+                    </View>
+                </View>
+            </TouchableOpacity>
+        );
+    };
+
     return (
-        // Senin istediğin UI yapısını ve stilleri korudum. Mantığı değiştirdim.
         <View style={styles.container}>
             <TouchableOpacity onPress={() => router.back()} style={styles.back}>
                 <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
-            <View style={styles.header}><Text style={styles.title}>Terapi Profili</Text></View>
+            <View style={styles.header}>
+                <Text style={styles.title}>Terapi Profili</Text>
+            </View>
             <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
                 <ScrollView showsVerticalScrollIndicator={false}>
+                    {/* Premium Status Card */}
+                    <View style={styles.premiumContainer}>
+                        <PremiumStatusCard />
+                    </View>
+
                     {isLoadingVault ? (
                         <View style={styles.loadingContainer}>
                             <ActivityIndicator size="large" color={Colors.light.tint} />
@@ -190,14 +247,14 @@ export default function ProfileScreen() {
                                 value={localProfile.birthDate}
                                 onPress={() => setDatePickerVisible(true)}
                             />
-                             <SelectorGroup
+                            <SelectorGroup
                                 label="Cinsiyet"
                                 icon="male-female-outline"
                                 options={[{ value: 'male', label: 'Erkek' }, { value: 'female', label: 'Kadın' }, { value: 'other', label: 'Diğer' }]}
                                 selectedValue={localProfile.gender}
                                 onSelect={(value) => handleInputChange('gender', value)}
                             />
-                             <SelectorGroup
+                            <SelectorGroup
                                 label="İlişki Durumu"
                                 icon="heart-outline"
                                 options={[{ value: 'single', label: 'Bekarım' }, { value: 'in_relationship', label: 'İlişkim var' }, { value: 'married', label: 'Evliyim' }, { value: 'complicated', label: 'Karmaşık' }]}
@@ -206,7 +263,7 @@ export default function ProfileScreen() {
                             />
 
                             <Text style={styles.sectionTitle}>Terapi Bilgileri</Text>
-                             <InputGroup
+                            <InputGroup
                                 label="Terapiden Beklentileriniz"
                                 icon="bulb-outline"
                                 value={localProfile.expectation}
@@ -659,5 +716,71 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+  },
+  premiumContainer: {
+    paddingHorizontal: 28,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  premiumStatusCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  premiumStatusCardActive: {
+    borderColor: '#6366F1',
+    backgroundColor: '#F8F9FF',
+  },
+  premiumStatusContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  premiumStatusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  premiumStatusTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  premiumStatusTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  premiumStatusTitleActive: {
+    color: '#6366F1',
+  },
+  premiumStatusSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  premiumStatusRight: {
+    marginLeft: 8,
+  },
+  premiumBadge: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  premiumBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
+  },
+  premiumStatusText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
 });
