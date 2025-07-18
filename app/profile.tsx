@@ -1,6 +1,7 @@
 // app/profile.tsx (SON. NİHAİ. KUSURSUZ.)
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router/';
+import { StackActions } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router/';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -44,6 +45,7 @@ const initialProfileState: LocalProfileState = {
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const navigation = useNavigation();
     const { session, user } = useAuth();
 
     // Subscription hook'u ve refresh fonksiyonu
@@ -208,7 +210,7 @@ export default function ProfileScreen() {
 
     return (
         <View style={styles.container}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+            <TouchableOpacity onPress={() => navigation.dispatch(StackActions.popToTop())} style={styles.back}>
                 <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
             <View style={styles.header}>

@@ -3,19 +3,34 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import {
-  Dimensions,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Dimensions,
+    Image,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS } from '../../data/therapists';
+import { useSubscription } from '../../hooks/useSubscription';
 
 export default function AvatarScreen() {
   const router = useRouter();
+  const { planName } = useSubscription();
+
+  // Plan bazlı halka renkleri
+  const getRingColors = (): [string, string] => {
+    if (planName === 'Premium') {
+      // Lila tonları
+      return ['#DEC9FF', '#CFB3FF'];
+    } else if (planName === '+Plus') {
+      // Profil ekranındaki mavi tonları
+      return [`${Colors.light.tint}33`, `${Colors.light.tint}66`];
+    }
+    // Varsayılan pastel mavi/lila karışımı
+    return ['#E0ECFD', '#F4E6FF'];
+  };
 
   const handleExplore = (therapistId: string) => {
     router.push({
@@ -63,7 +78,7 @@ export default function AvatarScreen() {
               >
                 <View style={styles.avatarContainer}>
                   <LinearGradient
-                    colors={['#E0ECFD', '#F4E6FF']}
+                    colors={getRingColors()}
                     start={{x: 0, y: 0}}
                     end={{x: 1, y: 1}}
                     style={styles.avatarGradient}

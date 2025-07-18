@@ -4,19 +4,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    useColorScheme,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
-import { useSubscription, useSubscriptionPlans, useUsageStats } from '../hooks/useSubscription';
+import { useSubscription, useSubscriptionPlans } from '../hooks/useSubscription';
 import * as API from '../services/api.service';
 import { SubscriptionPlan } from '../services/subscription.service';
 
@@ -25,355 +24,204 @@ const { width } = Dimensions.get('window');
 export default function SubscriptionScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  
-  const { isPremium, planName, refresh: refreshSubscription } = useSubscription();
-  const { plans, loading: plansLoading, refresh: refreshPlans } = useSubscriptionPlans();
-  const { diary_write, daily_write, dream_analysis, ai_reports, loading: usageLoading, refresh: refreshUsage } = useUsageStats();
-  
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const { planName, refresh: refreshSubscription } = useSubscription();
+  const { plans, loading: plansLoading } = useSubscriptionPlans();
+
+  const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
+
+  // how_it_works.tsx'ten ilham alan yeni renk ve stil paleti
+  const planThemes = {
+    Premium: {
+      gradient: ['#F4E6FF', '#EBF0FF'], // İsteğiniz üzerine therapy_options.tsx'ten gelen pembe-mavi geçişi
+      textColor: '#5B21B6', 
+      borderColor: 'rgba(124, 58, 237, 0.3)',
+      shadowColor: 'rgba(124, 58, 237, 0.4)',
+      icon: 'diamond-outline' as const,
+    },
+    '+Plus': {
+      gradient: ['#EFF6FF', '#E0F2FE'], // Profile.tsx'ten ilham alan sofistike mavi
+      textColor: '#075985',
+      borderColor: 'rgba(14, 165, 233, 0.3)',
+      shadowColor: 'rgba(14, 165, 233, 0.4)',
+      icon: 'star-outline' as const,
+    },
+    Free: {
+      gradient: ['#F8FAFC', '#F1F5F9'],
+      textColor: '#475569',
+      borderColor: 'rgba(203, 213, 225, 0.6)',
+      shadowColor: '#94A3B8',
+      icon: 'person-outline' as const,
+    },
+  };
 
   const handleUpgrade = async (plan: SubscriptionPlan) => {
-    if (!user) {
-        Alert.alert('Hata', 'Kullanıcı bulunamadı.');
-        return;
-    }
-    
-    setIsUpgrading(true);
+    if (!user || isUpgrading) return;
+
+    setIsUpgrading(plan.id);
     try {
-      // Bu bir test fonksiyonudur. Gerçek uygulamada RevenueCat gibi bir servis kullanılır.
       await API.upgradeUserPlanForTesting(user.id, plan.name);
-      
       Alert.alert(
-        'Başarılı!',
-        `Tebrikler, ${plan.name} planına başarıyla geçiş yaptınız.`,
-        [
-          { 
-            text: 'Harika!', 
-            onPress: async () => {
-              // Arayüzün güncel bilgileri yansıtması için state'leri yenile
-              await Promise.all([
-                  refreshSubscription(),
-                  refreshUsage(),
-              ]);
-              router.back();
-            }
-          }
-        ]
+        'Yükseltme Başarılı!',
+        `Tebrikler, ${plan.name} planının tüm ayrıcalıklarına eriştiniz.`,
+        [{ text: 'Harika!', onPress: async () => {
+            await refreshSubscription();
+            router.replace('/profile');
+        }}],
       );
     } catch (error: any) {
-      Alert.alert('Yükseltme Hatası', error.message || 'Plan değiştirilirken bir sorun oluştu.');
+      Alert.alert('Hata', error.message || 'Plan değiştirilirken bir sorun oluştu.');
     } finally {
-      setIsUpgrading(false);
+      setIsUpgrading(null);
     }
+  };
+  
+  const renderPlanCard = (plan: SubscriptionPlan) => {
+    const theme = planThemes[plan.name as keyof typeof planThemes] || planThemes.Free;
+    const isCurrentPlan = planName === plan.name;
+    const isPremium = plan.name === 'Premium';
+    const isLoading = isUpgrading === plan.id;
+    
+    const UpgradeButton = () => (
+      <TouchableOpacity onPress={() => handleUpgrade(plan)} disabled={!!isUpgrading} style={{marginTop: 'auto'}}>
+        <LinearGradient
+            colors={['#F8FAFF', '#FFFFFF']}
+            start={{x: 0, y: 0}} end={{x: 1, y: 1}}
+            style={[styles.upgradeButton, {borderColor: theme.borderColor}]}
+        >
+            {isLoading ? (
+                <ActivityIndicator color={theme.textColor} />
+            ) : (
+                <>
+                    <Text style={[styles.upgradeButtonText, {color: theme.textColor}]}>{isPremium ? "Premium'a Yükselt" : 'Planı Seç'}</Text>
+                    <Ionicons name="arrow-forward-circle" size={24} color={theme.textColor} />
+                </>
+            )}
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+
+    return (
+      <View key={plan.id} style={[styles.planCardWrapper, { shadowColor: theme.shadowColor }]}>
+        <LinearGradient
+          colors={theme.gradient as [string, string]}
+          style={[styles.planCard, { borderColor: theme.borderColor }]}
+        >
+            <View style={styles.planHeader}>
+                <View style={styles.iconContainer}>
+                    <Ionicons name={theme.icon} size={32} color={theme.textColor} />
+                </View>
+                <View style={styles.planTitleContainer}>
+                    <Text style={[styles.planName, { color: theme.textColor }]}>{plan.name}</Text>
+                    {isPremium && (
+                        <View style={styles.planBadge}>
+                            <Text style={styles.planBadgeText}>Tavsiye Edilen</Text>
+                        </View>
+                    )}
+                </View>
+            </View>
+
+          <Text style={[styles.planDescription, {color: theme.textColor, opacity: 0.7}]}>
+            {plan.description || "Temel özelliklere erişim."}
+          </Text>
+          
+          <View style={styles.priceContainer}>
+            <Text style={[styles.planPrice, { color: theme.textColor }]}>
+              {plan.price === 0 ? 'Ücretsiz' : `₺${plan.price}`}
+            </Text>
+            {plan.price > 0 && <Text style={[styles.planDuration, { color: theme.textColor, opacity: 0.6 }]}>/ aylık</Text>}
+          </View>
+
+          {isCurrentPlan ? (
+            <View style={styles.currentPlanButton}>
+              <Ionicons name="checkmark-circle" size={22} color="#334155" />
+              <Text style={styles.currentPlanButtonText}>Mevcut Planınız</Text>
+            </View>
+          ) : (
+            <UpgradeButton />
+          )}
+        </LinearGradient>
+      </View>
+    );
   };
 
   const renderFeatureComparison = () => {
-    // Bu veriyi dinamik olarak planlardan oluşturmak daha iyi olabilir,
-    // ancak şimdilik manuel olarak bırakıyorum.
     const comparisonData = [
-      {
-        feature: 'Günlük Metin Seansları',
-        free: '❌',
-        plus: '✅',
-        premium: 'Sınırsız',
-        icon: 'chatbubble-outline'
-      },
-      {
-        feature: 'Ses & Video Seansları',
-        free: '❌',
-        plus: '❌',
-        premium: 'Sınırsız',
-        icon: 'mic-outline'
-      },
-      {
-        feature: 'Rüya Analizi',
-        free: '1 adet/hafta',
-        plus: '1 adet/gün',
-        premium: 'Sınırsız',
-        icon: 'moon-outline'
-      },
-      {
-        feature: 'AI Raporları',
-        free: '❌',
-        plus: '1 adet/gün',
-        premium: 'Sınırsız',
-        icon: 'analytics-outline'
-      },
-      {
-        feature: 'Terapist Seçimi',
-        free: 'Limitli',
-        plus: '1 Terapist',
-        premium: 'Tüm Terapistler',
-        icon: 'people-outline'
-      },
-      {
-        feature: 'Seans Geçmişi',
-        free: '7 gün',
-        plus: '90 gün',
-        premium: 'Sınırsız',
-        icon: 'time-outline'
-      },
-      {
-        feature: 'PDF Export',
-        free: '❌',
-        plus: '❌',
-        premium: '✅',
-        icon: 'download-outline'
-      },
-      {
-        feature: 'Öncelikli Destek',
-        free: '❌',
-        plus: '❌',
-        premium: '✅',
-        icon: 'headset-outline'
-      }
+        { feature: 'Metin Seansları', plus: 'Sınırsız', premium: 'Sınırsız', icon: 'chatbubble-ellipses-outline' },
+        { feature: 'Sesli Seanslar', plus: '❌', premium: 'Sınırsız', icon: 'mic-outline' },
+        { feature: 'Rüya Analizi', plus: '1/gün', premium: 'Sınırsız', icon: 'moon-outline' },
+        { feature: 'AI Raporları', plus: '1/gün', premium: 'Sınırsız', icon: 'analytics-outline' },
+        { feature: 'Terapist Seçimi', plus: '1 Terapist', premium: 'Tüm Terapistler', icon: 'people-outline' },
+        { feature: 'Seans Geçmişi', plus: '90 gün', premium: 'Sınırsız', icon: 'time-outline' },
+        { feature: 'PDF Export', plus: '❌', premium: 'Sınırsız', icon: 'download-outline' },
+        { feature: 'Öncelikli Destek', plus: '❌', premium: 'Evet', icon: 'headset-outline' }
     ];
 
-    return (
-      <View style={styles.comparisonContainer}>
-        <Text style={styles.comparisonTitle}>Özellik Karşılaştırması</Text>
-        <View style={styles.comparisonTable}>
-          <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderText}>Özellik</Text>
-            <Text style={styles.tableHeaderText}>Ücretsiz</Text>
-            <Text style={styles.tableHeaderText}>+Plus</Text>
-            <Text style={styles.tableHeaderText}>Premium</Text>
-          </View>
-          {comparisonData.map((item, index) => (
-            <View key={index} style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlt]}>
-              <View style={styles.featureCell}>
-                <Ionicons name={item.icon as any} size={16} color={Colors.light.tint} />
-                <Text style={styles.featureText}>{item.feature}</Text>
-              </View>
-              <Text style={styles.freeText}>{item.free}</Text>
-              <Text style={styles.plusText}>{item.plus}</Text>
-              <Text style={styles.premiumCellText}>{item.premium}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  const renderUsageStats = () => {
-    const usageData = [
-      { label: 'Günlük Yazma', current: daily_write, icon: 'create-outline' },
-      { label: 'Rüya Analizi', current: dream_analysis, icon: 'moon-outline' },
-      { label: 'AI Raporları', current: ai_reports, icon: 'analytics-outline' },
-      { label: 'Günlük Keşfi', current: diary_write, icon: 'book-outline' }
-    ];
-
-    if (usageLoading) {
-        return (
-             <View style={styles.usageContainer}>
-                <ActivityIndicator/>
-             </View>
-        )
-    }
-
-    return (
-      <View style={styles.usageContainer}>
-        <Text style={styles.usageTitle}>Kalan Kullanım Hakları</Text>
-        {usageData.map((item, index) => {
-            if (!item.current) return null; // Veri henüz yüklenmediyse gösterme
-            const percentage = item.current.limit_count > 0 
-                ? (item.current.used_count / item.current.limit_count) * 100
-                : 0;
-
-            return (
-              <View key={index} style={styles.usageItem}>
-                <View style={styles.usageItemHeader}>
-                  <Ionicons name={item.icon as any} size={20} color={Colors.light.tint} />
-                  <Text style={styles.usageItemLabel}>{item.label}</Text>
-                </View>
-                <View style={styles.usageProgressContainer}>
-                  <View style={styles.usageProgressBar}>
-                    <View 
-                      style={[
-                        styles.usageProgress,
-                        { 
-                          width: item.current.limit_count === -1 ? '100%' : `${percentage}%`,
-                          backgroundColor: item.current.limit_count === -1 ? '#10B981' : 
-                                         !item.current.can_use ? '#EF4444' : 
-                                         percentage > 80 ? '#F59E0B' : '#10B981'
-                        }
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.usageProgressText}>
-                    {item.current.limit_count === -1 ? 'Sınırsız' : `${item.current.limit_count - item.current.used_count} hak`}
-                  </Text>
-                </View>
-              </View>
-            )
-        })}
-      </View>
-    );
-  };
-
-  const renderPlanCard = (plan: SubscriptionPlan) => {
-    const isCurrentPlan = planName === plan.name;
-    const isSelected = selectedPlanId === plan.id;
-    
-    const planColors = {
-        'Free': { border: '#D1D5DB', bg: 'white', name: '#6B7280', price: '#6B7280' },
-        '+Plus': { border: '#3B82F6', bg: '#EFF6FF', name: '#1D4ED8', price: '#3B82F6' },
-        'Premium': { border: '#8B5CF6', bg: '#F5F3FF', name: '#5B21B6', price: '#8B5CF6' },
-    }
-    const colors = planColors[plan.name as keyof typeof planColors] || planColors.Free;
-
-    return (
-      <TouchableOpacity
-        key={plan.id}
-        style={[
-          styles.planCard,
-          { borderColor: colors.border, backgroundColor: isSelected ? colors.bg : 'white' },
-          isCurrentPlan && { backgroundColor: colors.bg, borderWidth: 2 },
-        ]}
-        onPress={() => !isCurrentPlan && setSelectedPlanId(plan.id)}
-        activeOpacity={0.8}
-      >
-        {plan.name !== 'Free' && (
-          <View style={[styles.planBadge, {backgroundColor: colors.price}]}>
-            <Ionicons name={plan.name === 'Premium' ? "diamond" : "star"} size={16} color="white" />
-            <Text style={styles.planBadgeText}>{plan.name}</Text>
-          </View>
-        )}
+    const renderValue = (value: string, plan: 'plus' | 'premium') => {
+        const premiumColor = planThemes.Premium.textColor;
+        const plusColor = planThemes['+Plus'].textColor;
         
-        <View style={styles.planHeader}>
-          <Text style={[styles.planName, {color: colors.name}]}>
-            {plan.name}
-          </Text>
-          <View style={styles.planPriceContainer}>
-            <Text style={[styles.planPrice, {color: colors.price}]}>
-              {plan.price === 0 ? 'Ücretsiz' : `₺${plan.price}`}
-            </Text>
-            {plan.price > 0 && (
-              <Text style={styles.planDuration}>
-                / ay
-              </Text>
-            )}
-          </View>
-        </View>
+        if (value === 'Sınırsız' || value === 'Evet' || value === 'Tüm Terapistler') {
+            return <Ionicons name="checkmark" size={28} color={plan === 'premium' ? premiumColor : plusColor} style={{fontWeight: 'bold', opacity: plan === 'premium' ? 1 : 0.7}} />;
+        }
+        if (value === '❌') {
+            return <Ionicons name="close-outline" size={28} color="#94A3B8" />;
+        }
+        return <Text style={[styles.comparisonValueText, {color: plan === 'plus' ? plusColor : premiumColor, opacity: plan === 'premium' ? 1 : 0.8}]}>{value}</Text>;
+    };
 
-        <View style={styles.planFeatures}>
-          {/* Özellikleri dinamik olarak göstermek daha doğru olacaktır */}
-          <Text style={styles.planFeatureText}>
-              {plan.name === 'Free' && 'Temel özelliklere başlangıç için.'}
-              {plan.name === '+Plus' && 'Sınırsız metin seansı ve günlük analizler.'}
-              {plan.name === 'Premium' && 'Tüm özelliklere sınırsız erişim.'}
-          </Text>
+    return (
+      <View style={styles.comparisonSection}>
+        <Text style={styles.sectionTitle}>Ayrıcalıklar Dünyası</Text>
+        <View style={styles.comparisonTable}>
+            <View style={styles.comparisonHeaderRow}>
+                <Text style={[styles.comparisonHeaderText, {flex: 2.5}]}></Text>
+                <Text style={[styles.comparisonHeaderText, {flex: 1, color: planThemes['+Plus'].textColor }]}>+Plus</Text>
+                <Text style={[styles.comparisonHeaderText, {flex: 1, color: planThemes.Premium.textColor }]}>Premium</Text>
+            </View>
+            {comparisonData.map((item, index) => (
+                <View key={index} style={[styles.comparisonRow, index === comparisonData.length -1 && styles.comparisonRowLast]}>
+                    <View style={styles.comparisonFeatureCell}>
+                        <Ionicons name={item.icon as any} size={24} color={Colors.light.tint} style={{opacity: 0.6}} />
+                        <Text style={styles.comparisonFeatureText}>{item.feature}</Text>
+                    </View>
+                    <View style={styles.comparisonValueCell}>{renderValue(item.plus, 'plus')}</View>
+                    <View style={styles.comparisonValueCell}>{renderValue(item.premium, 'premium')}</View>
+                </View>
+            ))}
         </View>
-
-        {isCurrentPlan ? (
-          <View style={[styles.currentPlanButton, {backgroundColor: colors.border}]}>
-            <Text style={styles.currentPlanButtonText}>Mevcut Planınız</Text>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.upgradePlanButton,
-              isSelected && styles.selectedUpgradeButton
-            ]}
-            onPress={() => handleUpgrade(plan)}
-            disabled={isUpgrading || selectedPlanId !== plan.id}
-          >
-            <LinearGradient
-              colors={ isSelected ? [colors.price, colors.border] : ['#D1D5DB', '#9CA3AF']}
-              style={styles.upgradePlanButtonGradient}
-            >
-              <Text style={styles.upgradePlanButtonText}>
-                {isUpgrading && selectedPlanId === plan.id ? 'Yükseltiliyor...' : `Planı Seç`}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
   if (plansLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <LinearGradient colors={['#fdf2f8', '#eef2ff']} style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.light.tint} />
-        <Text style={styles.loadingText}>Planlar Yükleniyor...</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
+  const sortedPlans = plans.sort((a,b) => b.price - a.price); 
+
   return (
-    <LinearGradient
-      colors={isDark ? ['#1a1a1a', '#2d2d2d'] : ['#f8fafc', '#ffffff']}
-      style={styles.container}
-    >
-      <View style={styles.header}>
+    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} style={styles.container}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+          <Ionicons name="close" size={28} color={Colors.light.tint} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Premium Planlar</Text>
-      </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Current Plan Status */}
-        <View style={styles.currentStatusContainer}>
-          <View style={styles.currentStatusHeader}>
-            <Ionicons 
-              name={isPremium ? 'diamond' : 'person'} 
-              size={24} 
-              color={isPremium ? '#8B5CF6' : '#6B7280'} 
-            />
-            <Text style={styles.currentStatusTitle}>
-              Mevcut Plan: <Text style={{color: isPremium ? '#8B5CF6' : '#374151'}}>{planName}</Text>
-            </Text>
-          </View>
-          {isPremium && (
-            <View style={[styles.premiumBadge, {backgroundColor: '#8B5CF6'}]}>
-              <Text style={styles.premiumBadgeText}>Premium</Text>
-            </View>
-          )}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom: 50}}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Potansiyelini Ortaya Çıkar</Text>
+          <Text style={styles.headerSubtitle}>Sınırsız erişim ile zihinsel sağlık yolculuğunda yeni bir sayfa aç.</Text>
         </View>
-
-        {/* Usage Stats */}
-        {renderUsageStats()}
-
-        {/* Plans */}
+        
         <View style={styles.plansContainer}>
-          <Text style={styles.plansTitle}>Planını Yükselt</Text>
-          {plans.sort((a,b) => a.price - b.price).map(plan => renderPlanCard(plan))}
+            {sortedPlans.map(plan => renderPlanCard(plan))}
         </View>
-
-        {/* Feature Comparison */}
+        
         {renderFeatureComparison()}
 
-        {/* Benefits */}
-        <View style={styles.benefitsContainer}>
-          <Text style={styles.benefitsTitle}>Premium Avantajları</Text>
-          <View style={styles.benefitsList}>
-            <View style={styles.benefitItem}>
-              <Ionicons name="infinite" size={20} color="#10B981" />
-              <Text style={styles.benefitText}>Sınırsız terapi seansları</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="mic" size={20} color="#10B981" />
-              <Text style={styles.benefitText}>Ses ve video seansları</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="analytics" size={20} color="#10B981" />
-              <Text style={styles.benefitText}>Gelişmiş AI analizleri</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="download" size={20} color="#10B981" />
-              <Text style={styles.benefitText}>PDF rapor indirme</Text>
-            </View>
-            <View style={styles.benefitItem}>
-              <Ionicons name="headset" size={20} color="#10B981" />
-              <Text style={styles.benefitText}>Öncelikli destek</Text>
-            </View>
-          </View>
-        </View>
       </ScrollView>
     </LinearGradient>
   );
@@ -388,359 +236,197 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.light.text,
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    right: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 30,
+    padding: 8,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  backButton: {
-    padding: 8,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingTop: 100,
+    paddingBottom: 32,
+    alignItems: 'center'
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: Colors.light.text,
-    marginLeft: 16,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  currentStatusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  currentStatusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  currentStatusTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginLeft: 8,
-  },
-  premiumBadge: {
-    backgroundColor: '#6366F1',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  premiumBadgeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  usageContainer: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  usageTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 16,
-  },
-  usageItem: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#1f2937',
     marginBottom: 12,
+    textAlign: 'center',
   },
-  usageItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  usageItemLabel: {
-    fontSize: 14,
-    color: Colors.light.text,
-    marginLeft: 8,
-  },
-  usageProgressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  usageProgressBar: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#E5E7EB',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  usageProgress: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  usageProgressText: {
-    fontSize: 12,
-    color: Colors.light.text,
-    fontWeight: '600',
-    minWidth: 40,
-    textAlign: 'right',
+  headerSubtitle: {
+    fontSize: 18,
+    color: '#4b5563',
+    textAlign: 'center',
+    lineHeight: 26,
+    maxWidth: '90%',
   },
   plansContainer: {
-    marginHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    gap: 24,
+    marginBottom: 50,
   },
-  plansTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: Colors.light.text,
-    marginBottom: 16,
+  planCardWrapper: {
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 10,
   },
   planCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  currentPlanCard: {
-    borderColor: '#10B981',
-    backgroundColor: '#F0FDF4',
-  },
-  selectedPlanCard: {
-    borderColor: '#6366F1',
-    backgroundColor: '#EEF2FF',
-  },
-  freePlanCard: {
-    borderColor: '#D1D5DB',
-  },
-  planBadge: {
-    position: 'absolute',
-    top: -8,
-    right: 16,
-    backgroundColor: '#6366F1',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  planBadgeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '600',
+    borderRadius: 32,
+    padding: 28,
+    borderWidth: 1.5,
+    overflow: 'hidden',
   },
   planHeader: {
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16
+  },
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planTitleContainer: {
+    flex: 1,
   },
   planName: {
-    fontSize: 24,
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  planBadge: {
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start'
+  },
+  planBadgeText: {
+    color: '#5B21B6',
+    fontSize: 12,
     fontWeight: 'bold',
-    color: Colors.light.text,
-    marginBottom: 4,
   },
-  freePlanName: {
-    color: '#6B7280',
+  planDescription: {
+    fontSize: 16,
+    lineHeight: 23,
+    marginBottom: 24,
+    minHeight: 46,
   },
-  planPriceContainer: {
+  priceContainer: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-end',
+    marginBottom: 28,
   },
   planPrice: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#6366F1',
-  },
-  freePlanPrice: {
-    color: '#6B7280',
+    fontSize: 48,
+    fontWeight: '800',
   },
   planDuration: {
     fontSize: 16,
-    color: '#6B7280',
-    marginLeft: 4,
-  },
-  planFeatures: {
-    marginBottom: 16,
-  },
-  planFeaturesTitle: {
-    fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 8,
-  },
-  planFeature: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  planFeatureText: {
-    fontSize: 14,
-    color: Colors.light.text,
     marginLeft: 8,
+    paddingBottom: 6,
+  },
+  upgradeButton: {
+    borderRadius: 24,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  upgradeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   currentPlanButton: {
-    backgroundColor: '#10B981',
-    paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 24,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    marginTop: 'auto',
   },
   currentPlanButtonText: {
-    color: 'white',
+    color: '#334155',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
-  upgradePlanButton: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  selectedUpgradeButton: {
-    shadowColor: '#6366F1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  upgradePlanButtonGradient: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  upgradePlanButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  comparisonContainer: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
+  sectionTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#1f2937',
+    textAlign: 'center',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  comparisonTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 16,
+  comparisonSection: {
+    paddingHorizontal: 20,
+    marginBottom: 40,
   },
   comparisonTable: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    overflow: 'hidden',
+      borderRadius: 24,
+      backgroundColor: 'white',
+      padding: 16,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: '#E5E7EB'
   },
-  tableHeader: {
+  comparisonHeaderRow: {
+      flexDirection: 'row',
+      paddingHorizontal: 8,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: '#F3F4F6'
+  },
+  comparisonHeaderText: {
+      textAlign: 'center',
+      fontSize: 16,
+      fontWeight: 'bold',
+  },
+  comparisonRow: {
     flexDirection: 'row',
-    backgroundColor: '#F9FAFB',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    alignItems: 'center',
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F3F4F6',
   },
-  tableHeaderText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-    textAlign: 'center',
+  comparisonRowLast: {
+      borderBottomWidth: 0,
   },
-  tableRow: {
+  comparisonFeatureCell: {
+    flex: 2.5,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    gap: 16,
   },
-  tableRowAlt: {
-      backgroundColor: '#F9FAFB'
-  },
-  featureCell: {
-    flex: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingRight: 8,
-  },
-  featureText: {
-    fontSize: 13,
-    color: Colors.light.text,
-    marginLeft: 8,
+  comparisonFeatureText: {
+    fontSize: 16,
     fontWeight: '500',
+    color: '#374151',
   },
-  freeText: {
+  comparisonValueCell: {
     flex: 1,
-    fontSize: 13,
-    color: '#4B5563',
-    textAlign: 'center',
-  },
-  plusText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#1D4ED8',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  premiumCellText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#5B21B6',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  benefitsContainer: {
-    backgroundColor: 'white',
-    marginHorizontal: 20,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  benefitsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.light.text,
-    marginBottom: 16,
-  },
-  benefitsList: {
-    gap: 12,
-  },
-  benefitItem: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  benefitText: {
-    fontSize: 14,
-    color: Colors.light.text,
-    marginLeft: 12,
-  },
+  comparisonValueText: {
+    fontSize: 15,
+    fontWeight: '600',
+  }
 }); 

@@ -4,24 +4,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    BackHandler,
-    FlatList,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-    useColorScheme
+  Alert,
+  Animated,
+  BackHandler,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useColorScheme
 } from 'react-native';
+import { PremiumGate } from '../../components/PremiumGate';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, getTherapistById } from '../../data/therapists';
-import { usePremiumFeatures } from '../../hooks/useSubscription';
 import { processUserMessage } from '../../services/api.service'; // <-- Artık api.service'den
 import { EventPayload } from '../../services/event.service';
 import { supabase } from '../../utils/supabase';
@@ -45,9 +45,6 @@ export default function TextSessionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
-
-  // Premium kontrolleri için hook
-  const { canUseTherapySessions, loading: premiumLoading } = usePremiumFeatures();
 
   // Typing animation state
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -157,7 +154,7 @@ export default function TextSessionScreen() {
     return () => {
       subscription.remove();
     };
-  }, [messages, router, therapistId, currentMood, isEnding]); // YENİ: isEnding bağımlılığını ekle
+  }, [router, therapistId, currentMood, isEnding]); // "messages" bağımlılığı kaldırıldı
 
   // Mood ve terapist bilgisini parametrelerden alıp state'e ata
   useEffect(() => {
@@ -222,168 +219,131 @@ const sendMessage = async () => {
   setIsTyping(false);
 };
 
-  // Premium kontrolü - eğer premium değilse, premium gate göster
-  if (!premiumLoading && !canUseTherapySessions) {
-    return (
+  return (
+    <PremiumGate featureType='text_sessions'>
       <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
           style={styles.container}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <TouchableOpacity onPress={onBackPress} style={styles.back}>
           <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
         </TouchableOpacity>
-        
-        <View style={styles.premiumPrompt}>
-          <LinearGradient
-            colors={['#6366F1', '#8B5CF6']}
-            style={styles.premiumCard}
-          >
-            <View style={styles.premiumHeader}>
-              <Ionicons name="diamond" size={32} color="white" />
-              <Text style={styles.premiumTitle}>Premium Özellik</Text>
-            </View>
-            
-            <Text style={styles.premiumDescription}>
-              Terapi seansları Premium üyelerde kullanılabilir. 
-              Premium planla sınırsız terapi seansı yapabilirsiniz.
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.premiumButton}
-              onPress={() => router.push('/subscription')}
-            >
-              <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
-              <Ionicons name="arrow-forward" size={20} color="#6366F1" />
-            </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </LinearGradient>
-    );
-  }
 
-  return (
-    <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={styles.container}>
-      <TouchableOpacity onPress={onBackPress} style={styles.back}>
-        <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
-      </TouchableOpacity>
+        <SessionTimer onSessionEnd={handleSessionEnd} />
 
-      <SessionTimer onSessionEnd={handleSessionEnd} />
-
-      <View style={styles.therapistHeaderRow}>
-        <View style={styles.avatarGradientBox}>
-          <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.avatarGradient}>
-            <Image
-              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
-              style={styles.therapistAvatarXL}
-            />
-          </LinearGradient>
-        </View>
-        <View style={styles.therapistInfoBoxRow}>
-          <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}>
-            {selectedTherapist?.name || 'Terapist'}
-          </Text>
-          <Text style={[styles.therapistTitleRow, { color: isDark ? '#fff' : '#5D6D7E' }]}>
-            {selectedTherapist?.title}
-          </Text>
-        </View>
-      </View>
-
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoidingView}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
-      >
-        <View style={styles.content}>
-          <FlatList
-            ref={flatListRef}
-            data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
-            keyExtractor={(_, i) => i.toString()}
-            renderItem={({ item, index }) => {
-              if (item.text === '...') {
-                return (
-                  <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', gap: 6 }]}>
-                    {[dot1, dot2, dot3].map((dot, i) => (
-                      <Animated.Text
-                        key={i}
-                        style={[
-                          styles.bubbleText,
-                          {
-                            opacity: dot,
-                            transform: [
-                              {
-                                scale: dot.interpolate({
-                                  inputRange: [0, 1],
-                                  outputRange: [0.7, 1.2],
-                                }),
-                              },
-                            ],
-                          },
-                        ]}
-                      >
-                        ●
-                      </Animated.Text>
-                    ))}
-                  </View>
-                );
-              }
-              const isAI = item.sender === 'ai';
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.bubble,
-                    isAI ? styles.aiBubble : styles.userBubble,
-                  ]}
-                >
-                  <Text style={styles.bubbleText}>{item.text}</Text>
-                </View>
-              );
-            }}
-            contentContainerStyle={styles.messages}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          />
-
-          <View style={styles.inputBar}>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder="Düşüncelerini paylaş..."
-              placeholderTextColor="#9CA3AF"
-              value={input}
-              onChangeText={setInput}
-              multiline
-              editable={!isTyping}
-              onFocus={handleFocus}
-              onSubmitEditing={sendMessage}
-              blurOnSubmit={false}
-              returnKeyType="default"
-            />
-            <TouchableOpacity
-              onPress={sendMessage}
-              style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]}
-              disabled={isTyping || !input.trim()}
-            >
-              <LinearGradient
-                colors={['#F8FAFF', '#FFFFFF']}
+        <View style={styles.therapistHeaderRow}>
+          <View style={styles.avatarGradientBox}>
+            <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
                 start={{x: 0, y: 0}}
                 end={{x: 1, y: 1}}
-                style={styles.sendButtonGradient}
-              >
-                <Ionicons name="send" size={20} color={Colors.light.tint} />
-              </LinearGradient>
-            </TouchableOpacity>
+                style={styles.avatarGradient}>
+              <Image
+                source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
+                style={styles.therapistAvatarXL}
+              />
+            </LinearGradient>
+          </View>
+          <View style={styles.therapistInfoBoxRow}>
+            <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}>
+              {selectedTherapist?.name || 'Terapist'}
+            </Text>
+            <Text style={[styles.therapistTitleRow, { color: isDark ? '#fff' : '#5D6D7E' }]}>
+              {selectedTherapist?.title}
+            </Text>
           </View>
         </View>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
+        >
+          <View style={styles.content}>
+            <FlatList
+              ref={flatListRef}
+              data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
+              keyExtractor={(_, i) => i.toString()}
+              renderItem={({ item, index }) => {
+                if (item.text === '...') {
+                  return (
+                    <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', gap: 6 }]}>
+                      {[dot1, dot2, dot3].map((dot, i) => (
+                        <Animated.Text
+                          key={i}
+                          style={[
+                            styles.bubbleText,
+                            {
+                              opacity: dot,
+                              transform: [
+                                {
+                                  scale: dot.interpolate({
+                                    inputRange: [0, 1],
+                                    outputRange: [0.7, 1.2],
+                                  }),
+                                },
+                              ],
+                            },
+                          ]}
+                        >
+                          ●
+                        </Animated.Text>
+                      ))}
+                    </View>
+                  );
+                }
+                const isAI = item.sender === 'ai';
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.bubble,
+                      isAI ? styles.aiBubble : styles.userBubble,
+                    ]}
+                  >
+                    <Text style={styles.bubbleText}>{item.text}</Text>
+                  </View>
+                );
+              }}
+              contentContainerStyle={styles.messages}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            />
+
+            <View style={styles.inputBar}>
+              <TextInput
+                ref={inputRef}
+                style={styles.input}
+                placeholder="Düşüncelerini paylaş..."
+                placeholderTextColor="#9CA3AF"
+                value={input}
+                onChangeText={setInput}
+                multiline
+                editable={!isTyping}
+                onFocus={handleFocus}
+                onSubmitEditing={sendMessage}
+                blurOnSubmit={false}
+                returnKeyType="default"
+              />
+              <TouchableOpacity
+                onPress={sendMessage}
+                style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]}
+                disabled={isTyping || !input.trim()}
+              >
+                <LinearGradient
+                  colors={['#F8FAFF', '#FFFFFF']}
+                  start={{x: 0, y: 0}}
+                  end={{x: 1, y: 1}}
+                  style={styles.sendButtonGradient}
+                >
+                  <Ionicons name="send" size={20} color={Colors.light.tint} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </PremiumGate>
   );
 }
 
