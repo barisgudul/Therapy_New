@@ -35,17 +35,27 @@ function runInBackground(promise: Promise<any>, taskName: string) {
         });
 }
 
-// Fonksiyonları buraya taşı. Örnek:
+// Feature usage increment function
+import { UsageStats } from './subscription.service';
+export const incrementFeatureUsage = async (feature: keyof UsageStats): Promise<void> => {
+    // Bu fonksiyon şu an için boş bir implementasyon
+    // Gerçek implementasyon Supabase RPC ile yapılacak
+    console.log(`[USAGE] ${feature} kullanımı artırıldı (mock)`);
+};
+
+// Event Service API calls
 import { logEvent as _logEvent, AppEvent, EventPayload } from './event.service';
 export async function logEvent(event: Omit<AppEvent, 'id' | 'user_id' | 'timestamp' | 'created_at'>) {
     return apiCall(_logEvent(event));
 }
 
+// Vault Service API calls
 import { updateUserVault as _updateUserVault, VaultData } from './vault.service';
 export async function updateUserVault(vaultData: VaultData) {
     return apiCall(_updateUserVault(vaultData));
 }
 
+// Orchestration Service API calls
 import { processUserMessage as _processUserMessage } from './orchestration.service';
 export async function processUserMessage(userId: string, event: EventPayload) {
     // Eğer seans sonu ise, arka planda çalıştır ve bekleme
@@ -56,97 +66,40 @@ export async function processUserMessage(userId: string, event: EventPayload) {
     return apiCall(_processUserMessage(userId, event));
 }
 
-// Subscription Management API calls - YENİ FREEMIUM/PREMIUM SİSTEMİ
+// Subscription Management API calls - Sadece mevcut fonksiyonları import et
 import {
-    canUseAIReports as _canUseAIReports,
     canUseAllTherapists as _canUseAllTherapists,
-    canUseDailyWrite as _canUseDailyWrite,
-    // Freemium feature controls
-    canUseDiaryWrite as _canUseDiaryWrite,
-    canUseDreamAnalysis as _canUseDreamAnalysis,
-    // Premium features
     canUsePDFExport as _canUsePDFExport,
-    // Premium feature controls
-    canUseTherapySessions as _canUseTherapySessions,
-    canUseVideoSessions as _canUseVideoSessions,
-    canUseVoiceSessions as _canUseVoiceSessions,
     getAllPlans as _getAllPlans,
-    getCurrentSubscription as _getCurrentSubscription,
-    getUserPlanStatus as _getUserPlanStatus,
-    getUserUsageStats as _getUserUsageStats,
+    getInitialUsageStats as _getInitialUsageStats,
+    getPlanById as _getPlanById,
+    getSubscriptionForUser as _getSubscriptionForUser,
+    getUsageStatsForUser as _getUsageStatsForUser,
+    hasPrioritySupport as _hasPrioritySupport,
     isPremiumUser as _isPremiumUser,
-    trackAIReportUsage as _trackAIReportUsage,
-    trackDailyWriteUsage as _trackDailyWriteUsage,
-    // Usage tracking
-    trackDiaryWriteUsage as _trackDiaryWriteUsage,
-    trackDreamAnalysisUsage as _trackDreamAnalysisUsage, // Eklendi
-    upgradeUserPlanForTesting as _upgradeUserPlanForTesting // Eklendi
+    upgradeUserPlanForTesting as _upgradeUserPlanForTesting
 } from './subscription.service';
 
 export async function getAllPlans() {
     return apiCall(_getAllPlans());
 }
 
-export async function getCurrentSubscription(userId: string) {
-    return apiCall(_getCurrentSubscription(userId));
+export async function getPlanById(planId: string) {
+    return apiCall(_getPlanById(planId));
 }
 
-export async function getUserPlanStatus(userId: string) {
-    return apiCall(_getUserPlanStatus(userId));
+export async function getSubscriptionForUser(userId: string) {
+    return apiCall(_getSubscriptionForUser(userId));
 }
 
-export async function getUserUsageStats(userId: string) {
-    return apiCall(_getUserUsageStats(userId));
+export async function getUsageStatsForUser(userId: string, feature: string) {
+    return apiCall(_getUsageStatsForUser(userId, feature as any));
 }
 
-// Freemium feature controls
-export async function canUseDiaryWrite(userId: string) {
-    return apiCall(_canUseDiaryWrite(userId));
+export async function getInitialUsageStats(userId: string) {
+    return apiCall(_getInitialUsageStats(userId));
 }
 
-export async function canUseDailyWrite(userId: string) {
-    return apiCall(_canUseDailyWrite(userId));
-}
-
-export async function canUseDreamAnalysis(userId: string) {
-    return apiCall(_canUseDreamAnalysis(userId));
-}
-
-// Premium feature controls
-export async function canUseTherapySessions(userId: string) {
-    return apiCall(_canUseTherapySessions(userId));
-}
-
-export async function canUseVoiceSessions(userId: string) {
-    return apiCall(_canUseVoiceSessions(userId));
-}
-
-export async function canUseVideoSessions(userId: string) {
-    return apiCall(_canUseVideoSessions(userId));
-}
-
-export async function canUseAIReports(userId: string) {
-    return apiCall(_canUseAIReports(userId));
-}
-
-// Usage tracking
-export async function trackDiaryWriteUsage(userId: string) {
-    return apiCall(_trackDiaryWriteUsage(userId));
-}
-
-export async function trackDailyWriteUsage(userId: string) {
-    return apiCall(_trackDailyWriteUsage(userId));
-}
-
-export async function trackDreamAnalysisUsage(userId: string) {
-    return apiCall(_trackDreamAnalysisUsage(userId));
-}
-
-export async function trackAIReportUsage(userId: string) {
-    return apiCall(_trackAIReportUsage(userId));
-}
-
-// Premium features
 export async function canUsePDFExport(userId: string) {
     return apiCall(_canUsePDFExport(userId));
 }
@@ -155,13 +108,15 @@ export async function canUseAllTherapists(userId: string) {
     return apiCall(_canUseAllTherapists(userId));
 }
 
+export async function hasPrioritySupport(userId: string) {
+    return apiCall(_hasPrioritySupport(userId));
+}
+
 export async function isPremiumUser(userId: string) {
     return apiCall(_isPremiumUser(userId));
 }
 
 // Test-only functions
-export async function upgradeUserPlanForTesting(userId: string, planName: string) {
+export async function upgradeUserPlanForTesting(userId: string, planName: 'Free' | '+Plus' | 'Premium') {
     return apiCall(_upgradeUserPlanForTesting(userId, planName));
-}
-
-// ... Diğer asenkron servis fonksiyonları da buraya eklenebilir ... 
+} 

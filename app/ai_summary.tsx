@@ -25,7 +25,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
 import { useAuth } from '../context/Auth';
+import { useFeatureAccess } from '../hooks/useSubscription';
 import { generateStructuredAnalysisReport } from '../services/ai.service';
+import { incrementFeatureUsage } from '../services/api.service';
 import { AppEvent, deleteEventById, getAIAnalysisEvents, getOldestEventDate, logEvent } from '../services/event.service';
 import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
@@ -61,6 +63,10 @@ export default function AISummaryScreen() {
   const [loading, setLoading] = useState(true); // Başlangıçta yükleniyor durumunda başlat
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
+
+  // Feature Access Hooks
+  const { can_use: canCreateReport, loading: reportAccessLoading, refresh: refreshReportAccess } = useFeatureAccess('ai_reports');
+  const { can_use: canExportPDF, loading: pdfAccessLoading, refresh: refreshPDFAccess } = useFeatureAccess('pdf_export');
 
   // Kayıtlı özetleri yükle
   useEffect(() => {
@@ -109,7 +115,22 @@ export default function AISummaryScreen() {
   // ai_summary.tsx dosyasındaki mevcut fetchSummary fonksiyonunu bununla değiştirin.
 
 const fetchSummary = async () => {
-  if (loading) return;
+  if (loading || reportAccessLoading) return;
+
+  // Rapor oluşturma hakkını kontrol et
+  await refreshReportAccess();
+  if (!canCreateReport) {
+      Alert.alert(
+          'Analiz Limiti Doldu',
+          'Bu özellik için kullanım limitinize ulaştınız. Sınırsız analiz için Premium\'a geçebilirsiniz.',
+          [
+              { text: 'Kapat', style: 'cancel' },
+              { text: 'Premium\'a Geç', onPress: () => router.push('/subscription') }
+          ]
+      );
+      return;
+  }
+
   setLoading(true);
 
   try {
@@ -150,6 +171,10 @@ const fetchSummary = async () => {
     });
 
     if (newAnalysisEventId) {
+        // Kullanım sayısını artır
+        await incrementFeatureUsage('ai_reports');
+        console.log('✅ [USAGE] ai_reports kullanımı başarıyla artırıldı.');
+
         // Optimistik UI: Yeni oluşturulan olayı hemen listeye ekle.
         const newEvent: AppEvent = {
             id: newAnalysisEventId,
@@ -202,7 +227,22 @@ const fetchSummary = async () => {
 
   // PDF OLUŞTURMA ve PAYLAŞIM
   const exportToPDF = async () => {
-    if (!activeSummary) return;
+    if (!activeSummary || pdfAccessLoading) return;
+    
+    // PDF dışa aktarma hakkını kontrol et
+    await refreshPDFAccess();
+    if (!canExportPDF) {
+        Alert.alert(
+            'PDF Dışa Aktarma Limiti',
+            'Bu özellik Premium üyelere özeldir. PDF olarak dışa aktarmak için lütfen Premium\'a geçin.',
+            [
+                { text: 'Kapat', style: 'cancel' },
+                { text: 'Premium\'a Geç', onPress: () => router.push('/subscription') }
+            ]
+        );
+        return;
+    }
+
     try {
       // Markdown'ı HTML'e çevir
       const convertMarkdownToHTML = (markdown: string): string => {
@@ -276,6 +316,9 @@ const fetchSummary = async () => {
             mimeType: 'application/pdf'
           });
         }
+        // Başarılı paylaşımdan sonra kullanım sayısını artır
+        await incrementFeatureUsage('pdf_export');
+        console.log('✅ [USAGE] pdf_export kullanımı başarıyla artırıldı.');
       } else {
         Alert.alert('Hata', 'PDF oluşturulamadı!');
       }

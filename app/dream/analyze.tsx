@@ -3,22 +3,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Keyboard,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
-import { processUserMessage } from '../../services/api.service';
+import { useFeatureAccess } from '../../hooks/useSubscription';
+import { incrementFeatureUsage } from '../../services/api.service';
 import { EventPayload } from '../../services/event.service';
+import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
 const STORAGE_KEY = 'DREAM_ANALYSES_STORAGE';
@@ -41,7 +44,34 @@ export default function AnalyzeDreamScreen() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  const { can_use, loading: accessLoading, refresh: refreshAccess } = useFeatureAccess('dream_analysis');
+
+  // Sayfa her açıldığında kontrolü yenile
+  useEffect(() => {
+    refreshAccess();
+  }, [])
+
     const handleAnalyzePress = async () => {
+    // Önce erişim hakkını yenileyip kontrol et
+    await refreshAccess();
+
+    if (accessLoading) {
+      setError('Kullanım hakkınız kontrol ediliyor, lütfen bekleyin...');
+      return;
+    }
+
+    if (!can_use) {
+      Alert.alert(
+        'Rüya Analizi Limiti Doldu',
+        'Bu özellik için günlük kullanım limitinize ulaştınız. Sınırsız analiz için Premium\'a geçebilirsiniz.',
+        [
+            { text: 'Kapat', style: 'cancel' },
+            { text: 'Premium\'a Geç', onPress: () => router.push('/subscription') }
+        ]
+      );
+      return;
+    }
+
     if (dream.trim().length < 20) {
       setError('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
       return;
@@ -65,12 +95,16 @@ export default function AnalyzeDreamScreen() {
       // 2. ZEKA İŞİNİ YAPSIN DİYE BEYNİ ÇAĞIR
       // processUserMessage, arka planda analyzeDreamWithContext'i, logEvent'i
       // ve vault'u güncellemeyi zaten yapacak.
-      const { data: resultString, error: apiError } = await processUserMessage(user.id, dreamAnalysisPayload);
+      const resultString = await processUserMessage(user.id, dreamAnalysisPayload);
 
-      if (apiError || !resultString) {
-        throw new Error(apiError || "Analizden geçerli bir yanıt alınamadı.");
+      if (!resultString) {
+        throw new Error("Analizden geçerli bir yanıt alınamadı.");
       }
       
+      // Başarılı olursa kullanım sayısını artır
+      await incrementFeatureUsage('dream_analysis');
+      console.log('✅ [USAGE] dream_analysis kullanımı başarıyla artırıldı.');
+
       // Gelen yanıt JSON olduğu için parse et
       const resultData = JSON.parse(resultString);
       

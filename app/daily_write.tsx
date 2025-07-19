@@ -35,6 +35,7 @@ import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
 import { useFeatureAccess } from '../hooks/useSubscription';
 import { generateDailyReflectionResponse } from '../services/ai.service';
+import { incrementFeatureUsage } from '../services/api.service';
 import { logEvent } from '../services/event.service';
 import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
@@ -284,10 +285,15 @@ export default function DailyWriteScreen() {
   const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault);
   
   // Daily write özelliği için freemium kontrolü
-  const dailyWriteAccess = useFeatureAccess('daily_write');
+  const {can_use, loading, used_count, limit_count, refresh} = useFeatureAccess('daily_write');
+
+  // Sayfa her açıldığında kontrolü yenile
+  useEffect(() => {
+    refresh();
+  }, [])
 
   // Premium kontrolü - eğer günlük limit dolmuşsa premium gate göster
-  if (!dailyWriteAccess.loading && !dailyWriteAccess.can_use) {
+  if (!loading && !can_use) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <LinearGradient colors={['#F6F8FA', '#FFFFFF']} style={StyleSheet.absoluteFill} />
@@ -307,7 +313,7 @@ export default function DailyWriteScreen() {
             </Text>
             
             <Text style={styles.premiumUsage}>
-              Kullanım: {dailyWriteAccess.used_count}/{dailyWriteAccess.limit_count}
+              Kullanım: {used_count}/{limit_count}
             </Text>
             
             <TouchableOpacity 
@@ -356,7 +362,8 @@ export default function DailyWriteScreen() {
       setAiMessage(personalized);
 
       // Adım 3: Kullanım sayısını artır (freemium kontrolü için)
-      // await trackDailyWriteUsage(user?.id || ''); // Bu fonksiyonun tanımı yok, bu kısım kaldırıldı
+      await incrementFeatureUsage('daily_write');
+      console.log('✅ [USAGE] daily_write kullanımı başarıyla artırıldı.');
 
     } catch (err) {
       console.error("AI yansıması oluşturulurken hata:", getErrorMessage(err));

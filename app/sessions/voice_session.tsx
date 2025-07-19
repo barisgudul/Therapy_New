@@ -5,23 +5,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  BackHandler,
-  Easing,
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useColorScheme
+    ActivityIndicator,
+    Alert,
+    Animated,
+    BackHandler,
+    Easing,
+    Image,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    useColorScheme
 } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, TherapistData, getTherapistById } from '../../data/therapists';
+import { useFeatureAccess } from '../../hooks/useSubscription';
 import { useVoiceSession } from '../../hooks/useVoice';
-import { processUserMessage } from '../../services/api.service';
+import { incrementFeatureUsage } from '../../services/api.service';
 import { EventPayload } from '../../services/event.service';
+import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
 export type ChatMessage = { id: string; sender: 'user' | 'ai'; text: string; };
@@ -37,6 +39,9 @@ export default function VoiceSessionScreen() {
     const [isProcessingAI, setIsProcessingAI] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     
+    // Feature Access Hook
+    const { can_use, loading, refresh } = useFeatureAccess('voice_sessions');
+
     // YENİ: Tek bir yerden yönetilen animasyon değerleri
     const circleScale = useRef(new Animated.Value(1)).current;
     const dotOpacity = useRef(new Animated.Value(1)).current;
@@ -80,12 +85,12 @@ export default function VoiceSessionScreen() {
                 }
             };
 
-            const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+            const aiReplyText = await processUserMessage(user.id, eventToProcess);
             
             console.log('🧠 [VOICE-SESSION] AI Processing END');
             setIsProcessingAI(false);
 
-            if (error || !aiReplyText) {
+            if (!aiReplyText) {
                 const errorMessage = "Üzgünüm, şu an bir sorun yaşıyorum.";
                 setMessages(prev => [...prev, { id: `ai-error-${Date.now()}`, sender: 'ai', text: errorMessage }]);
                 speakText(errorMessage, therapistId);
@@ -156,6 +161,9 @@ export default function VoiceSessionScreen() {
                     }
                 };
                 await processUserMessage(user.id, sessionEndPayload);
+                // Kullanım sayısını artır
+                await incrementFeatureUsage('voice_sessions');
+                console.log('✅ [USAGE] voice_sessions kullanımı başarıyla artırıldı.');
             }
         }
         router.replace('/feel/after_feeling');
@@ -183,6 +191,11 @@ export default function VoiceSessionScreen() {
         return () => subscription.remove();
     }, [messages, therapistId, mood]);
 
+    // Sayfa yüklendiğinde ve odaklandığında erişimi yenile
+    useEffect(() => {
+        refresh();
+    }, []);
+
   /* ---------------------------- HELPERS --------------------------------- */
   const formatDuration = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -195,105 +208,141 @@ export default function VoiceSessionScreen() {
         start={{x: 0, y: 0}} 
         end={{x: 1, y: 1}} 
         style={styles.container}>
-      {/* Geri/Kapat butonu */}
-      <TouchableOpacity onPress={onBackPress} style={styles.back}>
-        <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
-      </TouchableOpacity>
 
-      {/* Terapist avatar ve adı */}
-      <View style={styles.therapistHeaderRow}>
-        <View style={styles.avatarGradientBox}>
-          <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
-              start={{x: 0, y: 0}} 
-              end={{x: 1, y: 1}} 
-              style={styles.avatarGradient}>
-            <Image 
-                              source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail} 
-              style={styles.therapistAvatarXL}
-            />
-          </LinearGradient>
+      {loading ? (
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+            <ActivityIndicator size="large" color={isDark ? '#fff' : Colors.light.tint} />
         </View>
-        <View style={styles.therapistInfoBoxRow}>
-          <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}> 
-            {selectedTherapist?.name || 'Terapist'}
-          </Text>
-          <Text style={styles.therapistTitleRow}>{selectedTherapist?.title}</Text>
-        </View>
-      </View>
-
-      {/* Lüks ve premium, kart olmayan, markaya uygun alan */}
-      <View style={styles.premiumSessionArea}>
-        <Text style={styles.logo}>therapy<Text style={styles.dot}>.</Text></Text>
-        <Text style={[styles.title, { color: isDark ? '#222' : Colors.light.text }]}>Sesli Terapi</Text>
-
-        <Animated.View
-          style={[
-            styles.circle,
-            {
-              backgroundColor: isRecording ? '#F8FAFF' : '#fff',
-              borderColor: isProcessing ? '#FFD700' : (isRecording ? Colors.light.tint : '#E3E8F0'),
-              borderWidth: isRecording || isProcessing ? 2 : 1,
-              shadowColor: isRecording ? Colors.light.tint : '#B0B8C1',
-              shadowOpacity: isRecording ? 0.13 : 0.07,
-              transform: [{ scale: circleScale }], // İKİ ANİMASYONU BİRLEŞTİR
-            },
-          ]}
-        >
-          {isProcessing ? (
-            <ActivityIndicator size="large" color={Colors.light.tint} />
-          ) : (
-            <>
-              <Animated.View
-                style={[
-                  styles.brandWave,
-                  {
-                    borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
-                    opacity: isRecording ? 0.18 : 0.10,
-                    transform: [{ scale: circleScale }],
-                  },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.brandDot,
-                  {
-                    opacity: dotOpacity,
-                  },
-                ]}
-              />
-            </>
-          )}
-        </Animated.View>
-
-        <View style={styles.controls}>
-          <TouchableOpacity
-            disabled={isProcessing || isRecording}
-            onPress={() => {
-              if (!isRecording && !isProcessing) {
-                startRecording();
-              }
-            }}
-            style={[styles.button, isProcessing || isRecording ? styles.btnMuted : styles.btnActive]}
-            activeOpacity={0.85}
-          >
-            <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={32} color={isProcessing || isRecording ? '#aaa' : Colors.light.tint} />
-          </TouchableOpacity>
-          {isRecording && (
-            <TouchableOpacity
-              onPress={() => {
-                stopRecording();
-              }}
-              style={[styles.button, styles.btnActive]}
-              activeOpacity={0.85}
-            >
-              <Ionicons name={'stop-circle-outline'} size={32} color={Colors.light.tint} />
+      ) : !can_use ? (
+        <>
+            <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+                <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
             </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={onBackPress} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
-            <Ionicons name="close" size={22} color={Colors.light.tint} />
-          </TouchableOpacity>
-        </View>
-      </View>
+            <View style={styles.premiumPrompt}>
+                <LinearGradient
+                    colors={['#6366F1', '#8B5CF6']}
+                    style={styles.premiumCard}
+                >
+                    <View style={styles.premiumHeader}>
+                        <Ionicons name="mic" size={32} color="white" />
+                        <Text style={styles.premiumTitle}>Premium Özellik</Text>
+                    </View>
+                    <Text style={styles.premiumDescription}>
+                        Sesli seanslar sadece Premium üyelere özeldir. Sınırsız sesli seans için Premium'a geçebilirsiniz.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.premiumButton}
+                        onPress={() => router.push('/subscription')}
+                    >
+                        <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#6366F1" />
+                    </TouchableOpacity>
+                </LinearGradient>
+            </View>
+        </>
+      ) : (
+        <>
+            {/* Geri/Kapat butonu */}
+            <TouchableOpacity onPress={onBackPress} style={styles.back}>
+                <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+            </TouchableOpacity>
+
+            {/* Terapist avatar ve adı */}
+            <View style={styles.therapistHeaderRow}>
+                <View style={styles.avatarGradientBox}>
+                <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
+                    start={{x: 0, y: 0}} 
+                    end={{x: 1, y: 1}} 
+                    style={styles.avatarGradient}>
+                    <Image 
+                                    source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail} 
+                    style={styles.therapistAvatarXL}
+                    />
+                </LinearGradient>
+                </View>
+                <View style={styles.therapistInfoBoxRow}>
+                <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}> 
+                    {selectedTherapist?.name || 'Terapist'}
+                </Text>
+                <Text style={styles.therapistTitleRow}>{selectedTherapist?.title}</Text>
+                </View>
+            </View>
+
+            {/* Lüks ve premium, kart olmayan, markaya uygun alan */}
+            <View style={styles.premiumSessionArea}>
+                <Text style={styles.logo}>therapy<Text style={styles.dot}>.</Text></Text>
+                <Text style={[styles.title, { color: isDark ? '#222' : Colors.light.text }]}>Sesli Terapi</Text>
+
+                <Animated.View
+                style={[
+                    styles.circle,
+                    {
+                    backgroundColor: isRecording ? '#F8FAFF' : '#fff',
+                    borderColor: isProcessing ? '#FFD700' : (isRecording ? Colors.light.tint : '#E3E8F0'),
+                    borderWidth: isRecording || isProcessing ? 2 : 1,
+                    shadowColor: isRecording ? Colors.light.tint : '#B0B8C1',
+                    shadowOpacity: isRecording ? 0.13 : 0.07,
+                    transform: [{ scale: circleScale }], // İKİ ANİMASYONU BİRLEŞTİR
+                    },
+                ]}
+                >
+                {isProcessing ? (
+                    <ActivityIndicator size="large" color={Colors.light.tint} />
+                ) : (
+                    <>
+                    <Animated.View
+                        style={[
+                        styles.brandWave,
+                        {
+                            borderColor: isRecording ? Colors.light.tint : '#E3E8F0',
+                            opacity: isRecording ? 0.18 : 0.10,
+                            transform: [{ scale: circleScale }],
+                        },
+                        ]}
+                    />
+                    <Animated.View
+                        style={[
+                        styles.brandDot,
+                        {
+                            opacity: dotOpacity,
+                        },
+                        ]}
+                    />
+                    </>
+                )}
+                </Animated.View>
+
+                <View style={styles.controls}>
+                <TouchableOpacity
+                    disabled={isProcessing || isRecording}
+                    onPress={() => {
+                    if (!isRecording && !isProcessing) {
+                        startRecording();
+                    }
+                    }}
+                    style={[styles.button, isProcessing || isRecording ? styles.btnMuted : styles.btnActive]}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name={isRecording ? 'mic' : 'mic-outline'} size={32} color={isProcessing || isRecording ? '#aaa' : Colors.light.tint} />
+                </TouchableOpacity>
+                {isRecording && (
+                    <TouchableOpacity
+                    onPress={() => {
+                        stopRecording();
+                    }}
+                    style={[styles.button, styles.btnActive]}
+                    activeOpacity={0.85}
+                    >
+                    <Ionicons name={'stop-circle-outline'} size={32} color={Colors.light.tint} />
+                    </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={onBackPress} style={[styles.button, styles.btnMuted]} activeOpacity={0.85}>
+                    <Ionicons name="close" size={22} color={Colors.light.tint} />
+                </TouchableOpacity>
+                </View>
+            </View>
+        </>
+      )}
     </LinearGradient>
   );
 }
@@ -507,5 +556,50 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginTop: 40,
+  },
+  premiumPrompt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  premiumCard: {
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+  },
+  premiumHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  premiumTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: 'white',
+    marginTop: 8,
+  },
+  premiumDescription: {
+    fontSize: 16,
+    color: 'white',
+    textAlign: 'center',
+    opacity: 0.9,
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  premiumButton: {
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  premiumButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6366F1',
   },
 });

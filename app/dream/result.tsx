@@ -6,8 +6,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { processUserMessage } from '../../services/api.service';
 import { AppEvent, EventPayload } from '../../services/event.service';
+import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
 const COSMIC_COLORS = {
@@ -121,9 +121,9 @@ export default function DreamResultScreen() {
           };
 
           // 2. TEK BİR ÇAĞRI: Beyni göreve çağır.
-          const { data: aiReplyText, error } = await processUserMessage(user.id, dreamDialoguePayload);
+          const aiReplyText = await processUserMessage(user.id, dreamDialoguePayload);
 
-          if (error || !aiReplyText) throw new Error(error || "AI'dan bir yanıt alınamadı.");
+          if (!aiReplyText) throw new Error("AI'dan bir yanıt alınamadı.");
 
           // 3. GELEN YANITI İŞLE VE GÜNCELLE
           const aiMessage: DialogueMessage = { text: aiReplyText, role: 'model' };

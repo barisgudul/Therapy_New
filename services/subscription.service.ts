@@ -89,21 +89,33 @@ const getLimitsForPlan = (planName: 'Free' | '+Plus' | 'Premium'): Record<keyof 
     switch (planName) {
         case 'Premium':
             return {
-                diary_write: -1, daily_write: -1, dream_analysis: -1,
-                ai_reports: 1, text_sessions: -1, voice_sessions: -1, // GÜNCELLENDİ
+                diary_write: -1, 
+                daily_write: -1, 
+                dream_analysis: -1,
+                ai_reports: -1, 
+                text_sessions: -1, 
+                voice_sessions: -1, 
                 pdf_export: -1,
             };
         case '+Plus':
             return {
-                diary_write: -1, daily_write: -1, dream_analysis: 1,
-                ai_reports: 1, text_sessions: -1, voice_sessions: 0,
+                diary_write: -1, // Plus'ta günlük ve diary yazımı sınırsız olmalı
+                daily_write: -1, 
+                dream_analysis: 1,
+                ai_reports: 1, 
+                text_sessions: -1, 
+                voice_sessions: 0,
                 pdf_export: 0,
             };
         case 'Free':
         default:
             return {
-                diary_write: 5, daily_write: 1, dream_analysis: 0.25, // haftada 1 -> günde 0.25
-                ai_reports: 0.25, text_sessions: 3, voice_sessions: 0, // GÜNCELLENDİ
+                diary_write: 1, 
+                daily_write: 1, 
+                dream_analysis: 0, 
+                ai_reports: 0, 
+                text_sessions: 0, 
+                voice_sessions: 0,
                 pdf_export: 0,
             };
     }

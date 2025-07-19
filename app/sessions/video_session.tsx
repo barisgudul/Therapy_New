@@ -6,23 +6,24 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  BackHandler,
-  Dimensions,
-  Image,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  useColorScheme
+    Alert,
+    BackHandler,
+    Dimensions,
+    Image,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+    useColorScheme
 } from 'react-native';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, TherapistData, getTherapistById } from '../../data/therapists';
 import { useVoiceSession } from '../../hooks/useVoice';
-import { processUserMessage } from '../../services/api.service';
+import { incrementFeatureUsage } from '../../services/api.service';
 import { EventPayload } from '../../services/event.service';
+import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
 const { width, height } = Dimensions.get('window');
@@ -122,16 +123,14 @@ export default function VideoSessionScreen() {
                 therapistId
             });
             
-            const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+            const aiReplyText = await processUserMessage(user.id, eventToProcess);
             
             console.log('🔄 [VIDEO-SESSION] AI yanıtı alındı:', { 
                 hasReply: !!aiReplyText, 
-                hasError: !!error,
-                replyLength: aiReplyText?.length,
-                error: error
+                replyLength: aiReplyText?.length
             });
             
-            if (error || !aiReplyText) {
+            if (!aiReplyText) {
                 console.log('❌ [VIDEO-SESSION] AI hatası, fallback mesaj kullanılıyor');
                 const errorMessage = "Üzgünüm, bir sorun oluştu.";
                 
@@ -179,6 +178,9 @@ export default function VideoSessionScreen() {
                     }
                 };
                 await processUserMessage(user.id, sessionEndPayload);
+                // Kullanım sayısını artır
+                await incrementFeatureUsage('video_sessions');
+                console.log('✅ [USAGE] video_sessions kullanımı başarıyla artırıldı.');
             }
         }
         router.replace('/feel/after_feeling');

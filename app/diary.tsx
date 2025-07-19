@@ -4,23 +4,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Keyboard,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Keyboard,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
+import { useFeatureAccess } from '../hooks/useSubscription';
 import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../services/ai.service';
-import { AppEvent, canUserWriteNewDiary, deleteEventById, getEventsForLast, logEvent } from '../services/event.service';
+import { incrementFeatureUsage } from '../services/api.service';
+import { AppEvent, deleteEventById, getEventsForLast, logEvent } from '../services/event.service';
 import { addJourneyLogEntry } from '../services/journey.service';
 import { VaultData } from '../services/vault.service';
 import { useVaultStore } from '../store/vaultStore';
@@ -53,6 +55,10 @@ export default function DiaryScreen() {
   const [saveModalVisible, setSaveModalVisible] = useState(false);
   const spinAnim = useRef(new Animated.Value(0)).current;
   const modalPosition = useRef(new Animated.Value(0)).current;
+
+  // Feature Access Hook
+  const { can_use, loading: accessLoading, refresh: refreshAccess } = useFeatureAccess('diary_write');
+
 
   const processDiaryInBackground = async (diaryMessages: Message[], currentVault: VaultData, currentUserId: string) => {
     try {
@@ -236,6 +242,10 @@ export default function DiaryScreen() {
       setSaveModalVisible(false);
       setIsWritingMode(false);
       
+      // Kullanım sayısını artır
+      await incrementFeatureUsage('diary_write');
+      console.log('✅ [USAGE] diary_write kullanımı başarıyla artırıldı.');
+      
       // 3. AĞIR İŞİ (YAPAY ZEKA ANALİZİ) ARKA PLANDA BAŞLAT.
       // 'await' kullanmıyoruz, böylece fonksiyonun bitmesini beklemiyoruz.
       processDiaryInBackground(messages, vault!, user!.id);
@@ -277,24 +287,33 @@ export default function DiaryScreen() {
   };
 
   const startNewDiary = async () => {
-    try {
-      // Yeni, merkezi fonksiyonu çağır
-      const { canWrite, message } = await canUserWriteNewDiary(); 
-      
-      if (!canWrite) {
-        Alert.alert('Biraz Dinlenelim', message); // Başlığı daha empatik yapabiliriz
-        return;
-      }
+    // Önce erişim hakkını yenileyip kontrol et
+    await refreshAccess();
 
-      setIsWritingMode(true);
-      setMessages([]);
-      setCurrentInput('');
-      setCurrentQuestions([]);
-      setStep(0);
-    } catch (error) {
-      console.error('Yeni günlük başlatma hatası:', error);
-      Alert.alert('Hata', 'Yeni günlük başlatılırken bir hata oluştu.');
+    if (accessLoading) {
+      // Eğer hala yükleniyorsa kısa bir bekleme göster
+      Alert.alert('Kontrol ediliyor...', 'Günlük yazma hakkınız kontrol ediliyor.');
+      return;
     }
+
+    if (!can_use) {
+        Alert.alert(
+            'Günlük Limiti Doldu',
+            'Bu özellik için günlük kullanım limitinize ulaştınız. Sınırsız günlük yazmak için Premium\'a geçebilirsiniz.',
+            [
+                { text: 'Kapat', style: 'cancel' },
+                { text: 'Premium\'a Geç', onPress: () => router.push('/subscription') }
+            ]
+        );
+        return;
+    }
+
+    // Kullanıcının hakkı varsa devam et
+    setIsWritingMode(true);
+    setMessages([]);
+    setCurrentInput('');
+    setCurrentQuestions([]);
+    setStep(0);
   };
 
   const viewDiary = (event: AppEvent) => {

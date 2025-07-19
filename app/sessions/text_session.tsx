@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   BackHandler,
@@ -18,12 +19,13 @@ import {
   View,
   useColorScheme
 } from 'react-native';
-import { PremiumGate } from '../../components/PremiumGate';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, getTherapistById } from '../../data/therapists';
-import { processUserMessage } from '../../services/api.service'; // <-- Artık api.service'den
+import { useFeatureAccess } from '../../hooks/useSubscription';
+import { incrementFeatureUsage } from '../../services/api.service';
 import { EventPayload } from '../../services/event.service';
+import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
 
@@ -45,6 +47,9 @@ export default function TextSessionScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
+
+  // Feature Access Hook
+  const { can_use, loading, refresh, used_count, limit_count } = useFeatureAccess('text_sessions');
 
   // Typing animation state
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -120,6 +125,9 @@ export default function TextSessionScreen() {
           };
           // Bu fonksiyon artık arka planda çalışıyor, await'e gerek yok.
           processUserMessage(user.id, sessionEndPayload);
+          // Kullanım sayısını artır
+          incrementFeatureUsage('text_sessions');
+          console.log('✅ [USAGE] text_sessions kullanımı başarıyla artırıldı.');
         }
       });
     }
@@ -155,6 +163,11 @@ export default function TextSessionScreen() {
       subscription.remove();
     };
   }, [router, therapistId, currentMood, isEnding]); // "messages" bağımlılığı kaldırıldı
+
+  // Sayfa yüklendiğinde ve odaklandığında erişimi yenile
+  useEffect(() => {
+    refresh();
+  }, []);
 
   // Mood ve terapist bilgisini parametrelerden alıp state'e ata
   useEffect(() => {
@@ -206,11 +219,11 @@ const sendMessage = async () => {
     return;
   }
 
-  const { data: aiReplyText, error } = await processUserMessage(user.id, eventToProcess);
+  const aiReplyText = await processUserMessage(user.id, eventToProcess);
 
-  if (error || !aiReplyText) {
-    console.error("[sendMessage API] Hatası:", error);
-    const errorMessage = { sender: 'ai' as const, text: error || "Bir sorun oluştu." };
+  if (!aiReplyText) {
+    console.error("[sendMessage API] Hatası: Yanıt alınamadı");
+    const errorMessage = { sender: 'ai' as const, text: "Bir sorun oluştu." };
     setMessages(prev => [...prev, errorMessage]);
   } else {
     const aiMessage = { sender: 'ai' as const, text: aiReplyText };
@@ -220,473 +233,324 @@ const sendMessage = async () => {
 };
 
   return (
-    <PremiumGate featureType='text_sessions'>
       <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
           style={styles.container}>
-        <TouchableOpacity onPress={onBackPress} style={styles.back}>
-          <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
-        </TouchableOpacity>
-
-        <SessionTimer onSessionEnd={handleSessionEnd} />
-
-        <View style={styles.therapistHeaderRow}>
-          <View style={styles.avatarGradientBox}>
-            <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.avatarGradient}>
-              <Image
-                source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
-                style={styles.therapistAvatarXL}
-              />
-            </LinearGradient>
-          </View>
-          <View style={styles.therapistInfoBoxRow}>
-            <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}>
-              {selectedTherapist?.name || 'Terapist'}
-            </Text>
-            <Text style={[styles.therapistTitleRow, { color: isDark ? '#fff' : '#5D6D7E' }]}>
-              {selectedTherapist?.title}
-            </Text>
-          </View>
+      
+      {loading ? (
+        <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={isDark ? '#fff' : Colors.light.tint} />
         </View>
-
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoidingView}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
-        >
-          <View style={styles.content}>
-            <FlatList
-              ref={flatListRef}
-              data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
-              keyExtractor={(_, i) => i.toString()}
-              renderItem={({ item, index }) => {
-                if (item.text === '...') {
-                  return (
-                    <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', gap: 6 }]}>
-                      {[dot1, dot2, dot3].map((dot, i) => (
-                        <Animated.Text
-                          key={i}
-                          style={[
-                            styles.bubbleText,
-                            {
-                              opacity: dot,
-                              transform: [
-                                {
-                                  scale: dot.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [0.7, 1.2],
-                                  }),
-                                },
-                              ],
-                            },
-                          ]}
-                        >
-                          ●
-                        </Animated.Text>
-                      ))}
-                    </View>
-                  );
-                }
-                const isAI = item.sender === 'ai';
-                return (
-                  <View
-                    key={index}
-                    style={[
-                      styles.bubble,
-                      isAI ? styles.aiBubble : styles.userBubble,
-                    ]}
-                  >
-                    <Text style={styles.bubbleText}>{item.text}</Text>
-                  </View>
-                );
-              }}
-              contentContainerStyle={styles.messages}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            />
-
-            <View style={styles.inputBar}>
-              <TextInput
-                ref={inputRef}
-                style={styles.input}
-                placeholder="Düşüncelerini paylaş..."
-                placeholderTextColor="#9CA3AF"
-                value={input}
-                onChangeText={setInput}
-                multiline
-                editable={!isTyping}
-                onFocus={handleFocus}
-                onSubmitEditing={sendMessage}
-                blurOnSubmit={false}
-                returnKeyType="default"
-              />
-              <TouchableOpacity
-                onPress={sendMessage}
-                style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]}
-                disabled={isTyping || !input.trim()}
-              >
+      ) : !can_use ? (
+        <>
+            <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+                <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+            </TouchableOpacity>
+            <View style={styles.premiumPrompt}>
                 <LinearGradient
-                  colors={['#F8FAFF', '#FFFFFF']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 1}}
-                  style={styles.sendButtonGradient}
+                    colors={['#6366F1', '#8B5CF6']}
+                    style={styles.premiumCard}
                 >
-                  <Ionicons name="send" size={20} color={Colors.light.tint} />
+                    <View style={styles.premiumHeader}>
+                        <Ionicons name="chatbubbles" size={32} color="white" />
+                        <Text style={styles.premiumTitle}>Seans Limiti Doldu</Text>
+                    </View>
+                    <Text style={styles.premiumDescription}>
+                        Bu özellik için kullanım limitinize ulaştınız. Sınırsız seans için Premium'a geçebilirsiniz.
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.premiumButton}
+                        onPress={() => router.push('/subscription')}
+                    >
+                        <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#6366F1" />
+                    </TouchableOpacity>
                 </LinearGradient>
-              </TouchableOpacity>
             </View>
-          </View>
-        </KeyboardAvoidingView>
+        </>
+      ) : (
+        <>
+            <TouchableOpacity onPress={onBackPress} style={styles.back}>
+            <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+            </TouchableOpacity>
+
+            <SessionTimer onSessionEnd={handleSessionEnd} />
+
+            <View style={styles.therapistHeaderRow}>
+            <View style={styles.avatarGradientBox}>
+                <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.avatarGradient}>
+                <Image
+                    source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
+                    style={styles.therapistAvatarXL}
+                />
+                </LinearGradient>
+            </View>
+            <View style={styles.therapistInfoBoxRow}>
+                <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}>
+                {selectedTherapist?.name || 'Terapist'}
+                </Text>
+                <Text style={[styles.therapistTitleRow, { color: isDark ? '#fff' : '#5D6D7E' }]}>
+                {selectedTherapist?.title}
+                </Text>
+            </View>
+            </View>
+
+            <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
+            >
+            <View style={styles.content}>
+                <FlatList
+                ref={flatListRef}
+                data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
+                keyExtractor={(_, i) => i.toString()}
+                renderItem={({ item, index }) => {
+                    if (item.text === '...') {
+                    return (
+                        <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', gap: 6 }]}>
+                        {[dot1, dot2, dot3].map((dot, i) => (
+                            <Animated.Text
+                            key={i}
+                            style={[
+                                styles.bubbleText,
+                                {
+                                opacity: dot,
+                                transform: [
+                                    {
+                                    scale: dot.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0.7, 1.2],
+                                    }),
+                                    },
+                                ],
+                                },
+                            ]}
+                            >
+                            ●
+                            </Animated.Text>
+                        ))}
+                        </View>
+                    );
+                    }
+                    const isAI = item.sender === 'ai';
+                    return (
+                    <View
+                        key={index}
+                        style={[
+                        styles.bubble,
+                        isAI ? styles.aiBubble : styles.userBubble,
+                        ]}
+                    >
+                        <Text style={styles.bubbleText}>{item.text}</Text>
+                    </View>
+                    );
+                }}
+                contentContainerStyle={styles.messages}
+                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                />
+
+                <View style={styles.inputBar}>
+                <TextInput
+                    ref={inputRef}
+                    style={styles.input}
+                    placeholder="Düşüncelerini paylaş..."
+                    placeholderTextColor="#9CA3AF"
+                    value={input}
+                    onChangeText={setInput}
+                    multiline
+                    editable={!isTyping}
+                    onFocus={handleFocus}
+                    onSubmitEditing={sendMessage}
+                    blurOnSubmit={false}
+                    returnKeyType="default"
+                />
+                <TouchableOpacity
+                    onPress={sendMessage}
+                    style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]}
+                    disabled={isTyping || !input.trim()}
+                >
+                    <LinearGradient
+                    colors={['#F8FAFF', '#FFFFFF']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.sendButtonGradient}
+                    >
+                    <Ionicons name="send" size={20} color={Colors.light.tint} />
+                    </LinearGradient>
+                </TouchableOpacity>
+                </View>
+            </View>
+            </KeyboardAvoidingView>
+        </>
+      )}
       </LinearGradient>
-    </PremiumGate>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingHorizontal: 24,
-    marginBottom: 20,
-    zIndex: 100,
+    padding: 20,
+    paddingTop: Platform.OS === "ios" ? 0 : 0, // Adjust for status bar
   },
   back: {
     position: 'absolute',
-    top: 60,
-    left: 24,
-    zIndex: 30,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(227,232,240,0.4)',
+    top: Platform.OS === "ios" ? 50 : 20,
+    left: 20,
+    zIndex: 10,
   },
-  headerTitle: {
-    position: 'absolute',
-    top: 70,
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.light.tint,
-    letterSpacing: -0.5,
-    zIndex: 20,
-  },
-  content: {
+  loadingContainer: {
     flex: 1,
-    marginTop: 130,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    paddingBottom: 20,
-  },
-  messagesContainer: {
-    flex: 1,
-    paddingBottom: 20,
-  },
-  messageBlock: {
+  premiumPrompt: {
+    marginTop: 20,
     padding: 20,
-    borderRadius: 24,
-    marginBottom: 16,
-    maxWidth: '85%',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  userMessage: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.2)',
-  },
-  aiMessage: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F8FAFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.15)',
-  },
-  messageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  messageTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2C3E50',
-    marginLeft: 8,
-  },
-  messageTime: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginLeft: 8,
-  },
-  messageText: {
-    color: '#2C3E50',
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: -0.2,
-  },
-  aiMessageText: {
-    color: '#2C3E50',
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: -0.2,
-  },
-  typingContainer: {
-    flexDirection: 'row',
+    borderRadius: 15,
     alignItems: 'center',
   },
-  typingText: {
-    fontSize: 12,
-    color: '#9CA3AF',
+  premiumCard: {
+    padding: 20,
+    borderRadius: 15,
+    alignItems: 'center',
   },
-  typingDots: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#9CA3AF',
-    marginLeft: 4,
-  },
-  typingDotsText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  inputContainer: {
+  premiumHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 12,
-    marginTop: 16,
-    marginBottom: 24,
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.2)',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  input: {
-    flex: 1,
+  premiumTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+    marginLeft: 10,
+  },
+  premiumDescription: {
+    fontSize: 14,
+    color: 'white',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  premiumButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    width: '100%',
+  },
+  premiumButtonText: {
     fontSize: 16,
-    color: '#2C3E50',
-    maxHeight: 100,
-    paddingTop: 8,
-    paddingBottom: 8,
-    textAlignVertical: 'center',
+    fontWeight: 'bold',
+    color: '#6366F1',
+    marginRight: 5,
   },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  therapistHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatarGradientBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     overflow: 'hidden',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.3)',
+    marginRight: 15,
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
+  avatarGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  therapistAvatarXL: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  therapistInfoBoxRow: {
+    flex: 1,
+  },
+  therapistNameRow: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  therapistTitleRow: {
+    fontSize: 16,
   },
   keyboardAvoidingView: {
     flex: 1,
   },
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
   messages: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    flexGrow: 1,
-    justifyContent: 'flex-end',
+    paddingBottom: 100, // Input bar height
   },
   bubble: {
-    padding: 18,
-    borderRadius: 24,
-    marginBottom: 16,
-    maxWidth: '90%',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  aiBubble: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F8FAFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.15)',
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 15,
+    marginBottom: 10,
   },
   userBubble: {
+    backgroundColor: '#E0E0E0', // Light grey for user messages
     alignSelf: 'flex-end',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.2)',
+  },
+  aiBubble: {
+    backgroundColor: '#F4F6FF', // Light blue for AI messages
+    alignSelf: 'flex-start',
   },
   bubbleText: {
-    color: '#2C3E50',
     fontSize: 16,
-    lineHeight: 26,
-    letterSpacing: -0.2,
+    color: '#333',
   },
   inputBar: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#F4F6FF', // Light background for input bar
+    borderRadius: 25,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#333',
+    minHeight: 40,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    marginHorizontal: 24,
-    marginBottom: Platform.OS === "ios" ? 32 : 24,
-    borderRadius: 28,
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.2)',
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 12,
+    marginLeft: 10,
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
   sendButtonGradient: {
     width: '100%',
     height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  therapistHeaderRow: {
-    position: 'absolute',
-    top: 60,
-    right: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    zIndex: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 32,
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(93,161,217,0.2)',
-  },
-  therapistInfoBoxRow: {
-    marginLeft: 12,
-    alignItems: 'flex-start',
-    maxWidth: '60%',
-  },
-  therapistNameRow: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-    textShadowColor: 'rgba(0,0,0,0.1)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    marginBottom: 2,
-  },
-  therapistTitleRow: {
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: -0.2,
-    opacity: 0.8,
-  },
-  avatarGradientBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    padding: 2.5,
-    backgroundColor: 'transparent',
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.2,
-    shadowOffset: { width: 0, height: 8 },
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  avatarGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 24,
-    padding: 2,
-    borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  therapistAvatarXL: {
-    width: 40,
-    height: 40,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.8)',
-  },
-  premiumPrompt: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  premiumCard: {
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 320,
-  },
-  premiumHeader: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  premiumTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: 'white',
-    marginTop: 8,
-  },
-  premiumDescription: {
-    fontSize: 16,
-    color: 'white',
-    textAlign: 'center',
-    opacity: 0.9,
-    marginBottom: 24,
-    lineHeight: 24,
-  },
-  premiumButton: {
-    backgroundColor: 'white',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  premiumButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6366F1',
   },
 });
+
