@@ -78,16 +78,16 @@ interface PremiumUpgradePromptProps {
 
 function PremiumUpgradePrompt({ title, description, onUpgrade }: PremiumUpgradePromptProps) {
   return (
-    <View style={styles.promptContainer}>
+    <View style={styles.promptPageContainer}>
       <LinearGradient
-        colors={['#F4E6FF', '#EBF0FF']}
-        style={styles.promptCard}
+        colors={['#5B21B6', '#312E81']}
+        style={styles.premiumPromptCard}
       >
-        <View style={styles.promptIconContainer}>
-            <Ionicons name="diamond-outline" size={32} color={'#5B21B6'} />
+        <View style={styles.premiumIconContainer}>
+            <Ionicons name="diamond" size={40} color={'#fff'} />
         </View>
-        <Text style={styles.promptTitle}>{title}</Text>
-        <Text style={styles.promptDescription}>{description}</Text>
+        <Text style={styles.premiumTitle}>{title}</Text>
+        <Text style={styles.premiumDescription}>{description}</Text>
         
         <TouchableOpacity onPress={onUpgrade} style={styles.upgradeButtonWrapper}>
           <LinearGradient
@@ -95,8 +95,8 @@ function PremiumUpgradePrompt({ title, description, onUpgrade }: PremiumUpgradeP
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={styles.upgradeButton}
           >
+            <Ionicons name="sparkles-outline" size={22} color="white" />
             <Text style={styles.upgradeButtonText}>Premium'a Geç</Text>
-            <Ionicons name="arrow-forward" size={20} color="white" />
           </LinearGradient>
         </TouchableOpacity>
       </LinearGradient>
@@ -129,21 +129,18 @@ function UsageLimitPrompt({ featureType, usageData, onUpgrade }: UsageLimitPromp
   const usageColor = getUsageColor(percentage);
 
   return (
-    <View style={styles.promptContainer}>
-      <View style={[styles.promptCard, {backgroundColor: '#F8FAFC'}]}>
-        <View style={styles.promptIconContainer}>
+    <View style={styles.promptPageContainer}>
+      <View style={styles.usagePromptCard}>
+        <View style={styles.usageIconContainer}>
             <Ionicons name="bar-chart-outline" size={32} color={Colors.light.tint} />
         </View>
         
-        <Text style={styles.promptTitle}>{featureNames[featureType]} Limiti Doldu</Text>
-        <Text style={styles.promptDescription}>
-          Bu özellik için kullanım hakkınız bitti. Sınırsız erişim için planınızı yükseltin.
+        <Text style={styles.usageTitle}>{featureNames[featureType]} Limiti Doldu</Text>
+        <Text style={styles.usageDescription}>
+          Bu özellik için aylık ücretsiz kullanım hakkınız bitti. Sınırsız erişim için planınızı yükseltin.
         </Text>
         
         <View style={styles.usageStats}>
-          <Text style={styles.usageText}>
-            Kullanım: {formatUsageText(usageData.used_count, usageData.limit_count)}
-          </Text>
           <View style={styles.usageBar}>
             <View 
               style={[
@@ -152,6 +149,9 @@ function UsageLimitPrompt({ featureType, usageData, onUpgrade }: UsageLimitPromp
               ]} 
             />
           </View>
+           <Text style={styles.usageText}>
+            Kullanım: {formatUsageText(usageData.used_count, usageData.limit_count)}
+          </Text>
         </View>
         
         <TouchableOpacity onPress={onUpgrade} style={styles.upgradeButtonWrapper}>
@@ -245,33 +245,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  promptContainer: {
-    padding: 20,
-  },
-  promptCard: {
-    borderRadius: 24,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  promptIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+  promptPageContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    padding: 20,
+    backgroundColor: 'rgba(248, 250, 252, 0.9)',
+    zIndex: 1000, // Diğer tüm öğelerin üzerinde olmasını sağlar
   },
-  promptTitle: {
+  premiumPromptCard: {
+    borderRadius: 32,
+    padding: 32,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#2e1065',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  premiumIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  premiumTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#ffffff',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  premiumDescription: {
+    fontSize: 17,
+    color: 'rgba(255, 255, 255, 0.85)',
+    textAlign: 'center',
+    lineHeight: 26,
+    marginBottom: 32,
+  },
+  usagePromptCard: {
+    borderRadius: 32,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.08,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  usageIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  usageTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#1f2937',
     textAlign: 'center',
     marginBottom: 8,
   },
-  promptDescription: {
+  usageDescription: {
     fontSize: 16,
     color: '#4b5563',
     textAlign: 'center',
@@ -280,9 +333,10 @@ const styles = StyleSheet.create({
   },
   upgradeButtonWrapper: {
     width: '100%',
+    paddingHorizontal: 16,
   },
   upgradeButton: {
-    borderRadius: 24,
+    borderRadius: 50,
     paddingVertical: 16,
     flexDirection: 'row',
     justifyContent: 'center',
@@ -297,22 +351,24 @@ const styles = StyleSheet.create({
   usageStats: {
     width: '100%',
     marginBottom: 24,
+    alignItems: 'center',
   },
   usageText: {
     fontSize: 14,
     color: Colors.light.text,
-    marginBottom: 8,
+    marginTop: 10,
     textAlign: 'center'
   },
   usageBar: {
-    height: 8,
+    height: 10,
+    width: '90%',
     backgroundColor: '#E5E7EB',
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
   },
   usageProgress: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
   },
   usageWidget: {
     flexDirection: 'row',

@@ -46,15 +46,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []); // Bağımlılık listesi boş, sadece bir kez çalışır
 
   useEffect(() => {
-    // 2. Kullanıcı durumu değiştiğinde vault'u yönet
-    if (user) {
-      fetchVault().catch(error => {
-        console.error("⛔️ Vault yükleme hatası (user değiştiğinde):", error.message);
-      });
-    } else {
-      // Kullanıcı null ise (çıkış yapıldıysa) vault'u temizle
-      clearVault();
-    }
+    // 2. Kullanıcı durumu değiştiğinde vault'u ve aboneliği yönet
+    const handleUserSession = async () => {
+      if (user) {
+        try {
+          // Önce Vault'u yükle
+          await fetchVault();
+
+          // Sonra abonelik durumunu kontrol et ve gerekirse ata
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await supabase.functions.invoke('assign-free-plan');
+             console.log('✨ [AUTH] Ücretsiz abonelik atama fonksiyonu çağrıldı.');
+          }
+        } catch (error) {
+          console.error("⛔️ [AUTH] Oturum yönetimi hatası:", (error as Error).message);
+        }
+      } else {
+        // Kullanıcı null ise (çıkış yapıldıysa) vault'u temizle
+        clearVault();
+      }
+    };
+
+    handleUserSession();
+    
   }, [user, fetchVault, clearVault]); // Bu effect sadece 'user' değiştiğinde tetiklenir
 
   const value = { session, user, isLoading };

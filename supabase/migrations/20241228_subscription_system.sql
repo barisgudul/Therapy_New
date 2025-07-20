@@ -116,6 +116,9 @@ CREATE POLICY "Users can view own subscriptions" ON user_subscriptions
 CREATE POLICY "Users can update own subscriptions" ON user_subscriptions
     FOR UPDATE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can insert own subscriptions" ON user_subscriptions
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
 -- Policies for usage_tracking (sadece kendi usage'ını görebilir)
 CREATE POLICY "Users can view own usage" ON usage_tracking
     FOR SELECT USING (auth.uid() = user_id);
@@ -366,7 +369,7 @@ BEGIN
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
 
 -- Trigger to assign free plan to new users
 CREATE TRIGGER assign_free_plan_trigger
