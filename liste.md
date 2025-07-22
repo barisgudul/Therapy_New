@@ -8,3 +8,15 @@ subscription.tsx düzenlenecek
 ödeme sistemi eklenecek
 
 terapi berbat düzenlenmeli
+
+
+american ingilizcesi
+italyanca
+almanca
+fransızca
+flemenkçe
+belgium
+swiss
+spanish
+portugese
+ingliz ingilizcesi

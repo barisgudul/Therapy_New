@@ -251,7 +251,7 @@ export default function DreamResultScreen() {
                         </MotiView>
                     </ScrollView>
 
-                    <TouchableOpacity onPress={() => router.back()} style={styles.saveExitButton}>
+                    <TouchableOpacity onPress={() => router.replace('/dream')} style={styles.saveExitButton}>
                         <Text style={styles.saveExitButtonText}>Rüya Günlüğüne Dön</Text>
                     </TouchableOpacity>
                     

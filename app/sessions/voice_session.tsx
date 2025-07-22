@@ -3,20 +3,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    BackHandler,
-    Easing,
-    Image,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-    useColorScheme
+  ActivityIndicator,
+  Alert,
+  Animated,
+  BackHandler,
+  Easing,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useColorScheme
 } from 'react-native';
+import { PremiumGate } from '../../components/PremiumGate';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, TherapistData, getTherapistById } from '../../data/therapists';
 import { useFeatureAccess } from '../../hooks/useSubscription';
@@ -145,7 +151,7 @@ export default function VoiceSessionScreen() {
         }
     }, [isRecording, isProcessing, isProcessingAI, isSpeaking]);
 
-    const handleSessionEnd = async () => {
+    const handleSessionEnd = useCallback(async () => {
         await stopRecording?.();
         if (messages.length > 1) {
             const { data: { user } } = await supabase.auth.getUser();
@@ -167,9 +173,9 @@ export default function VoiceSessionScreen() {
             }
         }
         router.replace('/feel/after_feeling');
-    };
+    }, [messages, therapistId, mood, router, stopRecording]);
 
-    const onBackPress = () => {
+    const onBackPress = useCallback(() => {
         Alert.alert(
             'Seansı Sonlandır',
             'Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.',
@@ -178,18 +184,17 @@ export default function VoiceSessionScreen() {
                 {
                     text: 'Sonlandır',
                     style: 'destructive',
-                    onPress: async () => {
-                        await handleSessionEnd();
-                    },
+                    onPress: handleSessionEnd,
                 },
             ]
         );
         return true;
-    };
+    }, [handleSessionEnd]);
+
     useEffect(() => {
         const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
         return () => subscription.remove();
-    }, [messages, therapistId, mood]);
+    }, [onBackPress]);
 
     // Sayfa yüklendiğinde ve odaklandığında erişimi yenile
     useEffect(() => {
@@ -204,42 +209,16 @@ export default function VoiceSessionScreen() {
   /* ---------------------------------------------------------------------- */
 
   return (
-    <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
-        start={{x: 0, y: 0}} 
-        end={{x: 1, y: 1}} 
-        style={styles.container}>
+    <PremiumGate featureType="voice_sessions" premiumOnly={true}>
+      <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']} 
+          start={{x: 0, y: 0}} 
+          end={{x: 1, y: 1}} 
+          style={styles.container}>
 
       {loading ? (
         <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
             <ActivityIndicator size="large" color={isDark ? '#fff' : Colors.light.tint} />
         </View>
-      ) : !can_use ? (
-        <>
-            <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-                <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
-            </TouchableOpacity>
-            <View style={styles.premiumPrompt}>
-                <LinearGradient
-                    colors={['#6366F1', '#8B5CF6']}
-                    style={styles.premiumCard}
-                >
-                    <View style={styles.premiumHeader}>
-                        <Ionicons name="mic" size={32} color="white" />
-                        <Text style={styles.premiumTitle}>Premium Özellik</Text>
-                    </View>
-                    <Text style={styles.premiumDescription}>
-                        Sesli seanslar sadece Premium üyelere özeldir. Sınırsız sesli seans için Premium'a geçebilirsiniz.
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.premiumButton}
-                        onPress={() => router.push('/subscription')}
-                    >
-                        <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#6366F1" />
-                    </TouchableOpacity>
-                </LinearGradient>
-            </View>
-        </>
       ) : (
         <>
             {/* Geri/Kapat butonu */}
@@ -344,6 +323,7 @@ export default function VoiceSessionScreen() {
         </>
       )}
     </LinearGradient>
+    </PremiumGate>
   );
 }
 

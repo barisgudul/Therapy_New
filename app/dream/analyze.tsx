@@ -6,7 +6,6 @@ import { MotiView } from 'moti';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Keyboard,
     KeyboardAvoidingView,
     Platform,
@@ -18,6 +17,7 @@ import {
     View
 } from 'react-native';
 
+import { PremiumGate } from '../../components/PremiumGate';
 import { useFeatureAccess } from '../../hooks/useSubscription';
 import { incrementFeatureUsage } from '../../services/api.service';
 import { EventPayload } from '../../services/event.service';
@@ -38,7 +38,11 @@ const COSMIC_COLORS = {
   inputBorder: 'rgba(93, 161, 217, 0.5)',
 };
 
-export default function AnalyzeDreamScreen() {
+interface AnalyzeDreamScreenProps {
+  onBack: () => void;
+}
+
+export default function AnalyzeDreamScreen({ onBack }: AnalyzeDreamScreenProps) {
   const [dream, setDream] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,160 +56,138 @@ export default function AnalyzeDreamScreen() {
   }, [])
 
     const handleAnalyzePress = async () => {
-    // Önce erişim hakkını yenileyip kontrol et
-    await refreshAccess();
-
-    if (accessLoading) {
-      setError('Kullanım hakkınız kontrol ediliyor, lütfen bekleyin...');
-      return;
-    }
-
-    if (!can_use) {
-      Alert.alert(
-        'Rüya Analizi Limiti Doldu',
-        'Bu özellik için günlük kullanım limitinize ulaştınız. Sınırsız analiz için Premium\'a geçebilirsiniz.',
-        [
-            { text: 'Kapat', style: 'cancel' },
-            { text: 'Premium\'a Geç', onPress: () => router.push('/subscription') }
-        ]
-      );
-      return;
-    }
-
-    if (dream.trim().length < 20) {
-      setError('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
-      return;
-    }
-    setError(null);
-    Keyboard.dismiss();
-    setIsLoading(true);
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Kullanıcı bulunamadı!");
-
-      // 1. ORKESTRATÖR'E GÖNDERİLECEK OLAYI OLUŞTUR
-      const dreamAnalysisPayload: EventPayload = {
-        type: 'dream_analysis',
-        data: {
-          dreamText: dream
+        if (dream.trim().length < 20) {
+        setError('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
+        return;
         }
-      };
+        setError(null);
+        Keyboard.dismiss();
+        setIsLoading(true);
 
-      // 2. ZEKA İŞİNİ YAPSIN DİYE BEYNİ ÇAĞIR
-      // processUserMessage, arka planda analyzeDreamWithContext'i, logEvent'i
-      // ve vault'u güncellemeyi zaten yapacak.
-      const resultString = await processUserMessage(user.id, dreamAnalysisPayload);
+        try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Kullanıcı bulunamadı!");
 
-      if (!resultString) {
-        throw new Error("Analizden geçerli bir yanıt alınamadı.");
-      }
-      
-      // Başarılı olursa kullanım sayısını artır
-      await incrementFeatureUsage('dream_analysis');
-      console.log('✅ [USAGE] dream_analysis kullanımı başarıyla artırıldı.');
+        // 1. ORKESTRATÖR'E GÖNDERİLECEK OLAYI OLUŞTUR
+        const dreamAnalysisPayload: EventPayload = {
+            type: 'dream_analysis',
+            data: {
+            dreamText: dream
+            }
+        };
 
-      // Gelen yanıt JSON olduğu için parse et
-      const resultData = JSON.parse(resultString);
-      
-      // 3. YENİ BİR OLAY OBJESİ OLUŞTURMAYA GEREK YOK, AMA NAVİGASYON İÇİN EVENT ID LAZIM.
-      // logEvent zaten Orkestratör'de yapılıyor. Şimdilik bu kısmı basitleştirelim.
-      // Yönlendirme için sadece analizin kendisi yeterli.
-      const navigationEventData = {
-          id: 'temp-' + Date.now(), // Geçici ID, result ekranı ID'ye ihtiyaç duyuyor.
-          timestamp: Date.now(),
-          type: 'dream_analysis',
-          data: { dreamText: dream, analysis: resultData.analysis, dialogue: [] }
-      }
+        // 2. ZEKA İŞİNİ YAPSIN DİYE BEYNİ ÇAĞIR
+        const resultString = await processUserMessage(user.id, dreamAnalysisPayload);
 
-      // 4. Sonuç sayfasına yönlendir
-      router.replace({
-        pathname: './result',
-        params: { eventData: JSON.stringify(navigationEventData), isNewAnalysis: "true" },
-      });
+        if (!resultString) {
+            throw new Error("Analizden geçerli bir yanıt alınamadı.");
+        }
+        
+        // Başarılı olursa kullanım sayısını artır
+        await incrementFeatureUsage('dream_analysis');
+        console.log('✅ [USAGE] dream_analysis kullanımı başarıyla artırıldı.');
 
-    } catch (e: any) {
-      console.error("Analiz hatası: ", e);
-      setError('Beklenmedik bir hata oluştu: ' + e.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        // Gelen yanıt JSON olduğu için parse et
+        const resultData = JSON.parse(resultString);
+        
+        // 3. NAVİGASYON İÇİN VERİYİ HAZIRLA
+        const navigationEventData = {
+            id: 'temp-' + Date.now(), // Geçici ID, result ekranı ID'ye ihtiyaç duyuyor.
+            timestamp: Date.now(),
+            type: 'dream_analysis',
+            data: { dreamText: dream, analysis: resultData.analysis, dialogue: [] }
+        }
+
+        // 4. Sonuç sayfasına yönlendir
+        router.replace({
+            pathname: '/dream/result', // <<< DÜZELTİLMİŞ YOL
+            params: { eventData: JSON.stringify(navigationEventData), isNewAnalysis: "true" },
+        });
+
+        } catch (e: any) {
+        console.error("Analiz hatası: ", e);
+        setError('Beklenmedik bir hata oluştu: ' + e.message);
+        } finally {
+        setIsLoading(false);
+        }
+    };
 
   return (
-    <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={28} color={COSMIC_COLORS.textPrimary} />
-      </TouchableOpacity>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="never"
-          keyboardDismissMode="on-drag"
-          showsVerticalScrollIndicator={false}
+    <PremiumGate featureType="dream_analysis" premiumOnly={false}>
+      <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color={COSMIC_COLORS.textPrimary} />
+        </TouchableOpacity>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 25}
         >
-          <MotiView
-            from={{ opacity: 0, translateY: -20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            style={styles.headerWrap}
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="never"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
           >
-            <Ionicons name="moon-outline" size={48} color={COSMIC_COLORS.accent} />
-            <Text style={styles.headerTitle}>Yeni Rüya</Text>
-            <Text style={styles.headerSubtext}>
-              Zihninizin derinliklerinden gelen mesajı yazın.
-            </Text>
-          </MotiView>
-          
-          <MotiView
-            from={{ opacity: 0, translateY: 20 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ delay: 200 }}
-          >
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Gecenin sessizliğinde zihnimde belirenler..."
-                placeholderTextColor={COSMIC_COLORS.textSecondary}
-                multiline
-                value={dream}
-                onChangeText={setDream}
-                editable={!isLoading}
-                selectionColor={COSMIC_COLORS.accent}
-              />
-            </View>
-            
-            {error && <Text style={styles.errorText}>{error}</Text>}
-
-            <TouchableOpacity
-              style={[styles.analyzeButton, isLoading && { opacity: 0.7 }]}
-              disabled={isLoading}
-              onPress={handleAnalyzePress}
-              activeOpacity={0.8}
+            <MotiView
+              from={{ opacity: 0, translateY: -20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              style={styles.headerWrap}
             >
-              <LinearGradient
-                colors={[COSMIC_COLORS.accent, '#4C82B3']} // Hafif ton farkı
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.analyzeButtonGradient}
+              <Ionicons name="moon-outline" size={48} color={COSMIC_COLORS.accent} />
+              <Text style={styles.headerTitle}>Yeni Rüya</Text>
+              <Text style={styles.headerSubtext}>
+                Zihninizin derinliklerinden gelen mesajı yazın.
+              </Text>
+            </MotiView>
+            
+            <MotiView
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: 200 }}
+            >
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Gecenin sessizliğinde zihnimde belirenler..."
+                  placeholderTextColor={COSMIC_COLORS.textSecondary}
+                  multiline
+                  value={dream}
+                  onChangeText={setDream}
+                  editable={!isLoading}
+                  selectionColor={COSMIC_COLORS.accent}
+                />
+              </View>
+              
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              <TouchableOpacity
+                style={[styles.analyzeButton, isLoading && { opacity: 0.7 }]}
+                disabled={isLoading}
+                onPress={handleAnalyzePress}
+                activeOpacity={0.8}
               >
-                {isLoading ? (
-                  <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
-                ) : (
-                  <>
-                    <Ionicons name="sparkles" size={22} color={COSMIC_COLORS.textPrimary} />
-                    <Text style={styles.analyzeButtonText}>Analiz Et</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          </MotiView>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+                <LinearGradient
+                  colors={[COSMIC_COLORS.accent, '#4C82B3']} // Hafif ton farkı
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.analyzeButtonGradient}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
+                  ) : (
+                    <>
+                      <Ionicons name="sparkles" size={22} color={COSMIC_COLORS.textPrimary} />
+                      <Text style={styles.analyzeButtonText}>Analiz Et</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </MotiView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </PremiumGate>
   );
 }
 

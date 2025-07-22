@@ -1,413 +1,248 @@
 // components/PremiumGate.tsx
+
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
+import { MotiView } from 'moti'; // <<< ZARİF ANİMASYONLAR İÇİN
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors } from '../constants/Colors';
-import { formatUsageText, getUsageColor, getUsagePercentage, useFeatureAccess, useSubscription } from '../hooks/useSubscription';
+import {
+  useFeatureAccess,
+  useSubscription,
+} from '../hooks/useSubscription';
 import { UsageStats } from '../services/subscription.service';
+
+// =================================================================
+// ANA BİLEŞEN
+// =================================================================
 
 interface PremiumGateProps {
   children: React.ReactNode;
-  featureType?: 'text_sessions' | 'voice_sessions' | 'dream_analysis' | 'ai_reports';
+  featureType?: keyof UsageStats;
   premiumOnly?: boolean;
   fallback?: React.ReactNode;
-  onUpgrade?: () => void; 
+  onUpgrade?: () => void;
 }
 
-export function PremiumGate({ 
-  children, 
-  featureType, 
-  premiumOnly = false, 
+export function PremiumGate({
+  children,
+  featureType,
+  premiumOnly = false,
   fallback,
-  onUpgrade
+  onUpgrade,
 }: PremiumGateProps) {
   const router = useRouter();
   const { isPremium, loading: subscriptionLoading } = useSubscription();
+  const featureAccess = useFeatureAccess(featureType!);
 
-  // onUpgrade fonksiyonu sağlanmadıysa, varsayılan olarak abonelik sayfasına yönlendir
   const handleUpgrade = onUpgrade ?? (() => router.push('/subscription'));
 
-  const featureAccess = useFeatureAccess(featureType);
-
-  // Yükleme durumu...
+  // 1. Yükleme Durumu
   if (subscriptionLoading || (featureType && featureAccess.loading)) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={Colors.light.tint} />
-      </View>
+      <LinearGradient
+        colors={['#F4F6FF', '#FFFFFF']}
+        style={styles.fullScreenContainer}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </LinearGradient>
     );
   }
 
-  // Premium'a özel bir özellikse ve kullanıcı premium değilse...
-  if (premiumOnly && !isPremium) {
-    return fallback ?? (
-      <PremiumUpgradePrompt 
-        title="Premium Özellik"
-        description="Bu özelliğin kilidini açmak ve tüm ayrıcalıklardan yararlanmak için Premium'a geçin."
+  // 2. Yetki Kontrolü
+  const showPremiumPrompt = premiumOnly && !isPremium;
+  const showUsageLimitPrompt =
+    featureType && !featureAccess.can_use && !isPremium;
+
+  if (showPremiumPrompt || showUsageLimitPrompt) {
+    if (fallback) return <>{fallback}</>;
+    
+    return (
+      <ElegantBlocker
+        isPremiumOnly={showPremiumPrompt}
         onUpgrade={handleUpgrade}
       />
     );
   }
 
-  // Belirli bir özellik için kullanım hakkı kontrolü
-  if (featureType && !featureAccess.can_use) {
-    return fallback ?? (
-      <UsageLimitPrompt 
-        featureType={featureType}
-        usageData={featureAccess}
-        onUpgrade={handleUpgrade}
-      />
-    );
-  }
-
-  // Erişim varsa içeriği göster
+  // 3. Erişim Varsa: İçeriği göster
   return <>{children}</>;
 }
 
+
 // =================================================================
-// ALT BİLEŞENLER (Daha Şık ve Uyumlu Tasarım)
+// ZARİF ENGELLEYİCİ EKRAN (Final Tasarım)
 // =================================================================
 
-interface PremiumUpgradePromptProps {
-  title: string;
-  description: string;
+interface ElegantBlockerProps {
+  isPremiumOnly: boolean;
   onUpgrade: () => void;
 }
 
-function PremiumUpgradePrompt({ title, description, onUpgrade }: PremiumUpgradePromptProps) {
-  return (
-    <View style={styles.promptPageContainer}>
-      <LinearGradient
-        colors={['#5B21B6', '#312E81']}
-        style={styles.premiumPromptCard}
-      >
-        <View style={styles.premiumIconContainer}>
-            <Ionicons name="diamond" size={40} color={'#fff'} />
-        </View>
-        <Text style={styles.premiumTitle}>{title}</Text>
-        <Text style={styles.premiumDescription}>{description}</Text>
-        
-        <TouchableOpacity onPress={onUpgrade} style={styles.upgradeButtonWrapper}>
-          <LinearGradient
-            colors={['#A78BFA', '#7C3AED']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.upgradeButton}
-          >
-            <Ionicons name="sparkles-outline" size={22} color="white" />
-            <Text style={styles.upgradeButtonText}>Premium'a Geç</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </LinearGradient>
-    </View>
-  );
-}
-
-interface UsageLimitPromptProps {
-  featureType: keyof UsageStats;
-  usageData: {
-    can_use: boolean;
-    used_count: number;
-    limit_count: number;
-  };
-  onUpgrade: () => void;
-}
-
-function UsageLimitPrompt({ featureType, usageData, onUpgrade }: UsageLimitPromptProps) {
-  const featureNames: Record<keyof UsageStats, string> = {
-    text_sessions: 'Metin Seansı',
-    voice_sessions: 'Ses Seansı',
-    dream_analysis: 'Rüya Analizi',
-    ai_reports: 'AI Raporu',
-    daily_write: 'Günlük Yazma',
-    diary_write: 'Günlük Keşfi',
-    pdf_export: 'PDF Export'
+function ElegantBlocker({ isPremiumOnly, onUpgrade }: ElegantBlockerProps) {
+  const router = useRouter();
+  
+  const title = isPremiumOnly
+    ? 'Potansiyelini Keşfet'
+    : 'Limitine Ulaştın';
+  const description = isPremiumOnly
+    ? 'Bu özellik, yolculuğunda sana tam destek olmak için Premium veya +Plus üyelerimize özeldir.'
+    : 'Bu özelliği keşfetmeye devam etmek ve tüm ayrıcalıklardan yararlanmak için Premium\'a geç.';
+  const buttonText = isPremiumOnly
+    ? "Planları Görüntüle"
+    : 'Planları Görüntüle';
+  const iconName = isPremiumOnly ? 'diamond-outline' : 'hourglass-outline';
+  
+  // subscription.tsx'ten renkler ve TypeScript hatasını çözen "as const"
+  const theme = {
+      gradient: ['#F4E6FF', '#EBF0FF'] as const,
+      textColor: '#5B21B6',
+      iconContainerBg: 'rgba(255, 255, 255, 0.7)',
+      buttonGradient: ['#8B5CF6', '#6D28D9'] as const,
   };
 
-  const percentage = getUsagePercentage(usageData.used_count, usageData.limit_count);
-  const usageColor = getUsageColor(percentage);
-
   return (
-    <View style={styles.promptPageContainer}>
-      <View style={styles.usagePromptCard}>
-        <View style={styles.usageIconContainer}>
-            <Ionicons name="bar-chart-outline" size={32} color={Colors.light.tint} />
-        </View>
-        
-        <Text style={styles.usageTitle}>{featureNames[featureType]} Limiti Doldu</Text>
-        <Text style={styles.usageDescription}>
-          Bu özellik için aylık ücretsiz kullanım hakkınız bitti. Sınırsız erişim için planınızı yükseltin.
-        </Text>
-        
-        <View style={styles.usageStats}>
-          <View style={styles.usageBar}>
-            <View 
-              style={[
-                styles.usageProgress, 
-                { width: `${percentage}%`, backgroundColor: usageColor }
-              ]} 
-            />
+    <LinearGradient colors={theme.gradient} style={styles.fullScreenContainer}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Ionicons name="close" size={28} color={theme.textColor} />
+      </TouchableOpacity>
+
+      <View style={styles.contentContainer}>
+        {/* Anismasyonlu İkon */}
+        <MotiView
+          from={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', duration: 500 }}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: theme.iconContainerBg }]}>
+            <Ionicons name={iconName} size={60} color={theme.textColor} />
           </View>
-           <Text style={styles.usageText}>
-            Kullanım: {formatUsageText(usageData.used_count, usageData.limit_count)}
-          </Text>
-        </View>
+        </MotiView>
+
+        {/* Anismasyonlu Metinler */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 700, delay: 200 }}
+        >
+          <Text style={[styles.title, { color: theme.textColor }]}>{title}</Text>
+        </MotiView>
         
-        <TouchableOpacity onPress={onUpgrade} style={styles.upgradeButtonWrapper}>
-            <LinearGradient
-                colors={['#A78BFA', '#7C3AED']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.upgradeButton}
-            >
-                <Text style={styles.upgradeButtonText}>Planları İncele</Text>
-                <Ionicons name="arrow-forward" size={20} color="white" />
-            </LinearGradient>
-        </TouchableOpacity>
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 700, delay: 350 }}
+        >
+          <Text style={[styles.description, { color: theme.textColor, opacity: 0.8 }]}>
+              {description}
+          </Text>
+        </MotiView>
+
+        {/* Anismasyonlu Buton */}
+        <MotiView
+          from={{ opacity: 0, translateY: 20 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'timing', duration: 700, delay: 500 }}
+          style={styles.upgradeButtonWrapper}
+        >
+            <TouchableOpacity onPress={onUpgrade} activeOpacity={0.8}>
+                <LinearGradient
+                    colors={theme.buttonGradient}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={styles.upgradeButton}
+                >
+                    <Ionicons name="sparkles" size={22} color="white" />
+                    <Text style={styles.upgradeButtonText}>{buttonText}</Text>
+                </LinearGradient>
+            </TouchableOpacity>
+        </MotiView>
       </View>
-    </View>
-  );
-}
-
-// Usage Widget - Kullanım durumunu göstermek için
-interface UsageWidgetProps {
-  featureType: 'text_sessions' | 'voice_sessions' | 'dream_analysis' | 'ai_reports';
-  compact?: boolean;
-}
-
-export function UsageWidget({ featureType, compact = false }: UsageWidgetProps) {
-  const featureAccess = useFeatureAccess(featureType);
-  const { isPremium } = useSubscription();
-
-  if (featureAccess.loading) {
-    return (
-      <View style={[styles.usageWidget, compact && styles.usageWidgetCompact]}>
-        <ActivityIndicator size="small" />
-      </View>
-    );
-  }
-
-  if (isPremium) {
-    return (
-      <View style={[styles.usageWidget, styles.usageWidgetPremium, compact && styles.usageWidgetCompact]}>
-        <Ionicons name="diamond" size={compact ? 12 : 16} color="#7C3AED" />
-        <Text style={[styles.usageWidgetText, styles.usageWidgetPremiumText]}>
-          {compact ? '∞' : 'Sınırsız'}
-        </Text>
-      </View>
-    );
-  }
-
-  const percentage = getUsagePercentage(featureAccess.used_count, featureAccess.limit_count);
-  const usageColor = getUsageColor(percentage);
-
-  return (
-    <View style={[styles.usageWidget, compact && styles.usageWidgetCompact]}>
-      <View style={[styles.usageIndicator, { backgroundColor: usageColor }]} />
-      <Text style={[styles.usageWidgetText, { color: usageColor }]}>
-        {formatUsageText(featureAccess.used_count, featureAccess.limit_count)}
-      </Text>
-    </View>
-  );
-}
-
-// Premium Badge - Premium özellikler için rozet
-interface PremiumBadgeProps {
-  size?: 'small' | 'medium' | 'large';
-}
-
-export function PremiumBadge({ size = 'medium' }: PremiumBadgeProps) {
-  const sizes = {
-    small: { fontSize: 10, paddingHorizontal: 6, paddingVertical: 2, iconSize: 10 },
-    medium: { fontSize: 12, paddingHorizontal: 8, paddingVertical: 4, iconSize: 12 },
-    large: { fontSize: 14, paddingHorizontal: 10, paddingVertical: 6, iconSize: 14 }
-  };
-
-  const currentSize = sizes[size];
-
-  return (
-    <LinearGradient
-        colors={['#A78BFA', '#7C3AED']}
-        style={[styles.premiumBadge, { paddingHorizontal: currentSize.paddingHorizontal, paddingVertical: currentSize.paddingVertical, gap: 4 }]}
-    >
-      <Ionicons name="diamond" size={currentSize.iconSize} color="white" />
-      <Text style={[styles.premiumBadgeText, { fontSize: currentSize.fontSize }]}>
-        Premium
-      </Text>
     </LinearGradient>
   );
 }
 
+// =================================================================
+// STİLLER (Zarafet Odaklı)
+// =================================================================
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
+  fullScreenContainer: {
+    flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  promptPageContainer: {
+  backButton: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'rgba(248, 250, 252, 0.9)',
-    zIndex: 1000, // Diğer tüm öğelerin üzerinde olmasını sağlar
-  },
-  premiumPromptCard: {
-    borderRadius: 32,
-    padding: 32,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#2e1065',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  premiumIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  premiumTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  premiumDescription: {
-    fontSize: 17,
-    color: 'rgba(255, 255, 255, 0.85)',
-    textAlign: 'center',
-    lineHeight: 26,
-    marginBottom: 32,
-  },
-  usagePromptCard: {
-    borderRadius: 32,
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: '#ffffff',
+    top: 60,
+    right: 24,
+    zIndex: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.6)', // "Glassmorphism" efekti
+    borderRadius: 30,
+    padding: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.08,
-    shadowRadius: 15,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
-  usageIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
+  contentContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 28,
   },
-  usageTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    textAlign: 'center',
-    marginBottom: 8,
+  iconContainer: {
+    width: 120, // Daha büyük ve etkileyici
+    height: 120,
+    borderRadius: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 40,
+    shadowColor: 'rgba(91, 33, 182, 0.4)', // Premium renginin gölgesi
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
   },
-  usageDescription: {
-    fontSize: 16,
-    color: '#4b5563',
+  title: {
+    fontSize: 34, // Daha güçlü başlık
+    fontWeight: '900', // En kalın font ağırlığı
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  description: {
+    fontSize: 18,
+    textAlign: 'center',
+    lineHeight: 28, // Daha ferah satır aralığı
+    marginBottom: 48,
+    maxWidth: '100%',
   },
   upgradeButtonWrapper: {
     width: '100%',
-    paddingHorizontal: 16,
+    shadowColor: '#6D28D9',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 25,
+    elevation: 15,
   },
   upgradeButton: {
     borderRadius: 50,
-    paddingVertical: 16,
+    paddingVertical: 23, // Daha dolgun buton
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
   },
   upgradeButtonText: {
-    fontSize: 18,
+    fontSize: 23, // Daha okunaklı buton metni
     fontWeight: 'bold',
     color: 'white',
   },
-  usageStats: {
-    width: '100%',
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  usageText: {
-    fontSize: 14,
-    color: Colors.light.text,
-    marginTop: 10,
-    textAlign: 'center'
-  },
-  usageBar: {
-    height: 10,
-    width: '90%',
-    backgroundColor: '#E5E7EB',
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  usageProgress: {
-    height: '100%',
-    borderRadius: 5,
-  },
-  usageWidget: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 16,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  usageWidgetCompact: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  usageWidgetPremium: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#DDD6FE',
-  },
-  usageWidgetText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  usageWidgetPremiumText: {
-    color: '#7C3AED',
-  },
-  usageIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  premiumBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  premiumBadgeText: {
-    color: 'white',
-    fontWeight: '600',
-  },
-}); 
+});

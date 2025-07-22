@@ -6,22 +6,23 @@ import { useRouter } from 'expo-router/';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 // @ts-ignore
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
 import { v4 as uuidv4 } from 'uuid';
+import { PremiumGate } from '../components/PremiumGate';
 import { Colors } from '../constants/Colors';
 import { commonStyles } from '../constants/Styles';
 import { useAuth } from '../context/Auth';
@@ -229,7 +230,7 @@ const fetchSummary = async () => {
   const exportToPDF = async () => {
     if (!activeSummary || pdfAccessLoading) return;
     
-    // PDF dışa aktarma hakkını kontrol et
+    // PDF dışa aktırma hakkını kontrol et
     await refreshPDFAccess();
     if (!canExportPDF) {
         Alert.alert(
@@ -336,163 +337,165 @@ const fetchSummary = async () => {
   ) : null;
 
   return (
-    <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
-      start={{x: 0, y: 0}} 
-      end={{x: 1, y: 1}} 
-      style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
-      </TouchableOpacity>
+    <PremiumGate featureType="ai_reports" premiumOnly={false}>
+      <LinearGradient colors={['#F4F6FF', '#FFFFFF']} 
+        start={{x: 0, y: 0}} 
+        end={{x: 1, y: 1}} 
+        style={styles.container}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+          <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+        </TouchableOpacity>
 
-      <Text style={styles.headerTitle}>Bütünsel İçgörü Raporu</Text>
+        <Text style={styles.headerTitle}>Bütünsel İçgörü Raporu</Text>
 
-      <View style={styles.content}>
-        <View style={styles.controlsBox}>
-          <Text style={styles.inputLabel}>Kaç günlük veriyi analiz edelim?</Text>
-          {loading ? (
-             <View style={{height: 70, justifyContent: 'center', alignItems: 'center'}}>
-                <ActivityIndicator color={Colors.light.tint}/>
-                <Text style={{color: Colors.light.tint, marginTop: 8, fontSize: 12}}>Verileriniz Hesaplanıyor...</Text>
+        <View style={styles.content}>
+          <View style={styles.controlsBox}>
+            <Text style={styles.inputLabel}>Kaç günlük veriyi analiz edelim?</Text>
+            {loading ? (
+               <View style={{height: 70, justifyContent: 'center', alignItems: 'center'}}>
+                  <ActivityIndicator color={Colors.light.tint}/>
+                  <Text style={{color: Colors.light.tint, marginTop: 8, fontSize: 12}}>Verileriniz Hesaplanıyor...</Text>
+              </View>
+            ) : (
+            <Slider
+              minimumValue={1}
+              maximumValue={maxDays}
+              step={1}
+              value={selectedDays}
+              onValueChange={v => setSelectedDays(Array.isArray(v) ? v[0] : v)}
+              containerStyle={styles.sliderContainer}
+              trackStyle={styles.sliderTrack}
+              thumbStyle={styles.sliderThumb}
+              minimumTrackTintColor={Colors.light.tint}
+              renderThumbComponent={() => (
+                <View style={styles.thumbInner}><Text style={styles.thumbText}>{selectedDays}</Text></View>
+              )}
+            />
+            )}
+            <TouchableOpacity 
+              style={[styles.analyzeButton, loading && { opacity: 0.6 }]} 
+              disabled={loading} 
+              onPress={fetchSummary}
+            >
+              <LinearGradient
+                colors={['#F8FAFF', '#FFFFFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.analyzeButtonGradient}
+              >
+                <View style={styles.analyzeButtonContent}>
+                  <Ionicons name="analytics-outline" size={24} color={Colors.light.tint} />
+                  <Text style={styles.analyzeButtonText}>Analiz Oluştur</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {analysisEvents.length === 0 && !loading ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyStateIconContainer}>
+                <LinearGradient
+                  colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
+                  start={{x: 0, y: 0}} 
+                  end={{x: 1, y: 1}} 
+                  style={styles.emptyStateIconGradient}
+                >
+                  <Ionicons name="analytics-outline" size={48} color={Colors.light.tint} />
+                </LinearGradient>
+              </View>
+              <Text style={styles.emptyStateText}>Henüz analiz oluşturulmadı</Text>
+              <Text style={styles.emptyStateSubtext}>Duygu geçmişini analiz etmeye başla</Text>
             </View>
           ) : (
-          <Slider
-            minimumValue={1}
-            maximumValue={maxDays}
-            step={1}
-            value={selectedDays}
-            onValueChange={v => setSelectedDays(Array.isArray(v) ? v[0] : v)}
-            containerStyle={styles.sliderContainer}
-            trackStyle={styles.sliderTrack}
-            thumbStyle={styles.sliderThumb}
-            minimumTrackTintColor={Colors.light.tint}
-            renderThumbComponent={() => (
-              <View style={styles.thumbInner}><Text style={styles.thumbText}>{selectedDays}</Text></View>
-            )}
-          />
+            <FlatList
+              data={analysisEvents}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.summaryCard}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    setActiveSummary(item.data.text);
+                    setModalVisible(true);
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#FFFFFF', '#F8FAFF']}
+                    start={{x: 0, y: 0}}
+                    end={{x: 1, y: 1}}
+                    style={styles.summaryCardGradient}
+                  >
+                    <View style={styles.summaryCardHeader}>
+                      <View style={styles.summaryCardIconContainer}>
+                        <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
+                      </View>
+                      <Text style={styles.summaryCardDate}>
+                        {new Date(item.created_at).toLocaleDateString('tr-TR', {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={styles.summaryCardText} numberOfLines={3}>{stripMarkdownForPreview(item.data.text)}</Text>
+                    <TouchableOpacity
+                      onPress={() => deleteSummary(item.id)}
+                      style={styles.deleteButton}
+                    >
+                      <Ionicons name="trash-outline" size={20} color="#E53E3E" />
+                    </TouchableOpacity>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+              ListHeaderComponent={loadingHeader}
+            />
           )}
-          <TouchableOpacity 
-            style={[styles.analyzeButton, loading && { opacity: 0.6 }]} 
-            disabled={loading} 
-            onPress={fetchSummary}
-          >
-            <LinearGradient
-              colors={['#F8FAFF', '#FFFFFF']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
-              style={styles.analyzeButtonGradient}
-            >
-              <View style={styles.analyzeButtonContent}>
-                <Ionicons name="analytics-outline" size={24} color={Colors.light.tint} />
-                <Text style={styles.analyzeButtonText}>Analiz Oluştur</Text>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
         </View>
 
-        {analysisEvents.length === 0 && !loading ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyStateIconContainer}>
-              <LinearGradient
-                colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']} 
-                start={{x: 0, y: 0}} 
-                end={{x: 1, y: 1}} 
-                style={styles.emptyStateIconGradient}
+        <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity 
+                onPress={() => setModalVisible(false)} 
+                style={styles.modalBackButton}
               >
-                <Ionicons name="analytics-outline" size={48} color={Colors.light.tint} />
-              </LinearGradient>
-            </View>
-            <Text style={styles.emptyStateText}>Henüz analiz oluşturulmadı</Text>
-            <Text style={styles.emptyStateSubtext}>Duygu geçmişini analiz etmeye başla</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={analysisEvents}
-            renderItem={({ item }) => (
+                <Ionicons name="chevron-back" size={26} color={Colors.light.tint} />
+              </TouchableOpacity>
+
+              <View style={styles.modalIcon}>
+                <LinearGradient
+                  colors={['#E0ECFD', '#F4E6FF']}
+                  style={styles.modalIconGradient}
+                />
+                <Ionicons name="document-text-outline" size={32} color={Colors.light.tint} />
+              </View>
+              <Text style={styles.modalTitle}>AI Duygu Analizi</Text>
+              <View style={styles.modalDivider} />
+              <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
+                {activeSummary ? (
+                  <Markdown style={markdownStyles}>{activeSummary}</Markdown>
+                ) : (
+                  <Text style={styles.modalText}>
+                    {"Analiz yüklenemedi."}
+                  </Text>
+                )}
+              </ScrollView>
               <TouchableOpacity
-                style={styles.summaryCard}
-                activeOpacity={0.9}
-                onPress={() => {
-                  setActiveSummary(item.data.text);
-                  setModalVisible(true);
-                }}
+                onPress={exportToPDF}
+                style={styles.exportButton}
               >
                 <LinearGradient
-                  colors={['#FFFFFF', '#F8FAFF']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 1, y: 1}}
-                  style={styles.summaryCardGradient}
+                  colors={['#E0ECFD', '#F4E6FF']}
+                  style={styles.exportButtonGradient}
                 >
-                  <View style={styles.summaryCardHeader}>
-                    <View style={styles.summaryCardIconContainer}>
-                      <Ionicons name="document-text-outline" size={20} color={Colors.light.tint} />
-                    </View>
-                    <Text style={styles.summaryCardDate}>
-                      {new Date(item.created_at).toLocaleDateString('tr-TR', {
-                        year: 'numeric', month: 'long', day: 'numeric'
-                      })}
-                    </Text>
-                  </View>
-                  <Text style={styles.summaryCardText} numberOfLines={3}>{stripMarkdownForPreview(item.data.text)}</Text>
-                  <TouchableOpacity
-                    onPress={() => deleteSummary(item.id)}
-                    style={styles.deleteButton}
-                  >
-                    <Ionicons name="trash-outline" size={20} color="#E53E3E" />
-                  </TouchableOpacity>
+                  <Ionicons name="download-outline" size={20} color={Colors.light.tint} style={styles.exportButtonIcon} />
+                  <Text style={styles.exportButtonText}>PDF İndir & Paylaş</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContainer}
-            ListHeaderComponent={loadingHeader}
-          />
-        )}
-      </View>
-
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity 
-              onPress={() => setModalVisible(false)} 
-              style={styles.modalBackButton}
-            >
-              <Ionicons name="chevron-back" size={26} color={Colors.light.tint} />
-            </TouchableOpacity>
-
-            <View style={styles.modalIcon}>
-              <LinearGradient
-                colors={['#E0ECFD', '#F4E6FF']}
-                style={styles.modalIconGradient}
-              />
-              <Ionicons name="document-text-outline" size={32} color={Colors.light.tint} />
             </View>
-            <Text style={styles.modalTitle}>AI Duygu Analizi</Text>
-            <View style={styles.modalDivider} />
-            <ScrollView style={styles.modalScrollView} showsVerticalScrollIndicator={false}>
-              {activeSummary ? (
-                <Markdown style={markdownStyles}>{activeSummary}</Markdown>
-              ) : (
-                <Text style={styles.modalText}>
-                  {"Analiz yüklenemedi."}
-                </Text>
-              )}
-            </ScrollView>
-            <TouchableOpacity
-              onPress={exportToPDF}
-              style={styles.exportButton}
-            >
-              <LinearGradient
-                colors={['#E0ECFD', '#F4E6FF']}
-                style={styles.exportButtonGradient}
-              >
-                <Ionicons name="download-outline" size={20} color={Colors.light.tint} style={styles.exportButtonIcon} />
-                <Text style={styles.exportButtonText}>PDF İndir & Paylaş</Text>
-              </LinearGradient>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </LinearGradient>
+        </Modal>
+      </LinearGradient>
+    </PremiumGate>
   );
 }
 

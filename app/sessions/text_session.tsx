@@ -2,7 +2,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
-import React, { useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +24,7 @@ import {
   View,
   useColorScheme
 } from 'react-native';
+import { PremiumGate } from '../../components/PremiumGate';
 import SessionTimer from '../../components/SessionTimer';
 import { Colors } from '../../constants/Colors';
 import { ALL_THERAPISTS, getTherapistById } from '../../data/therapists';
@@ -102,7 +108,7 @@ export default function TextSessionScreen() {
   };
 
   // Move onBackPress and handleSessionEnd to top-level
-  const handleSessionEnd = () => {
+  const handleSessionEnd = useCallback(() => {
     // YENİ: Eğer zaten sonlandırma işlemi başladıysa, tekrar çalıştırma
     if (isEnding) return;
     setIsEnding(true); // Kilidi aktif et
@@ -134,9 +140,9 @@ export default function TextSessionScreen() {
 
     // Kullanıcıyı ANINDA bir sonraki ekrana yönlendir.
     router.replace('/feel/after_feeling');
-  };
+  }, [isEnding, messages, therapistId, mood, currentMood, router]);
 
-  const onBackPress = () => {
+  const onBackPress = useCallback(() => {
     // YENİ: Eğer zaten sonlandırma işlemi başladıysa, uyarıyı tekrar gösterme
     if (isEnding) return true;
     
@@ -148,21 +154,19 @@ export default function TextSessionScreen() {
         {
           text: 'Sonlandır',
           style: 'destructive',
-          onPress: () => {
-            handleSessionEnd();
-          },
+          onPress: handleSessionEnd,
         },
       ]
     );
     return true;
-  };
+  }, [isEnding, handleSessionEnd]);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => {
       subscription.remove();
     };
-  }, [router, therapistId, currentMood, isEnding]); // "messages" bağımlılığı kaldırıldı
+  }, [onBackPress]);
 
   // Sayfa yüklendiğinde ve odaklandığında erişimi yenile
   useEffect(() => {
@@ -233,85 +237,68 @@ const sendMessage = async () => {
 };
 
   return (
-      <LinearGradient colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
+    <PremiumGate featureType="text_sessions" premiumOnly={false}>
+      <LinearGradient 
+          colors={isDark ? ['#232526', '#414345'] : ['#F4F6FF', '#FFFFFF']}
           start={{x: 0, y: 0}}
           end={{x: 1, y: 1}}
-          style={styles.container}>
+          style={styles.container}
+      >
       
-      {loading ? (
-        <View style={styles.loadingContainer}>
+        {/*
+          Yükleme durumu hala önemli, bu yüzden bu kontrol kalıyor.
+          PremiumGate, bu 'loading' durumu bittikten sonra kendi kontrolünü yapacak.
+        */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={isDark ? '#fff' : Colors.light.tint} />
-        </View>
-      ) : !can_use ? (
-        <>
-            <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-                <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
-            </TouchableOpacity>
-            <View style={styles.premiumPrompt}>
-                <LinearGradient
-                    colors={['#6366F1', '#8B5CF6']}
-                    style={styles.premiumCard}
-                >
-                    <View style={styles.premiumHeader}>
-                        <Ionicons name="chatbubbles" size={32} color="white" />
-                        <Text style={styles.premiumTitle}>Seans Limiti Doldu</Text>
-                    </View>
-                    <Text style={styles.premiumDescription}>
-                        Bu özellik için kullanım limitinize ulaştınız. Sınırsız seans için Premium'a geçebilirsiniz.
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.premiumButton}
-                        onPress={() => router.push('/subscription')}
-                    >
-                        <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
-                        <Ionicons name="arrow-forward" size={20} color="#6366F1" />
-                    </TouchableOpacity>
-                </LinearGradient>
-            </View>
-        </>
-      ) : (
-        <>
+          </View>
+        ) : (
+          // Yükleme bittikten sonra, direkt olarak sayfanın başarılı halini render et.
+          // Eğer yetki yoksa (can_use === false), PremiumGate bu kısmı zaten göstermeyecek
+          // ve kendi şık modal'ını ekrana getirecek.
+          <>
             <TouchableOpacity onPress={onBackPress} style={styles.back}>
-            <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
+              <Ionicons name="chevron-back" size={28} color={isDark ? '#fff' : Colors.light.tint} />
             </TouchableOpacity>
 
             <SessionTimer onSessionEnd={handleSessionEnd} />
 
             <View style={styles.therapistHeaderRow}>
-            <View style={styles.avatarGradientBox}>
+              <View style={styles.avatarGradientBox}>
                 <LinearGradient colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
                     start={{x: 0, y: 0}}
                     end={{x: 1, y: 1}}
                     style={styles.avatarGradient}>
-                <Image
+                  <Image
                     source={selectedTherapist?.thumbnail || ALL_THERAPISTS[0].thumbnail}
                     style={styles.therapistAvatarXL}
-                />
+                  />
                 </LinearGradient>
-            </View>
-            <View style={styles.therapistInfoBoxRow}>
+              </View>
+              <View style={styles.therapistInfoBoxRow}>
                 <Text style={[styles.therapistNameRow, { color: isDark ? '#fff' : Colors.light.tint }]}>
-                {selectedTherapist?.name || 'Terapist'}
+                  {selectedTherapist?.name || 'Terapist'}
                 </Text>
                 <Text style={[styles.therapistTitleRow, { color: isDark ? '#fff' : '#5D6D7E' }]}>
-                {selectedTherapist?.title}
+                  {selectedTherapist?.title}
                 </Text>
-            </View>
+              </View>
             </View>
 
             <KeyboardAvoidingView
-            style={styles.keyboardAvoidingView}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
+              style={styles.keyboardAvoidingView}
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
             >
-            <View style={styles.content}>
+              <View style={styles.content}>
                 <FlatList
-                ref={flatListRef}
-                data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
-                keyExtractor={(_, i) => i.toString()}
-                renderItem={({ item, index }) => {
+                  ref={flatListRef}
+                  data={isTyping ? [...messages, { sender: 'ai', text: '...' }] : messages}
+                  keyExtractor={(_, i) => i.toString()}
+                  renderItem={({ item, index }) => {
                     if (item.text === '...') {
-                    return (
+                      return (
                         <View style={[styles.bubble, styles.aiBubble, { flexDirection: 'row', gap: 6 }]}>
                         {[dot1, dot2, dot3].map((dot, i) => (
                             <Animated.Text
@@ -350,14 +337,14 @@ const sendMessage = async () => {
                     </View>
                     );
                 }}
-                contentContainerStyle={styles.messages}
-                onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.messages}
+                  onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
                 />
 
                 <View style={styles.inputBar}>
-                <TextInput
+                  <TextInput
                     ref={inputRef}
                     style={styles.input}
                     placeholder="Düşüncelerini paylaş..."
@@ -370,27 +357,28 @@ const sendMessage = async () => {
                     onSubmitEditing={sendMessage}
                     blurOnSubmit={false}
                     returnKeyType="default"
-                />
-                <TouchableOpacity
+                  />
+                  <TouchableOpacity
                     onPress={sendMessage}
                     style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendButtonDisabled]}
                     disabled={isTyping || !input.trim()}
-                >
+                  >
                     <LinearGradient
-                    colors={['#F8FAFF', '#FFFFFF']}
-                    start={{x: 0, y: 0}}
-                    end={{x: 1, y: 1}}
-                    style={styles.sendButtonGradient}
+                      colors={['#F8FAFF', '#FFFFFF']}
+                      start={{x: 0, y: 0}}
+                      end={{x: 1, y: 1}}
+                      style={styles.sendButtonGradient}
                     >
-                    <Ionicons name="send" size={20} color={Colors.light.tint} />
+                      <Ionicons name="send" size={20} color={Colors.light.tint} />
                     </LinearGradient>
-                </TouchableOpacity>
+                  </TouchableOpacity>
                 </View>
-            </View>
+              </View>
             </KeyboardAvoidingView>
-        </>
-      )}
+          </>
+        )}
       </LinearGradient>
+    </PremiumGate>
   );
 }
 

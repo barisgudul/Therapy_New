@@ -6,18 +6,19 @@ import { useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-
-import { getRemainingUsage, useFeatureAccess } from '../../hooks/useSubscription';
+import { PremiumGate } from '../../components/PremiumGate';
+import { useFeatureAccess } from '../../hooks/useSubscription';
 import { AppEvent, deleteEventById, getEventsForLast } from '../../services/event.service';
+import AnalyzeDreamScreen from './analyze';
 
 const COSMIC_COLORS = {
   background: ['#0d1117', '#1A2947'] as [string, string],
@@ -32,6 +33,7 @@ export default function DreamJournalScreen() {
   const router = useRouter();
   const [analyses, setAnalyses] = useState<AppEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const dreamAnalysisFeature = useFeatureAccess('dream_analysis');
 
   const loadAnalyses = useCallback(async () => {
@@ -87,37 +89,6 @@ export default function DreamJournalScreen() {
     );
 };
 
-  const handleNewDreamPress = async () => {
-    // hook'tan gelen güncel durumu kullan
-    if (dreamAnalysisFeature.loading) {
-        Alert.alert("Lütfen bekleyin...", "Kullanım haklarınız kontrol ediliyor.");
-        return;
-    }
-
-    if (dreamAnalysisFeature.can_use) {
-      router.push('/dream/analyze');
-    } else {
-      const remaining = getRemainingUsage(dreamAnalysisFeature.used_count, dreamAnalysisFeature.limit_count);
-      const limit = dreamAnalysisFeature.limit_count;
-      let message = `Bu dönem için rüya analizi hakkınız dolmuştur.`;
-      
-      // Periyodu belirlemek için daha akıllı bir yol (örneğin API'den periyot bilgisi almak) gerekebilir.
-      // Şimdilik genel bir mesaj gösterelim.
-      if (limit > 0) {
-          message = `Bu periyot için ${limit} rüya analizi hakkınızın tamamını kullandınız.`
-      }
-
-      Alert.alert(
-        "Kullanım Limiti Doldu",
-        `${message} Sınırsız analiz ve diğer tüm premium özellikler için planınızı yükseltebilirsiniz.`,
-        [
-          { text: "Tamam" },
-          { text: "Premium'a Göz At", onPress: () => router.push('/subscription') }
-        ]
-      );
-    }
-  };
-
   const renderDreamCard = ({ item, index }: { item: AppEvent, index: number }) => (
     <MotiView
       from={{ opacity: 0, translateY: 50 }}
@@ -142,6 +113,16 @@ export default function DreamJournalScreen() {
     </MotiView>
   );
 
+  // EĞER KULLANICI YENİ ANALİZ BUTONUNA BASTIYSA BU KISIM ÇALIŞIR
+  if (isAnalyzing) {
+    return (
+      <PremiumGate featureType="dream_analysis">
+        <AnalyzeDreamScreen onBack={() => setIsAnalyzing(false)} />
+      </PremiumGate>
+    );
+  }
+
+  // VARSAYILAN OLARAK BU KISIM GÖRÜNÜR (RÜYA LİSTESİ)
   return (
     <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -178,7 +159,7 @@ export default function DreamJournalScreen() {
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.newDreamButton}
-            onPress={handleNewDreamPress}
+            onPress={() => setIsAnalyzing(true)}
           >
             <View style={styles.newDreamButtonContent}>
               <Ionicons name="add" size={24} color={COSMIC_COLORS.textPrimary} />
