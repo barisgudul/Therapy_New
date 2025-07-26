@@ -1,12 +1,12 @@
 import 'react-native-get-random-values';
 // app/_layout.tsx
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router/';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, View} from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '../context/Auth';
@@ -61,17 +61,20 @@ const InitialLayout = () => {
 };
 
 function RootNavigation() {
-  const colorScheme = useColorScheme();
+  // const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    // ThemeProvider'ın value prop'una doğrudan DefaultTheme'i verin
+    <ThemeProvider value={DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="login" /> 
         <Stack.Screen name="register" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="index" />
       </Stack>
-      <StatusBar style="auto" />
+      {/* Status Bar stilini de 'dark' olarak sabitleyerek 
+          aydınlık tema ile uyumlu olmasını sağlayabilirsiniz. */}
+      <StatusBar style="dark" />
     </ThemeProvider>
   );
 }
