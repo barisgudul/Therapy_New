@@ -8,12 +8,25 @@ import { corsHeaders } from '../_shared/cors.ts';
 const traitKeys = ['confidence', 'anxiety_level', 'motivation', 'openness', 'neuroticism'] as const;
 type TraitKey = typeof traitKeys[number];
 type Traits = Partial<Record<TraitKey, number>>;
-const TraitsSchema = z.object({ /* ... Zod şeması tanımı ... */ });
+const TraitsSchema = z.object({
+    confidence: z.number().min(0).max(1),
+    anxiety_level: z.number().min(0).max(1),
+    motivation: z.number().min(0).max(1),
+    openness: z.number().min(0).max(1),
+    neuroticism: z.number().min(0).max(1),
+});
 
 // AI Çağrı ve Doğrulama Yardımcıları (Kendi kendine yeterli)
 async function invokeAndValidateTraits(apiKey: string, prompt: string): Promise<Traits | null> {
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, { /* ... */ });
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: 'application/json' },
+        }),
+    });
     if (!response.ok) throw new Error(await response.text());
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -56,14 +69,38 @@ Deno.serve(async (req) => {
 
   try {
     const adminClient = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey!);
-    const { data: users, error: userError } = await adminClient.rpc('get_users_for_trait_analysis');
+    const BATCH_SIZE = 50;
+    let offset = 0;
+    let usersProcessed = 0;
+    
+    while (true) {
+        const { data: users, error: userError } = await adminClient.rpc('get_users_for_trait_analysis', {
+            limit_count: BATCH_SIZE,
+            offset_count: offset
+        });
 
     if (userError) throw userError;
     
-    // Tüm kullanıcılar için işlemleri paralel başlat, ama bitmelerini bekle.
-    await Promise.all(users.map(user => processUser(adminClient, user.user_id, Deno.env.get('GEMINI_API_KEY')!)));
+        if (!users || users.length === 0) {
+            break;
+        }
 
-    return new Response(JSON.stringify({ message: `${users.length} kullanıcı için Trait analizi tamamlandı.` }), { status: 200, headers: corsHeaders });
+        const results = await Promise.allSettled(
+            users.map(user => processUser(adminClient, user.user_id, Deno.env.get('GEMINI_API_KEY')!))
+        );
+
+        // Başarısız olanları logla
+        results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+                console.error(`[TRAITS] Kullanıcı işlenirken hata oluştu: ${users[index].user_id}`, result.reason);
+            }
+        });
+        
+        usersProcessed += users.length;
+        offset += BATCH_SIZE;
+    }
+
+    return new Response(JSON.stringify({ message: `${usersProcessed} kullanıcı için Trait analizi tamamlandı.` }), { status: 200, headers: corsHeaders });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }

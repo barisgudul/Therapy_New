@@ -1,11 +1,19 @@
 // services/orchestration.service.ts
 
 import { InteractionContext } from '../types/context';
+import { DiaryStart, DreamAnalysisResult } from '../utils/schemas';
 import * as AiService from './ai.service';
 import * as EventService from './event.service';
 import { EventPayload } from './event.service';
 import * as JourneyService from './journey.service';
 import * as VaultService from './vault.service';
+
+// Orkestratörden dönebilecek tüm olası başarılı sonuç tipleri
+type OrchestratorSuccessResult = 
+    | string // Basit metin yanıtları (terapi, yansıma vb.)
+    | DiaryStart // Günlük başlangıç sonucu
+    | { analysis: DreamAnalysisResult, nextQuestion: string } // Rüya analizi sonucu
+    | { success: boolean; message: string }; // onboarding gibi işlemler için
 
 // React Native uyumlu UUID generator
 function generateId(): string {
@@ -20,7 +28,7 @@ function generateId(): string {
  * Kullanıcıdan gelen yeni bir terapi mesajını işler.
  * Bu fonksiyon, dinamik ve öğrenen bir AI beyni gibi davranır.
  */
-export async function processUserMessage(userId: string, eventPayload: EventPayload): Promise<string> {
+export async function processUserMessage(userId: string, eventPayload: EventPayload): Promise<OrchestratorSuccessResult> {
   
   // 1. İŞLEM BAŞLIYOR: Bağlamı oluştur.
   console.log(`[ORCHESTRATOR] Yeni işlem başlıyor: ${eventPayload.type}`);
@@ -211,7 +219,7 @@ async function handleTherapySession(context: InteractionContext): Promise<string
 /**
  * Rüya analizi akışı
  */
-async function handleDreamAnalysis(context: InteractionContext): Promise<string> {
+async function handleDreamAnalysis(context: InteractionContext): Promise<{ analysis: DreamAnalysisResult, nextQuestion: string } | string> {
     const { initialEvent, initialVault } = context;
     const isFollowUp = initialEvent.data.isFollowUp === true;
 
@@ -228,7 +236,7 @@ async function handleDreamAnalysis(context: InteractionContext): Promise<string>
         } 
         // --- HAYIR, DİYALOĞA DEVAM ET. YENİ SORU ÜRET
         else {
-            return await AiService.generateNextDreamQuestion(context); // Artık context yolluyoruz
+            return await AiService.generateNextDreamQuestionAI(context); // YENİ ÇAĞRI
         }
     } 
     // --- BU İLK ANALİZ İSTEĞİ
@@ -269,7 +277,7 @@ async function handleDreamAnalysis(context: InteractionContext): Promise<string>
                 }
             }
         };
-        const firstQuestion = await AiService.generateNextDreamQuestion(firstQuestionContext);
+        const firstQuestion = await AiService.generateNextDreamQuestionAI(firstQuestionContext);
       
         const resultForClient = {
             analysis: dreamAnalysis,
@@ -285,7 +293,7 @@ async function handleDreamAnalysis(context: InteractionContext): Promise<string>
 
         console.log('[ORCHESTRATOR] Ücretsiz rüya analizi kullanım tarihi Vault\'a kaydedildi.');
         console.log(`[ORCHESTRATOR] Yeni rüya analizi tamamlandı ve loglandı.`);
-        return JSON.stringify(resultForClient);
+        return resultForClient;
     }
 }
 
@@ -306,7 +314,7 @@ async function handleStructuredAnalysis(context: InteractionContext): Promise<st
 /**
  * Gelişmiş günlük başlangıç akışı
  */
-async function handleDiaryStart(context: InteractionContext): Promise<string> {
+async function handleDiaryStart(context: InteractionContext): Promise<DiaryStart> {
   console.log(`[ORCHESTRATOR] Gelişmiş günlük başlangıç başlatılıyor: ${context.transactionId}`);
   // Adım 1: Günlük başlangıç analizi
   const diaryStart = await AiService.generateDiaryStart(context);
@@ -329,7 +337,7 @@ async function handleDiaryStart(context: InteractionContext): Promise<string> {
     await VaultService.updateUserVault(updatedVault);
   }
   console.log(`[ORCHESTRATOR] Gelişmiş günlük başlangıç tamamlandı: ${context.transactionId}`);
-  return JSON.stringify(diaryStart);
+  return diaryStart;
 }
 
 /**
@@ -366,7 +374,7 @@ async function handleDailyReflection(context: InteractionContext): Promise<strin
 /**
  * Onboarding tamamlama akışı
  */
-async function handleOnboardingCompletion(context: InteractionContext): Promise<string> {
+async function handleOnboardingCompletion(context: InteractionContext): Promise<{ success: boolean; message: string; }> {
   console.log(`[ORCHESTRATOR] Onboarding tamamlandı, cevaplar kaydediliyor: ${context.transactionId}`);
   
   // AI analizi yapma - sadece cevapları kaydet
@@ -378,5 +386,5 @@ async function handleOnboardingCompletion(context: InteractionContext): Promise<
   console.log(`[ORCHESTRATOR] Onboarding cevapları başarıyla kaydedildi: ${context.transactionId}`);
   
   // UI'a başarılı olduğuna dair bir sinyal döndür
-  return "ONBOARDING_SAVED";
+  return { success: true, message: "ONBOARDING_SAVED" };
 } 

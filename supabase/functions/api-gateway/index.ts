@@ -104,13 +104,12 @@ Deno.serve(async (req) => {
     const { type, payload } = await req.json();
 
     // --- MERKEZİ GÜVENLİK KAPI GÖREVLİSİ ---
-    // `prompt` veya `text` alanlarından hangisi varsa onu kontrol et.
     const textToAnalyze = payload.prompt || payload.text;
     
     if (textToAnalyze && typeof textToAnalyze === 'string' && textToAnalyze.trim().length > 0) {
       const safetyLevel = await classifyTextForSafety(textToAnalyze);
 
-      // Yüksek riskli (sadece level 3) içeriklere kapıyı kapat.
+      // Yüksek riskli (level 3) içeriklere kapıyı kapat.
       if (safetyLevel === 'level_3_high_alert') {
         console.warn(`🚨 GÜVENLİK İHLALİ: API Gateway'de '${safetyLevel}' seviyesinde riskli içerik engellendi.`);
         // Frontend'e ANLAŞILIR bir hata dönüyoruz.
@@ -121,6 +120,14 @@ Deno.serve(async (req) => {
           status: 400, // Bad Request
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
+      }
+      
+      // Orta riskli (level 2) içerikleri ise logla ve devam et.
+      if (safetyLevel === 'level_2_moderate_risk') {
+          console.warn(`⚠️ GÜVENLİK UYARISI: '${safetyLevel}' seviyesinde riskli içerik tespit edildi. İşleme devam ediliyor ama loglandı.`);
+          // Loglama için anlık bir client oluşturulabilir, ama bu her istekte client oluşturur.
+          // Daha iyi bir yöntem, webhook veya ayrı bir loglama servisi kullanmaktır.
+          // Şimdilik sadece konsola logluyoruz, çünkü buraya service_role_key eklemek riskli.
       }
     }
     // --- GÜVENLİK KONTROLÜNDEN GEÇTİ, İŞLEME DEVAM ---

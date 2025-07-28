@@ -1,5 +1,6 @@
 // services/event.service.ts
 import { supabase } from '../utils/supabase';
+import { getUsageStatsForUser } from './subscription.service'; // Üst kısma ekle
 
 export const EVENT_TYPES = [
   'daily_reflection',
@@ -87,70 +88,40 @@ export async function updateEventData(eventId: string, newData: Record<string, a
 }
 
 export async function canUserAnalyzeDream(): Promise<{ canAnalyze: boolean; daysRemaining: number }> {
-  // 🔥 TEST MODU: OTOMATİK PREMİUM - RUYA ANALİZİ SINISIZ
-  console.log('🔥 [TEST] Rüya analizi otomatik premium - sınırsız erişim');
-  return { canAnalyze: true, daysRemaining: 0 };
-
-  /* ESKİ KOD - TEST SONRASI AKTİF EDİLECEK
+  // 🔥 TEST MODU SİLİNDİ 🔥
   try {
-    const vault = await getUserVault();
-    const lastAnalysisTimestamp = vault?.freeUsage?.lastFreeDreamAnalysis;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Kullanıcı bulunamadı.");
     
-    // Eğer daha önce hiç analiz yapılmamışsa, tabii ki hakkı var.
-    if (!lastAnalysisTimestamp) {
-      return { canAnalyze: true, daysRemaining: 0 };
-    }
-
-    const lastAnalysisDate = new Date(lastAnalysisTimestamp);
-    // Son analiz tarihinin üzerine 7 gün ekle
-    const nextAvailableDate = new Date(lastAnalysisDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const now = new Date();
-
-    if (now >= nextAvailableDate) {
-      // 7 gün geçmiş, hakkı var.
-      return { canAnalyze: true, daysRemaining: 0 };
-    } else {
-      // Henüz 7 gün dolmamış. Kalan süreyi hesapla.
-      const diffTime = nextAvailableDate.getTime() - now.getTime();
-      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return { canAnalyze: false, daysRemaining };
-    }
+    const usage = await getUsageStatsForUser(user.id, 'dream_analysis');
+    // 'daysRemaining' mantığı SQL tarafında daha karmaşık hale geleceği için şimdilik basitleştiriyoruz.
+    // Sadece kullanıp kullanamayacağına odaklan.
+    return { canAnalyze: usage.can_use, daysRemaining: 0 }; 
   } catch (e) {
     console.error("⛔️ Rüya analizi hakkı kontrol hatası:", e);
-    // Bir hata olursa, tedbiren hakkı yok say.
-    return { canAnalyze: false, daysRemaining: 7 };
+    return { canAnalyze: false, daysRemaining: 1 };
   }
-  */
 }
 
 export async function canUserWriteNewDiary(): Promise<{ canWrite: boolean; message: string }> {
-  // 🔥 TEST MODU: OTOMATİK PREMİUM - GÜNLÜK YAZMA SINISIZ  
-  console.log('🔥 [TEST] Günlük yazma otomatik premium - sınırsız erişim');
-  return { canWrite: true, message: '' };
-
-  /* ESKİ KOD - TEST SONRASI AKTİF EDİLECEK
+  // 🔥 TEST MODU SİLİNDİ 🔥
   try {
-    const recentEvents = await getEventsForLast(1);
-    const lastDiaryEntry = recentEvents.find(e => e.type === 'diary_entry');
-    if (!lastDiaryEntry) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Kullanıcı bulunamadı.");
+
+    const usage = await getUsageStatsForUser(user.id, 'diary_write');
+    if (usage.can_use) {
       return { canWrite: true, message: '' };
-    }
-    const lastEntryTime = new Date(lastDiaryEntry.created_at).getTime();
-    const currentTime = Date.now();
-    const hoursPassed = (currentTime - lastEntryTime) / (1000 * 60 * 60);
-    if (hoursPassed < 18) {
-      const hoursRemaining = (18 - hoursPassed).toFixed(1);
+    } else {
       return {
         canWrite: false,
-        message: `Bugün için bir günlük keşfi yaptın. Bir sonraki günlüğün için yaklaşık ${hoursRemaining} saat sonra tekrar bekliyor olacağım!`
+            message: `Bu özellik için günlük limitine ulaştın. Sınırsız yazmak için Premium'a geçebilirsin.`
       };
     }
-    return { canWrite: true, message: '' };
   } catch (error) {
     console.error('Günlük yazma izni kontrolü hatası:', (error as Error).message);
     throw error;
   }
-  */
 }
 
 export async function getSessionEventsForUser(): Promise<AppEvent[]> {
