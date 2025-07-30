@@ -83,6 +83,11 @@ export default function HomeScreen() {
             therapy<Text style={styles.dot}>.</Text>
           </Text>
           <View style={styles.topButtons}>
+            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingButton}>
+              <Ionicons name="settings-sharp" size={28} color={Colors.light.tint} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.topButtons}>
             <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileButton}>
               <Ionicons name="person-circle-outline" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
@@ -320,6 +325,17 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   profileButton: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: 'rgba(227,232,240,0.4)',
+  },
+  settingButton: {
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderRadius: 16,
     padding: 8,

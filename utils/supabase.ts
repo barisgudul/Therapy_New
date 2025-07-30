@@ -1,12 +1,24 @@
 // utils/supabase.ts
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
+import 'react-native-url-polyfill/auto';
+// import Constants from 'expo-constants'; // << Şimdilik Constants'a ihtiyacımız yok
 
-// Anahtarları Constants üzerinden güvenli bir şekilde al
-// Bu değişkenlerin app.config.js dosyasında tanımlandığından emin olacağız.
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl as string;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey as string;
+// >> KESİN SONUÇ TESTİ <<
+// Anahtarları Constants'dan almak yerine doğrudan buraya yapıştırın.
+const supabaseUrl = "https://ijtcqbxagcdgfxrgamis.supabase.co"
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqdGNxYnhhZ2NkZ2Z4cmdhbWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNTAyMDEsImV4cCI6MjA2NzcyNjIwMX0.LPZoZbbIkfN0IsZLA9DyD6Y8iydlhemUdcRmlr_Els0';
+
+// Anahtarların dolu olduğundan emin olmak için kontrol edelim.
+console.log("ELLE GİRİLEN URL:", supabaseUrl);
 
 // Supabase istemcisini oluştur ve dışarı aktar
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});

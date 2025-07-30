@@ -26,7 +26,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // 1. Sadece Supabase listener'ını ve ilk oturum kontrolünü yap
     const getInitialSession = async () => {
+      console.log("Uygulama Başladı: getInitialSession çağrıldı. AsyncStorage'dan oturum okunuyor...");
       const { data: { session } } = await supabase.auth.getSession();
+      console.log("OKUNAN OTURUM:", session ? 'OTURUM BULUNDU ✅' : 'OTURUM BULUNAMADI ❌');
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);

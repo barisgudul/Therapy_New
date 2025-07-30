@@ -37,7 +37,27 @@ export async function signInWithEmail(email: string, password: string) {
 
 // 3. Mevcut Kullanıcının Oturumunu KAPAT
 export async function signOut() {
-  await supabase.auth.signOut();
+  console.log('Çıkış yapma işlemi başlatılıyor...');
+  
+  try {
+    // scope: 'all', kullanıcının tüm cihazlardaki oturumlarını sonlandırır.
+    // Bu, güvenlik açısından daha iyidir.
+    const { error } = await supabase.auth.signOut({ scope: 'global' });
+    
+    if (error) {
+      // Çıkış yaparken genellikle hata olmaz, ama olursa diye loglayalım.
+      console.error('Çıkış yapma hatası:', error.message);
+      // Uygulamada bir hata mesajı göstermek isterseniz burada throw edebilirsiniz.
+      throw error; 
+    }
+    
+    console.log('Kullanıcı başarıyla çıkış yaptı.');
+
+  } catch (error: any) {
+    // Fonksiyonun kendisinde bir sorun olursa diye yakalıyoruz.
+    console.error("signOut fonksiyonunda beklenmedik bir hata oluştu:", error.message);
+    throw error;
+  }
 }
 
 // 4. Şu an Giriş Yapmış Bir Kullanıcı Var mı? KONTROL ET
