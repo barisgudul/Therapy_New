@@ -6,12 +6,11 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
@@ -19,7 +18,7 @@ import { useSubscription, useSubscriptionPlans } from '../hooks/useSubscription'
 import * as API from '../services/api.service';
 import { SubscriptionPlan } from '../services/subscription.service';
 
-const { width } = Dimensions.get('window');
+
 
 export default function SubscriptionScreen() {
   const { user } = useAuth();
@@ -127,7 +126,7 @@ export default function SubscriptionScreen() {
           
           <View style={styles.priceContainer}>
             <Text style={[styles.planPrice, { color: theme.textColor }]}>
-              {plan.price === 0 ? 'Ücretsiz' : `₺${plan.price}`}
+              {plan.price === 0 ? 'Ücretsiz' : `$${plan.price}`}
             </Text>
             {plan.price > 0 && <Text style={[styles.planDuration, { color: theme.textColor, opacity: 0.6 }]}>/ aylık</Text>}
           </View>
