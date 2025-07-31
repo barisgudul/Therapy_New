@@ -6,26 +6,22 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import PendingDeletionScreen from '../components/PendingDeletionScreen';
 import { Colors } from '../constants/Colors';
+import { useAuth } from '../context/Auth';
 import { useVaultStore } from '../store/vaultStore';
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  // === HOOKS ===
   const router = useRouter();
-
-  // === ZUSTAND STORE BAĞLANTISI ===
+  const { isPendingDeletion } = useAuth();
   const vault = useVaultStore((state) => state.vault);
   const isLoadingVault = useVaultStore((state) => state.isLoading);
-  const fetchVault = useVaultStore((state) => state.fetchVault);
-  const clearVault = useVaultStore((state) => state.clearVault);
-
   const [modalVisible, setModalVisible] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  // === UYGULAMA YAŞAM DÖNGÜSÜ YÖNETİMİ ===
-  // Bu blok tamamen kaldırıldı.
 
   // === BİLDİRİM YÖNETİMİ (Vault kontrolü ile) ===
   useEffect(() => {
@@ -44,6 +40,14 @@ export default function HomeScreen() {
     }
   }, [isLoadingVault, vault]);
 
+  // Eğer kullanıcı silinme sürecindeyse, özel ekranı göster
+  if (isPendingDeletion) {
+    return <PendingDeletionScreen />;
+  }
+
+  // === UYGULAMA YAŞAM DÖNGÜSÜ YÖNETİMİ ===
+  // Bu blok tamamen kaldırıldı.
+
   const animateBg = (open: boolean) => Animated.timing(scaleAnim, { toValue: open ? 0.9 : 1, duration: 250, useNativeDriver: true }).start();
 
   // === GÜNLÜK KARTI: ARTIK VAULT'TAN OKUYOR ===
@@ -58,9 +62,11 @@ export default function HomeScreen() {
 
   // === TERAPİSTİNİ SEÇ: ARTIK VAULT'TAN OKUYOR ===
   const handleStart = () => {
-    vault?.profile?.nickname
-      ? router.push('/therapy/avatar' as const)
-      : router.push('/profile' as const);
+    if (vault?.profile?.nickname) {
+      router.push('/therapy/avatar' as const);
+    } else {
+      router.push('/profile' as const);
+    }
   };
 
   // === GEÇMİŞ SEANSLARIM: DİREKT YÖNLENDİRME ===

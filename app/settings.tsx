@@ -2,10 +2,10 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router/';
-import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { signOut } from '../utils/auth'; // Bu fonksiyonu daha sonra oluşturacağız.
-
+import React, { useState } from 'react'; // React'tan useState'i import et.
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { signOut } from '../utils/auth';
+import { supabase } from '../utils/supabase'; // supabase'i import et.
 // Her ayar butonu için bir component
 const SettingsButton = ({
   icon,
@@ -27,7 +27,7 @@ const SettingsButton = ({
 
 export default function SettingsScreen() {
   const router = useRouter();
-
+  const [isResetting, setIsResetting] = useState(false);
   const handleSignOut = () => {
     Alert.alert(
       'Çıkış Yap',
@@ -54,22 +54,82 @@ export default function SettingsScreen() {
   };
   
   const handleResetData = () => {
-    Alert.alert(
-      'Tüm Verileri Sıfırla',
-      'Bu işlem geri alınamaz! Hesabınızla ilişkili tüm seanslar, notlar ve kişisel veriler kalıcı olarak silinecektir. Emin misiniz?',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Evet, Hepsini Sil',
-          style: 'destructive',
-          onPress: () => {
-            console.log(">> TODO: Veri sıfırlama fonksiyonu çağrılacak.");
-            Alert.alert("Başarılı", "Tüm verileriniz başarıyla sıfırlandı.");
-          },
+  const confirmationText = "tüm verilerimi sil"; // Kullanıcının girmesi gereken metin.
+
+  // 1. SÜRTÜNME KATMANI: Standart Onay Alert'i
+  Alert.alert(
+    'Emin misiniz?',
+    `Bu işlem GERİ ALINAMAZ! Tüm uygulama verileriniz kalıcı olarak silinecektir.`,
+    [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Devam Et',
+        style: 'destructive',
+        onPress: () => {
+          // 2. DOĞRULAMA KATMANI: Metin Girişli Onay Alert'i (Sadece iOS'te bu şekilde çalışır)
+          // Not: Android için custom bir modal component oluşturmak gerekir.
+          // React Native'in Alert API'si Android'de metin girişi desteklemez.
+          // Şimdilik iOS varsayımıyla en güvenli senaryoyu kodluyoruz.
+          Alert.prompt(
+            'Son Onay',
+            `Lütfen devam etmek için aşağıdaki kutucuğa "${confirmationText}" yazın.`,
+            [
+              { text: 'Vazgeç', style: 'cancel' },
+              {
+                text: 'ONAYLIYORUM, SİL',
+                style: 'destructive',
+                onPress: async (inputText) => {
+                  if (inputText?.toLowerCase() !== confirmationText) {
+                    Alert.alert('Hata', 'Yazdığınız metin eşleşmedi. İşlem iptal edildi.');
+                    return;
+                  }
+                  
+                  // EĞER BURAYA ULAŞILDIYSA, KULLANICI İKİ AŞAMAYI DA GEÇMİŞTİR.
+                  await executeDataReset();
+                },
+              },
+            ],
+            'plain-text'
+          );
         },
-      ]
+      },
+    ]
+  );
+};
+
+// Asıl silme işlemini yapan fonksiyonu ayıralım ki kod temiz kalsın.
+const executeDataReset = async () => {
+  setIsResetting(true);
+  try {
+    const { error } = await supabase.functions.invoke('reset-user-data');
+    if (error) throw error;
+
+    Alert.alert(
+        "İşlem Başlatıldı", 
+        "Hesabınız 7 gün içinde kalıcı olarak silinmek üzere sıraya alındı. Bu süre zarfında fikrinizi değiştirirseniz, tekrar giriş yaparak işlemi iptal edebilirsiniz."
     );
-  };
+    // İşlem bittikten sonra kullanıcıyı uygulamadan atıyoruz.
+    await signOut();
+    router.replace('/login');
+
+  } catch (err: any) {
+    console.error("Veri sıfırlama işlemi sırasında hata:", err);
+    let errorMessage = "Beklenmedik bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+    
+    // Hatanın internet bağlantısı kaynaklı olup olmadığını kontrol et
+    if (err.message === 'Failed to fetch') {
+        errorMessage = "İnternet bağlantınız kontrol edin. Sunucuya ulaşılamadı.";
+    } 
+    // Supabase'in döndürdüğü spesifik bir hata varsa, onu gösterelim.
+    else if (err.details) { 
+        errorMessage = `Sunucu Hatası: ${err.details}`;
+    }
+    
+    Alert.alert("Başarısız Oldu", errorMessage);
+}  finally {
+    setIsResetting(false);
+  }
+};
 
   return (
     <View style={styles.container}>
@@ -90,7 +150,14 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tehlikeli Bölge</Text>
-          <SettingsButton icon="trash-outline" label="Tüm Verileri Sıfırla" onPress={handleResetData} isDestructive />
+          {isResetting ? (
+            <View style={styles.loadingWrapper}>
+                <ActivityIndicator color="#475569" />
+                <Text style={styles.loadingText}>Sıfırlanıyor...</Text>
+            </View>
+          ) : (
+            <SettingsButton icon="trash-outline" label="Tüm Verileri Sıfırla" onPress={handleResetData} isDestructive />
+          )}
           <SettingsButton icon="log-out-outline" label="Çıkış Yap" onPress={handleSignOut} isDestructive />
         </View>
 
@@ -180,5 +247,22 @@ const styles = StyleSheet.create({
   footerText: {
       fontSize: 14,
       color: '#9CA3AF'
+  },
+  loadingWrapper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16,
+      backgroundColor: 'white',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      marginBottom: 12,
+  },
+  loadingText: {
+      marginLeft: 12,
+      fontSize: 18,
+      color: '#475569',
+      fontWeight: '500'
   }
 });

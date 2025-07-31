@@ -2,26 +2,67 @@
 
 import { Session, User } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { useVaultStore } from '../store/vaultStore';
 import { supabase } from '../utils/supabase';
 
 type AuthContextType = { 
   user: User | null; 
   session: Session | null; 
-  isLoading: boolean; // "loading" yerine daha açıklayıcı
+  isLoading: boolean;
+  isPendingDeletion: boolean;
+  cancelDeletion: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType>({ user: null, session: null, isLoading: true });
+const AuthContext = createContext<AuthContextType>({ 
+  user: null, 
+  session: null, 
+  isLoading: true, 
+  isPendingDeletion: false,
+  cancelDeletion: async () => {} 
+});
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPendingDeletion, setIsPendingDeletion] = useState(false);
   
   // Zustand'dan fonksiyonları doğrudan al, state'i değil
   const fetchVault = useVaultStore((state) => state.fetchVault);
   const clearVault = useVaultStore((state) => state.clearVault);
+
+  const cancelDeletion = async () => {
+    if (!user) return; // Kullanıcı yoksa işlem yapma
+
+    try {
+      // Artık admin komutunu değil, GÜVENLİ ve sunucudaki
+      // 'cancel-deletion' isimli fonksiyonumuzu çağırıyoruz.
+      const { error } = await supabase.functions.invoke('cancel-deletion');
+      
+      // Eğer Edge Function bir hata döndürürse, onu yakala ve göster.
+      if (error) {
+        throw error;
+      }
+
+      // Sunucudaki işlem başarılı olursa, arayüzdeki durumu hemen güncelliyoruz.
+      setIsPendingDeletion(false);
+      Alert.alert(
+        'İşlem İptal Edildi', 
+        'Hesabınız normale döndü. Tekrar hoş geldiniz!'
+      );
+      
+      // Supabase'in en güncel kullanıcı bilgisini (metadata dahil) çekmesini sağlayalım.
+      await supabase.auth.refreshSession();
+      
+    } catch (err: any) {
+      // Fonksiyonu çağırma sırasında bir hata olursa (örn: internet bağlantısı yoksa)
+      // bunu kullanıcıya bildiriyoruz.
+      console.error('Hesap iptal işlemi başarısız:', err);
+      Alert.alert('Hata', err.message || 'İşlem sırasında beklenmedik bir hata oluştu.');
+    }
+  };
 
   useEffect(() => {
     // 1. Sadece Supabase listener'ını ve ilk oturum kontrolünü yap
@@ -38,8 +79,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false); // Her state değişiminden sonra yüklenmenin bittiğini belirt
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      
+      // Kullanıcı durumunu kontrol et
+      const userStatus = currentUser?.user_metadata?.status;
+      if (userStatus === 'pending_deletion') {
+        setIsPendingDeletion(true);
+      } else {
+        setIsPendingDeletion(false);
+      }
+      
+      setIsLoading(false);
     });
 
     return () => {
@@ -74,6 +125,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
   }, [user, fetchVault, clearVault]); // Bu effect sadece 'user' değiştiğinde tetiklenir
 
-  const value = { session, user, isLoading };
+  const value = { session, user, isLoading, isPendingDeletion, cancelDeletion };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
