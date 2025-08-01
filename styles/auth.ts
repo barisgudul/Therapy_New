@@ -8,7 +8,7 @@ export const authScreenStyles = StyleSheet.create({
   // TEMEL YAPI: Temiz, aydınlık, ferah.
   background: {
     flex: 1,
-    backgroundColor: '#F9F9F9', // Saf beyaz değil, çok hafif bir gri. iOS hissi.
+    backgroundColor: '#F9F9F9', 
   },
   container: {
     flexGrow: 1,
@@ -16,8 +16,6 @@ export const authScreenStyles = StyleSheet.create({
     paddingHorizontal: Spacing.large,
     paddingBottom: Spacing.large,
   },
-
-  // BAŞLIK: Net, okunaklı, hiyerarşik.
   headerContainer: {
     alignItems: 'center',
     marginBottom: Spacing.xxlarge + Spacing.medium, // Daha fazla boşluk.

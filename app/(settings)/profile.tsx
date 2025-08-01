@@ -1,25 +1,23 @@
-// app/profile.tsx (SON. NİHAİ. KUSURSUZ.)
+// app/(settings)/profile.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { StackActions } from '@react-navigation/native';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router/';
+import { useFocusEffect, useRouter } from 'expo-router/';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { Colors } from '../constants/Colors';
-import { useAuth } from '../context/Auth';
-import { useSubscription } from '../hooks/useSubscription';
-import { useVaultStore } from '../store/vaultStore';
+import { Colors } from '../../constants/Colors';
+import { useSubscription } from '../../hooks/useSubscription';
+import { useVaultStore } from '../../store/vaultStore';
 
 // MİMARİ SADAKATİ
 
@@ -45,11 +43,8 @@ const initialProfileState: LocalProfileState = {
 
 export default function ProfileScreen() {
     const router = useRouter();
-    const navigation = useNavigation();
-    const { session, user } = useAuth();
-
     // Subscription hook'u ve refresh fonksiyonu
-    const { isPremium, planName, loading: subscriptionLoading, refresh: refreshSubscription } = useSubscription();
+    const { planName, loading: subscriptionLoading, refresh: refreshSubscription } = useSubscription();
 
     // Verinin tek, merkezi ve reaktif kaynağı: Zustand Store'umuz.
     const vault = useVaultStore((state) => state.vault);
@@ -69,7 +64,7 @@ export default function ProfileScreen() {
         useCallback(() => {
             console.log('🔄 [PROFILE] Ekran odaklandı, abonelik durumu yenileniyor.');
             refreshSubscription();
-        }, [])
+        }, [refreshSubscription])
     );
 
     // Vault'u yükle
@@ -210,9 +205,9 @@ export default function ProfileScreen() {
 
     return (
         <View style={styles.container}>
-            <TouchableOpacity onPress={() => navigation.dispatch(StackActions.popToTop())} style={styles.back}>
-                <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
-            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+    <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+</TouchableOpacity>
             <View style={styles.header}>
                 <Text style={styles.title}>Terapi Profili</Text>
             </View>

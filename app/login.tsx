@@ -9,6 +9,19 @@ import { AuthLayout } from '../components/AuthLayout';
 import { authScreenStyles as styles } from '../styles/auth';
 import { supabase } from '../utils/supabase';
 
+const getFriendlyError = (raw: string): string => {
+    const msg = raw.toLowerCase();
+    if (msg.includes("invalid login credentials"))
+        return "E-posta veya şifre hatalı. Lütfen tekrar kontrol edin.";
+    if (msg.includes("network") || msg.includes("fetch"))
+        return "İnternet bağlantınızı kontrol edin.";
+    if (msg.includes("user not found"))
+        return "Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.";
+    if (msg.includes("email not confirmed"))
+        return "Lütfen e-posta adresinizi onaylayın.";
+    return "Beklenmedik bir hata oluştu. Daha sonra tekrar deneyin.";
+};
+
 export default function LoginScreen() {
     const router = useRouter();
     const [email, setEmail] = useState('');
@@ -37,9 +50,8 @@ const handleSignIn = async () => {
         if (error) {
             // Eğer Supabase'den bir HATA geldiyse, bu bizim için en değerli bilgidir.
             console.error("[KESİN TEST] HATA: Supabase doğrudan hata döndürdü!");
-            console.error("HATA MESAJI:", error.message);
-            console.error("HATA DETAYI:", error);
-            setError(`Supabase Hatası: ${error.message}`);
+            console.error("[DETAY] Sunucu yanıtı:", error);
+            setError(getFriendlyError(error.message));
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } else if (data.session) {
             // Eğer bir OTURUM geldiyse, bu BAŞARIDIR.
@@ -67,6 +79,11 @@ const handleSignIn = async () => {
         console.log("======================================");
     }
 };
+    const ForgotPasswordLink = (
+  <TouchableOpacity onPress={() => router.push('/forgot-password')}>
+    <Text style={[styles.linkText, { marginBottom: 12 }]}>Şifreni mi unuttun?</Text>
+  </TouchableOpacity>
+);
 
     const FooterLink = (
         <TouchableOpacity onPress={() => router.push('/register')}>
@@ -78,11 +95,15 @@ const handleSignIn = async () => {
         <AuthLayout 
             title="Tekrar Hoş Geldin" 
             subtitle="Hesabına giriş yapmak için bilgilerini gir."
-            footer={FooterLink}
+            footer={
+    <>
+      {ForgotPasswordLink}   {/* bunu sakla */}
+      {FooterLink}          {/* bunu da sakla */}
+    </>
+  }
         >
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            {/* Temiz, gruplanmış inputlar */}
             <View style={styles.inputWrapper}>
                 <AuthInput iconName="mail-outline" placeholder="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
                 <View style={styles.inputSeparator} />

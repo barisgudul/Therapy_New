@@ -93,11 +93,6 @@ export default function HomeScreen() {
               <Ionicons name="settings-sharp" size={28} color={Colors.light.tint} />
             </TouchableOpacity>
           </View>
-          <View style={styles.topButtons}>
-            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileButton}>
-              <Ionicons name="person-circle-outline" size={28} color={Colors.light.tint} />
-            </TouchableOpacity>
-          </View>
         </View>
 
         {/* Ana İçerik */}
@@ -134,25 +129,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </Pressable>
 
-            <Pressable
-              onPress={() => router.push('/ai_summary' as const)}
-              style={({ pressed }) => [
-                styles.button,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.buttonGradient}
-              >
-                <View style={styles.buttonContent}>
-                  <Ionicons name="analytics-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>Yapay Zeka Destekli Ruh Hâli Analizi</Text>
-                </View>
-              </LinearGradient>
-            </Pressable>
+            
 
             <Pressable
               onPress={() => router.push('/diary' as const)}
@@ -173,7 +150,45 @@ export default function HomeScreen() {
                 </View>
               </LinearGradient>
             </Pressable>
-
+            <Pressable
+              onPress={() => router.push('/dream' as const)}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="cloudy-night-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>Yapay Zeka Destekli Rüya Analizi</Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+            
+            <Pressable
+              onPress={() => router.push('/ai_summary' as const)}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#F8FAFF']}
+                start={{x: 0, y: 0}}
+                end={{x: 1, y: 1}}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons name="analytics-outline" size={20} color={Colors.light.tint} />
+                  <Text style={styles.buttonText}>Yapay Zeka Destekli Ruh Hâli Analizi</Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
             <Pressable
               onPress={handleStart}
               style={({ pressed }) => [
@@ -193,7 +208,6 @@ export default function HomeScreen() {
                 </View>
               </LinearGradient>
             </Pressable>
-
             <Pressable
               onPress={handleGoToAllTranscripts}
               style={({ pressed }) => [
@@ -214,25 +228,7 @@ export default function HomeScreen() {
               </LinearGradient>
             </Pressable>
 
-            <Pressable
-              onPress={() => router.push('/dream' as const)}
-              style={({ pressed }) => [
-                styles.button,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.buttonGradient}
-              >
-                <View style={styles.buttonContent}>
-                  <Ionicons name="cloudy-night-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>Yapay Zeka Destekli Rüya Analizi</Text>
-                </View>
-              </LinearGradient>
-            </Pressable>
+            
 
             <TouchableOpacity 
               style={styles.linkButton} 
@@ -329,17 +325,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
     letterSpacing: -0.2,
-  },
-  profileButton: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(227,232,240,0.4)',
   },
   settingButton: {
     backgroundColor: 'rgba(255,255,255,0.92)',

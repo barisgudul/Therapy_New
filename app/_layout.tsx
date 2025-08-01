@@ -6,7 +6,7 @@ import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router/';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View} from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '../context/Auth';
@@ -71,6 +71,7 @@ function RootNavigation() {
         <Stack.Screen name="register" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="index" />
+        <Stack.Screen name="(settings)" />
       </Stack>
       {/* Status Bar stilini de 'dark' olarak sabitleyerek 
           aydınlık tema ile uyumlu olmasını sağlayabilirsiniz. */}
