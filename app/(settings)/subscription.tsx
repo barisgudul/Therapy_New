@@ -1,39 +1,33 @@
 // app/(settings)/subscription.tsx
-import FeatureComparisonTable from '@/components/subscription/FeatureComparisonTable'; // YENİ COMPONENT'İ IMPORT ET
+import FeatureComparisonTable from '@/components/subscription/FeatureComparisonTable';
 import PlanCard from '@/components/subscription/PlanCard';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
-import React, { useMemo, useState } from 'react'; // useMemo'yu import ettiğinden emin ol
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message'; // Toast'u import et
 import { Colors } from '../../constants/Colors';
 import { useAuth } from '../../context/Auth';
 import { useSubscription, useSubscriptionPlans } from '../../hooks/useSubscription';
-import * as API from '../../services/api.service';
 import { SubscriptionPlan } from '../../services/subscription.service';
+// Diğer importlarının yanına
+import { PlanName } from '../../store/subscriptionStore'; // PlanName'i buradan import et
 
-// TÜM SABİT VERİLER ARTIK COMPONENT DIŞINDA VE TEK BİR YERDE.
-const planThemes = {
-    Premium: { gradient: ['#F4E6FF', '#EBF0FF'], textColor: '#5B21B6', borderColor: 'rgba(124, 58, 237, 0.3)', shadowColor: 'rgba(124, 58, 237, 0.4)', icon: 'diamond-outline' as const, },
-    '+Plus': { gradient: ['#EFF6FF', '#E0F2FE'], textColor: '#075985', borderColor: 'rgba(14, 165, 233, 0.3)', shadowColor: 'rgba(14, 165, 233, 0.4)', icon: 'star-outline' as const, },
-    Free: { gradient: ['#F8FAFC', '#F1F5F9'], textColor: '#475569', borderColor: 'rgba(203, 213, 225, 0.6)', shadowColor: '#94A3B8', icon: 'person-outline' as const, },
+const getThemeForPlan = (planName: string) => {
+    const themes = {
+        Premium: { gradient: ['#F4E6FF', '#EBF0FF'], textColor: '#5B21B6', borderColor: 'rgba(124, 58, 237, 0.3)', shadowColor: 'rgba(124, 58, 237, 0.4)', icon: 'diamond-outline' as const, },
+        '+Plus': { gradient: ['#EFF6FF', '#E0F2FE'], textColor: '#075985', borderColor: 'rgba(14, 165, 233, 0.3)', shadowColor: 'rgba(14, 165, 233, 0.4)', icon: 'star-outline' as const, },
+        Free: { gradient: ['#F8FAFC', '#F1F5F9'], textColor: '#475569', borderColor: 'rgba(203, 213, 225, 0.6)', shadowColor: '#94A3B8', icon: 'person-outline' as const, },
+    };
+    return themes[planName as keyof typeof themes] || themes.Free;
 };
 
-const comparisonData = [
-    { feature: 'Metin Seansları', plus: 'Sınırsız', premium: 'Sınırsız', icon: 'chatbubble-ellipses-outline' as const },
-    { feature: 'Sesli Seanslar', plus: '❌', premium: 'Sınırsız', icon: 'mic-outline' as const },
-    { feature: 'Rüya Analizi', plus: '1/hafta', premium: 'Sınırsız', icon: 'moon-outline' as const },
-    { feature: 'AI Raporları', plus: '1/hafta', premium: 'Sınırsız', icon: 'analytics-outline' as const },
-    { feature: 'Terapist Seçimi', plus: '1 Terapist', premium: 'Tüm Terapistler', icon: 'people-outline' as const },
-    { feature: 'Seans Geçmişi', plus: '90 gün', premium: 'Sınırsız', icon: 'time-outline' as const },
-    { feature: 'PDF Export', plus: 'Sınırsız', premium: 'Sınırsız', icon: 'download-outline' as const },
-    { feature: 'Öncelikli Destek', plus: '❌', premium: 'Evet', icon: 'headset-outline' as const }
-];
 
 export default function SubscriptionScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  const { planName, refresh: refreshSubscription } = useSubscription();
+  const { planName, refresh: setSubscriptionPlan } = useSubscription();
   const { plans, loading: plansLoading } = useSubscriptionPlans();
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
 
@@ -41,15 +35,53 @@ export default function SubscriptionScreen() {
     if (!user || isUpgrading) return;
     setIsUpgrading(plan.id);
     try {
-      await API.upgradeUserPlanForTesting(user.id, plan.name);
-      Alert.alert('Yükseltme Başarılı!', `Tebrikler, ${plan.name} planının tüm ayrıcalıklarına eriştiniz.`, [{ text: 'Harika!', onPress: async () => { await refreshSubscription(); router.replace('/profile'); }}]);
-    } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Plan değiştirilirken bir sorun oluştu.');
+      // ARTIK HANGİ PLANA GEÇECEĞİNİ SÖYLÜYORUZ!
+      setSubscriptionPlan(plan.name as PlanName); // `PlanName` tipini import etmeyi unutma
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Simülasyon Başarılı!',
+        text2: `Tebrikler, ${plan.name} planına geçtiniz.`
+      });
+      router.replace('/profile');
+    } catch (error) {
+      console.error(error); // Hata varsa logla!
+      Toast.show({ type: 'error', text1: 'Hata', text2: 'Bir sorun oluştu.' });
     } finally {
       setIsUpgrading(null);
     }
   };
-  
+  // ... handleUpgrade fonksiyonundan sonra ...
+
+const comparisonData = useMemo(() => {
+    if (plans.length === 0) return [];
+
+    const premiumPlan = plans.find(p => p.name === 'Premium');
+    const plusPlan = plans.find(p => p.name === '+Plus');
+
+    if (!premiumPlan || !plusPlan) return [];
+    
+    // Tüm özelliklerin bir listesini çıkaralım (varsayılan ikonlarla)
+    const allFeatureKeys = [
+        { key: 'text_sessions', name: 'Metin Seansları', icon: 'chatbubble-ellipses-outline' },
+        { key: 'voice_sessions', name: 'Sesli Seanslar', icon: 'mic-outline' },
+        { key: 'dream_analysis', name: 'Rüya Analizi', icon: 'moon-outline' },
+        { key: 'ai_reports', name: 'AI Raporları', icon: 'analytics-outline' },
+        { key: 'therapist_selection', name: 'Terapist Seçimi', icon: 'people-outline' },
+        { key: 'session_history', name: 'Seans Geçmişi', icon: 'time-outline' },
+        { key: 'pdf_export', name: 'PDF Export', icon: 'download-outline' },
+        { key: 'priority_support', name: 'Öncelikli Destek', icon: 'headset-outline' }
+    ];
+
+    return allFeatureKeys.map(feature => ({
+        feature: feature.name,
+        // Backend'den gelen 'features' objesinden değeri al, yoksa '❌' bas.
+        plus: plusPlan.features[feature.key] || '❌',
+        premium: premiumPlan.features[feature.key] || '❌',
+        icon: feature.icon as any // Tipi any yap geç, uğraşma şimdi
+    }));
+
+}, [plans]); // Sadece planlar değiştiğinde yeniden hesapla
   // DÜZELTİLDİ: Orijinal diziyi bozmuyor ve her render'da yeniden hesaplanmıyor.
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => b.price - a.price);
@@ -75,7 +107,8 @@ export default function SubscriptionScreen() {
             <PlanCard
               key={plan.id}
               plan={plan}
-              theme={planThemes[plan.name as keyof typeof planThemes] || planThemes.Free}
+              // ARTIK DOĞRU YAPIYORSUN. DİNAMİK VERİYE GÖRE TEMA SEÇİYORSUN.
+              theme={getThemeForPlan(plan.name)} 
               isCurrent={planName === plan.name}
               isLoading={isUpgrading === plan.id}
               onUpgrade={() => handleUpgrade(plan)}
@@ -84,11 +117,12 @@ export default function SubscriptionScreen() {
         </View>
         
         {/* ARTIK TEMİZ BİR COMPONENT ÇAĞRISI. İÇİNDE NE OLDUĞU BU SAYFANIN UMURUNDA DEĞİL. */}
+        {/* ARTIK GERÇEKTEN TEMİZ. */}
         <FeatureComparisonTable 
-            comparisonData={comparisonData}
+            comparisonData={comparisonData} // DİNAMİK VERİ
             themeColors={{
-                plusColor: planThemes['+Plus'].textColor,
-                premiumColor: planThemes.Premium.textColor,
+                plusColor: getThemeForPlan('+Plus').textColor, // TEMADAN RENK
+                premiumColor: getThemeForPlan('Premium').textColor, // TEMADAN RENK
             }}
         />
       </ScrollView>
