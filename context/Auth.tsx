@@ -59,12 +59,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // TEK VE GÜÇLÜ useEffect. BÜTÜN MANTIK BURADA.
+    // TEK VE GÜÇLÜ useEffect. BÜTÜN MANTIK BURADA.
   useEffect(() => {
-    setIsLoading(true);
-    console.log("AuthProvider bağlandı: Oturum durumu dinleniyor...");
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Bu fonksiyon, AuthProvider'ın dışında tanımlı olduğu için
+    // her render'da yeniden oluşmaz. Bu yüzden bağımlılık listesinde
+    // olmasına gerek yok.
+    const handleAuthStateChange = async (_event: string, session: Session | null) => {
       console.log("onAuthStateChange tetiklendi. Oturum:", session ? 'VAR ✅' : 'YOK ❌');
       
       setSession(session);
@@ -74,32 +74,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (currentUser) {
         console.log("Kullanıcı oturumu aktif. İşlemler başlıyor...");
         
-        const userStatus = currentUser.user_metadata?.status;
-        setIsPendingDeletion(userStatus === 'pending_deletion');
-        
         try {
-          await fetchVault();
-          await supabase.functions.invoke('assign-free-plan');
-          console.log('✨ [AUTH] Gerekli veriler yüklendi ve ücretsiz plan atandı.');
+          // Vault'u yükle. Bu fonksiyon artık bağımlılık olarak eklendiği için
+          // her zaman en güncel halini kullanacak.
+          await fetchVault(); 
+          console.log('✨ [AUTH] Vault verisi başarıyla yüklendi.');
         } catch (error) {
-          console.error("⛔️ [AUTH] Oturum açma sonrası işlemler başarısız:", (error as Error).message);
+          console.error("⛔️ [AUTH] Vault yüklemesi başarısız:", (error as Error).message);
         }
 
       } else {
         console.log("Kullanıcı oturumu kapalı. Temizlik yapılıyor...");
-        clearVault();
-        setIsPendingDeletion(false);
+        clearVault(); // Bu da aynı şekilde güncel olacak.
       }
       
+      // Bütün işlemler bittikten sonra yükleme durumunu false yap.
       setIsLoading(false);
+    };
+
+    // İlk başta mevcut oturumu bir kere kontrol et.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        handleAuthStateChange('INITIAL_SESSION', session);
     });
+
+    // Sonra state değişikliklerini dinlemeye başla.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     return () => {
       console.log("AuthProvider kaldırıldı: Dinleyici aboneliği sonlandırılıyor.");
-      authListener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
-  }, []); // Bağımlılık dizisi boş. Sadece bir kere çalışır.
-
+  }, [fetchVault, clearVault]); // <-- DOĞRU VE DÜRÜST BAĞIMLILIKLAR
   const value = { session, user, isLoading, isPendingDeletion, cancelDeletion };
   
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

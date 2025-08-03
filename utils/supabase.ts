@@ -1,6 +1,5 @@
 // utils/supabase.ts
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import 'react-native-url-polyfill/auto';
 // import Constants from 'expo-constants'; // << Şimdilik Constants'a ihtiyacımız yok
@@ -13,12 +12,4 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 // Anahtarların dolu olduğundan emin olmak için kontrol edelim.
 console.log("ELLE GİRİLEN URL:", supabaseUrl);
 
-// Supabase istemcisini oluştur ve dışarı aktar
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: AsyncStorage,
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

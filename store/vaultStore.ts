@@ -74,19 +74,19 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       }
       console.log('🔍 [VAULT-STORE] Session var:', !!session);
       
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        throw new Error(`User error: ${userError.message}`);
-      }
-      console.log('🔍 [VAULT-STORE] User var:', !!user, user?.id);
-      
+      console.log('ADIM 2: getUser çağrılıyor...');
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        console.log('❌ [VAULT-STORE] User yok, vault null');
-        set({ isLoading: false, vault: null, error: 'Kullanıcı oturumu bulunamadı' });
-        return;
+          throw new Error('Kullanıcı bulunamadı.');
       }
-      
-      console.log('🔍 [VAULT-STORE] Supabase sorgusu yapılıyor...');
+
+      // !!!!!!! İŞTE YENİ KANIT SATIRI !!!!!!!!
+      console.log('--- KANIT A / UYGULAMANIN KİMLİĞİ ---');
+      console.log(user.id);
+      console.log('------------------------------------');
+
+      console.log(`ADIM 3: user_vaults tablosu sorgulanıyor (ID: ${user.id})...`);
+      // ...sonraki kod
       const { data, error } = await supabase
         .from('user_vaults')
         .select('vault_data')

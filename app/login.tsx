@@ -1,6 +1,5 @@
 // app/login.tsx
 
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TouchableOpacity, View } from 'react-native';
@@ -9,6 +8,7 @@ import { AuthLayout } from '../components/AuthLayout';
 import { authScreenStyles as styles } from '../styles/auth';
 import { supabase } from '../utils/supabase';
 
+// Hata mesajları zaten kullanıcı dostu, bunlara dokunmuyoruz.
 const getFriendlyError = (raw: string): string => {
     const msg = raw.toLowerCase();
     if (msg.includes("invalid login credentials"))
@@ -29,61 +29,76 @@ export default function LoginScreen() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // login.tsx içindeki handleSignIn fonksiyonunun YENİ ve EN YALIN HALİ
-
-const handleSignIn = async () => {
-    // 1. Arayüzü temizle ve yükleme moduna al.
-    setError('');
-    setLoading(true);
-    console.log("======================================");
-    console.log("[KESİN TEST] Eylem Başladı. En temel Supabase komutu test ediliyor.");
-
-    try {
-        // 2. DOĞRUDAN VE EN TEMEL Supabase komutunu çağır.
-        // Arada hiçbir kendi fonksiyonumuz yok.
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email: email,
-            password: password,
-        });
-
-        // 3. Supabase'den gelen cevabı analiz et.
-        if (error) {
-            // Eğer Supabase'den bir HATA geldiyse, bu bizim için en değerli bilgidir.
-            console.error("[KESİN TEST] HATA: Supabase doğrudan hata döndürdü!");
-            console.error("[DETAY] Sunucu yanıtı:", error);
-            setError(getFriendlyError(error.message));
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } else if (data.session) {
-            // Eğer bir OTURUM geldiyse, bu BAŞARIDIR.
-            console.log("[KESİN TEST] BAŞARI: Supabase geçerli bir OTURUM döndürdü!");
-            console.log("OTURUM KULLANICI ID:", data.session.user.id);
-            // Başarılı olduğuna göre, yönlendirme yapabiliriz.
-            router.replace('/');
-        } else {
-            // Hem hata hem de oturum yoksa, bu beklenmedik bir durumdur.
-            console.warn("[KESİN TEST] UYARI: Supabase'den ne hata ne de oturum döndü. Bu garip bir durum.");
-            setError("Bilinmeyen bir sorun oluştu.");
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        }
-
-    } catch (e: any) {
-        // 4. Eğer yukarıdaki kodun kendisi çökerse (network vs.), burada yakalarız.
-        console.error("[KESİN TEST] KRİTİK HATA: 'try' bloğu tamamen çöktü!");
-        console.error("Yakalanan Kritik Hata:", e);
-        setError("Uygulama Hatası: Sunucuya bağlanılamadı.");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-        // 5. Yüklemeyi durdur.
-        setLoading(false);
-        console.log("[KESİN TEST] Eylem Bitti.");
+    // BU TEST FONKSİYONU, ASIL SORUNU ÇÖZENE KADAR BİZİM RÖNTGEN MAKİNEMİZ.
+    // DOKUNMUYORUZ.
+    const handleSignIn = async () => {
+        setError('');
+        setLoading(true);
         console.log("======================================");
-    }
-};
+        console.log("[KESİN TEST] Eylem Başladı: Giriş yapılıyor...");
+        try {
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (signInError) {
+                console.error("[KESİN TEST] HATA: Giriş yapılamadı.", signInError.message);
+                setError(getFriendlyError(signInError.message));
+                setLoading(false); return;
+            }
+
+            const user = signInData.user;
+            if (!user) {
+                console.error("[KESİN TEST] HATA: Giriş başarılı ama kullanıcı bilgisi alınamadı.");
+                setError("Giriş sonrası kullanıcı bilgisi alınamadı.");
+                setLoading(false); return;
+            }
+
+            console.log("[KESİN TEST] BAŞARI: Giriş yapıldı. Kullanıcı ID:", user.id);
+            console.log("[KESİN TEST] Şimdi veritabanı testi başlıyor...");
+
+            const { data: vaultData, error: vaultError } = await supabase
+                .from('user_vaults')
+                .select('user_id').eq('user_id', user.id).limit(1).single();
+
+            if (vaultError) {
+                console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                console.error("[KESİN TEST] KRİTİK HATA: Veritabanı sorgusu başarısız!", vaultError);
+                console.error("BU HATA, RLS POLİTİKASININ BU SORGUMUZU ENGELLEDİĞİ ANLAMINA GELİR.");
+                console.error("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                setError("Veritabanına erişim engellendi. Lütfen destekle iletişime geçin.");
+                await supabase.auth.signOut();
+                setLoading(false); return;
+            }
+
+            if (vaultData) {
+                console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                console.log("[KESİN TEST] ZAFER: Veritabanından veri başarıyla okundu!");
+                console.log("TEORİ ÇÖKTÜ: user_id doğru, RLS çalışıyor. Sorun state management'ta.");
+                console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+                router.replace('/');
+            } else {
+                console.warn("[KESİN TEST] UYARI: Sorgu başarılı ama veri bulunamadı.");
+                setError("Giriş başarılı ama profil veriniz bulunamadı.");
+                await supabase.auth.signOut();
+            }
+        } catch (e: any) {
+            console.error("[KESİN TEST] KRİTİK HATA: Bütün 'try' bloğu çöktü!", e.message);
+            setError("Beklenmedik bir uygulama hatası.");
+        } finally {
+            setLoading(false);
+            console.log("[KESİN TEST] Eylem Bitti.");
+            console.log("======================================");
+        }
+    };
+
+    // Footer linkleri de standart ve iyi. Dokunmuyoruz.
     const ForgotPasswordLink = (
-  <TouchableOpacity onPress={() => router.push('/forgot-password')}>
-    <Text style={[styles.linkText, { marginBottom: 12 }]}>Şifreni mi unuttun?</Text>
-  </TouchableOpacity>
-);
+        <TouchableOpacity onPress={() => router.push('/forgot-password')} style={{ alignItems: 'center' }}>
+            <Text style={[styles.linkText, { marginBottom: 12 }]}>Şifreni mi unuttun?</Text>
+        </TouchableOpacity>
+    );
 
     const FooterLink = (
         <TouchableOpacity onPress={() => router.push('/register')}>
@@ -91,23 +106,39 @@ const handleSignIn = async () => {
         </TouchableOpacity>
     );
 
+    // Bütün değişiklikler burada.
     return (
         <AuthLayout 
-            title="Tekrar Hoş Geldin" 
-            subtitle="Hesabına giriş yapmak için bilgilerini gir."
+            title="Oturum Aç" 
+            subtitle="Kayıtlı e-posta ve şifrenle hesabına eriş."
+            // O render hatasını engellemek için footer'ı güvenli bir View'e alıyoruz.
             footer={
-    <>
-      {ForgotPasswordLink}   {/* bunu sakla */}
-      {FooterLink}          {/* bunu da sakla */}
-    </>
-  }
+                <View>
+                    {ForgotPasswordLink}
+                    {FooterLink}
+                </View>
+            }
         >
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <View style={styles.inputWrapper}>
-                <AuthInput iconName="mail-outline" placeholder="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+                <AuthInput 
+                    iconName="mail-outline" 
+                    placeholder="E-posta Adresiniz" // Daha profesyonel
+                    value={email} 
+                    onChangeText={setEmail} 
+                    keyboardType="email-address" 
+                    autoCapitalize="none" 
+                />
                 <View style={styles.inputSeparator} />
-                <AuthInput iconName="lock-closed-outline" placeholder="Şifre" value={password} onChangeText={setPassword} secureTextEntry onSubmitEditing={handleSignIn} />
+                <AuthInput 
+                    iconName="lock-closed-outline" 
+                    placeholder="Şifreniz" // Daha profesyonel
+                    value={password} 
+                    onChangeText={setPassword} 
+                    secureTextEntry 
+                    onSubmitEditing={handleSignIn} 
+                />
             </View>
 
             <Pressable onPress={handleSignIn} style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]} disabled={loading}>

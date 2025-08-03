@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+// Bu import yolu yanlışsa düzelt.
 import { authScreenStyles as styles } from '../styles/auth';
 
 interface AuthLayoutProps {

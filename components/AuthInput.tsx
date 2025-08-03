@@ -1,10 +1,11 @@
 // components/AuthInput.tsx
+
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { TextInput, TextInputProps, View } from 'react-native';
+// Bu import yolu yanlışsa düzelt.
 import { authScreenStyles as styles } from '../styles/auth';
 
-// Standart TextInputProps'larını alıp üzerine kendi proplarımızı ekliyoruz.
 interface AuthInputProps extends TextInputProps {
   iconName: keyof typeof Ionicons.glyphMap;
 }
@@ -20,4 +21,4 @@ export const AuthInput = ({ iconName, ...props }: AuthInputProps) => {
       />
     </View>
   );
-}; 
+};

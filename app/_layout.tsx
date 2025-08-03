@@ -29,7 +29,7 @@ const InitialLayout = () => {
       return;
     }
 
-    const inAuthGroup = segments[0] === 'login' || segments[0] === 'register';
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'register' || segments[0] === 'forgot-password';
     const inOnboardingGroup = segments[0] === '(onboarding)';
 
     // Onboarding sırasında otomatik yönlendirme yapma
