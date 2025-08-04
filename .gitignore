@@ -42,3 +42,5 @@ app-example
 
 # Gizli API key dosyası
 app.config.local.js
+
+.env.local

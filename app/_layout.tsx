@@ -10,13 +10,62 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
+import * as Sentry from '@sentry/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Toast from 'react-native-toast-message';
+import ErrorState from '../components/dream/ErrorState';
+import UndoToast from '../components/dream/UndoToast';
 import { AuthProvider, useAuth } from '../context/Auth';
+import { LoadingProvider } from '../context/Loading';
+import { useGlobalLoading } from '../hooks/useGlobalLoading';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://fc3049277d1bf518a27956cc2ffc8ad9@o4509786496696320.ingest.de.sentry.io/4509786497155152',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: false,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // Güvenlik: Hassas verileri filtrele
+  beforeSend(event) {
+    // Kullanıcı email'ini sil
+    if (event.user) {
+      delete event.user.email;
+    }
+    // Diğer hassas verileri de temizle
+    if (event.contexts?.app) {
+      delete event.contexts.app.version;
+    }
+    return event;
+  },
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
+
+// YENİ: QueryClient'ı oluştur.
+const queryClient = new QueryClient();
+
+// Toast konfigürasyonu
+const toastConfig = {
+  custom: ({ props }: any) => (
+    <UndoToast onUndo={props.onUndo} />
+  ),
+};
 
 const InitialLayout = () => {
   const { session, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  
+  // Global loading state'i başlat
+  useGlobalLoading();
   
   const [fontsLoaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
@@ -82,11 +131,24 @@ function RootNavigation() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   return (
-    <AuthProvider>
-      <InitialLayout />
-      <Toast/>
-    </AuthProvider>
+    <Sentry.ErrorBoundary 
+      fallback={({ error }) => <ErrorState message={(error as Error).message} />}
+    >
+      <>
+        {/* YENİ: Provider'ı en dışa sar */}
+        <QueryClientProvider client={queryClient}> 
+          <KeyboardProvider>
+            <LoadingProvider>
+              <AuthProvider>
+                <InitialLayout />
+              </AuthProvider>
+            </LoadingProvider>
+          </KeyboardProvider>
+        </QueryClientProvider>
+        <Toast config={toastConfig} />
+      </>
+    </Sentry.ErrorBoundary>
   );
-}
+});

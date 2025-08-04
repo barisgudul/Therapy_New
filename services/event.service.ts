@@ -47,19 +47,28 @@ export async function logEvent(event: Omit<AppEvent, 'id' | 'user_id' | 'timesta
   }
 }
 
-export async function getEventsForLast(days: number): Promise<AppEvent[]> {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Kullanıcı giriş yapmamış, olay çekilemedi.');
-    const fromDate = new Date();
-    fromDate.setDate(fromDate.getDate() - days);
-    const { data, error } = await supabase.from('events').select('*').eq('user_id', user.id).gte('created_at', fromDate.toISOString()).order('created_at', { ascending: false });
-    if (error) throw error;
-    return (data as AppEvent[]) || [];
-  } catch (error) {
-    console.error('⛔️ Event çekme hatası:', (error as Error).message);
-    throw error;
+// YENİ VE DAHA DOĞRU FONKSİYON: Pagination için sayfa parametresi alır.
+export async function getDreamEvents({ pageParam }: { pageParam?: number }): Promise<AppEvent[]> {
+  const PAGE_SIZE = 20; // Bunu bir constants dosyasına taşı.
+  const offset = (pageParam || 0) * PAGE_SIZE;
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Kullanıcı bulunamadı.');
+
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('user_id', user.id) // Sadece bu kullanıcının
+    .eq('type', 'dream_analysis') // Sadece rüya analizleri
+    .order('timestamp', { ascending: false }) // En yeniden eskiye
+    .range(offset, offset + PAGE_SIZE - 1); // Sayfalama burada
+
+  if (error) {
+    console.error('⛔️ Rüya eventlerini çekme hatası:', error);
+    throw new Error('Rüya günlükleri yüklenemedi.');
   }
+
+  return (data as AppEvent[]) || [];
 }
 
 export async function deleteEventById(eventId: string): Promise<void> {
@@ -172,6 +181,29 @@ export async function getOldestEventDate(): Promise<Date | null> {
     return data ? new Date(data.created_at) : null;
   } catch (error) {
     console.error('⛔️ En eski olay tarihi çekme hatası:', (error as Error).message);
+    throw error;
+  }
+}
+
+export async function getEventById(eventId: string): Promise<AppEvent | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Kullanıcı giriş yapmamış, olay çekilemedi.');
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (error) {
+        if (error.code === 'PGRST116') return null; // Kayıt bulunamadı, bu bir hata değil.
+        throw error;
+    }
+    return data as AppEvent;
+  } catch (error) {
+    console.error(`⛔️ Event (ID: ${eventId}) çekme hatası:`, (error as Error).message);
     throw error;
   }
 }

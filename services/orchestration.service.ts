@@ -3,6 +3,7 @@
 import { InteractionContext } from '../types/context';
 import { DiaryStart, DreamAnalysisResult } from '../utils/schemas';
 import * as AiService from './ai.service';
+import { incrementFeatureUsage, revertFeatureUsage } from './api.service';
 import * as EventService from './event.service';
 import { EventPayload } from './event.service';
 import * as JourneyService from './journey.service';
@@ -19,7 +20,7 @@ type OrchestratorSuccessResult =
 function generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
-    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    const v = c === 'x' ? r : (r & 0x3 | 0x8); // == yerine === kullan
     return v.toString(16);
   });
 }
@@ -217,83 +218,97 @@ async function handleTherapySession(context: InteractionContext): Promise<string
 }
 
 /**
- * Rüya analizi akışı
+ * Rüya analizi akışı - ÖNCE PARA, SONRA HİZMET!
  */
-async function handleDreamAnalysis(context: InteractionContext): Promise<{ analysis: DreamAnalysisResult, nextQuestion: string } | string> {
-    const { initialEvent, initialVault } = context;
+async function handleDreamAnalysis(context: InteractionContext): Promise<any> {
+    const { initialEvent } = context;
     const isFollowUp = initialEvent.data.isFollowUp === true;
 
-    // --- BU BİR DEVAM DİYALOĞU MU?
     if (isFollowUp) {
-        console.log(`[ORCHESTRATOR] Rüya diyaloğu devam ediyor: ${context.transactionId}`);
+        console.log(`[ORCHESTRATOR] Rüya diyaloğu devam ediyor: Event ID ${initialEvent.data.event_id}`);
         
-        const userAnswers = initialEvent.data.fullDialogue.filter((m: any) => m.role === 'user');
-        const MAX_INTERACTIONS = 3;
+        // 1. AI'dan yeni cevabı al.
+        const aiReplyText = await AiService.generateNextDreamQuestionAI(context);
+        if (!aiReplyText) throw new Error("AI'dan geçerli bir diyalog yanıtı alınamadı.");
 
-        // --- DİYALOG BİTTİ Mİ? SON GERİ BİLDİRİMİ ÜRET
-        if (userAnswers.length >= MAX_INTERACTIONS) {
-            return await AiService.generateFinalDreamFeedback(context); // Artık context yolluyoruz
-        } 
-        // --- HAYIR, DİYALOĞA DEVAM ET. YENİ SORU ÜRET
-        else {
-            return await AiService.generateNextDreamQuestionAI(context); // YENİ ÇAĞRI
+        // 2. Diyaloğun son halini oluştur.
+        const finalDialogue = [
+            ...initialEvent.data.fullDialogue,
+            { text: aiReplyText, role: 'model' }
+        ];
+        
+        // 3. Veritabanındaki olayı GÜNCELLE.
+        const eventIdToUpdate = initialEvent.data.event_id;
+        // Sadece 'data' alanını güncellemek yeterli. Analiz ve metin aynı kalıyor, sadece diyalog değişiyor.
+        const updatedData = {
+            ...initialEvent.data.dreamAnalysisResult, // original dream text and analysis
+            dialogue: finalDialogue
         }
-    } 
-    // --- BU İLK ANALİZ İSTEĞİ
-    else {
+        await EventService.updateEventData(eventIdToUpdate, updatedData);
+
+        console.log(`[ORCHESTRATOR] Event ${eventIdToUpdate} diyaloğu güncellendi.`);
+        
+        // 4. Frontend'e SADECE YENİ AI CEVABINI gönder.
+        return aiReplyText;
+    } else {
         console.log(`[ORCHESTRATOR] Yeni rüya analizi başlatılıyor: ${context.transactionId}`);
-      
-        // İlk analiz adımları...
-        const dreamAnalysis = await AiService.analyzeDreamWithContext(context);
-      
-        // Hafıza güncelleme ve loglama
-        if (dreamAnalysis?.themes) {
-            const updatedVault = AiService.mergeVaultData(context.initialVault, { themes: dreamAnalysis.themes });
-            await VaultService.updateUserVault(updatedVault);
-            await JourneyService.addJourneyLogEntry(`Rüya analizi: Temalar - ${dreamAnalysis.themes.join(', ')}`);
-        }
         
-        // Ücretsiz kullanım hakkını kaydetmek için vault'u güncelle
-        const vault = context.initialVault;
-        const newFreeUsage = {
-            ...(vault.freeUsage || {}),
-            lastFreeDreamAnalysis: new Date().toISOString()
-        };
-        const updatedVault = {
-            ...AiService.mergeVaultData(vault, { themes: dreamAnalysis?.themes || [] }),
-            freeUsage: newFreeUsage // Yeni kullanım bilgisini ekle
-        };
-        await VaultService.updateUserVault(updatedVault);
+        // ADIM 1: ÖNCE PARA! Kullanım hakkını düşür
+        console.log('💰 [PAYMENT] Rüya analizi için kullanım hakkı düşürülüyor...');
+        await incrementFeatureUsage('dream_analysis');
+        console.log('✅ [PAYMENT] Kullanım hakkı başarıyla düşürüldü.');
+        
+        let dreamAnalysis: DreamAnalysisResult;
+        let savedEventId: string | null = null;
+        
+        try {
+            // ADIM 2: SONRA HİZMET! AI analizini yap
+            console.log('🤖 [AI] Rüya analizi başlatılıyor...');
+            dreamAnalysis = await AiService.analyzeDreamWithContext(context);
+            console.log('✅ [AI] Rüya analizi tamamlandı.');
 
-        // Analizle birlikte İLK SORUYU DA DÖNDÜR
-        const firstQuestionContext: InteractionContext = { 
-            ...context, 
-            initialEvent: { // We need to modify the event payload
-                ...context.initialEvent,
-                data: {
-                    ...context.initialEvent.data,
-                    // The function expects 'analysis' or 'dreamAnalysisResult'
-                    analysis: dreamAnalysis 
-                }
+            // ADIM 3: Hafıza güncelleme ve loglama
+            if (dreamAnalysis?.themes) {
+                const updatedVault = AiService.mergeVaultData(context.initialVault, { themes: dreamAnalysis.themes });
+                await VaultService.updateUserVault(updatedVault);
+                await JourneyService.addJourneyLogEntry(`Rüya analizi: Temalar - ${dreamAnalysis.themes.join(', ')}`);
             }
-        };
-        const firstQuestion = await AiService.generateNextDreamQuestionAI(firstQuestionContext);
-      
-        const resultForClient = {
-            analysis: dreamAnalysis,
-            // İlk soru null gelebilir, bu yüzden bir fallback ekle
-            nextQuestion: firstQuestion || "Bu yorumlar sana ne hissettirdi?"
-        };
 
-        // Bu ilk analiz olayını, sonucuyla birlikte veritabanına logla
-        await EventService.logEvent({
-            type: 'dream_analysis',
-            data: { dreamText: initialEvent.data.dreamText, analysis: dreamAnalysis, dialogue: [] },
-        });
+            // ADIM 4: Veritabanına kaydet
+            savedEventId = await EventService.logEvent({
+                type: 'dream_analysis',
+                data: { 
+                    dreamText: initialEvent.data.dreamText, 
+                    analysis: dreamAnalysis, 
+                    dialogue: [] 
+                },
+            });
+            
+            if (!savedEventId) {
+                throw new Error("Analiz yapıldı ama veritabanına kaydedilemedi.");
+            }
 
-        console.log('[ORCHESTRATOR] Ücretsiz rüya analizi kullanım tarihi Vault\'a kaydedildi.');
-        console.log(`[ORCHESTRATOR] Yeni rüya analizi tamamlandı ve loglandı.`);
-        return resultForClient;
+            console.log(`[ORCHESTRATOR] Yeni rüya analizi tamamlandı ve loglandı. Event ID: ${savedEventId}`);
+            
+            // ADIM 5: Frontend'e sadece ID dön
+            return savedEventId;
+            
+        } catch (error) {
+            console.error(`[ORCHESTRATOR] Rüya analizi sırasında hata: ${context.transactionId}`, error);
+            
+            // ADIM 6: HATA DURUMUNDA PARAYI İADE ET!
+            console.log('🔄 [REFUND] Hata nedeniyle kullanım hakkı iade ediliyor...');
+            try {
+                await revertFeatureUsage('dream_analysis');
+                console.log('✅ [REFUND] Kullanım hakkı başarıyla iade edildi.');
+            } catch (refundError) {
+                console.error('⛔️ [REFUND_ERROR] Kullanım hakkı iade edilirken hata:', refundError);
+                // İade hatası kritik değil, ana hatayı fırlat
+            }
+            
+            // Ana hatayı yeniden fırlat
+            throw error;
+        }
     }
 }
 

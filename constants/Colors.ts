@@ -26,3 +26,14 @@ export const Colors = {
     tabIconSelected: tintColorDark,
   },
 };
+
+
+export const COSMIC_COLORS = {
+  background: ['#0d1117', '#1A2947'],
+  card: 'rgba(255, 255, 255, 0.05)',
+  cardBorder: 'rgba(255, 255, 255, 0.15)',
+  textPrimary: '#EFEFEF',
+  textSecondary: '#A9B4C8',
+  accent: '#5DA1D9',
+  inputBg: 'rgba(0,0,0,0.2)',
+} as const;

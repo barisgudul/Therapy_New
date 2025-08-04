@@ -61,6 +61,7 @@ export interface UsageStats {
     diary_write: FeatureUsageResult;
     daily_write: FeatureUsageResult;
     dream_analysis: FeatureUsageResult;
+    dream_dialogue: FeatureUsageResult;
     ai_reports: FeatureUsageResult;
     text_sessions: FeatureUsageResult;
     voice_sessions: FeatureUsageResult;
@@ -126,7 +127,7 @@ export async function getUsageStatsForUser(userId: string, feature: keyof UsageS
 export async function getInitialUsageStats(userId: string): Promise<UsageStats> {
     console.log(`[API] ${userId} için başlangıç kullanım istatistikleri oluşturuluyor.`);
 
-    const features: (keyof UsageStats)[] = ['diary_write', 'daily_write', 'dream_analysis', 'ai_reports', 'text_sessions', 'voice_sessions', 'pdf_export'];
+    const features: (keyof UsageStats)[] = ['diary_write', 'daily_write', 'dream_analysis', 'dream_dialogue', 'ai_reports', 'text_sessions', 'voice_sessions', 'pdf_export'];
     const stats: Partial<UsageStats> = {};
 
     for (const feature of features) {
@@ -136,6 +137,45 @@ export async function getInitialUsageStats(userId: string): Promise<UsageStats> 
     return stats as UsageStats;
 }
 
+/**
+ * Kullanıcının PDF export özelliğini kullanıp kullanamayacağını kontrol eder.
+ */
+export async function canUsePDFExport(userId: string): Promise<boolean> {
+    const usage = await getUsageStatsForUser(userId, 'pdf_export');
+    return usage.can_use;
+}
+
+/**
+ * Kullanıcının tüm terapistleri kullanıp kullanamayacağını kontrol eder.
+ */
+export async function canUseAllTherapists(userId: string): Promise<boolean> {
+    const subscription = await getSubscriptionForUser(userId);
+    if (!subscription) return false;
+    
+    // Premium kullanıcılar tüm terapistleri kullanabilir
+    return subscription.name === 'Premium';
+}
+
+/**
+ * Kullanıcının öncelikli destek hakkı olup olmadığını kontrol eder.
+ */
+export async function hasPrioritySupport(userId: string): Promise<boolean> {
+    const subscription = await getSubscriptionForUser(userId);
+    if (!subscription) return false;
+    
+    // Premium kullanıcılar öncelikli destek alır
+    return subscription.name === 'Premium';
+}
+
+/**
+ * Kullanıcının Premium üye olup olmadığını kontrol eder.
+ */
+export async function isPremiumUser(userId: string): Promise<boolean> {
+    const subscription = await getSubscriptionForUser(userId);
+    if (!subscription) return false;
+    
+    return subscription.name === 'Premium';
+}
 
 // Bu bir test fonksiyonudur, production'da KULLANILMAMALIDIR.
 export const upgradeUserPlanForTesting = async (userId: string, newPlanName: 'Free' | '+Plus' | 'Premium') => {
@@ -150,11 +190,3 @@ export const upgradeUserPlanForTesting = async (userId: string, newPlanName: 'Fr
     console.log(`Kullanıcı ${userId}, ${newPlanName} planına geçirildi.`);
     return { success: true, response: data };
 };
-
-
-// ===============================
-// UTILITY FUNCTIONS - SİLİNDİ
-// ===============================
-
-// Bu fonksiyonlar artık verimsiz olduğu için silinmiştir.
-// Kontrolleri, getSubscriptionForUser'dan dönen tekil nesne üzerinden yapın. 

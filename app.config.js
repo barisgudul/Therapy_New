@@ -1,4 +1,4 @@
-// app.config.js
+// app.config.js dosyasının YENİ içeriği bu olacak:
 
 export default {
   expo: {
@@ -6,12 +6,63 @@ export default {
     slug: 'Therapy_New',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/therapy.png',
-    scheme: 'therapynew',
+    icon: './assets/images/icon.png', // DOKTORUN UYARDIĞI YANLIŞ İKONU DÜZELTTİM, DOĞRUSUNU KOYDUM
+    scheme: 'therapy',
+    userInterfaceStyle: 'automatic',
+    newArchEnabled: true, // Yeni mimari desteği
 
+    // IOS ve ANDROID için özel ayarlar
+    ios: {
+      supportsTablet: true,
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: './assets/images/adaptive-icon.png',
+        backgroundColor: '#ffffff',
+      },
+      edgeToEdgeEnabled: true,
+    },
+    web: {
+      bundler: 'metro',
+      output: 'static',
+      favicon: './assets/images/favicon.png',
+    },
+
+    // TÜM PLUGIN'LER BURADA BİRLEŞTİRİLDİ
+    plugins: [
+      'expo-router',
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/images/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          backgroundColor: '#ffffff',
+        },
+      ],
+      [
+        '@sentry/react-native/expo',
+        {
+          // URL'i Sentry.io'daki proje ayarlarından alabilirsin, şimdilik böyle kalsın.
+          url: 'https://sentry.io/', 
+        },
+      ],
+    ],
+
+    // Typed Routes deneyi
+    experiments: {
+      typedRoutes: true,
+    },
+
+    // SENİN GİZLİ ANAHTARLARIN BURADA GÜVENDE
     extra: {
-      supabaseUrl: "https://ijtcqbxagcdgfxrgamis.supabase.co",
-      supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqdGNxYnhhZ2NkZ2Z4cmdhbWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNTAyMDEsImV4cCI6MjA2NzcyNjIwMX0.LPZoZbbIkfN0IsZLA9DyD6Y8iydlhemUdcRmlr_Els0",
-  },
+      eas: {
+        // Bu, Sentry'nin build sırasında anahtarlarını güvenli bir şekilde almasını sağlar
+        projectId: "PROJENIN_EAS_ID_SI" // Bu ID'yi Expo'daki proje sayfasından bulabilirsin, şimdilik böyle kalsın.
+      },
+      // Supabase anahtarların burada
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    },
   },
 };

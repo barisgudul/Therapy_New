@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { Colors } from './Colors';
+import { COSMIC_COLORS } from './Colors';
 
 export const LIGHT_BORDER = '#E8EDF4';
 export const SHADOW_COLOR = '#000';
@@ -25,9 +25,9 @@ export const commonStyles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '600',
-    color: Colors.light.tint,
-    textTransform: 'lowercase',
-    marginBottom: 10,
+          color: COSMIC_COLORS.accent,
+      textTransform: 'lowercase',
+      marginBottom: 10,
     letterSpacing: -0.5,
   },
   brandDot: {
@@ -53,14 +53,14 @@ export const commonStyles = StyleSheet.create({
 
   // Buton Stilleri
   button: {
-    backgroundColor: Colors.light.tint,
+    backgroundColor: COSMIC_COLORS.accent,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: Colors.light.tint,
+    shadowColor: COSMIC_COLORS.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -80,13 +80,13 @@ export const commonStyles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: Colors.light.tint,
+    borderColor: COSMIC_COLORS.accent,
     flexDirection: 'row',
   },
-  buttonSecondaryText: {
-    color: Colors.light.tint,
-    fontSize: 16,
-    fontWeight: '600',
+      buttonSecondaryText: {
+      color: COSMIC_COLORS.accent,
+      fontSize: 16,
+      fontWeight: '600',
   },
   buttonUnified: {
     backgroundColor: '#fff',
@@ -97,7 +97,7 @@ export const commonStyles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: Colors.light.tint,
+    borderColor: COSMIC_COLORS.accent,
     flexDirection: 'row',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -208,7 +208,7 @@ export const commonStyles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 15,
-    color: Colors.light.tint,
+    color: COSMIC_COLORS.accent,
     fontWeight: '500',
   },
 
@@ -255,5 +255,58 @@ export const commonStyles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 3,
+  },
+});
+
+export const cardStyles = StyleSheet.create({
+  base: {
+    backgroundColor: COSMIC_COLORS.card,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COSMIC_COLORS.cardBorder,
+    padding: 24,
+    marginBottom: 24,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    color: COSMIC_COLORS.textPrimary,
+    fontSize: 20,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  text: {
+    color: COSMIC_COLORS.textSecondary,
+    fontSize: 16,
+    lineHeight: 26,
+  },
+});
+
+export const buttonStyles = StyleSheet.create({
+  primary: {
+    backgroundColor: COSMIC_COLORS.accent,
+    borderRadius: 28,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondary: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 28,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  text: {
+    color: COSMIC_COLORS.textPrimary,
+    fontSize: 17,
+    fontWeight: '600',
   },
 }); 

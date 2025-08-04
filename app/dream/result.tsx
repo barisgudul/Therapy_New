@@ -1,346 +1,207 @@
-// app/dream/result.tsx -- YENİ, BASİT ve TAM KOD
-
+// app/dream/result.tsx
 import { Ionicons } from '@expo/vector-icons';
+import * as Sentry from '@sentry/react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { AppEvent, EventPayload } from '../../services/event.service';
+import React, { useEffect, useState } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import Toast from 'react-native-toast-message';
+import DialogueCard from '../../components/dream/DialogueCard';
+import ErrorState from '../../components/dream/ErrorState';
+import InterpretationCard from '../../components/dream/InterpretationCard';
+import ResultSkeleton from '../../components/dream/ResultSkeleton';
+import SummaryCard from '../../components/dream/SummaryCard';
+import ThemesCard from '../../components/dream/ThemesCard';
+import { COSMIC_COLORS } from '../../constants/Colors';
+import { getUsageStatsForUser } from '../../services/api.service';
+import { AppEvent, getEventById } from '../../services/event.service';
 import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
-const COSMIC_COLORS = {
-    background: ['#0d1117', '#1A2947'] as [string, string],
-    card: 'rgba(255, 255, 255, 0.05)',
-    cardBorder: 'rgba(255, 255, 255, 0.1)',
-    textPrimary: '#EFEFEF',
-    textSecondary: '#A9B4C8',
-    accent: '#5DA1D9',
-};
-
+// Diyalog mesaj tipi
 interface DialogueMessage {
   text: string;
   role: 'user' | 'model';
 }
 
-const ReadOnlyDialogueView = () => (
-    <View style={styles.dialogueLockContainer}>
-        <Ionicons name="eye-outline" size={24} color={'#A9B4C8'} />
-        <Text style={styles.dialogueLockText}>
-            Bu, geçmiş bir rüya analizinin kaydıdır. Diyaloğa yalnızca analiz ilk yapıldığında devam edilebilir.
-        </Text>
-    </View>
-);
-
-const CompletedDialogueView = ({ router }: { router: any }) => (
-    <View style={styles.dialogueLockContainer}>
-        <Ionicons name="checkmark-circle-outline" size={24} color={'#4ade80'} />
-        <Text style={styles.dialogueLockText}>
-            Bu rüya üzerine diyalog tamamlandı. Limitsiz diyalog ve analiz için Premium'u keşfedebilirsin.
-        </Text>
-         <TouchableOpacity style={styles.premiumButton} onPress={() => router.push('/subscription')}>
-            <Text style={styles.premiumButtonText}>Premium'a Göz At</Text>
-        </TouchableOpacity>
-    </View>
-);
-
-
 export default function DreamResultScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams();
-    const scrollViewRef = useRef<ScrollView>(null);
-    const [keyboardIsOpen, setKeyboardIsOpen] = useState(false);
-  
-    const { eventData, isNewAnalysis } = params;
-  
-    const event: AppEvent | null = useMemo(() => {
-        try {
-            return eventData && typeof eventData === 'string' ? JSON.parse(eventData as string) : null;
-        } catch (e) {
-            return null;
-        }
-    }, [eventData]);
+    const { id } = useLocalSearchParams<{ id: string }>();
 
+    const [event, setEvent] = useState<AppEvent | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // --- YENİ STATE'LER ---
     const [dialogue, setDialogue] = useState<DialogueMessage[]>([]);
     const [userInput, setUserInput] = useState('');
     const [isReplying, setIsReplying] = useState(false);
-  
-    // isNewAnalysis parametresi sadece 'true' stringi ise yeni analizdir
-    const isNewAnalysisBool = isNewAnalysis === 'true';
-    const isDialogueLockedForPast = !isNewAnalysisBool; 
-    
-    const MAX_INTERACTIONS = 3;
-
-    // Diyalogun bitip bitmediğini kontrol eden state
-    const [isChatCompleted, setIsChatCompleted] = useState(false);
-
+    const [dialogueLimit, setDialogueLimit] = useState(3); // Varsayılan değer
 
     useEffect(() => {
-        if (!event || !event.data || !event.data.analysis) return;
-        
-        const savedDialogue = event.data.dialogue || [];
-        const hasCompleted = savedDialogue.length >= (MAX_INTERACTIONS * 2 + 1);
-        
-        setIsChatCompleted(hasCompleted);
-        
-        // Yeni analizse ve diyalog boşsa, ilk soruyu sor.
-        if (isNewAnalysisBool && savedDialogue.length === 0) {
-            const firstQuestion = event.data.analysis.questions?.[0] || "Bu rüya sana en çok ne hissettirdi?";
-            setDialogue([{ text: firstQuestion, role: 'model' }]);
-        } else {
-            setDialogue(savedDialogue);
+        if (!id) {
+            setError("Analiz ID eksik.");
+            setIsLoading(false);
+            return;
         }
 
-    }, [event, isNewAnalysis]);
+        const fetchInitialData = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                // İki isteği aynı anda at, daha hızlı olsun.
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error("Kullanıcı bulunamadı!");
 
-    const handleSendMessage = async (messageText: string) => {
-        if (isDialogueLockedForPast || isChatCompleted || !messageText.trim() || isReplying || !event) return; 
+                const [fetchedEvent, usage] = await Promise.all([
+                    getEventById(id),
+                    getUsageStatsForUser(user.id, 'dream_dialogue')
+                ]);
 
-        Keyboard.dismiss();
-        const userMessage: DialogueMessage = { text: messageText, role: 'user' };
-        const updatedDialogue = [...dialogue, userMessage];
-        setDialogue(updatedDialogue);
+                if (!fetchedEvent) throw new Error("Analiz bulunamadı veya bu analize erişim yetkiniz yok.");
+                
+                setEvent(fetchedEvent);
+                setDialogue(fetchedEvent?.data?.dialogue || []);
+
+                if (usage?.data && usage.data.limit_count > 0) {
+                    setDialogueLimit(usage.data.limit_count);
+                }
+
+            } catch (err: any) {
+                setError(err.message);
+                Sentry.captureException(err); // Kara kutuya gönder
+                // Alert yerine Toast
+                Toast.show({
+                    type: 'error',
+                    text1: 'Hata',
+                    text2: 'Analiz verileri yüklenirken bir sorun oluştu.'
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchInitialData();
+    }, [id]);
+    
+    // --- YENİ FONKSİYON ---
+    const handleSendMessage = async () => {
+        if (!userInput.trim() || !event || isReplying) return;
+        
+        if (dialogueLimit > 0 && 
+            dialogue.filter(m => m.role === 'user').length >= dialogueLimit) {
+            Toast.show({
+              type: 'info',
+              text1: 'Diyalog Tamamlandı',
+              text2: 'Bu rüya için maksimum soru hakkını kullandın',
+            });
+            return;
+        }
+
+        const userMessage: DialogueMessage = { text: userInput.trim(), role: 'user' };
+        
+        // UI'ı anında güncelle (Optimistic Update)
+        setDialogue(prev => [...prev, userMessage]);
         setUserInput('');
         setIsReplying(true);
 
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) throw new Error("Kullanıcı girişi bulunamadı!");
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Kullanıcı girişi bulunamadı!");
 
-          // 1. ORKESTRATÖR İÇİN OLAYI HAZIRLA
-          // Artık aptalca ayrı ayrı parametre yok. Tek bir paket.
-          const dreamDialoguePayload: EventPayload = {
-            type: 'dream_analysis', // Orkestratör bu tipe göre davranacak
-            data: {
-              isFollowUp: true, // Bunun ilk analiz değil, bir diyalog devamı olduğunu belirt
-              event_id: event.id, // Hangi rüya hakkında konuştuğumuzu belirt
-              fullDialogue: updatedDialogue, // Konuşmanın tamamı
-              dreamAnalysisResult: event.data.analysis, // Orijinal analiz sonucu
-            }
-          };
+            const dialoguePayload = {
+                type: 'dream_analysis' as const,
+                data: {
+                    isFollowUp: true,
+                    event_id: event.id,
+                    dreamAnalysisResult: event.data, // Bütün event.data'yı yolla, orkestratör içinden ayıklar
+                    fullDialogue: [...dialogue, userMessage], // Güncel diyalog
+                }
+            };
 
-          // 2. TEK BİR ÇAĞRI: Beyni göreve çağır.
-          const aiReplyText = await processUserMessage(user.id, dreamDialoguePayload);
+            const aiReplyText = await processUserMessage(user.id, dialoguePayload);
+            
+            if (typeof aiReplyText !== 'string') throw new Error("AI'dan yanıt alınamadı.");
 
-          if (!aiReplyText) throw new Error("AI'dan bir yanıt alınamadı.");
+            const aiMessage: DialogueMessage = { text: aiReplyText, role: 'model' };
+            setDialogue(prev => [...prev, aiMessage]);
 
-          // 3. GELEN YANITI İŞLE VE GÜNCELLE
-          const aiMessage: DialogueMessage = { text: aiReplyText, role: 'model' };
-          const finalDialogue = [...updatedDialogue, aiMessage];
-          setDialogue(finalDialogue);
-
-          // 4. VERİTABANINI SON HALİYLE GÜNCELLE - REMOVED: This causes bigint error with temp ID
-          // await updateEventData(event.id, { ...event.data, dialogue: finalDialogue });
-
-          // Diyalogun bitip bitmediğini kontrol et
-          const userMessageCount = finalDialogue.filter(m => m.role === 'user').length;
-          if(userMessageCount >= MAX_INTERACTIONS){
-            setIsChatCompleted(true);
-          }
-          
-        } catch (e: any) {
-            console.error("⛔️ Rüya diyaloğu hatası:", e.message);
-            Alert.alert("Hata", "Yanıt alınamadı: " + e.message);
-            // Hata durumunda, kullanıcının gönderdiği mesajı geri alabiliriz.
+        } catch (err: any) {
+            Toast.show({
+                type: 'error',
+                text1: 'Hata',
+                text2: 'Mesaj gönderilirken bir sorun oluştu.'
+            });
+            Sentry.captureException(err); // Kara kutuya gönder
+            // Başarısız olursa, iyimser olarak eklediğimiz mesajı geri al
             setDialogue(prev => prev.slice(0, -1));
         } finally {
             setIsReplying(false);
         }
     };
 
-    useEffect(() => {
-        const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardIsOpen(true));
-        const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardIsOpen(false));
-        return () => {
-            showSub.remove();
-            hideSub.remove();
-        };
-    }, []);
+    if (isLoading) {
+        return (
+            <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
+                <SafeAreaView style={{ flex: 1 }}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="close-outline" size={30} color={COSMIC_COLORS.textPrimary} />
+                    </TouchableOpacity>
+                    <ScrollView contentContainerStyle={styles.scrollContainer}>
+                        <ResultSkeleton />
+                    </ScrollView>
+                </SafeAreaView>
+            </LinearGradient>
+        );
+    }
 
-    if (!event || !event.data || !event.data.analysis) { return <View />; } 
+    if (error || !event) {
+        return <ErrorState message={error || 'Analiz yüklenemedi.'} />;
+    }
+
+    const analysis = event.data.analysis;
 
     return (
         <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
-            <KeyboardAvoidingView
-                style={{ flex: 1 }}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
-            >
-                <SafeAreaView style={{ flex: 1 }}>
-                    <ScrollView
-                        ref={scrollViewRef}
-                        contentContainerStyle={[styles.scrollContainer]}
-                        showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        <MotiView from={{opacity: 0, translateY: -10}} animate={{opacity: 1, translateY: 0}}>
-                            <Text style={styles.headerDate}>{event?.timestamp ? new Date(event.timestamp).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</Text>
-                            <Text style={styles.headerTitle}>{event.data.analysis?.title || ''}</Text>
-                        </MotiView>
-                        <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 100}}>
-                            <View style={styles.cardHeader}><Ionicons name="sparkles-outline" size={24} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Genel Özet</Text></View>
-                            <Text style={styles.moodText}>{event.data.analysis?.summary || ''}</Text>
-                        </MotiView>
-                        <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 200}}>
-                            <View style={styles.cardHeader}><Ionicons name="key-outline" size={22} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Ana Temalar</Text></View>
-                            <View style={styles.tagsContainer}>{event.data.analysis?.themes?.map((tag: string) => <MotiView key={tag} style={styles.tag}><Text style={styles.tagText}>{tag}</Text></MotiView>)}</View>
-                        </MotiView>
-                        <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 400}}>
-                            <View style={styles.cardHeader}><Ionicons name="compass-outline" size={24} color={COSMIC_COLORS.accent} /><Text style={styles.cardTitle}>Derinlemesine Yorum</Text></View>
-                            <Text style={styles.feedbackText}>{event.data.analysis?.interpretation || ''}</Text>
-                        </MotiView>
-                        
-                        {/* // --- YENİ VE EN ÖNEMLİ KART --- // */}
-                        {event.data.analysis?.crossConnections && event.data.analysis.crossConnections.length > 0 && (
-                            <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 450}}>
-                                <View style={styles.cardHeader}>
-                                    <Ionicons name="git-network-outline" size={24} color={'#facc15'} />
-                                    <Text style={[styles.cardTitle, {color: '#facc15'}]}>Çapraz Bağlantılar</Text>
-                                </View>
-                                <Text style={styles.crossConnectionIntro}>AI, rüyanızla yaşamınızdaki diğer olaylar arasında şu olası bağlantıları tespit etti:</Text>
-                                {event.data.analysis.crossConnections.map((conn, index) => (
-                                    <View key={index} style={styles.connectionItem}>
-                                        <Text style={styles.connectionText}>
-                                            <Text style={styles.connectionLabel}>Bağlantı: </Text>
-                                            {conn.connection}
-                                        </Text>
-                                        <Text style={styles.evidenceText}>
-                                            <Text style={styles.connectionLabel}>Kanıt: </Text>
-                                            {conn.evidence}
-                                        </Text>
-                                    </View>
-                                ))}
-                            </MotiView>
-                        )}
-                        
-                        <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9}} animate={{ opacity: 1, scale: 1}} transition={{delay: 500}}>
-                            <View style={styles.cardHeader}>
-                                <Ionicons name="chatbubbles-outline" size={24} color={COSMIC_COLORS.accent} />
-                                <Text style={styles.cardTitle}>Rüya Diyaloğu</Text>
-                            </View>
-                            <View style={styles.dialogueContainer}>
-                                {dialogue.map((msg, i) => (
-                                    <MotiView key={i} from={{ opacity: 0, translateY: 10 }} animate={{ opacity: 1, translateY: 0 }} transition={{delay: i * 50, type: 'timing', duration: 300}} style={[styles.bubble, msg.role === 'user' ? styles.userBubble : styles.aiBubble]}>
-                                        <Text style={styles.bubbleText}>{msg.text}</Text>
-                                    </MotiView>
-                                ))}
-                                {isReplying && <ActivityIndicator color={COSMIC_COLORS.accent} style={{ alignSelf: 'flex-start', marginTop: 12 }} />}
-                            </View>
-
-                            {/* ---> FİNAL KONTROL <--- */}
-                            {isDialogueLockedForPast ? (
-                                <ReadOnlyDialogueView />
-                            ) : isChatCompleted ? (
-                                <CompletedDialogueView router={router} /> 
-                            ) : (
-                                <View style={styles.inputRow}>
-                                    <TextInput 
-                                        style={styles.dialogueInput}
-                                        placeholder="Cevabını yaz..."
-                                        value={userInput}
-                                        onChangeText={setUserInput}
-                                        editable={!isReplying}
-                                    />
-                                    <TouchableOpacity onPress={() => handleSendMessage(userInput)} disabled={!userInput.trim() || isReplying}>
-                                        <Ionicons name="arrow-up-circle" size={44} color={isReplying || !userInput.trim() ? '#666' : COSMIC_COLORS.accent} />
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
-                        </MotiView>
-                    </ScrollView>
-
-                    <TouchableOpacity onPress={() => router.replace('/dream')} style={styles.saveExitButton}>
-                        <Text style={styles.saveExitButtonText}>Rüya Günlüğüne Dön</Text>
-                    </TouchableOpacity>
+            <SafeAreaView style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Ionicons name="close-outline" size={30} color={COSMIC_COLORS.textPrimary} />
+                </TouchableOpacity>
+                <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+                    <MotiView from={{opacity: 0, translateY: -10}} animate={{opacity: 1, translateY: 0}}>
+                        <Text style={styles.headerDate}>{new Date(event.timestamp).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+                        <Text style={styles.headerTitle}>{analysis?.title || 'Başlıksız Analiz'}</Text>
+                    </MotiView>
                     
-                </SafeAreaView>
-            </KeyboardAvoidingView>
+                    {/* GENEL ÖZET KARTI - YENİ COMPONENT */}
+                    <SummaryCard summary={analysis?.summary} />
+                    
+                    {/* ANA TEMALAR KARTI - YENİ COMPONENT */}
+                    <ThemesCard themes={analysis?.themes} />
+                    
+                    {/* DERİNLEMESİNE YORUM KARTI - YENİ COMPONENT */}
+                    <InterpretationCard interpretation={analysis?.interpretation} />
+                    
+                    {/* DİYALOG KARTI - YENİ COMPONENT */}
+                    <DialogueCard 
+                        dialogue={dialogue}
+                        userInput={userInput}
+                        isReplying={isReplying}
+                        onInputChange={setUserInput}
+                        onSendMessage={handleSendMessage}
+                        maxInteractions={dialogueLimit}
+                    />
+                </ScrollView>
+            </SafeAreaView>
         </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  backButton: { position: 'absolute', top: 60, left: 10, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20 },
-  scrollContainer: { paddingTop: 40, paddingBottom: 20, paddingHorizontal: 20 },
-  saveExitButton: { marginBottom: 24, marginHorizontal: 20, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 28, height: 56, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' },
-  saveExitButtonText: { color: COSMIC_COLORS.textPrimary, fontSize: 16, fontWeight: '600' },
+  backButton: { position: 'absolute', top: 60, right: 20, zIndex: 10, padding: 8, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 20 },
+  scrollContainer: { paddingTop: 100, paddingBottom: 40, paddingHorizontal: 20 },
   headerDate: { color: COSMIC_COLORS.textSecondary, textAlign: 'center', marginBottom: 4 },
   headerTitle: { color: COSMIC_COLORS.textPrimary, fontSize: 28, fontWeight: 'bold', textAlign: 'center', marginBottom: 30, paddingHorizontal: 10 },
-  moodText: { color: COSMIC_COLORS.textSecondary, fontStyle: 'italic', fontSize: 16, lineHeight: 25 },
-  card: { backgroundColor: COSMIC_COLORS.card, borderRadius: 24, padding: 24, marginBottom: 24, borderWidth: 1, borderColor: COSMIC_COLORS.cardBorder },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { color: COSMIC_COLORS.textPrimary, fontSize: 20, fontWeight: '600', marginLeft: 12 },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tag: { backgroundColor: 'rgba(93,161,217,0.2)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20 },
-  tagText: { color: COSMIC_COLORS.accent, fontSize: 14, fontWeight: '500' },
-  feedbackText: { color: COSMIC_COLORS.textSecondary, fontSize: 16, lineHeight: 26 },
-  fullSymbolText: { marginBottom: 16, fontSize: 16, lineHeight: 24, },
-  symbolTitleText: { fontWeight: '700', color: COSMIC_COLORS.textPrimary, },
-  symbolMeaningText: { fontWeight: '400', color: COSMIC_COLORS.textSecondary, },
-  dialogueContainer: { marginTop: 10, gap: 12 },
-  bubble: { paddingVertical: 12, paddingHorizontal: 18, borderRadius: 22, maxWidth: '85%' },
-  userBubble: { backgroundColor: COSMIC_COLORS.accent, alignSelf: 'flex-end', borderBottomRightRadius: 6 },
-  aiBubble: { backgroundColor: 'rgba(255,255,255,0.1)', alignSelf: 'flex-start', borderBottomLeftRadius: 6 },
-  bubbleText: { color: COSMIC_COLORS.textPrimary, fontSize: 16, lineHeight: 23 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, borderTopWidth: 1, borderTopColor: COSMIC_COLORS.cardBorder, paddingTop: 10 },
-  dialogueInput: { flex: 1, height: 44, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 22, paddingHorizontal: 18, color: COSMIC_COLORS.textPrimary, marginRight: 10, fontSize: 16 },
-  dialogueLockContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: COSMIC_COLORS.cardBorder,
-    paddingTop: 20,
-    gap: 12,
-  },
-  dialogueLockText: {
-    color: '#A9B4C8',
-    fontSize: 15,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    lineHeight: 22,
-    paddingHorizontal: 10,
-  },
-  premiumButton: {
-    marginTop: 12,
-    backgroundColor: '#facc15',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  premiumButtonText: {
-    color: '#422006',
-    fontWeight: 'bold',
-    fontSize: 15,
-  },
-  crossConnectionIntro: {
-    color: COSMIC_COLORS.textSecondary,
-    fontSize: 15,
-    marginBottom: 16,
-    lineHeight: 22,
-    fontStyle: 'italic',
-  },
-  connectionItem: {
-    marginBottom: 16,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: 'rgba(93,161,217,0.3)',
-  },
-  connectionText: {
-    color: COSMIC_COLORS.textPrimary,
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  evidenceText: {
-    color: COSMIC_COLORS.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  connectionLabel: {
-    fontWeight: 'bold',
-    color: COSMIC_COLORS.accent,
-  }
 });

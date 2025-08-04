@@ -2,6 +2,27 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## Environment Setup
+
+Before running the app, you need to set up environment variables:
+
+1. Create a `.env` file in the root directory
+2. Add the following variables:
+
+```bash
+# Sentry Configuration
+EXPO_PUBLIC_SENTRY_DSN=ht****tps://fc3049277d*********1bf518a27956cc2*********ffc8ad9@o4509786***********
+
+# Supabase Configuration (if needed)
+# EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Other Environment Variables
+# EXPO_PUBLIC_API_URL=your_api_url
+```
+
+**Note:** The `.env` file is already in `.gitignore` for security reasons.
+
 ## Get started
 
 1. Install dependencies

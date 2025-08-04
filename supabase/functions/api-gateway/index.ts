@@ -100,6 +100,16 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Güvenlik kontrolü
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!serviceKey) {
+    console.error('KRİTİK HATA: Service key tanımlı değil');
+    return new Response(JSON.stringify({ error: 'Sunucu yapılandırma hatası' }), { 
+      status: 500, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    });
+  }
+
   try {
     const { type, payload } = await req.json();
 

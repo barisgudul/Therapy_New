@@ -1,9 +1,6 @@
 // services/api.service.ts
-import { getErrorMessage, isAppError } from "../utils/errors";
+import { getErrorMessage } from "../utils/errors";
 import { supabase } from "../utils/supabase";
-
-// Feature usage increment function
-import { UsageStats } from './subscription.service';
 
 // Event Service API calls
 import { logEvent as _logEvent, AppEvent, EventPayload } from './event.service';
@@ -14,52 +11,63 @@ import { updateUserVault as _updateUserVault, VaultData } from './vault.service'
 // Orchestration Service API calls
 import { processUserMessage as _processUserMessage } from './orchestration.service';
 
-// Subscription Management API calls - Sadece mevcut fonksiyonları import et
+// Subscription Management API calls - Tüm import'ları tek satırda birleştir
 import {
+    type UsageStats,
     canUseAllTherapists as _canUseAllTherapists,
     canUsePDFExport as _canUsePDFExport,
     getAllPlans as _getAllPlans,
     getInitialUsageStats as _getInitialUsageStats,
-    getPlanById as _getPlanById,
+    getPlanById as _getPlanById, // 'type' keyword'ü ile bunun bir tip olduğunu belirtirsin
     getSubscriptionForUser as _getSubscriptionForUser,
-    getUsageStatsForUser as _getUsageStatsForUser,
     hasPrioritySupport as _hasPrioritySupport,
     isPremiumUser as _isPremiumUser,
     upgradeUserPlanForTesting as _upgradeUserPlanForTesting
 } from './subscription.service';
 
-// Yeni fonksiyon
-export async function postDailyReflection(note: string, mood: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Kullanıcı bulunamadı, yansıma kaydedilemedi.");
-    
-    return apiCall(_processUserMessage(user.id, {
-        type: 'daily_reflection',
-        data: { todayNote: note, todayMood: mood }
-    }));
-}
+// Global loading state
+let globalLoadingSetter: ((loading: boolean) => void) | null = null;
+let globalLoadingMessageSetter: ((message: string) => void) | null = null;
 
-// Global yüklenme durumu yönetimi için bir callback sistemi (isteğe bağlı)
-let globalLoadingSetter: (isLoading: boolean) => void = () => {};
-export const setGlobalLoadingIndicator = (setter: (isLoading: boolean) => void) => {
-    globalLoadingSetter = setter;
+export const setGlobalLoadingIndicator = (setter: (loading: boolean) => void) => {
+  globalLoadingSetter = setter;
 };
 
-// Tüm API çağrılarını saran ana fonksiyon
-async function apiCall<T>(promise: Promise<T>): Promise<{ data: T | null; error: string | null }> {
-  globalLoadingSetter(true);
+export const setGlobalLoadingMessage = (setter: (message: string) => void) => {
+  globalLoadingMessageSetter = setter;
+};
+
+// Tüm API çağrılarını saran wrapper
+export async function apiCall<T>(promise: Promise<T>, loadingMessage?: string): Promise<{ data: T | null; error: string | null }> {
+  // Global loading state güncelle
+  if (globalLoadingSetter) globalLoadingSetter(true);
+  if (globalLoadingMessageSetter && loadingMessage) globalLoadingMessageSetter(loadingMessage);
+  
   try {
-    const data = await promise;
-    return { data, error: null };
-  } catch (error) {
-    const errorMessage = getErrorMessage(error);
-    console.error("⛔️ [API_LAYER_ERROR]", errorMessage, error);
-    if (isAppError(error)) {
-         return { data: null, error: errorMessage };
+    const MAX_RETRIES = 2;
+    let retryCount = 0;
+
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        const data = await promise;
+        return { data, error: null };
+      } catch (error) {
+        if (retryCount === MAX_RETRIES) {
+          console.error('API call failed after retries:', error);
+          return { data: null, error: (error as Error).message };
+        }
+        retryCount++;
+        if (globalLoadingMessageSetter) {
+          globalLoadingMessageSetter(`${loadingMessage || 'Yükleniyor'} (${retryCount}/${MAX_RETRIES})`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
     }
-    return { data: null, error: "İnternet bağlantınızda bir sorun var gibi görünüyor." };
+    
+    return { data: null, error: 'Unknown error' };
   } finally {
-    globalLoadingSetter(false);
+    if (globalLoadingSetter) globalLoadingSetter(false);
+    if (globalLoadingMessageSetter) globalLoadingMessageSetter('');
   }
 }
 
@@ -72,6 +80,7 @@ function runInBackground(promise: Promise<any>, taskName: string) {
             console.error(`⛔️ [BG_TASK_ERROR] '${taskName}' hatası:`, errorMessage, error);
         });
 }
+
 export const incrementFeatureUsage = async (feature: keyof UsageStats): Promise<void> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -90,9 +99,34 @@ export const incrementFeatureUsage = async (feature: keyof UsageStats): Promise<
         console.log(`[USAGE] ${feature} kullanımı başarıyla artırıldı (gerçek).`);
     }
 };
+
+// YENİ: Kullanım hakkını iade etme fonksiyonu
+export const revertFeatureUsage = async (feature: keyof UsageStats): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        console.error('[USAGE] Kullanıcı olmadan kullanım iadesi yapılamaz.');
+        return;
+    }
+
+    // Şimdilik increment_feature_usage'ı -1 ile çağırıyoruz
+    // Daha sonra Supabase tarafında ayrı bir RPC fonksiyonu yazılacak
+    const { error } = await supabase.rpc('increment_feature_usage', {
+        user_uuid: user.id,
+        feature_name_base: feature,
+        increment_value: -1 // Negatif değer ile iade
+    });
+    
+    if (error) {
+        console.error(`[USAGE] ${feature} kullanımı iade edilirken hata:`, error.message);
+    } else {
+        console.log(`[USAGE] ${feature} kullanımı başarıyla iade edildi.`);
+    }
+};
+
 export async function logEvent(event: Omit<AppEvent, 'id' | 'user_id' | 'timestamp' | 'created_at'>) {
     return apiCall(_logEvent(event));
 }
+
 export async function updateUserVault(vaultData: VaultData) {
     return apiCall(_updateUserVault(vaultData));
 }
@@ -156,6 +190,7 @@ export async function processUserMessage(userId: string, event: EventPayload) {
     return apiCall(_processUserMessage(userId, event));
 }
 
+// Subscription Management API Functions - Sarmalanmış versiyonlar
 export async function getAllPlans() {
     return apiCall(_getAllPlans());
 }
@@ -169,7 +204,19 @@ export async function getSubscriptionForUser(userId: string) {
 }
 
 export async function getUsageStatsForUser(userId: string, feature: string) {
-    return apiCall(_getUsageStatsForUser(userId, feature as any));
+    const promise = (async () => {
+        const { data, error } = await supabase
+            .from('usage_stats')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('feature', feature)
+            .single();
+
+        if (error) throw error;
+        return data;
+    })();
+    
+    return apiCall(promise);
 }
 
 export async function getInitialUsageStats(userId: string) {
