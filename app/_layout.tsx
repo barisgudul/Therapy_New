@@ -1,5 +1,6 @@
-import 'react-native-get-random-values';
 // app/_layout.tsx
+import 'react-native-get-random-values';
+
 
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
@@ -9,6 +10,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import 'react-native-reanimated';
 
+import Toast from 'react-native-toast-message';
 import { AuthProvider, useAuth } from '../context/Auth';
 
 const InitialLayout = () => {
@@ -84,6 +86,7 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <InitialLayout />
+      <Toast/>
     </AuthProvider>
   );
 }
