@@ -1,11 +1,11 @@
-// app/index.tsx
+// app/index.tsx (Gelişmiş Oturum Yönetimi)
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import PendingDeletionScreen from '../components/PendingDeletionScreen';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
@@ -15,9 +15,9 @@ const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  // === HOOKS ===
+  // === HOOKS & AUTH STATE ===
   const router = useRouter();
-  const { isPendingDeletion } = useAuth();
+  const { isPendingDeletion, isLoading: isAuthLoading } = useAuth();
   const vault = useVaultStore((state) => state.vault);
   const isLoadingVault = useVaultStore((state) => state.isLoading);
   const [modalVisible, setModalVisible] = useState(false);
@@ -40,13 +40,19 @@ export default function HomeScreen() {
     }
   }, [isLoadingVault, vault]);
 
-  // Eğer kullanıcı silinme sürecindeyse, özel ekranı göster
+  // Ana içeriği göstermeden önce kritik durumları kontrol et
+  if (isAuthLoading || isLoadingVault) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color={Colors.light.tint} />
+      </View>
+    );
+  }
+
+  // Kullanıcı silinme sürecindeyse, özel ekranı göster
   if (isPendingDeletion) {
     return <PendingDeletionScreen />;
   }
-
-  // === UYGULAMA YAŞAM DÖNGÜSÜ YÖNETİMİ ===
-  // Bu blok tamamen kaldırıldı.
 
   const animateBg = (open: boolean) => Animated.timing(scaleAnim, { toValue: open ? 0.9 : 1, duration: 250, useNativeDriver: true }).start();
 
@@ -272,6 +278,10 @@ export default function HomeScreen() {
 /* ---------------- styles ---------------- */
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: { 
     flex: 1, 
     paddingHorizontal: 20, 

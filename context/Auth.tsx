@@ -1,111 +1,130 @@
-// context/Auth.tsx (TAM, EKSİKSİZ, KOPYALA-YAPIŞTIR İÇİN HAZIR VERSİYON)
+// context/Auth.tsx - AMELİYAT EDİLMİŞ VE GÜÇLENDİRİLMİŞ VERSİYON
 
 import { Session, User } from '@supabase/supabase-js';
-import React, { createContext, useContext, useEffect, useState }
-  // YUKARIDAKİ SATIRI EKLEMEYİ UNUTTUĞUN İÇİN HER YER KIRMIZIYDI, AMINA KODUĞUM!
-  from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { useVaultStore } from '../store/vaultStore';
+import { useVaultStore } from '../store/vaultStore'; // vaultStore kullanılıyorsa
 import { supabase } from '../utils/supabase';
 
-// --- TİP VE CONTEXT TANIMLARI ---
-// Bunlar doğruydu, bunlara dokunmuyoruz.
-type AuthContextType = { 
-  user: User | null; 
-  session: Session | null; 
+// 1. CONTEXT TİPİNİ GENİŞLETİYORUZ
+type AuthContextType = {
+  user: User | null;
+  session: Session | null;
   isLoading: boolean;
-  isPendingDeletion: boolean;
-  cancelDeletion: () => Promise<void>;
+  isPendingDeletion: boolean; // ⬅️ YENİ: Silinme durumu
+  cancelDeletion: () => Promise<void>; // ⬅️ YENİ: İptal fonksiyonu
 };
 
-const AuthContext = createContext<AuthContextType>({ 
-  user: null, 
-  session: null, 
-  isLoading: true, 
+// Başlangıç değerlerini tanımla
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  isLoading: true,
   isPendingDeletion: false,
-  cancelDeletion: async () => {} 
+  cancelDeletion: async () => { console.error("Cancel function not implemented"); }
 });
 
 export const useAuth = () => useContext(AuthContext);
 
-// --- AUTH PROVIDER COMPONENT'İ (BEYİN NAKLİ YAPILMIŞ HALİ) ---
+// 2. AUTH PROVIDER'I BASTAN YAZIYORUZ
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPendingDeletion, setIsPendingDeletion] = useState(false);
-  
+  const [isPendingDeletion, setIsPendingDeletion] = useState(false); // State'i burada tut
+
+  // Vault kullanılıyorsa, fonksiyonları al
   const fetchVault = useVaultStore((state) => state.fetchVault);
   const clearVault = useVaultStore((state) => state.clearVault);
 
+  // 3. İŞİN BEYNİ: KULLANICI DURUMUNU KONTROL ETME FONKSİYONU
+  const checkUserStatus = async (currentUser: User | null) => {
+    if (!currentUser) {
+      setIsPendingDeletion(false);
+      return;
+    }
+
+    // Supabase user_metadata'dan durumu oku.
+    // Deno function'da 'status' alanını 'pending_deletion' olarak set etmiştin.
+    const deletionStatus = currentUser.user_metadata?.status === 'pending_deletion';
+    setIsPendingDeletion(deletionStatus);
+    console.log(`[AUTH] Kullanıcı durumu kontrol edildi: ${currentUser.email} -> Silinme Bekliyor mu? ${deletionStatus ? 'EVET' : 'HAYIR'}`);
+  };
+
+  // 4. SİLME İŞLEMİNİ İPTAL ETME FONKSİYONU
   const cancelDeletion = async () => {
     if (!user) return;
 
     try {
+      // 'cancel-deletion' isimli Supabase Edge Function'ını çağırıyoruz.
       const { error } = await supabase.functions.invoke('cancel-deletion');
       if (error) throw error;
-
+      
+      // Lokal state'i anında güncelle ki UI değişsin.
       setIsPendingDeletion(false);
+      
       Alert.alert(
-        'İşlem İptal Edildi', 
-        'Hesabınız normale döndü. Tekrar hoş geldiniz!'
+        'Hesabınız Kurtarıldı',
+        'Hesap silme işlemi başarıyla iptal edildi. Tekrar hoş geldiniz!'
       );
       
+      // Kullanıcı bilgisini tazelemek için oturumu yenile. Bu, metadata'yı günceller.
       await supabase.auth.refreshSession();
-      
+
     } catch (err: any) {
-      console.error('Hesap iptal işlemi başarısız:', err);
+      console.error('Hesap kurtarma işlemi başarısız:', err);
       Alert.alert('Hata', err.message || 'İşlem sırasında beklenmedik bir hata oluştu.');
     }
   };
 
-    // TEK VE GÜÇLÜ useEffect. BÜTÜN MANTIK BURADA.
+  // 5. TEK VE GÜÇLÜ useEffect
   useEffect(() => {
-    // Bu fonksiyon, AuthProvider'ın dışında tanımlı olduğu için
-    // her render'da yeniden oluşmaz. Bu yüzden bağımlılık listesinde
-    // olmasına gerek yok.
     const handleAuthStateChange = async (_event: string, session: Session | null) => {
-      console.log("onAuthStateChange tetiklendi. Oturum:", session ? 'VAR ✅' : 'YOK ❌');
+      console.log(`[AUTH] onAuthStateChange tetiklendi. Oturum: ${session ? 'VAR ✅' : 'YOK ❌'}`);
       
+      setIsLoading(true); // İşlemler başlarken yükleniyor durumuna al
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
+      
+      await checkUserStatus(currentUser); // ⬅️ İŞTE BÜTÜN OLAY BU SATIRDA
 
       if (currentUser) {
-        console.log("Kullanıcı oturumu aktif. İşlemler başlıyor...");
-        
+        console.log("[AUTH] Kullanıcı oturumu aktif. Vault yükleniyor...");
         try {
-          // Vault'u yükle. Bu fonksiyon artık bağımlılık olarak eklendiği için
-          // her zaman en güncel halini kullanacak.
-          await fetchVault(); 
-          console.log('✨ [AUTH] Vault verisi başarıyla yüklendi.');
+          await fetchVault();
         } catch (error) {
-          console.error("⛔️ [AUTH] Vault yüklemesi başarısız:", (error as Error).message);
+          console.error("[AUTH] Vault yüklenemedi:", error);
         }
-
       } else {
-        console.log("Kullanıcı oturumu kapalı. Temizlik yapılıyor...");
-        clearVault(); // Bu da aynı şekilde güncel olacak.
+        console.log("[AUTH] Kullanıcı oturumu kapalı. Vault temizleniyor...");
+        clearVault();
       }
-      
-      // Bütün işlemler bittikten sonra yükleme durumunu false yap.
-      setIsLoading(false);
+
+      setIsLoading(false); // Bütün işlemler bitince yükleniyor durumunu kapat
     };
 
-    // İlk başta mevcut oturumu bir kere kontrol et.
+    // Uygulama ilk açıldığında mevcut oturumu al ve işle
     supabase.auth.getSession().then(({ data: { session } }) => {
-        handleAuthStateChange('INITIAL_SESSION', session);
+      handleAuthStateChange('INITIAL_SESSION', session);
     });
 
-    // Sonra state değişikliklerini dinlemeye başla.
+    // Oturum değişikliklerini dinle
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
+    // Component kaldırıldığında dinleyiciyi kapat
     return () => {
-      console.log("AuthProvider kaldırıldı: Dinleyici aboneliği sonlandırılıyor.");
       subscription.unsubscribe();
     };
-  }, [fetchVault, clearVault]); // <-- DOĞRU VE DÜRÜST BAĞIMLILIKLAR
-  const value = { session, user, isLoading, isPendingDeletion, cancelDeletion };
-  
+  }, [fetchVault, clearVault]); // Bağımlılıklar doğru.
+
+  const value = {
+    user,
+    session,
+    isLoading,
+    isPendingDeletion,
+    cancelDeletion, // ⬅️ Context'e ver
+  };
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
