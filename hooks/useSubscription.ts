@@ -1,12 +1,11 @@
-// hooks/useSubscription.ts
+// hooks/useSubscription.ts - ADAM EDİLMİŞ HALİ
 
+import { useCallback } from 'react';
 import { SubscriptionPlan, UsageStats } from '../services/subscription.service';
 import { useSubscriptionStore } from '../store/subscriptionStore';
 
-
 // =================================================================
-// === HAYALET VERİ MERKEZİ ===
-// Bu bölüm, Apple Developer hesabın olana kadar bizim veritabanımız olacak.
+// === MOCK VERİLER (BUNLARA DOKUNMA) ===
 // =================================================================
 
 const MOCK_PLANS: SubscriptionPlan[] = [
@@ -28,21 +27,6 @@ const MOCK_PLANS: SubscriptionPlan[] = [
         }
     },
     {
-        id: 'prod_plus456',
-        name: '+Plus',
-        price: 19.99,
-        currency: '$',
-        description: 'Temel özelliklere genişletilmiş erişim.',
-        features: {
-            text_sessions: 'Sınırsız',
-            dream_analysis: '1/hafta',
-            ai_reports: '1/hafta',
-            therapist_selection: '1 Terapist',
-            session_history: '90 gün',
-            pdf_export: 'Evet',
-        }
-    },
-    {
         id: 'prod_free789',
         name: 'Free',
         price: 0,
@@ -61,6 +45,7 @@ const MOCK_USAGE_STATS: Record<'Free' | 'Premium', UsageStats> = {
     text_sessions: { can_use: true, used_count: 2, limit_count: 5 },
     voice_sessions: { can_use: false, used_count: 0, limit_count: 0 },
     pdf_export: { can_use: false, used_count: 0, limit_count: 0 },
+    dream_dialogue: { can_use: true, used_count: 0, limit_count: 3 },
   },
   Premium: {
     dream_analysis: { can_use: true, used_count: 15, limit_count: -1 },
@@ -70,90 +55,76 @@ const MOCK_USAGE_STATS: Record<'Free' | 'Premium', UsageStats> = {
     text_sessions: { can_use: true, used_count: 20, limit_count: -1 },
     voice_sessions: { can_use: true, used_count: 5, limit_count: -1 },
     pdf_export: { can_use: true, used_count: 1, limit_count: -1 },
+    dream_dialogue: { can_use: true, used_count: 5, limit_count: -1 },
   },
 };
 
 
 // =================================================================
-// === HAYALET HOOK'LAR ===
-// Bu hook'lar artık dışarıya veri sormuyor, yukarıdaki hayalet veriyi kullanıyor.
-// Arayüzleri (döndürdükleri değerler) tamamen aynı.
+// === ADAM GİBİ HOOK'LAR ===
+// Bütün `refresh` fonksiyonları artık `useCallback` ile güvende.
 // =================================================================
-
-/**
- * Kullanıcının mevcut abonelik durumunu SİMÜLE EDER.
- * Gerçek API çağrısı yapmaz.
- */
-// hooks/useSubscription.ts içindeki YENİ useSubscription
 
 export function useSubscription() {
   const planName = useSubscriptionStore((state) => state.planName);
-  // DİKKAT: Artık `toggle` değil, doğrudan `setPlanName` fonksiyonunu alıyoruz.
   const setPlanName = useSubscriptionStore((state) => state.setPlanName);
 
   const isPremium = planName === 'Premium';
-  
+
+  // setPlanName zaten Zustand tarafından stabil hale getiriliyor, o yüzden useCallback'e gerek yok.
+  // Bu hook zaten doğruymuş.
   return {
     subscription: null,
     plan: MOCK_PLANS.find(p => p.name === planName),
     isPremium,
     planName,
     loading: false,
-    // DİKKAT: `refresh` prop'u artık `setPlanName`'e bağlı.
-    refresh: setPlanName, 
+    refresh: setPlanName,
   };
 }
 
-/**
- * Tüm mevcut abonelik planlarını SİMÜLE EDER.
- */
-// (Tek bir export, tekrar yok)
 export function useSubscriptionPlans() {
   const sortedPlans = [...MOCK_PLANS].sort((a, b) => b.price - a.price);
+  
+  // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
+  const refreshPlans = useCallback(() => {
+    console.log('[HAYALET MOD] Plan listesi yenilendi.');
+  }, []);
+
   return {
     plans: sortedPlans,
     loading: false,
-    refresh: () => console.log('[HAYALET MOD] Plan listesi yenilendi.'),
+    refresh: refreshPlans,
   };
 }
-
-/**
- * Kullanıcının kullanım istatistiklerini SİMÜLE EDER.
- */
-// (Tek bir export, tekrar yok)
-export function useUsageStats() {
-  const planName = useSubscriptionStore((state) => state.planName);
-  const usage = MOCK_USAGE_STATS[planName];
-  return {
-    ...usage,
-    loading: false,
-    refresh: () => console.log(`[HAYALET MOD] ${planName} için kullanım istatistikleri yenilendi.`),
-  };
-}
-
 
 /**
  * Belirli bir özelliğe erişim durumunu SİMÜLE EDER.
+ * İŞTE BU SENİN ASIL SORUNUNDU.
  */
-// (Tek bir export, tekrar yok)
 export function useFeatureAccess(feature: keyof UsageStats) {
   const planName = useSubscriptionStore((state) => state.planName);
   const allUsage = MOCK_USAGE_STATS[planName];
   const access = allUsage[feature] || { can_use: false, used_count: 0, limit_count: 0 };
+  
+  // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
+  const refreshAccess = useCallback(() => {
+    console.log(`[HAYALET MOD] '${feature}' için erişim durumu yenilendi.`);
+    // Gerçek bir uygulamada burada API çağrısı ve state güncellemesi olurdu.
+  }, [feature]); // 'feature' değişirse fonksiyonun yeniden yaratılması normaldir.
+
   return {
     ...access,
     loading: false,
-    refresh: () => console.log(`[HAYALET MOD] '${feature}' için erişim durumu yenilendi.`),
+    refresh: refreshAccess, // ARTIK STABİL BİR FONKSİYON DÖNDÜRÜYORUZ
   };
 }
 
 
 // =================================================================
-// === YARDIMCI FONKSİYONLAR ===
-// Bunlar saf mantık içerdiği için DEĞİŞMEZ. Hala geçerliler.
+// === YARDIMCI FONKSİYONLAR (BUNLARA DOKUNMA) ===
 // =================================================================
 
-// (Tek bir export, tekrar yok)
 export const formatUsageText = (used: number, limit: number): string => {
   if (limit === -1) return 'Sınırsız';
   if (limit === 0) return 'Mevcut Değil';

@@ -11,9 +11,8 @@ import * as VaultService from './vault.service';
 
 // Orkestratörden dönebilecek tüm olası başarılı sonuç tipleri
 type OrchestratorSuccessResult = 
-    | string // Basit metin yanıtları (terapi, yansıma vb.)
+    | string // Basit metin yanıtları (terapi, yansıma vb.) - Rüya analizi için eventId de döner
     | DiaryStart // Günlük başlangıç sonucu
-    | { analysis: DreamAnalysisResult, nextQuestion: string } // Rüya analizi sonucu
     | { success: boolean; message: string }; // onboarding gibi işlemler için
 
 // React Native uyumlu UUID generator
@@ -220,7 +219,7 @@ async function handleTherapySession(context: InteractionContext): Promise<string
 /**
  * Rüya analizi akışı - ÖNCE PARA, SONRA HİZMET!
  */
-async function handleDreamAnalysis(context: InteractionContext): Promise<any> {
+async function handleDreamAnalysis(context: InteractionContext): Promise<string> {
     const { initialEvent } = context;
     const isFollowUp = initialEvent.data.isFollowUp === true;
 

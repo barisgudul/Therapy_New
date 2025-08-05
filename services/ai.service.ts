@@ -170,6 +170,13 @@ export async function generateStructuredAnalysisReport(context: InteractionConte
 export async function generateNextDreamQuestionAI(context: InteractionContext): Promise<string> {
     const { initialEvent } = context;
     const dreamAnalysis = initialEvent.data.dreamAnalysisResult || initialEvent.data.analysis;
+    
+    // NULL CHECK EKLE
+    if (!dreamAnalysis || !dreamAnalysis.themes) {
+        console.warn('[generateNextDreamQuestionAI] Eksik veri tespit edildi, varsayılan soru dönülüyor.');
+        return "Bu rüya hakkında başka ne hissediyorsun?";
+    }
+
     const conversationHistory = (initialEvent.data.fullDialogue || [])
         .map((m: any) => `${m.role === 'user' ? 'Kullanıcı' : 'Terapist'}: ${m.text}`)
         .join('\n');

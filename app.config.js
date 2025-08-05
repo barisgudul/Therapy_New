@@ -44,12 +44,7 @@ export default {
           backgroundColor: '#ffffff',
         },
       ],
-      [
-        '@sentry/react-native/expo',
-        {
-          url: 'https://sentry.io/', 
-        },
-      ],
+      
     ],
 
     // Typed Routes deneyi

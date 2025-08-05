@@ -3,13 +3,10 @@ import { getErrorMessage } from "../utils/errors";
 import { supabase } from "../utils/supabase";
 
 // Event Service API calls
-import { logEvent as _logEvent, AppEvent, EventPayload } from './event.service';
+import { logEvent as _logEvent, AppEvent } from './event.service';
 
 // Vault Service API calls
 import { updateUserVault as _updateUserVault, VaultData } from './vault.service';
-
-// Orchestration Service API calls
-import { processUserMessage as _processUserMessage } from './orchestration.service';
 
 // Subscription Management API calls - Tüm import'ları tek satırda birleştir
 import {
@@ -25,49 +22,30 @@ import {
     upgradeUserPlanForTesting as _upgradeUserPlanForTesting
 } from './subscription.service';
 
-// Global loading state
-let globalLoadingSetter: ((loading: boolean) => void) | null = null;
-let globalLoadingMessageSetter: ((message: string) => void) | null = null;
+// --- BU BÖLÜM TAMAMEN DEĞİŞECEK ---
 
-export const setGlobalLoadingIndicator = (setter: (loading: boolean) => void) => {
-  globalLoadingSetter = setter;
+// Global eylemleri tutacak bir nesne
+let globalLoadingActions: { show: (msg?: string) => void; hide: () => void; } | null = null;
+
+// Eylemleri kaydetmek için yeni fonksiyon
+export const setGlobalLoadingActions = (actions: { show: (msg?: string) => void; hide: () => void; }) => {
+  globalLoadingActions = actions;
 };
 
-export const setGlobalLoadingMessage = (setter: (message: string) => void) => {
-  globalLoadingMessageSetter = setter;
-};
-
-// Tüm API çağrılarını saran wrapper
+// Tüm API çağrılarını saran wrapper'ı GÜNCELLE
 export async function apiCall<T>(promise: Promise<T>, loadingMessage?: string): Promise<{ data: T | null; error: string | null }> {
-  // Global loading state güncelle
-  if (globalLoadingSetter) globalLoadingSetter(true);
-  if (globalLoadingMessageSetter && loadingMessage) globalLoadingMessageSetter(loadingMessage);
+  // Global loading state'i YENİ YÖNTEMLE güncelle
+  globalLoadingActions?.show(loadingMessage);
   
   try {
-    const MAX_RETRIES = 2;
-    let retryCount = 0;
-
-    while (retryCount <= MAX_RETRIES) {
-      try {
-        const data = await promise;
-        return { data, error: null };
-      } catch (error) {
-        if (retryCount === MAX_RETRIES) {
-          console.error('API call failed after retries:', error);
-          return { data: null, error: (error as Error).message };
-        }
-        retryCount++;
-        if (globalLoadingMessageSetter) {
-          globalLoadingMessageSetter(`${loadingMessage || 'Yükleniyor'} (${retryCount}/${MAX_RETRIES})`);
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-      }
-    }
-    
-    return { data: null, error: 'Unknown error' };
+    const data = await promise;
+    return { data, error: null };
+  } catch (error) {
+    console.error('API call failed:', getErrorMessage(error));
+    return { data: null, error: getErrorMessage(error) };
   } finally {
-    if (globalLoadingSetter) globalLoadingSetter(false);
-    if (globalLoadingMessageSetter) globalLoadingMessageSetter('');
+    // Yüklemeyi YENİ YÖNTEMLE gizle
+    globalLoadingActions?.hide();
   }
 }
 
@@ -83,43 +61,34 @@ function runInBackground(promise: Promise<any>, taskName: string) {
 
 export const incrementFeatureUsage = async (feature: keyof UsageStats): Promise<void> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        console.error('[USAGE] Kullanıcı olmadan kullanım artırılamaz.');
-        return;
-    }
+    if (!user) return;
 
     const { error } = await supabase.rpc('increment_feature_usage', {
         user_uuid: user.id,
-        feature_name_base: feature
+        feature_name: feature, // feature_name_base yerine feature_name
+        increment_val: 1 // increment_value yerine increment_val
     });
     
     if (error) {
         console.error(`[USAGE] ${feature} kullanımı artırılırken hata:`, error.message);
-    } else {
-        console.log(`[USAGE] ${feature} kullanımı başarıyla artırıldı (gerçek).`);
     }
 };
 
 // YENİ: Kullanım hakkını iade etme fonksiyonu
 export const revertFeatureUsage = async (feature: keyof UsageStats): Promise<void> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        console.error('[USAGE] Kullanıcı olmadan kullanım iadesi yapılamaz.');
-        return;
-    }
+    if (!user) return;
 
     // Şimdilik increment_feature_usage'ı -1 ile çağırıyoruz
     // Daha sonra Supabase tarafında ayrı bir RPC fonksiyonu yazılacak
     const { error } = await supabase.rpc('increment_feature_usage', {
         user_uuid: user.id,
-        feature_name_base: feature,
-        increment_value: -1 // Negatif değer ile iade
+        feature_name: feature, // feature_name_base yerine feature_name
+        increment_val: -1 // increment_value yerine increment_val, negatif değer ile iade
     });
     
     if (error) {
         console.error(`[USAGE] ${feature} kullanımı iade edilirken hata:`, error.message);
-    } else {
-        console.log(`[USAGE] ${feature} kullanımı başarıyla iade edildi.`);
     }
 };
 
@@ -129,65 +98,6 @@ export async function logEvent(event: Omit<AppEvent, 'id' | 'user_id' | 'timesta
 
 export async function updateUserVault(vaultData: VaultData) {
     return apiCall(_updateUserVault(vaultData));
-}
-
-// Yeni: Rüya Analizi Başlatma Fonksiyonu
-export async function analyzeDream(dreamText: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Kullanıcı bulunamadı, rüya analizi başlatılamadı.");
-
-    return apiCall(_processUserMessage(user.id, {
-        type: 'dream_analysis',
-        data: { dreamText }
-    }));
-}
-
-// Yeni: Rüya Diyaloğuna Cevap Verme Fonksiyonu
-export async function postDreamDialogueResponse(event: AppEvent, updatedDialogue: any[]) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Kullanıcı bulunamadı, diyalog devam ettirilemedi.");
-
-    return apiCall(_processUserMessage(user.id, {
-        type: 'dream_analysis',
-        data: {
-            isFollowUp: true,
-            event_id: event.id,
-            fullDialogue: updatedDialogue,
-            dreamAnalysisResult: event.data.analysis,
-        }
-    }));
-}
-
-// Yeni: Terapi Seansı Mesajı Gönderme Fonksiyonu
-export async function sendTherapyMessage(
-    trimmedInput: string,
-    fullConversationHistory: string,
-    therapistId: string,
-    selectedPersona: string,
-    initialMood: string
-) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Kullanıcı bulunamadı, mesaj gönderilemedi.");
-
-    return apiCall(_processUserMessage(user.id, {
-        type: 'text_session', // Veya 'voice_session' vs.
-        data: {
-            userMessage: trimmedInput,
-            intraSessionChatHistory: fullConversationHistory,
-            therapistId: therapistId,
-            therapistPersona: selectedPersona,
-            initialMood: initialMood,
-        }
-    }));
-}
-
-export async function processUserMessage(userId: string, event: EventPayload) {
-    // Eğer seans sonu ise, arka planda çalıştır ve bekleme
-    if (event.data.isSessionEnd) {
-        runInBackground(_processUserMessage(userId, event), 'process-session-end');
-        return { data: "SESSION_END_REQUESTED", error: null };
-    }
-    return apiCall(_processUserMessage(userId, event));
 }
 
 // Subscription Management API Functions - Sarmalanmış versiyonlar
@@ -210,10 +120,18 @@ export async function getUsageStatsForUser(userId: string, feature: string) {
             .select('*')
             .eq('user_id', userId)
             .eq('feature', feature)
-            .single();
+            .maybeSingle(); // .single yerine .maybeSingle
 
         if (error) throw error;
-        return data;
+        
+        // Kayıt yoksa default değer döndür
+        return data || {
+            user_id: userId,
+            feature,
+            count: 0,
+            limit_count: 3,
+            used_count: 0
+        };
     })();
     
     return apiCall(promise);

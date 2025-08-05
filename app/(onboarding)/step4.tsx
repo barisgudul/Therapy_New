@@ -3,7 +3,8 @@ import { useRouter } from 'expo-router/';
 import React from 'react';
 import OnboardingStep from '../../components/OnboardingStep';
 import { useAuth } from '../../context/Auth';
-import { logEvent, processUserMessage } from '../../services/api.service';
+import { logEvent } from '../../services/api.service';
+import { processUserMessage } from '../../services/orchestration.service';
 import { useOnboardingStore } from '../../store/onboardingStore';
 
 export default function Step4Screen() {

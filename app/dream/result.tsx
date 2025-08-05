@@ -1,10 +1,10 @@
 // app/dream/result.tsx
 import { Ionicons } from '@expo/vector-icons';
-import * as Sentry from '@sentry/react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router/';
 import { MotiView } from 'moti';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import Toast from 'react-native-toast-message';
 import DialogueCard from '../../components/dream/DialogueCard';
@@ -15,7 +15,7 @@ import SummaryCard from '../../components/dream/SummaryCard';
 import ThemesCard from '../../components/dream/ThemesCard';
 import { COSMIC_COLORS } from '../../constants/Colors';
 import { getUsageStatsForUser } from '../../services/api.service';
-import { AppEvent, getEventById } from '../../services/event.service';
+import { getEventById } from '../../services/event.service';
 import { processUserMessage } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
@@ -28,69 +28,110 @@ interface DialogueMessage {
 export default function DreamResultScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
+    const queryClient = useQueryClient(); // Query Client'a erişim
 
-    const [event, setEvent] = useState<AppEvent | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // YENİ: TanStack Query ile veri çekme - useState ve useEffect çöplüğünü temizledik!
+    const { 
+        data: event,    // Gelen verinin adını 'event' yap
+        isLoading,      // Yükleniyor durumu hazır
+        isError,        // Hata durumu hazır
+        error,          // Hatanın kendisi hazır        
+    } = useQuery({
+        // 1. Sorgu anahtarı: ID'ye özel olmalı
+        queryKey: ['dreamResult', id], 
+        // 2. Veri çekme fonksiyonu
+        queryFn: async () => {
+            if (!id) throw new Error("Analiz ID eksik.");
+            
+            // İki isteği aynı anda at, daha hızlı olsun.
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Kullanıcı bulunamadı!");
 
-    // --- YENİ STATE'LER ---
-    const [dialogue, setDialogue] = useState<DialogueMessage[]>([]);
+            const [fetchedEvent, usage] = await Promise.all([
+                getEventById(id),
+                getUsageStatsForUser(user.id, 'dream_dialogue')
+            ]);
+
+            if (!fetchedEvent) throw new Error("Analiz bulunamadı veya bu analize erişim yetkiniz yok.");
+            
+            // Kullanım limitini event'e ekle
+            const eventWithLimit = {
+                ...fetchedEvent,
+                dialogueLimit: usage?.data?.limit_count || 3
+            };
+            
+            return eventWithLimit;
+        },
+        // 3. Ne zaman çalışsın? Sadece 'id' varsa.
+        enabled: !!id, 
+    });
+
+    // ŞİMDİ O SİLDİĞİN useState'lerin yerine bu gelecek:
     const [userInput, setUserInput] = useState('');
-    const [isReplying, setIsReplying] = useState(false);
-    const [dialogueLimit, setDialogueLimit] = useState(3); // Varsayılan değer
 
-    useEffect(() => {
-        if (!id) {
-            setError("Analiz ID eksik.");
-            setIsLoading(false);
-            return;
-        }
+    const sendMessageMutation = useMutation({
+        mutationFn: (payload: { userId: string, dialoguePayload: any, userMessage: string }) => 
+            processUserMessage(payload.userId, payload.dialoguePayload),
 
-        const fetchInitialData = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                // İki isteği aynı anda at, daha hızlı olsun.
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) throw new Error("Kullanıcı bulunamadı!");
+        // İYİMSER GÜNCELLEME BURADA BAŞLIYOR
+        onMutate: async (newMessage) => {
+            // 1. Devam eden sorguyu iptal et ki bizim değişikliğimizin üzerine yazmasın.
+            await queryClient.cancelQueries({ queryKey: ['dreamResult', id] });
 
-                const [fetchedEvent, usage] = await Promise.all([
-                    getEventById(id),
-                    getUsageStatsForUser(user.id, 'dream_dialogue')
-                ]);
+            // 2. Önceki verinin yedeğini al (hata olursa geri dönmek için).
+            const previousEvent = queryClient.getQueryData(['dreamResult', id]);
 
-                if (!fetchedEvent) throw new Error("Analiz bulunamadı veya bu analize erişim yetkiniz yok.");
-                
-                setEvent(fetchedEvent);
-                setDialogue(fetchedEvent?.data?.dialogue || []);
+            // 3. Cache'i yeni mesajla anında güncelle.
+            queryClient.setQueryData(['dreamResult', id], (old: any) => {
+                if (!old) return old;
+                const userMessage: DialogueMessage = { 
+                    text: newMessage.userMessage, 
+                    role: 'user' 
+                };
+                return {
+                    ...old,
+                    data: {
+                        ...old.data,
+                        dialogue: [...old.data.dialogue, userMessage],
+                    },
+                };
+            });
 
-                if (usage?.data && usage.data.limit_count > 0) {
-                    setDialogueLimit(usage.data.limit_count);
+            // 4. Yedeği geri döndür.
+            return { previousEvent };
+        },
+        onError: (err, newMessage, context) => {
+            // Hata olursa, yedeği geri yükle.
+            queryClient.setQueryData(['dreamResult', id], context?.previousEvent);
+            Toast.show({ type: 'error', text1: 'Hata', text2: 'Mesaj gönderilemedi.' });
+        },
+        onSuccess: (aiReplyText, variables) => {
+            // Başarılı olursa, AI'ın cevabıyla cache'i tekrar güncelle.
+            queryClient.setQueryData(['dreamResult', id], (old: any) => {
+                if (!old) return old;
+                const aiMessage: DialogueMessage = { text: aiReplyText as string, role: 'model' };
+                return {
+                    ...old,
+                    data: {
+                        ...old.data,
+                        dialogue: [...old.data.dialogue, aiMessage],
+                    }
                 }
-
-            } catch (err: any) {
-                setError(err.message);
-                Sentry.captureException(err); // Kara kutuya gönder
-                // Alert yerine Toast
-                Toast.show({
-                    type: 'error',
-                    text1: 'Hata',
-                    text2: 'Analiz verileri yüklenirken bir sorun oluştu.'
-                });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchInitialData();
-    }, [id]);
+            });
+        },
+        onSettled: () => {
+            // Başarılı veya hatalı, her durumda sonunda veriyi sunucuyla senkronize et.
+            queryClient.invalidateQueries({ queryKey: ['dreamResult', id] });
+        },
+    });
     
     // --- YENİ FONKSİYON ---
     const handleSendMessage = async () => {
-        if (!userInput.trim() || !event || isReplying) return;
+        if (!userInput.trim() || !event || sendMessageMutation.isPending) return;
         
+        const dialogueLimit = event.dialogueLimit || 3;
         if (dialogueLimit > 0 && 
-            dialogue.filter(m => m.role === 'user').length >= dialogueLimit) {
+            event.data.dialogue.filter((m: DialogueMessage) => m.role === 'user').length >= dialogueLimit) {
             Toast.show({
               type: 'info',
               text1: 'Diyalog Tamamlandı',
@@ -99,46 +140,26 @@ export default function DreamResultScreen() {
             return;
         }
 
-        const userMessage: DialogueMessage = { text: userInput.trim(), role: 'user' };
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const dialoguePayload = {
+            type: 'dream_analysis' as const,
+            data: {
+                isFollowUp: true,
+                event_id: event.id,
+                dreamAnalysisResult: event.data,
+                fullDialogue: [...event.data.dialogue, { text: userInput.trim(), role: 'user' }],
+            }
+        };
         
-        // UI'ı anında güncelle (Optimistic Update)
-        setDialogue(prev => [...prev, userMessage]);
-        setUserInput('');
-        setIsReplying(true);
-
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Kullanıcı girişi bulunamadı!");
-
-            const dialoguePayload = {
-                type: 'dream_analysis' as const,
-                data: {
-                    isFollowUp: true,
-                    event_id: event.id,
-                    dreamAnalysisResult: event.data, // Bütün event.data'yı yolla, orkestratör içinden ayıklar
-                    fullDialogue: [...dialogue, userMessage], // Güncel diyalog
-                }
-            };
-
-            const aiReplyText = await processUserMessage(user.id, dialoguePayload);
-            
-            if (typeof aiReplyText !== 'string') throw new Error("AI'dan yanıt alınamadı.");
-
-            const aiMessage: DialogueMessage = { text: aiReplyText, role: 'model' };
-            setDialogue(prev => [...prev, aiMessage]);
-
-        } catch (err: any) {
-            Toast.show({
-                type: 'error',
-                text1: 'Hata',
-                text2: 'Mesaj gönderilirken bir sorun oluştu.'
-            });
-            Sentry.captureException(err); // Kara kutuya gönder
-            // Başarısız olursa, iyimser olarak eklediğimiz mesajı geri al
-            setDialogue(prev => prev.slice(0, -1));
-        } finally {
-            setIsReplying(false);
-        }
+        // Bütün o eski kod yerine SADECE BU SATIR:
+        sendMessageMutation.mutate({ 
+            userId: user.id, 
+            dialoguePayload,
+            userMessage: userInput.trim()
+        });
+        setUserInput(''); // Input'u temizle
     };
 
     if (isLoading) {
@@ -156,8 +177,12 @@ export default function DreamResultScreen() {
         );
     }
 
-    if (error || !event) {
-        return <ErrorState message={error || 'Analiz yüklenemedi.'} />;
+    if (isError) {
+        return <ErrorState message={error?.message || 'Analiz yüklenemedi.'} />;
+    }
+
+    if (!event) {
+        return <ErrorState message="Analiz bulunamadı." />;
     }
 
     const analysis = event.data.analysis;
@@ -185,12 +210,12 @@ export default function DreamResultScreen() {
                     
                     {/* DİYALOG KARTI - YENİ COMPONENT */}
                     <DialogueCard 
-                        dialogue={dialogue}
+                        dialogue={event.data.dialogue || []} // Doğrudan query'den gelen veri
                         userInput={userInput}
-                        isReplying={isReplying}
+                        isReplying={sendMessageMutation.isPending} // Doğrudan mutasyonun durumu
                         onInputChange={setUserInput}
                         onSendMessage={handleSendMessage}
-                        maxInteractions={dialogueLimit}
+                        maxInteractions={event.dialogueLimit || 3}
                     />
                 </ScrollView>
             </SafeAreaView>

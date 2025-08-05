@@ -2,16 +2,16 @@
 
 import { useEffect } from 'react';
 import { useLoading } from '../context/Loading';
-import { setGlobalLoadingIndicator, setGlobalLoadingMessage } from '../services/api.service';
+import { setGlobalLoadingActions } from '../services/api.service';
 
 export const useGlobalLoading = () => {
-  const { setIsLoading, setLoadingMessage } = useLoading();
+  // BURADAKİ SAÇMALIĞI DÜZELT:
+  const { showLoading, hideLoading } = useLoading();
 
   useEffect(() => {
-    // API service'e global loading setter'ları kaydet
-    setGlobalLoadingIndicator(setIsLoading);
-    setGlobalLoadingMessage(setLoadingMessage);
-  }, [setIsLoading, setLoadingMessage]);
+    // API servisine iç organları değil, KONTROL DÜĞMELERİNİ ver.
+    setGlobalLoadingActions({ show: showLoading, hide: hideLoading });
+  }, [showLoading, hideLoading]);
 
-  return { setIsLoading, setLoadingMessage };
+  // Bu kancanın bir şey döndürmesine gerek yok. İşi, bağlantıyı kurmak.
 }; 
