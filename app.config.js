@@ -1,4 +1,4 @@
-// app.config.js dosyasının YENİ içeriği bu olacak:
+// app.config.js - DÜZELTİLMİŞ VE TAM HALİ
 
 export default {
   expo: {
@@ -6,14 +6,16 @@ export default {
     slug: 'Therapy_New',
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png', // DOKTORUN UYARDIĞI YANLIŞ İKONU DÜZELTTİM, DOĞRUSUNU KOYDUM
+    icon: './assets/images/icon.png',
     scheme: 'therapy',
     userInterfaceStyle: 'automatic',
-    newArchEnabled: true, // Yeni mimari desteği
+    newArchEnabled: true,
 
     // IOS ve ANDROID için özel ayarlar
     ios: {
       supportsTablet: true,
+      // --- BU SATIR EKLENDİ ---
+      bundleIdentifier: "com.barisgudul.TherapyNew"
     },
     android: {
       adaptiveIcon: {
@@ -21,6 +23,8 @@ export default {
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
+      // --- BU SATIR EKLENDİ ---
+      package: "com.barisgudul.TherapyNew"
     },
     web: {
       bundler: 'metro',
@@ -43,7 +47,6 @@ export default {
       [
         '@sentry/react-native/expo',
         {
-          // URL'i Sentry.io'daki proje ayarlarından alabilirsin, şimdilik böyle kalsın.
           url: 'https://sentry.io/', 
         },
       ],
@@ -57,10 +60,8 @@ export default {
     // SENİN GİZLİ ANAHTARLARIN BURADA GÜVENDE
     extra: {
       eas: {
-        // Bu, Sentry'nin build sırasında anahtarlarını güvenli bir şekilde almasını sağlar
-        projectId: "PROJENIN_EAS_ID_SI" // Bu ID'yi Expo'daki proje sayfasından bulabilirsin, şimdilik böyle kalsın.
+        projectId: "PROJENIN_EAS_ID_SI" 
       },
-      // Supabase anahtarların burada
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     },
