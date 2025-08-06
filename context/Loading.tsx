@@ -1,36 +1,34 @@
-// context/Loading.tsx - OLMASI GEREKEN BU
+// context/Loading.tsx
+import React, {
+  createContext,
+  ReactNode,
+  useContext,
+  useState,
+} from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 
-import React, { createContext, ReactNode, useContext, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
-
-// Context tipini ve hook'u aynı bırakabiliriz, onlar doğru.
 interface LoadingContextType {
   showLoading: (message?: string) => void;
   hideLoading: () => void;
+  isLoading: boolean;
+  loadingMessage?: string;
 }
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
-
-export const useLoading = () => {
-  const context = useContext(LoadingContext);
-  if (!context) {
-    throw new Error('useLoading must be used within a LoadingProvider');
-  }
-  return context;
-};
 
 interface LoadingProviderProps {
   children: ReactNode;
 }
 
-export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) => {
+export const LoadingProvider: React.FC<LoadingProviderProps> = ({
+  children,
+}) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined);
+  const [loadingMessage, setLoadingMessage] = useState<string>();
 
-  // Dışarıya basit fonksiyonlar açacağız. Komponentler "setIsLoading" bilmek zorunda değil.
   const showLoading = (message?: string) => {
-    setLoadingMessage(message);
     setIsLoading(true);
+    setLoadingMessage(message);
   };
 
   const hideLoading = () => {
@@ -39,50 +37,52 @@ export const LoadingProvider: React.FC<LoadingProviderProps> = ({ children }) =>
   };
 
   return (
-    <LoadingContext.Provider value={{ showLoading, hideLoading }}>
-      {/* children, yani senin bütün uygulaman burada render ediliyor. */}
-      {children} 
-      
-      {/* isLoading true ise, Modal'ı, yani yükleniyor ekranını her şeyin üzerine basıyoruz. */}
-      <Modal
-        transparent={true}
-        animationType="none"
-        visible={isLoading}
-        onRequestClose={() => { /* Android geri tuşu için, şimdilik boş kalabilir */ }}
-      >
-        <View style={styles.modalBackground}>
-          <View style={styles.activityIndicatorWrapper}>
-            <ActivityIndicator size="large" color="#007AFF" />
-            {loadingMessage && <Text style={styles.loadingText}>{loadingMessage}</Text>}
+    <LoadingContext.Provider
+      value={{ showLoading, hideLoading, isLoading, loadingMessage }}
+    >
+      {children}
+      {isLoading && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+          }}
+          pointerEvents="box-none"
+        >
+          <View
+            style={{
+              backgroundColor: 'white',
+              padding: 20,
+              borderRadius: 10,
+              alignItems: 'center',
+            }}
+          >
+            <ActivityIndicator size="large" color="#0a7ea4" />
+            {loadingMessage && (
+              <Text style={{ marginTop: 10, color: '#333' }}>
+                {loadingMessage}
+              </Text>
+            )}
           </View>
         </View>
-      </Modal>
+      )}
     </LoadingContext.Provider>
   );
 };
 
-// Bu stiller, yükleniyor ekranının nasıl görüneceğini belirler.
-const styles = StyleSheet.create({
-  modalBackground: {
-    flex: 1,
-    alignItems: 'center',
-    flexDirection: 'column',
-    justifyContent: 'space-around',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Arkası yarı saydam siyah
-  },
-  activityIndicatorWrapper: {
-    backgroundColor: '#FFFFFF', // Beyaz kutu
-    height: 120,
-    width: 120,
-    borderRadius: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingVertical: 20
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#333333',
-    fontSize: 14
+export const useLoading = () => {
+  const context = useContext(LoadingContext);
+  if (!context) {
+    throw new Error(
+      'useLoading must be used within a LoadingProvider. Kodu düzgün yaz!'
+    );
   }
-});
+  return context;
+};

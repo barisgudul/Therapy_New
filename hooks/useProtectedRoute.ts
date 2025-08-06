@@ -1,3 +1,4 @@
+// hooks/useProtectedRoute.ts
 import { useRouter, useSegments } from 'expo-router/';
 import { useEffect } from 'react';
 import { useAuth } from '../context/Auth';

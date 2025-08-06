@@ -5,7 +5,6 @@ import { useLoading } from '../context/Loading';
 import { setGlobalLoadingActions } from '../services/api.service';
 
 export const useGlobalLoading = () => {
-  // BURADAKİ SAÇMALIĞI DÜZELT:
   const { showLoading, hideLoading } = useLoading();
 
   useEffect(() => {

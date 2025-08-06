@@ -105,7 +105,7 @@ export default function DreamResultScreen() {
             queryClient.setQueryData(['dreamResult', id], context?.previousEvent);
             Toast.show({ type: 'error', text1: 'Hata', text2: 'Mesaj gönderilemedi.' });
         },
-        onSuccess: (aiReplyText, variables) => {
+        onSuccess: (aiReplyText, _variables) => {
             // Başarılı olursa, AI'ın cevabıyla cache'i tekrar güncelle.
             queryClient.setQueryData(['dreamResult', id], (old: any) => {
                 if (!old) return old;

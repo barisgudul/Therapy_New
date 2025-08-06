@@ -15,23 +15,25 @@ export default function SummaryScreen() {
   const [status, setStatus] = useState('Onboarding cevaplarınız kaydediliyor...');
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // summary.tsx - DOĞRU useEffect KULLANIMI
   useEffect(() => {
-    // Sadece bir kez çalışması için flag kullan
+    // Flag'i kontrol etme mantığı doğru, kalsın.
     if (isProcessing) return;
-    setIsProcessing(true);
-    
+
     const saveOnboardingData = async () => {
+      // Bu fonksiyon zaten sadece bu useEffect içinde kullanılıyor.
+      // O yüzden burada yaşaması en doğrusu.
+      setIsProcessing(true);
+      
       try {
-        // Güncel vault değerini al
+        setStatus('Onboarding cevaplarınız kaydediliyor...');
         const currentVault = useVaultStore.getState().vault;
         
-        // Onboarding cevaplarını vault'a kaydet
         const newVaultData = {
           ...currentVault,
           onboarding: onboardingAnswers,
           profile: {
             ...(currentVault?.profile || {}),
-            // Register'dan gelen nickname'i kullan
             nickname: nickname || 'Kullanıcı',
           },
           metadata: {
@@ -44,19 +46,16 @@ export default function SummaryScreen() {
         
         setStatus('Profiliniz oluşturuluyor...');
         
-        // Başarılı kaydetme sonrası store'u temizle
         resetOnboarding();
         
-        // Ana sayfaya yönlendir
         setTimeout(() => {
           router.replace('/');
         }, 1500);
         
       } catch (error) {
         console.error('❌ Onboarding verileri kaydedilirken hata:', error);
-        setStatus('Bir hata oluştu, yeniden denenecek...');
+        setStatus('Bir hata oluştu, ana sayfaya yönlendiriliyorsunuz...');
         
-        // Hata durumunda yine de ana sayfaya yönlendir
         setTimeout(() => {
           router.replace('/');
         }, 2000);
@@ -64,7 +63,9 @@ export default function SummaryScreen() {
     };
 
     saveOnboardingData();
-  }, []); // Dependency array boş - sadece component mount'ta çalışır
+
+  // İŞTE BÜTÜN SİHİR BURADA. REACT'E DOĞRUYU SÖYLÜYORUZ.
+  }, [isProcessing, router, onboardingAnswers, nickname, updateAndSyncVault, resetOnboarding]); // Dependency array boş - sadece component mount'ta çalışır
 
   return (
     <View style={styles.container}>

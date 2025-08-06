@@ -37,18 +37,28 @@ export default function SecurityDashboardScreen() {
     const [identities, setIdentities] = useState<UserIdentity[]>([]);
     const [loading, setLoading] = useState(true);
     // ADIM #3: Backend'e bağlanana kadar bu switch'in disabled kalması en doğrusu.
-    const [isTwoFactorEnabled, setIsTwoFactorEnabled] = useState(false);
+    // setIsTwoFactorEnabled'ı siliyoruz çünkü kullanılmıyor.
+    // Gelecekte kullanacağımız zaman geri ekleriz.
+    const [isTwoFactorEnabled] = useState(false); 
 
     useEffect(() => {
         const fetchUserSecurityInfo = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setIdentities(user.identities || []);
+            setLoading(true); // Yüklemeyi başlat
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    setIdentities(user.identities || []);
+                }
+            } catch (error) {
+                console.error("Güvenlik bilgisi alınamadı:", error);
+                // Burada kullanıcıya bir hata mesajı gösterebilirsin.
+            } finally {
+                setLoading(false); // Her durumda yüklemeyi bitir
             }
-            setLoading(false);
         };
+    
         fetchUserSecurityInfo();
-    }, []);
+    }, []); // BU SEFERLİK BOŞ KALMASI KABUL EDİLEBİLİR.
 
     // ADIM #2: Basit bir "bu cihazdan çıkış yap" fonksiyonu.
     const handleSignOutFromThisDevice = () => {

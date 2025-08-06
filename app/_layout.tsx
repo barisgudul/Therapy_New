@@ -1,5 +1,4 @@
-// app/_layout.tsx - SENTRY'SİZ, ONARILMIŞ VE TAM HALİ
-
+// app/_layout.tsx 
 import 'react-native-get-random-values';
 
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
@@ -86,11 +85,13 @@ function RootNavigation() {
 
 export default function RootLayout() {
   return (
+    // <> ve </> fragment'larını geri koydum, ne olur ne olmaz.
+    // Aralarında boşluk olmadığından emin ol.
     <>
-      <QueryClientProvider client={queryClient}> 
+      <QueryClientProvider client={queryClient}>
         <KeyboardProvider>
           <AuthProvider>
-            <LoadingProvider>  {/* <-- EKSİK PARÇA BURAYA GELDİ */}
+            <LoadingProvider>
               <InitialLayout />
             </LoadingProvider>
           </AuthProvider>
