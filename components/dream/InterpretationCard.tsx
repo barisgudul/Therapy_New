@@ -1,18 +1,17 @@
-// components/dream/InterpretationCard.tsx
+// components/dream/InterpretationCard.tsx (YENİ VE MARKDOWN DESTEKLİ)
 
 import { Ionicons } from '@expo/vector-icons';
 import { MotiView } from 'moti';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Markdown from 'react-native-markdown-display'; // <-- TERCÜMANI IMPORT ET
 import { COSMIC_COLORS } from '../../constants/Colors';
 
-// Bu component'in dışarıdan hangi veriyi alacağını tanımla
 interface InterpretationCardProps {
-  interpretation?: string; // Soru işareti, bu prop'un undefined olabileceğini belirtir
+  interpretation?: string;
 }
 
 export default function InterpretationCard({ interpretation }: InterpretationCardProps) {
-  // Eğer yorum yoksa, bu kartı hiç gösterme
   if (!interpretation) {
     return null; 
   }
@@ -23,12 +22,17 @@ export default function InterpretationCard({ interpretation }: InterpretationCar
         <Ionicons name="compass-outline" size={24} color={COSMIC_COLORS.accent} />
         <Text style={styles.cardTitle}>Derinlemesine Yorum</Text>
       </View>
-      <Text style={styles.cardText}>{interpretation}</Text>
+      
+      {/* ESKİ <Text> GİTTİ, YERİNE <Markdown> GELDİ */}
+      <Markdown style={markdownStyles}>
+        {interpretation}
+      </Markdown>
+
     </MotiView>
   );
 }
 
-// Bu component'in ihtiyaç duyduğu stilleri tanımla
+// Bu component'in ana stilleri
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COSMIC_COLORS.card,
@@ -49,9 +53,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 12,
   },
-  cardText: {
-    color: COSMIC_COLORS.textSecondary,
-    fontSize: 16,
-    lineHeight: 26,
-  },
+});
+
+// MARKDOWN'UN KENDİ STİLLERİ
+// Bu, Markdown'un içindeki etiketlerin nasıl görüneceğini belirler.
+const markdownStyles = StyleSheet.create({
+    // Normal paragraf metinleri için
+    body: {
+        color: COSMIC_COLORS.textSecondary,
+        fontSize: 16,
+        lineHeight: 26,
+    },
+    // **kalın metin** için
+    strong: {
+        color: COSMIC_COLORS.textPrimary, // Kalın metinler biraz daha parlak olsun
+        fontWeight: 'bold',
+    },
+    // Gelecekte madde işaretleri veya başlıklar kullanırsak diye...
+    // heading1: { ... },
+    // list_item: { ... },
 }); 

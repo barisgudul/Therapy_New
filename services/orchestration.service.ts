@@ -1,12 +1,15 @@
 // services/orchestration.service.ts
 
+import { PromptTemplate } from "@langchain/core/prompts";
 import { InteractionContext } from '../types/context';
-import { DiaryStart, DreamAnalysisResult } from '../utils/schemas';
+import { ApiError, ValidationError } from '../utils/errors';
+import { parseAndValidateJson } from '../utils/jsonValidator';
+import { DiaryStart, DreamAnalysisResultSchema } from '../utils/schemas';
 import * as AiService from './ai.service';
-import { incrementFeatureUsage, revertFeatureUsage } from './api.service';
 import * as EventService from './event.service';
 import { EventPayload } from './event.service';
 import * as JourneyService from './journey.service';
+import * as RagService from './rag.service';
 import * as VaultService from './vault.service';
 
 // Orkestratörden dönebilecek tüm olası başarılı sonuç tipleri
@@ -217,97 +220,90 @@ async function handleTherapySession(context: InteractionContext): Promise<string
 }
 
 /**
- * Rüya analizi akışı - ÖNCE PARA, SONRA HİZMET!
+ * Rüya analizi akışı (YENİ VE AKILLI VERSİYON)
+ * RAG pipeline'ını kullanarak, kullanıcının geçmişiyle bağlam kurar.
  */
-async function handleDreamAnalysis(context: InteractionContext): Promise<string> {
-    const { initialEvent } = context;
-    const isFollowUp = initialEvent.data.isFollowUp === true;
+export async function handleDreamAnalysis(context: InteractionContext): Promise<string> { // Dönen tip hâlâ string (eventId olacak)
+    console.log(`[ORCHESTRATOR] RAG tabanlı rüya analizi başlatılıyor: ${context.transactionId}`);
+    const { dreamText } = context.initialEvent.data;
+    const userId = context.userId;
 
-    if (isFollowUp) {
-        console.log(`[ORCHESTRATOR] Rüya diyaloğu devam ediyor: Event ID ${initialEvent.data.event_id}`);
-        
-        // 1. AI'dan yeni cevabı al.
-        const aiReplyText = await AiService.generateNextDreamQuestionAI(context);
-        if (!aiReplyText) throw new Error("AI'dan geçerli bir diyalog yanıtı alınamadı.");
+    // Artık test bitti, bu satırları aktif hale getirebiliriz.
+    // await incrementFeatureUsage('dream_analysis');
 
-        // 2. Diyaloğun son halini oluştur.
-        const finalDialogue = [
-            ...initialEvent.data.fullDialogue,
-            { text: aiReplyText, role: 'model' }
-        ];
-        
-        // 3. Veritabanındaki olayı GÜNCELLE.
-        const eventIdToUpdate = initialEvent.data.event_id;
-        // Sadece 'data' alanını güncellemek yeterli. Analiz ve metin aynı kalıyor, sadece diyalog değişiyor.
-        const updatedData = {
-            ...initialEvent.data.dreamAnalysisResult, // original dream text and analysis
-            dialogue: finalDialogue
+    try {
+        const dreamPrompt = PromptTemplate.fromTemplate(`
+            Bir rüya analizi uzmanısın. Kullanıcının rüyasını ve geçmiş anılarını analiz et.
+            Cevabını, SADECE ve SADECE aşağıdaki JSON formatında, başka hiçbir açıklama veya metin eklemeden ver.
+
+            {{"title": "Rüya için 2-5 kelimelik, yaratıcı bir başlık", "summary": "Rüyanın en fazla 2 cümlelik kısa ve vurucu bir özeti", "themes": ["Rüyadaki en önemli 3 ana temayı içeren bir string dizisi"], "interpretation": "Rüyanın derinlemesine, empatik ve adım adım yorumu. Geçmiş anılarla bağlantı kur."}}
+
+            ---
+            TEKNİK TALİMATLAR:
+            - 'interpretation' metni, en fazla 250 kelime olsun.
+            - Metin içinde, önemli noktaları vurgulamak için **kalın** formatını kullan (Markdown: **kelime**).
+            - Metni, 3-4 paragrafa bölerek daha okunabilir hale getir.
+            ---
+
+            ### GEÇMİŞ ANILAR (Context):
+            {context}
+
+            ### KULLANICININ YENİ RÜYASI:
+            {question}
+        `);
+
+        // ADIM 1: Ham yanıtı al.
+        const rawResponse = await RagService.queryWithContext(userId, dreamText, dreamPrompt);
+        console.log(`[ORCHESTRATOR] Ham yanıt alındı.`);
+
+        // ADIM 2: YANITI DOĞRULA VE AYRIŞTIR (ZOD İLE)
+        const analysisData = parseAndValidateJson(rawResponse, DreamAnalysisResultSchema);
+
+        // parseAndValidateJson, hata durumunda null döner. Bunu kontrol ediyoruz.
+        if (analysisData === null) {
+            // Eğer AI'dan gelen veri, bizim Zod şemamıza uymuyorsa, bu bir validasyon hatasıdır.
+            // Hata detayları zaten jsonValidator içinde konsola yazdırılıyor.
+            // Frontend'e daha anlaşılır bir mesaj göndermek için kendi hata tipimizi fırlatıyoruz.
+            throw new ValidationError("Yapay zekadan gelen rüya analizi verisi beklenen formata uymuyor.");
         }
-        await EventService.updateEventData(eventIdToUpdate, updatedData);
+        
+        console.log(`[ORCHESTRATOR] Yanıt başarıyla doğrulandı ve ayrıştırıldı.`);
 
-        console.log(`[ORCHESTRATOR] Event ${eventIdToUpdate} diyaloğu güncellendi.`);
-        
-        // 4. Frontend'e SADECE YENİ AI CEVABINI gönder.
-        return aiReplyText;
-    } else {
-        console.log(`[ORCHESTRATOR] Yeni rüya analizi başlatılıyor: ${context.transactionId}`);
-        
-        // ADIM 1: ÖNCE PARA! Kullanım hakkını düşür
-        console.log('💰 [PAYMENT] Rüya analizi için kullanım hakkı düşürülüyor...');
-        await incrementFeatureUsage('dream_analysis');
-        console.log('✅ [PAYMENT] Kullanım hakkı başarıyla düşürüldü.');
-        
-        let dreamAnalysis: DreamAnalysisResult;
-        let savedEventId: string | null = null;
-        
-        try {
-            // ADIM 2: SONRA HİZMET! AI analizini yap
-            console.log('🤖 [AI] Rüya analizi başlatılıyor...');
-            dreamAnalysis = await AiService.analyzeDreamWithContext(context);
-            console.log('✅ [AI] Rüya analizi tamamlandı.');
-
-            // ADIM 3: Hafıza güncelleme ve loglama
-            if (dreamAnalysis?.themes) {
-                const updatedVault = AiService.mergeVaultData(context.initialVault, { themes: dreamAnalysis.themes });
-                await VaultService.updateUserVault(updatedVault);
-                await JourneyService.addJourneyLogEntry(`Rüya analizi: Temalar - ${dreamAnalysis.themes.join(', ')}`);
+        // ADIM 3: VERİTABANINA KAYDET
+        const newEventId = await EventService.logEvent({
+            type: 'dream_analysis',
+            data: {
+                dreamText: dreamText,
+                analysis: analysisData,
+                dialogue: []
             }
+        });
 
-            // ADIM 4: Veritabanına kaydet
-            savedEventId = await EventService.logEvent({
-                type: 'dream_analysis',
-                data: { 
-                    dreamText: initialEvent.data.dreamText, 
-                    analysis: dreamAnalysis, 
-                    dialogue: [] 
-                },
-            });
-            
-            if (!savedEventId) {
-                throw new Error("Analiz yapıldı ama veritabanına kaydedilemedi.");
-            }
-
-            console.log(`[ORCHESTRATOR] Yeni rüya analizi tamamlandı ve loglandı. Event ID: ${savedEventId}`);
-            
-            // ADIM 5: Frontend'e sadece ID dön
-            return savedEventId;
-            
-        } catch (error) {
-            console.error(`[ORCHESTRATOR] Rüya analizi sırasında hata: ${context.transactionId}`, error);
-            
-            // ADIM 6: HATA DURUMUNDA PARAYI İADE ET!
-            console.log('🔄 [REFUND] Hata nedeniyle kullanım hakkı iade ediliyor...');
-            try {
-                await revertFeatureUsage('dream_analysis');
-                console.log('✅ [REFUND] Kullanım hakkı başarıyla iade edildi.');
-            } catch (refundError) {
-                console.error('⛔️ [REFUND_ERROR] Kullanım hakkı iade edilirken hata:', refundError);
-                // İade hatası kritik değil, ana hatayı fırlat
-            }
-            
-            // Ana hatayı yeniden fırlat
-            throw error;
+        if (!newEventId) {
+            // Bu bir veritabanı hatasıdır (henüz custom error'u yok, ama olmalı)
+            throw new Error("Analiz üretildi ama veritabanına kaydedilemedi.");
         }
+        console.log(`[ORCHESTRATOR] Analiz, ${newEventId} ID'si ile veritabanına kaydedildi.`);
+
+        // ADIM 4: HAFIZAYA EKLE
+        const memoryContent = `Kullanıcının gördüğü rüya: "${dreamText}". Bu rüyaya yapılan yorum: "${analysisData.interpretation}"`;
+        RagService.addMemoryAsync(userId, memoryContent, { type: 'dream_analysis', source_event_id: newEventId });
+
+        // ADIM 5: ID'Yİ DÖNDÜR
+        return newEventId;
+
+    } catch (error) {
+        console.error(`[ORCHESTRATOR] RAG rüya analizi sırasında kritik hata:`, error);
+        
+        // Hatayı olduğu gibi yukarı fırlatmak yerine, onu kendi hata sistemimizle sarmalayabiliriz.
+        // Bu, frontend'in ne tür bir hata olduğunu anlamasını kolaylaştırır.
+        if (error instanceof ValidationError) {
+            throw error; // Zaten bizim hatamız, olduğu gibi fırlat.
+        }
+        // Gelecekte buraya daha fazla 'if (error instanceof ...)' eklenebilir.
+        
+        // Bilinmeyen bir hata ise, genel bir ApiError olarak fırlat.
+        throw new ApiError("Rüya analizi sırasında beklenmedik bir sunucu hatası oluştu.");
     }
 }
 
@@ -401,4 +397,4 @@ async function handleOnboardingCompletion(context: InteractionContext): Promise<
   
   // UI'a başarılı olduğuna dair bir sinyal döndür
   return { success: true, message: "ONBOARDING_SAVED" };
-} 
+}

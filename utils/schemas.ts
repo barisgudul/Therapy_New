@@ -40,6 +40,17 @@ export const DreamAnalysisSchema = z.object({
   questions: z.array(z.string()).min(1, { message: "En az 1 soru gereklidir." }),
 });
 
+// Rüya Analizi'nden dönmesini BEKELDİĞİMİZ JSON objesinin şeması.
+export const DreamAnalysisResultSchema = z.object({
+  title: z.string().min(2, "Başlık en az 2 karakter olmalı."),
+  summary: z.string().min(10, "Özet en az 10 karakter olmalı."),
+  themes: z.array(z.string()).min(1, "En az bir tema belirtilmeli."),
+  interpretation: z.string().min(20, "Yorumlama en az 20 karakter olmalı."),
+});
+
+// Bu şemadan bir TypeScript tipi türetiyoruz.
+export type DreamAnalysisResult = z.infer<typeof DreamAnalysisResultSchema>;
+
 // SEANS HAFIZASI ŞEMASI
 export const SessionMemorySchema = z.object({
   log: z.string().min(1, { message: "Log metni gereklidir." }),
@@ -55,6 +66,5 @@ export const SessionMemorySchema = z.object({
 // TÜRETİLMİŞ TİPLER (Tek yerden yönetilir)
 // -------------------
 
-export type DreamAnalysisResult = z.infer<typeof DreamAnalysisSchema>;
 export type SessionMemory = z.infer<typeof SessionMemorySchema>;
 export type DiaryStart = z.infer<typeof DiaryStartSchema>;

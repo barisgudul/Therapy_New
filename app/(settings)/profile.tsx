@@ -8,18 +8,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { FC, memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TextInputProps,
-  View,
+    ActivityIndicator,
+    Keyboard,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextInputProps,
+    View,
 } from 'react-native';
-import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import Toast from 'react-native-toast-message';
 import { useSubscription } from '../../hooks/useSubscription';
 import { useVaultStore } from '../../store/vaultStore';
@@ -48,12 +47,6 @@ interface LocalProfileState {
 
 const initialProfileState: LocalProfileState = {
   nickname: '', birthDateISO: '', relationshipStatus: ''
-};
-
-const formatDateForDisplay = (isoDate: string): string => {
-  if (!isoDate) return 'GG.AA.YYYY';
-  try { return new Date(isoDate).toLocaleDateString('tr-TR'); } 
-  catch { return 'Geçersiz Tarih'; }
 };
 
 
@@ -140,17 +133,10 @@ export default function ProfileScreen() {
 
     const [localProfile, setLocalProfile] = useState<LocalProfileState>(initialProfileState);
     const [isSaving, setIsSaving] = useState(false);
-    const [isDatePickerVisible, setDatePickerVisible] = useState(false);
 
     // Input handler'ı artık generic ve tip güvenli
     const handleInputChange = <K extends keyof LocalProfileState>(key: K, value: LocalProfileState[K]) => {
         setLocalProfile(prev => ({ ...prev, [key]: value }));
-    };
-    
-    // Tarih seçme handler'ı
-    const handleConfirmDate = (date: Date) => {
-        handleInputChange('birthDateISO', date.toISOString());
-        setDatePickerVisible(false);
     };
 
     useEffect(() => { if (!vault && !isLoadingVault) fetchVault() }, [vault, isLoadingVault, fetchVault]);
@@ -208,16 +194,6 @@ export default function ProfileScreen() {
                     returnKeyType="done"
                     autoCapitalize="words"
                 />
-                
-                <Pressable onPress={() => setDatePickerVisible(true)}>
-                    <View pointerEvents="none">
-                        <InputGroup
-                            label="Doğum Tarihi"
-                            value={formatDateForDisplay(localProfile.birthDateISO)}
-                            editable={false}
-                        />
-                    </View>
-                </Pressable>
 
                 <SelectorGroup
                     label="İlişki Durumu"
@@ -269,12 +245,6 @@ export default function ProfileScreen() {
 
                 </ScrollView>
             </SafeAreaView>
-            <DateTimePickerModal
-                isVisible={isDatePickerVisible}
-                mode="date"
-                onConfirm={handleConfirmDate}
-                onCancel={() => setDatePickerVisible(false)}
-            />
         </LinearGradient>
     );
 }

@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { COSMIC_COLORS } from '../../constants/Colors';
-import { processUserMessage } from '../../services/orchestration.service';
+import { handleDreamAnalysis } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
 export default function AnalyzeDreamScreen() {
@@ -25,22 +25,38 @@ export default function AnalyzeDreamScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  // YENİ VE AKILLI useMutation BLOĞU
   const analyzeMutation = useMutation({
-    mutationFn: (payload: { userId: string, dreamPayload: any }) => 
-      processUserMessage(payload.userId, payload.dreamPayload),
-    onSuccess: (eventId: string) => {
+    // 1. MUTASYON FONKSİYONU: Artık doğrudan bizim yeni, zeki fonksiyonumuzu çağırıyor.
+    mutationFn: (context: any) => handleDreamAnalysis(context), // <--- İŞTE YENİ BEYİN!
+
+    // 2. BAŞARI DURUMU: Artık eventId'yi alıp kullanıcıyı yönlendiriyoruz
+    onSuccess: (eventId: string) => { // Dönen değer artık eventId (string)!
       queryClient.invalidateQueries({ queryKey: ['dreamEvents'] });
-      router.replace({ pathname: '/dream/result', params: { id: eventId } });
+      
+      console.log(`✅ Analiz tamamlandı. Kullanıcı ${eventId} ID'li sonuç sayfasına yönlendiriliyor.`);
+      
+      // O YORUM SATIRINI KALDIRIYORUZ! ARTIK KULLANICIYI YÖNLENDİRECEĞİZ.
+      router.replace({ pathname: '/dream/result', params: { id: eventId } }); 
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Analiz Başarılı!',
+        text2: 'Sonuçlar yükleniyor...'
+      });
     },
+
+    // 3. HATA DURUMU
     onError: (e: any) => {
       Toast.show({
         type: 'error',
-        text1: 'Hata',
+        text1: 'Analiz Başarısız Oldu',
         text2: e.message || 'Beklenmedik bir hata oluştu.'
       });
     },
   });
 
+  // GÜNCELLENMİŞ handleAnalyzePress FONKSİYONU
   const handleAnalyzePress = async () => {
     if (dream.trim().length < 20) {
       setError('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
@@ -52,12 +68,24 @@ export default function AnalyzeDreamScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const dreamAnalysisPayload = {
-      type: 'dream_analysis',
-      data: { dreamText: dream }
+    // Bizim yeni handleDreamAnalysis fonksiyonumuzun beklediği 'context' objesini yaratıyoruz.
+    const dreamAnalysisContext = {
+        transactionId: "dream-test-" + Date.now(),
+        userId: user.id,
+        initialVault: {}, // Şimdilik boş
+        initialEvent: {
+          id: "temp-event-" + Date.now(),
+          user_id: user.id,
+          type: 'dream_analysis',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          data: { dreamText: dream }
+        },
+        derivedData: {}
     };
 
-    analyzeMutation.mutate({ userId: user.id, dreamPayload: dreamAnalysisPayload });
+    // Yeni context objemizle mutasyonu tetikliyoruz.
+    analyzeMutation.mutate(dreamAnalysisContext);
   };
 
   return (
