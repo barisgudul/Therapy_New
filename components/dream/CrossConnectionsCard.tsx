@@ -19,7 +19,6 @@ interface CrossConnectionsCardProps {
 export default function CrossConnectionsCard(
     { connections }: CrossConnectionsCardProps,
 ) {
-    // Eğer bağlantı yoksa, bu kartı hiç gösterme.
     if (!connections || connections.length === 0) {
         return null;
     }
@@ -43,9 +42,18 @@ export default function CrossConnectionsCard(
             <View style={styles.connectionsContainer}>
                 {connections.map((item, index) => (
                     <View key={index} style={styles.connectionItem}>
-                        <Text style={styles.connectionText}>
-                            🔗 {item.connection}
-                        </Text>
+                        {/* 🔥🔥🔥 TEK DEĞİŞİKLİK BURADA 🔥🔥🔥 */}
+                        <View style={styles.connectionHeader}>
+                            <Ionicons
+                                name="link-outline"
+                                size={20}
+                                color={COSMIC_COLORS.accent}
+                                style={styles.connectionIcon}
+                            />
+                            <Text style={styles.connectionText}>
+                                {item.connection}
+                            </Text>
+                        </View>
                         <Text style={styles.evidenceText}>{item.evidence}</Text>
                     </View>
                 ))}
@@ -75,24 +83,36 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     connectionsContainer: {
-        gap: 24, // Her bağlantı arasına boşluk koy
+        gap: 24,
     },
     connectionItem: {
         paddingBottom: 24,
         borderBottomWidth: 1,
         borderBottomColor: COSMIC_COLORS.cardBorder,
     },
+    // 🔥 YENİ EKLENEN STİLLER
+    connectionHeader: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginBottom: 8,
+    },
+    connectionIcon: {
+        marginRight: 10,
+        marginTop: 3,
+    },
+    // 🔥 DEĞİŞEN STİLLER
     connectionText: {
+        flex: 1, // Uzun metinler için eklendi
         color: COSMIC_COLORS.textPrimary,
         fontSize: 17,
         fontWeight: "500",
         lineHeight: 25,
-        marginBottom: 8,
     },
     evidenceText: {
         color: COSMIC_COLORS.textSecondary,
         fontSize: 15,
         lineHeight: 23,
         fontStyle: "italic",
+        paddingLeft: 30, // İkonla hizalamak için eklendi
     },
 });

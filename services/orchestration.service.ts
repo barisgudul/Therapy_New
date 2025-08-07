@@ -369,10 +369,18 @@ export async function handleDreamAnalysis(
     // Hafızaya ekleme başarısız olursa bile, kullanıcı analizini görsün.
     // Ama bu hatayı LOG'LAYIP TAKİP EDECEĞİZ. Bu, prod için kritiktir.
     try {
-      await RagService.addMemoryAsync(userId, memoryContent, {
-        type: "dream_analysis",
-        source_event_id: newEventId,
-      });
+      const newEvent = await EventService.getEventById(newEventId); // event objesinin tamamını al
+      if (newEvent) {
+        RagService.addMemoryAsync(
+          userId,
+          memoryContent,
+          newEvent,
+          context.initialVault,
+          {
+            type: "dream_analysis",
+          },
+        );
+      }
       console.log(`[ORCHESTRATOR] Hafıza başarıyla güncellendi.`);
     } catch (memoryError) {
       // TODO: Buraya Sentry veya başka bir hata izleme servisi entegre edilmeli.
@@ -443,6 +451,22 @@ async function handleDiaryStart(
     });
     await VaultService.updateUserVault(updatedVault);
   }
+
+  // Adım 6: Hafızaya ekleme
+  const newEvent = {
+    ...context.initialEvent,
+    data: { ...context.initialEvent.data, dominantMood: diaryStart.mood },
+  };
+  RagService.addMemoryAsync(
+    context.userId,
+    context.initialEvent.data.initialEntry,
+    newEvent,
+    context.initialVault,
+    {
+      type: "diary_entry_start",
+    },
+  );
+
   console.log(
     `[ORCHESTRATOR] Gelişmiş günlük başlangıç tamamlandı: ${context.transactionId}`,
   );
@@ -484,6 +508,18 @@ async function handleDailyReflection(
     });
     await VaultService.updateUserVault(updatedVault);
   }
+
+  // Adım 6: Hafızaya ekleme
+  RagService.addMemoryAsync(
+    context.userId,
+    context.initialEvent.data.todayNote,
+    context.initialEvent,
+    context.initialVault,
+    {
+      type: "daily_reflection",
+    },
+  );
+
   console.log(
     `[ORCHESTRATOR] Gelişmiş günlük yansıma tamamlandı: ${context.transactionId}`,
   );
