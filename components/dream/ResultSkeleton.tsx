@@ -1,33 +1,47 @@
 // components/dream/ResultSkeleton.tsx
 
-import { MotiView } from 'moti';
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { MotiView } from "moti";
+import React from "react";
+import { StyleSheet, View } from "react-native";
 
-import { COSMIC_COLORS } from '../../constants/Colors';
+import { COSMIC_COLORS } from "../../constants/Colors";
 
 export default function ResultSkeleton() {
   return (
     <View style={styles.container}>
       {/* Header skeleton */}
-      <MotiView from={{ opacity: 0, translateY: -10 }} animate={{ opacity: 1, translateY: 0 }} style={styles.headerSkeleton}>
+      <MotiView
+        from={{ opacity: 0, translateY: -10 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        style={styles.headerSkeleton}
+      >
         <View style={styles.dateSkeleton} />
         <View style={styles.titleSkeleton} />
       </MotiView>
-      
+
       {/* Summary card skeleton */}
-      <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 100 }}>
+      <MotiView
+        style={styles.card}
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 100 }}
+      >
         <View style={styles.cardHeader}>
           <View style={styles.iconSkeleton} />
           <View style={styles.cardTitleSkeleton} />
         </View>
         <View style={styles.cardTextSkeleton} />
         <View style={styles.cardTextSkeleton} />
-        <View style={[styles.cardTextSkeleton, { width: '60%' }]} />
+        <View style={[styles.cardTextSkeleton, { width: "60%" }]} />
       </MotiView>
-      
+
       {/* Themes card skeleton */}
-      <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 200 }}>
+      <MotiView
+        style={styles.card}
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 200 }}
+      >
         <View style={styles.cardHeader}>
           <View style={styles.iconSkeleton} />
           <View style={styles.cardTitleSkeleton} />
@@ -38,9 +52,14 @@ export default function ResultSkeleton() {
           <View style={styles.tagSkeleton} />
         </View>
       </MotiView>
-      
+
       {/* Interpretation card skeleton */}
-      <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 300 }}>
+      <MotiView
+        style={styles.card}
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 300 }}
+      >
         <View style={styles.cardHeader}>
           <View style={styles.iconSkeleton} />
           <View style={styles.cardTitleSkeleton} />
@@ -48,11 +67,31 @@ export default function ResultSkeleton() {
         <View style={styles.cardTextSkeleton} />
         <View style={styles.cardTextSkeleton} />
         <View style={styles.cardTextSkeleton} />
-        <View style={[styles.cardTextSkeleton, { width: '70%' }]} />
+        <View style={[styles.cardTextSkeleton, { width: "70%" }]} />
       </MotiView>
-      
+
+      {/* 🔥🔥🔥 YENİ İSKELET BLOĞU BURAYA 🔥🔥🔥 */}
+      <MotiView
+        style={styles.card}
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 400 }}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.iconSkeleton} />
+          <View style={styles.cardTitleSkeleton} />
+        </View>
+        <View style={styles.cardTextSkeleton} />
+        <View style={[styles.cardTextSkeleton, { width: "80%" }]} />
+      </MotiView>
+
       {/* Dialogue card skeleton */}
-      <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 400 }}>
+      <MotiView
+        style={styles.card}
+        from={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 500 }}
+      >
         <View style={styles.cardHeader}>
           <View style={styles.iconSkeleton} />
           <View style={styles.cardTitleSkeleton} />
@@ -74,21 +113,21 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   headerSkeleton: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 30,
   },
   dateSkeleton: {
     height: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 4,
-    width: '40%',
+    width: "40%",
     marginBottom: 4,
   },
   titleSkeleton: {
     height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 4,
-    width: '80%',
+    width: "80%",
   },
   card: {
     backgroundColor: COSMIC_COLORS.card,
@@ -99,38 +138,38 @@ const styles = StyleSheet.create({
     borderColor: COSMIC_COLORS.cardBorder,
   },
   cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 16,
   },
   iconSkeleton: {
     width: 24,
     height: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 12,
   },
   cardTitleSkeleton: {
     height: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 4,
-    width: '60%',
+    width: "60%",
     marginLeft: 12,
   },
   cardTextSkeleton: {
     height: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 4,
-    width: '100%',
+    width: "100%",
     marginBottom: 8,
   },
   tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   tagSkeleton: {
     height: 32,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 16,
     width: 80,
   },
@@ -140,22 +179,22 @@ const styles = StyleSheet.create({
   },
   bubbleSkeleton: {
     height: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 22,
-    width: '60%',
-    alignSelf: 'flex-end',
+    width: "60%",
+    alignSelf: "flex-end",
   },
   aiBubbleSkeleton: {
-    alignSelf: 'flex-start',
-    width: '70%',
+    alignSelf: "flex-start",
+    width: "70%",
   },
   inputSkeleton: {
     height: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 22,
     marginTop: 20,
     borderTopWidth: 1,
     borderTopColor: COSMIC_COLORS.cardBorder,
     paddingTop: 16,
   },
-}); 
+});

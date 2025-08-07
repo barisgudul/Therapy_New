@@ -2,15 +2,18 @@
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { useUpdateVault, useVault } from '../../hooks/useVault'; // YENİ SİLAHLARINI ÇAĞIR
 import { useOnboardingStore } from '../../store/onboardingStore';
-import { useVaultStore } from '../../store/vaultStore';
 
 export default function SummaryScreen() {
   const router = useRouter();
   const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
   const onboardingAnswers = useOnboardingStore((s) => s.answers);
   const nickname = useOnboardingStore((s) => s.nickname);
-  const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault);
+  
+  // updateAndSyncVault artık useVaultStore'dan gelmiyor.
+  const { data: vault } = useVault(); // Mevcut vault'u almak için
+  const { mutate: updateVaultMutation } = useUpdateVault(); // Vault'u GÜNCELLEMEK için
   
   const [status, setStatus] = useState('Onboarding cevaplarınız kaydediliyor...');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,22 +30,21 @@ export default function SummaryScreen() {
       
       try {
         setStatus('Onboarding cevaplarınız kaydediliyor...');
-        const currentVault = useVaultStore.getState().vault;
         
         const newVaultData = {
-          ...currentVault,
+          ...vault, // useVault'tan gelen güncel data
           onboarding: onboardingAnswers,
           profile: {
-            ...(currentVault?.profile || {}),
+            ...(vault?.profile || {}),
             nickname: nickname || 'Kullanıcı',
           },
           metadata: {
-            ...(currentVault?.metadata || {}),
+            ...(vault?.metadata || {}),
             onboardingCompleted: true,
           },
         };
 
-        await updateAndSyncVault(newVaultData);
+        updateVaultMutation(newVaultData); // YENİ YÖNTEM BU.
         
         setStatus('Profiliniz oluşturuluyor...');
         
@@ -65,7 +67,7 @@ export default function SummaryScreen() {
     saveOnboardingData();
 
   // İŞTE BÜTÜN SİHİR BURADA. REACT'E DOĞRUYU SÖYLÜYORUZ.
-  }, [isProcessing, router, onboardingAnswers, nickname, updateAndSyncVault, resetOnboarding]); // Dependency array boş - sadece component mount'ta çalışır
+  }, [isProcessing, router, onboardingAnswers, nickname, vault, updateVaultMutation, resetOnboarding]); // Dependency array'e vault ve updateVaultMutation ekledim
 
   return (
     <View style={styles.container}>

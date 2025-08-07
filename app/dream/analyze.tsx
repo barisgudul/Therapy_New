@@ -1,3 +1,4 @@
+// app/dream/analyze.tsx
 import { Ionicons } from '@expo/vector-icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +17,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { COSMIC_COLORS } from '../../constants/Colors';
+import { useVault } from '../../hooks/useVault';
 import { handleDreamAnalysis } from '../../services/orchestration.service';
 import { supabase } from '../../utils/supabase';
 
@@ -24,20 +26,53 @@ export default function AnalyzeDreamScreen() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
+  
+  // ADIM 2'DEKİ DÜZELTME: Vault verisini baştan alıyoruz.
+  const { data: vault, isLoading: isVaultLoading } = useVault();
 
   // YENİ VE AKILLI useMutation BLOĞU
   const analyzeMutation = useMutation({
-    // 1. MUTASYON FONKSİYONU: Artık doğrudan bizim yeni, zeki fonksiyonumuzu çağırıyor.
-    mutationFn: (context: any) => handleDreamAnalysis(context), // <--- İŞTE YENİ BEYİN!
+    // MUTATIONFN ARTIK BÖYLE: Parametre almayan bir async fonksiyon.
+    // İhtiyacı olan her şeyi içeriden, anlık olarak kendisi toplar.
+    mutationFn: async () => {
+      // 1. Önce kontrollerini yap, boş yere backend'i yorma.
+      if (dream.trim().length < 20) {
+        throw new Error('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
+      }
 
-    // 2. BAŞARI DURUMU: Artık eventId'yi alıp kullanıcıyı yönlendiriyoruz
-    onSuccess: (eventId: string) => { // Dönen değer artık eventId (string)!
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Bu bir yetkilendirme hatası.
+        throw new Error("Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.");
+      }
+
+      // Context'i burada, butona basıldığı anki TAZE verilerle oluştur.
+      const dreamAnalysisContext = {
+        transactionId: "dream-tx-" + Date.now(),
+        userId: user.id,
+        initialVault: vault || {}, // Vault'u buraya TAZE TAZE koy.
+        initialEvent: {
+          id: "temp-event-" + Date.now(),
+          user_id: user.id,
+          type: 'dream_analysis' as const,
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          data: { dreamText: dream.trim() } // trim() ekle, boşlukları temizle.
+        },
+        derivedData: {}
+      };
+
+      // İşte beyni burada çağırıyoruz.
+      return handleDreamAnalysis(dreamAnalysisContext);
+    },
+
+    // BAŞARI DURUMU: Dönen şeyin eventId (string) olduğunu biliyoruz.
+    onSuccess: (eventId: string) => {
+      // Önce cache'i temizle ki liste güncellensin.
       queryClient.invalidateQueries({ queryKey: ['dreamEvents'] });
       
       console.log(`✅ Analiz tamamlandı. Kullanıcı ${eventId} ID'li sonuç sayfasına yönlendiriliyor.`);
-      
-      // O YORUM SATIRINI KALDIRIYORUZ! ARTIK KULLANICIYI YÖNLENDİRECEĞİZ.
-      router.replace({ pathname: '/dream/result', params: { id: eventId } }); 
+      router.replace({ pathname: '/dream/result', params: { id: eventId } });
       
       Toast.show({
         type: 'success',
@@ -46,46 +81,22 @@ export default function AnalyzeDreamScreen() {
       });
     },
 
-    // 3. HATA DURUMU
+    // HATA DURUMU: Gelen hatayı olduğu gibi basma, anlaşılır hale getir.
     onError: (e: any) => {
+      setError(e.message || 'Beklenmedik bir hata oluştu.');
       Toast.show({
         type: 'error',
         text1: 'Analiz Başarısız Oldu',
-        text2: e.message || 'Beklenmedik bir hata oluştu.'
+        text2: e.message || 'Lütfen daha sonra tekrar deneyin.'
       });
     },
   });
 
   // GÜNCELLENMİŞ handleAnalyzePress FONKSİYONU
-  const handleAnalyzePress = async () => {
-    if (dream.trim().length < 20) {
-      setError('Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.');
-      return;
-    }
-    setError(null);
+  const handleAnalyzePress = () => {
+    setError(null); // Eski hataları temizle
     Keyboard.dismiss();
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Bizim yeni handleDreamAnalysis fonksiyonumuzun beklediği 'context' objesini yaratıyoruz.
-    const dreamAnalysisContext = {
-        transactionId: "dream-test-" + Date.now(),
-        userId: user.id,
-        initialVault: {}, // Şimdilik boş
-        initialEvent: {
-          id: "temp-event-" + Date.now(),
-          user_id: user.id,
-          type: 'dream_analysis',
-          timestamp: Date.now(),
-          created_at: new Date().toISOString(),
-          data: { dreamText: dream }
-        },
-        derivedData: {}
-    };
-
-    // Yeni context objemizle mutasyonu tetikliyoruz.
-    analyzeMutation.mutate(dreamAnalysisContext);
+    analyzeMutation.mutate(); // Mutasyonu parametresiz çağır.
   };
 
   return (
@@ -119,12 +130,20 @@ export default function AnalyzeDreamScreen() {
           {error && <Text style={styles.errorText}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.analyzeButton, analyzeMutation.isPending && { opacity: 0.7 }]}
-            disabled={analyzeMutation.isPending}
+            style={[
+              styles.analyzeButton,
+              // Butonun pasif görünmesini sağlayan stil
+              (analyzeMutation.isPending || isVaultLoading) && { opacity: 0.7 }
+            ]}
+            // Analiz işlemi sürerken VEYA vault yüklenirken butonu devre dışı bırak
+            disabled={analyzeMutation.isPending || isVaultLoading}
             onPress={handleAnalyzePress}
           >
             {analyzeMutation.isPending ? (
               <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
+            ) : isVaultLoading ? (
+              // Vault yüklenirken farklı bir mesaj göster, daha şık olur.
+              <Text style={styles.analyzeButtonText}>Veriler Hazırlanıyor...</Text>
             ) : (
               <Text style={styles.analyzeButtonText}>Analiz Et</Text>
             )}

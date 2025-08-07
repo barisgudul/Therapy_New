@@ -12,18 +12,23 @@ import { useAuth } from '../context/Auth';
 import { generateDailyReflectionResponse } from '../services/ai.service';
 import { incrementFeatureUsage } from '../services/api.service';
 import { logEvent } from '../services/event.service';
-import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
 import { getErrorMessage } from '../utils/errors';
 import { useFeatureAccess } from './useSubscription';
+import { useUpdateVault, useVault } from './useVault'; // GÜNCEL İMPORT
 
 const { width, height } = Dimensions.get('window');
 
 export function useDailyWrite() {
     const router = useRouter();
     const { user } = useAuth();
-    const vault = useVaultStore((s) => s.vault);
-    const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault);
+    
+    // const vault = useVaultStore((s) => s.vault); // ÖLDÜ
+    // const updateAndSyncVault = useVaultStore((s) => s.updateAndSyncVault); // ÖLDÜ
+    
+    // YERİNE:
+    const { data: vault } = useVault();
+    const { mutate: updateVault } = useUpdateVault();
 
     const [moodValue, setMoodValue] = useState(3);
     const [note, setNote] = useState('');
@@ -138,17 +143,18 @@ export function useDailyWrite() {
       data: { text: note, aiResponse: aiMessage },
     });
 
-    const currentVault = useVaultStore.getState().vault;
-    if (currentVault) {
+    // const currentVault = useVaultStore.getState().vault; // Bu tamamen ölü.
+    if (vault) { // useVault'tan gelen datayı kullan.
       const newVault = {
-        ...currentVault,
+        ...vault,
         metadata: {
-          ...currentVault.metadata,
+          ...vault.metadata,
           lastDailyReflectionDate: todayString,
           dailyMessageContent: aiMessage,
         },
       };
-      await updateAndSyncVault(newVault);
+      // await updateAndSyncVault(newVault); // Öldü.
+      updateVault(newVault); // Yeni kral.
     }
 
     // Başarılı tamamlanma

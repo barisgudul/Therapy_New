@@ -1,86 +1,90 @@
-// supabase/functions/assign-free-plan/index.ts
+// supabase/functions/assign-free-plan/index.ts (MODERN VE SAĞLAM VERSİYON)
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts"; // 🔥 DÜZELTME 1: Standart cors import'unu kullanıyoruz.
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// Hata mesajlarını güvenli bir şekilde almak için standart yardımcımız.
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
 
-// CORS için gerekli başlıklar
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Fonksiyonun ana mantığı
-serve(async (req: Request) => {
-  // OPTIONS isteği (pre-flight) için CORS başlıklarını döndür
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+// 🔥 DÜZELTME 2: Artık modern Deno.serve kullanıyoruz. Eskisini çöpe at.
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // Sunucu tarafı Supabase istemcisini oluştur (SERVICE_ROLE_KEY ile)
-    // Bu, RLS politikalarını atlayarak işlem yapmamızı sağlar.
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // İstek başlığından kullanıcının kimlik doğrulama token'ını al
-    const authHeader = req.headers.get('Authorization')!;
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(authHeader.replace('Bearer ', ''));
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Yetkilendirme başlığı eksik.");
+
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: userError } = await supabaseAdmin.auth
+      .getUser(jwt);
 
     if (userError) throw userError;
-    if (!user) throw new Error('User not found');
+    if (!user) throw new Error("Kullanıcı bulunamadı.");
 
-    // 1. Kullanıcının mevcut bir aboneliği var mı diye kontrol et
-    const { data: existingSubscription, error: selectError } = await supabaseAdmin
-      .from('user_subscriptions')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
+    const { data: existingSubscription, error: selectError } =
+      await supabaseAdmin
+        .from("user_subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
     if (selectError) throw selectError;
 
-    // Eğer zaten bir aboneliği varsa, işlemi bitir.
     if (existingSubscription) {
-      return new Response(JSON.stringify({ message: 'User already has a subscription' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      });
+      return new Response(
+        JSON.stringify({ message: "Kullanıcının zaten bir aboneliği var." }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     }
 
-    // 2. "Free" planının ID'sini al
     const { data: freePlan, error: planError } = await supabaseAdmin
-      .from('subscription_plans')
-      .select('id')
-      .eq('name', 'Free')
+      .from("subscription_plans")
+      .select("id")
+      .eq("name", "Free")
       .single();
-
     if (planError) throw planError;
-    if (!freePlan) throw new Error('Free plan not found');
+    if (!freePlan) {
+      throw new Error('"Free" abonelik planı veritabanında bulunamadı.');
+    }
 
-    // 3. Kullanıcıya yeni "Free" aboneliğini ata
+    // Bitiş tarihini bir yıl yapalım, 30 gün çok az.
+    const endsAt = new Date();
+    endsAt.setFullYear(endsAt.getFullYear() + 1);
+
     const { error: insertError } = await supabaseAdmin
-      .from('user_subscriptions')
+      .from("user_subscriptions")
       .insert({
         user_id: user.id,
         plan_id: freePlan.id,
-        status: 'active',
+        status: "active",
         starts_at: new Date().toISOString(),
-        ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 gün sonrası
+        ends_at: endsAt.toISOString(),
         auto_renew: false,
       });
-
     if (insertError) throw insertError;
 
-    return new Response(JSON.stringify({ message: 'Free plan assigned successfully' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
-
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(
+      JSON.stringify({ message: '"Free" plan başarıyla atandı.' }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
+  } catch (error: unknown) { // 🔥 DÜZELTME 3: Hataları standart ve güvenli yöntemle yakalıyoruz.
+    return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
   }
-}); 
+});

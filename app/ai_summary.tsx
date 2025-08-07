@@ -6,18 +6,19 @@ import { useRouter } from 'expo-router/';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { useVault } from '../hooks/useVault';
 // @ts-ignore
 import RNHTMLtoPDF from 'react-native-html-to-pdf';
 
@@ -30,7 +31,6 @@ import { useFeatureAccess } from '../hooks/useSubscription';
 import { generateStructuredAnalysisReport } from '../services/ai.service';
 import { incrementFeatureUsage } from '../services/api.service';
 import { AppEvent, deleteEventById, getAIAnalysisEvents, getOldestEventDate, logEvent } from '../services/event.service';
-import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
 
 // Helper function to create a clean preview from markdown text
@@ -58,6 +58,10 @@ export default function AISummaryScreen() {
   const { user } = useAuth();
   const router = useRouter();
 
+  // 1. ADIM: HOOK'U EN TEPEDE ÇAĞIR.
+  // Bu bize render anındaki en güncel vault verisini ve durumunu verir.
+  const { data: vault, isLoading: isVaultLoading } = useVault();
+
   const [maxDays, setMaxDays] = useState(1);
   const [selectedDays, setSelectedDays] = useState(1);
   const [analysisEvents, setAnalysisEvents] = useState<AppEvent[]>([]);
@@ -75,12 +79,13 @@ export default function AISummaryScreen() {
         setLoading(true); 
         try {
             // Vault store'u yükle
-            const vaultStore = useVaultStore.getState();
-            if (vaultStore.isLoading || !vaultStore.vault) {
-                console.log('🔄 [AI-SUMMARY] Sayfa başlatılırken vault yükleniyor...');
-                await vaultStore.fetchVault();
-            }
-
+            // const vaultStore = useVault.getState(); // BU YASAK. SİL BUNU.
+            // if (vaultStore.isLoading || !vaultStore.vault) {
+            //    console.log('🔄 [AI-SUMMARY] Sayfa başlatılırken vault yükleniyor...');
+            //    await vaultStore.fetchVault(); // BUNU DA SİL. _layout zaten yapıyor.
+            // }
+            // Yukarıdaki 3 satırı sil. Vault verisi zaten `useVault()` hook'u tarafından yönetiliyor.
+            
             // Sadece AI analiz olaylarını çek - optimize edilmiş veri çekimi
             const analysisOnly = await getAIAnalysisEvents();
             setAnalysisEvents(analysisOnly);
@@ -135,16 +140,18 @@ const fetchSummary = async () => {
   setLoading(true);
 
   try {
-    const vault = useVaultStore.getState().vault;
-    if (!vault) {
-      throw new Error("Vault verisi bulunamadı, analiz başlatılamıyor.");
+    // const vault = useVault.getState().vault; // YASAK.
+    // 2. ADIM: VERİYİ DIŞARIDAN AL.
+    // Hook'tan gelen 'vault' değişkenini burada direkt kullan.
+    if (!vault) { // 'isVaultLoading' kontrolü de ekleyebilirsin.
+      throw new Error("Vault verisi henüz yüklenmedi, analiz başlatılamıyor.");
     }
 
     // Adım 1: InteractionContext objesini TAM ve DOĞRU bir şekilde oluştur.
     const context: InteractionContext = {
       transactionId: uuidv4(),
       userId: user!.id, // user'ın yüklendiğinden eminiz (_layout sayesinde)
-      initialVault: vault,
+      initialVault: vault, // İşte burada kullanıyorsun.
       initialEvent: {
         id: uuidv4(),
         user_id: user!.id, // Babasız çocuk yok. Herkesin kimliği belli.

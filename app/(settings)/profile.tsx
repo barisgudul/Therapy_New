@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useSubscription } from '../../hooks/useSubscription';
-import { useVaultStore } from '../../store/vaultStore';
+import { useUpdateVault, useVault } from '../../hooks/useVault'; // YENİ SİLAHLARINI ÇAĞIR
 
 // Bu veriler artık merkezi /theme klasöründen gelmeli.
 // Şimdilik buraya fallback olarak ekliyoruz.
@@ -128,18 +128,21 @@ const SaveButton: FC<{ onPress: () => void; isSaving: boolean; isDisabled: boole
 // =================================================================
 
 export default function ProfileScreen() {
-    const { vault, updateAndSyncVault, fetchVault, isLoading: isLoadingVault, error: vaultError } = useVaultStore();
+    // const { vault, updateAndSyncVault, fetchVault, isLoading: isLoadingVault, error: vaultError } = useVaultStore(); // Bu satırı tamamen SİL.
+    
+    // YERİNE BUNLARI KOY:
+    const { data: vault, isLoading: isLoadingVault, error: vaultError } = useVault();
+    const { mutate: updateVault, isPending: isSaving } = useUpdateVault(); // isPending, isSaving'in yerine geçer.
+    
     const router = useRouter();
 
     const [localProfile, setLocalProfile] = useState<LocalProfileState>(initialProfileState);
-    const [isSaving, setIsSaving] = useState(false);
 
     // Input handler'ı artık generic ve tip güvenli
     const handleInputChange = <K extends keyof LocalProfileState>(key: K, value: LocalProfileState[K]) => {
         setLocalProfile(prev => ({ ...prev, [key]: value }));
     };
 
-    useEffect(() => { if (!vault && !isLoadingVault) fetchVault() }, [vault, isLoadingVault, fetchVault]);
     useEffect(() => {
         if (vault?.profile) {
             const profileData = vault.profile as Record<string, unknown>;
@@ -156,11 +159,11 @@ export default function ProfileScreen() {
             Toast.show({ type: 'error', text1: 'İsim alanı boş bırakılamaz.' });
             return;
         }
-        setIsSaving(true);
         Keyboard.dismiss();
         try {
             const newVaultData = { ...vault, profile: { ...(vault?.profile || {}), ...localProfile } };
-            await updateAndSyncVault(newVaultData);
+            // await updateAndSyncVault(newVaultData); // Bu öldü.
+            updateVault(newVaultData); // Yeni kral bu.
             Toast.show({ type: 'success', text1: 'Başarılı!', text2: 'Profilin güncellendi.' });
             // KULLANICI DENEYİMİ: Toast mesajını görmesi için 1 saniye bekle
             setTimeout(() => {
@@ -171,10 +174,8 @@ export default function ProfileScreen() {
         } catch (error) {
             console.error('[PROFILE_SAVE_ERROR]', error);
             Toast.show({ type: 'error', text1: 'Hata', text2: 'Profil güncellenirken bir sorun oluştu.' });
-        } finally {
-            setIsSaving(false);
         }
-    }, [localProfile, vault, updateAndSyncVault, router]);
+    }, [localProfile, vault, updateVault, router]); // updateAndSyncVault yerine updateVault
     
     const renderContent = () => {
         if (isLoadingVault && !vault) {

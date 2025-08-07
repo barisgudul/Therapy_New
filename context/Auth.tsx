@@ -1,9 +1,10 @@
 // context/Auth.tsx - AMELİYAT EDİLMİŞ VE GÜÇLENDİRİLMİŞ VERSİYON
 
 import { Session, User } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query'; // EKLE
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { useVaultStore } from '../store/vaultStore'; // vaultStore kullanılıyorsa
+// import { useVaultStore } from '../store/vaultStore'; // SİL
 import { supabase } from '../utils/supabase';
 
 // 1. CONTEXT TİPİNİ GENİŞLETİYORUZ
@@ -34,8 +35,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isPendingDeletion, setIsPendingDeletion] = useState(false); // State'i burada tut
 
   // Vault kullanılıyorsa, fonksiyonları al
-  const fetchVault = useVaultStore((state) => state.fetchVault);
-  const clearVault = useVaultStore((state) => state.clearVault);
+  // const fetchVault = useVaultStore((state) => state.fetchVault); // SİL
+  // const clearVault = useVaultStore((state) => state.clearVault); // SİL
+  
+  const queryClient = useQueryClient(); // queryClient'ı al.
 
   // 3. İŞİN BEYNİ: KULLANICI DURUMUNU KONTROL ETME FONKSİYONU
   const checkUserStatus = async (currentUser: User | null) => {
@@ -90,15 +93,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await checkUserStatus(currentUser); // ⬅️ İŞTE BÜTÜN OLAY BU SATIRDA
 
       if (currentUser) {
-        console.log("[AUTH] Kullanıcı oturumu aktif. Vault yükleniyor...");
-        try {
-          await fetchVault();
-        } catch (error) {
-          console.error("[AUTH] Vault yüklenemedi:", error);
-        }
+        // console.log("[AUTH] Kullanıcı oturumu aktif. Vault yükleniyor..."); // BU YORUM BİLE YALAN SÖYLÜYOR.
+        // await fetchVault(); // SİL. _layout zaten bu işi yapıyor.
       } else {
-        console.log("[AUTH] Kullanıcı oturumu kapalı. Vault temizleniyor...");
-        clearVault();
+        console.log("[AUTH] Kullanıcı oturumu kapalı. Cache temizleniyor...");
+        // clearVault(); // SİL.
+        queryClient.clear(); // BÜTÜN cache'i temizle. En güvenlisi bu.
       }
 
       setIsLoading(false); // Bütün işlemler bitince yükleniyor durumunu kapat
@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchVault, clearVault]); // Bağımlılıklar doğru.
+  }, [queryClient]); // Bağımlılıklar doğru.
 
   const value = {
     user,

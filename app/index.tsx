@@ -9,7 +9,7 @@ import { ActivityIndicator, Animated, Dimensions, Image, Modal, Platform, Pressa
 import PendingDeletionScreen from '../components/PendingDeletionScreen';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
-import { useVaultStore } from '../store/vaultStore';
+import { useVault } from '../hooks/useVault';
 
 const todayISO = () => new Date().toISOString().split('T')[0];
 const { width } = Dimensions.get('window');
@@ -18,14 +18,20 @@ export default function HomeScreen() {
   // === HOOKS & AUTH STATE ===
   const router = useRouter();
   const { isPendingDeletion, isLoading: isAuthLoading } = useAuth();
-  const vault = useVaultStore((state) => state.vault);
-  const isLoadingVault = useVaultStore((state) => state.isLoading);
+  
+  // ESKİ HALİ:
+  // const vault = useVaultStore((state) => state.vault);
+  // const isLoadingVault = useVaultStore((state) => state.isLoading);
+  
+  // YENİ HALİ (Tek satır):
+  const { data: vault, isLoading: isVaultLoading } = useVault();
+  
   const [modalVisible, setModalVisible] = useState(false);
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // === BİLDİRİM YÖNETİMİ (Vault kontrolü ile) ===
   useEffect(() => {
-    if (!isLoadingVault && vault) {
+    if (!isVaultLoading && vault) {
       (async () => {
         await Notifications.cancelAllScheduledNotificationsAsync();
         await Notifications.scheduleNotificationAsync({
@@ -38,10 +44,10 @@ export default function HomeScreen() {
         });
       })();
     }
-  }, [isLoadingVault, vault]);
+  }, [isVaultLoading, vault]);
 
   // Ana içeriği göstermeden önce kritik durumları kontrol et
-  if (isAuthLoading || isLoadingVault) {
+  if (isAuthLoading || isVaultLoading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={Colors.light.tint} />
@@ -81,7 +87,7 @@ export default function HomeScreen() {
   };
 
   // Not: Görünen mesaj, AI'dan gelen ve Vault'a kaydedilen bir mesaj olmalı.
-  const dailyMessage = (!isLoadingVault && vault?.metadata?.dailyMessageContent) 
+  const dailyMessage = (!isVaultLoading && vault?.metadata?.dailyMessageContent) 
     ? vault.metadata.dailyMessageContent 
     : 'Bugün için mesajın burada görünecek.';
   

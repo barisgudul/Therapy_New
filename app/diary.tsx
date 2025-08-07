@@ -4,28 +4,28 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Keyboard,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Keyboard,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
 import { useAuth } from '../context/Auth';
 import { useFeatureAccess } from '../hooks/useSubscription';
+import { useUpdateVault, useVault } from '../hooks/useVault';
 import { analyzeSessionForMemory, generateDiaryNextQuestions, generateDiaryStart, mergeVaultData } from '../services/ai.service';
 import { incrementFeatureUsage } from '../services/api.service';
-import { AppEvent, deleteEventById, getEventsForLast, logEvent } from '../services/event.service';
+import { AppEvent, deleteEventById, getSessionEventsForUser, logEvent } from '../services/event.service';
 import { addJourneyLogEntry } from '../services/journey.service';
 import { VaultData } from '../services/vault.service';
-import { useVaultStore } from '../store/vaultStore';
 import { InteractionContext } from '../types/context';
 import { getErrorMessage } from '../utils/errors';
 
@@ -38,8 +38,8 @@ interface Message {
 export default function DiaryScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const vault = useVaultStore((state) => state.vault);
-  const updateAndSyncVault = useVaultStore((state) => state.updateAndSyncVault);
+  const { data: vault } = useVault();
+  const updateVaultMutation = useUpdateVault();
   const [isWritingMode, setIsWritingMode] = useState(false);
   const [isViewingDiary, setIsViewingDiary] = useState(false);
   const [selectedDiary, setSelectedDiary] = useState<AppEvent | null>(null);
@@ -52,7 +52,6 @@ export default function DiaryScreen() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [saveModalVisible, setSaveModalVisible] = useState(false);
   const spinAnim = useRef(new Animated.Value(0)).current;
   const modalPosition = useRef(new Animated.Value(0)).current;
 
@@ -86,7 +85,7 @@ export default function DiaryScreen() {
       if (memoryPieces) {
           await addJourneyLogEntry(memoryPieces.log);
           const newVault = mergeVaultData(currentVault, memoryPieces.vaultUpdate);
-          await updateAndSyncVault(newVault);
+          updateVaultMutation.mutate(newVault);
           console.log("✅ [BACKGROUND-PROCESS] Günlükten çıkarılan anlam Vault'a işlendi.");
       }
     } catch (error) {
@@ -109,7 +108,7 @@ export default function DiaryScreen() {
         })
       ).start();
     }
-  }, [isSaving]);
+  }, [isSaving, spinAnim]);
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
@@ -118,7 +117,7 @@ export default function DiaryScreen() {
 
   const loadDiaryEvents = async () => {
     try {
-      const allEvents = await getEventsForLast(365); // last 1 year
+      const allEvents = await getSessionEventsForUser();
       const diaryOnlyEvents = allEvents.filter(event => event.type === 'diary_entry');
       setDiaryEvents(diaryOnlyEvents);
     } catch (error) {
@@ -225,7 +224,6 @@ export default function DiaryScreen() {
   const saveDiary = async () => {
     if (messages.length === 0 || isSaving) return;
     setIsSaving(true);
-    setSaveModalVisible(true);
 
     try {
       // 1. ÖNCE KULLANICININ VERİSİNİ ANINDA KAYDET. BU EN ÖNEMLİ ADIM.
@@ -239,7 +237,6 @@ export default function DiaryScreen() {
       // 2. ARAYÜZÜ HEMEN SERBEST BIRAK. KULLANICIYI BEKLETME.
       await loadDiaryEvents();
       setIsSaving(false);
-      setSaveModalVisible(false);
       setIsWritingMode(false);
       
       // Kullanım sayısını artır
@@ -259,7 +256,6 @@ export default function DiaryScreen() {
       Alert.alert("Kayıt Hatası", "Günlüğün kaydedilirken bir sorun oluştu.");
       // Hata durumunda UI'ı serbest bırak.
       setIsSaving(false);
-      setSaveModalVisible(false);
     }
   };
 

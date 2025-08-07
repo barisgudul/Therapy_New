@@ -1,31 +1,43 @@
-// eslint.config.js - OLMASI GEREKEN HALİ BU
+// eslint.config.js - PROD'A HAZIR, TAŞ GİBİ VERSİYON
 
-// https://docs.expo.dev/guides/using-eslint/
 const { defineConfig } = require('eslint/config');
 const expoConfig = require('eslint-config-expo/flat');
 
 module.exports = defineConfig([
-  // 1. Expo'nun temel kuralları. Buna dokunmuyoruz.
-  expoConfig,
+  // Expo'nun temel kurallarını olduğu gibi alıyoruz. Bu bizim tabanımız.
+  ...expoConfig,
 
-  // 2. Senin ignore ayarın. Bu da kalsın.
+  // Şimdi kendi özel kurallarımızı ve ayarlarımızı tanımlıyoruz.
   {
-    ignores: ['dist/*'],
-  },
-  
-  // 3. İŞTE BİZİM EKLEDİĞİMİZ AYAR OBJESİ. BU, HER ŞEYİ EZER.
-  {
+    // Bu ayarların tüm dosyalara uygulanacağını belirtiyoruz.
+    files: ['**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx'],
+    
+    // Kurallarımızı tanımlıyoruz.
     rules: {
-      // no-unused-vars kuralına diyoruz ki:
-      // "Eğer değişken adı '_' ile başlıyorsa, uyarını kendine sakla."
+      // no-unused-vars kuralını daha önce yaptığın gibi esnek bırakıyoruz. Aferin.
       '@typescript-eslint/no-unused-vars': [
-        'warn', // Hata verme, sadece uyar
+        'warn',
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+
+      // 🔥🔥🔥 İŞTE SENİN KATİLİNİ SUSTURAN İKİ KURAL 🔥🔥🔥
+      // Bu iki kuralı 'off' yaparak ESLint'in Deno'ya karışmasını engelliyoruz.
+      'import/no-unresolved': 'off',
+      'import/extensions': 'off',
     },
+  },
+  
+  // Ignore ayarını da modern formata çeviriyoruz.
+  {
+    ignores: [
+        'dist/*', 
+        'node_modules/*', 
+        '.expo/*',
+        // Gelecekte eklemek istersen diye diğer ignore edilecek yollar...
+    ],
   },
 ]);

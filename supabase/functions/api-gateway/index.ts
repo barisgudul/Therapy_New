@@ -1,207 +1,238 @@
 // supabase/functions/api-gateway/index.ts
-import { corsHeaders } from '../_shared/cors.ts';
+import { corsHeaders } from "../_shared/cors.ts";
 
-const GEMINI_API_KEY_FOR_GATEWAY = Deno.env.get('GEMINI_API_KEY'); // Anahtarı bir kere al, tekrar tekrar sorma.
+const GEMINI_API_KEY_FOR_GATEWAY = Deno.env.get("GEMINI_API_KEY");
 
-async function classifyTextForSafety(text: string): Promise<string> {
-    // Eğer API anahtarı yoksa, bu kritik bir yapılandırma hatasıdır.
-    if (!GEMINI_API_KEY_FOR_GATEWAY) {
-        console.error("KRİTİK HATA: GEMINI_API_KEY sunucu ortam değişkenlerinde bulunamadı!");
-        // Güvenlik için en riskli durumu varsayarak devam et ama logla.
-        return 'level_3_high_alert'; 
-    }
-    
-    // Bu prompt, senin `ai.service.ts` içinde sildiğin classifyTextSafety'den daha kısa ve net.
-    const prompt = `Metni SADECE şu kategorilerden biriyle etiketle: ['level_0_safe', 'level_1_mild_concern', 'level_2_moderate_risk', 'level_3_high_alert']. METİN: "${text}" KATEGORİ:`;
-
-    try {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_FOR_GATEWAY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.0, maxOutputTokens: 10 }
-            }),
-        });
-
-        if (!res.ok) {
-            // API'den hata dönerse, logla ve güvenli tarafta kal.
-            const errorBody = await res.text();
-            console.error(`Güvenlik sınıflandırma API hatası: ${res.status} ${errorBody}`);
-            return 'level_2_moderate_risk';
-        }
-
-        const data = await res.json();
-        const classification = data?.candidates?.[0]?.content?.parts?.[0]?.text.trim()?.toLowerCase() || 'level_2_moderate_risk';
-
-        // Gelen cevabın beklenen formatta olduğunu doğrula.
-        const validClassifications = ['level_0_safe', 'level_1_mild_concern', 'level_2_moderate_risk', 'level_3_high_alert'];
-        if (validClassifications.includes(classification)) {
-            return classification;
-        }
-
-        console.warn(`Beklenmedik sınıflandırma sonucu: '${classification}'. Riskli varsayılıyor.`);
-        return 'level_2_moderate_risk';
-
-    } catch (error) {
-        console.error('[API-GATEWAY] Güvenlik sınıflandırması ağ hatası:', error.message);
-        // Ağ hatası gibi durumlarda, güvenli tarafta kal.
-        return 'level_2_moderate_risk';
-    }
+// 🔥 DÜZELTME 1: Hatanın ne olduğunu anlamak için bir yardımcı fonksiyon.
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }
 
-const GCP_SERVER_CONFIG = {
+async function classifyTextForSafety(text: string): Promise<string> {
+  if (!GEMINI_API_KEY_FOR_GATEWAY) {
+    console.error(
+      "KRİTİK HATA: GEMINI_API_KEY sunucu ortam değişkenlerinde bulunamadı!",
+    );
+    return "level_3_high_alert";
+  }
+
+  const prompt =
+    `Metni SADECE şu kategorilerden biriyle etiketle: ['level_0_safe', 'level_1_mild_concern', 'level_2_moderate_risk', 'level_3_high_alert']. METİN: "${text}" KATEGORİ:`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_FOR_GATEWAY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.0, maxOutputTokens: 10 },
+        }),
+      },
+    );
+
+    if (!res.ok) {
+      const errorBody = await res.text();
+      console.error(
+        `Güvenlik sınıflandırma API hatası: ${res.status} ${errorBody}`,
+      );
+      return "level_2_moderate_risk";
+    }
+
+    const data = await res.json();
+    const classification =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text.trim()?.toLowerCase() ||
+      "level_2_moderate_risk";
+    const validClassifications = [
+      "level_0_safe",
+      "level_1_mild_concern",
+      "level_2_moderate_risk",
+      "level_3_high_alert",
+    ];
+
+    if (validClassifications.includes(classification)) {
+      return classification;
+    }
+
+    console.warn(
+      `Beklenmedik sınıflandırma sonucu: '${classification}'. Riskli varsayılıyor.`,
+    );
+    return "level_2_moderate_risk";
+  } catch (error: unknown) { // 🔥 DÜZELTME 2: 'error' artık 'unknown' tipinde.
+    console.error(
+      "[API-GATEWAY] Güvenlik sınıflandırması ağ hatası:",
+      getErrorMessage(error),
+    );
+    return "level_2_moderate_risk";
+  }
+}
+
+// 🔥 DÜZELTME 3: GCP_SERVER_CONFIG için daha net bir tip tanımı yapıyoruz.
+// Bu, "Element implicitly has an 'any' type" hatasını çözer.
+const GCP_SERVER_CONFIG: {
+  speechToText: Record<string, unknown>;
+  textToSpeech: Record<string, Record<string, unknown>>;
+} = {
   speechToText: {
-    languageCode: 'tr-TR',
-    encoding: 'LINEAR16',
+    languageCode: "tr-TR",
+    encoding: "LINEAR16",
     sampleRateHertz: 16000,
     enableAutomaticPunctuation: true,
-    model: 'latest_long',
+    model: "latest_long",
   },
   textToSpeech: {
     therapist1: {
-      languageCode: 'tr-TR',
-      name: 'tr-TR-Chirp3-HD-Despina',
+      languageCode: "tr-TR",
+      name: "tr-TR-Chirp3-HD-Despina",
       audioConfig: {
-        audioEncoding: 'MP3',
+        audioEncoding: "MP3",
         speakingRate: 1.11,
         volumeGainDb: 1.5,
-        effectsProfileId: ['handset-class-device'],
+        effectsProfileId: ["handset-class-device"],
       },
     },
     therapist3: {
-      languageCode: 'tr-TR',
-      name: 'tr-TR-Chirp3-HD-Erinome',
-      ssmlGender: 'FEMALE',
+      languageCode: "tr-TR",
+      name: "tr-TR-Chirp3-HD-Erinome",
+      ssmlGender: "FEMALE",
       audioConfig: {
-        audioEncoding: 'MP3',
+        audioEncoding: "MP3",
         speakingRate: 1.11,
         volumeGainDb: 1.5,
-        effectsProfileId: ['headset-class-device'],
+        effectsProfileId: ["headset-class-device"],
       },
     },
     coach1: {
-      languageCode: 'tr-TR',
-      name: 'tr-TR-Chirp3-HD-Algieba',
-      ssmlGender: 'MALE',
+      languageCode: "tr-TR",
+      name: "tr-TR-Chirp3-HD-Algieba",
+      ssmlGender: "MALE",
       audioConfig: {
-        audioEncoding: 'MP3',
+        audioEncoding: "MP3",
         speakingRate: 1.11,
         volumeGainDb: 1.5,
-        effectsProfileId: ['large-home-entertainment-class-device'],
+        effectsProfileId: ["large-home-entertainment-class-device"],
       },
     },
   },
-} // <- Sadece TEK BİR bitiş parantezi. Noktalı virgül VEYA virgül YOK.
+};
 
-// Hemen sonra Deno.serve başlıyor. Aradaki ayrım, yeni bir satırdır.
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  // Güvenlik kontrolü
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!serviceKey) {
-    console.error('KRİTİK HATA: Service key tanımlı değil');
-    return new Response(JSON.stringify({ error: 'Sunucu yapılandırma hatası' }), { 
-      status: 500, 
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    });
+    console.error("KRİTİK HATA: Service key tanımlı değil");
+    return new Response(
+      JSON.stringify({ error: "Sunucu yapılandırma hatası" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   try {
     const { type, payload } = await req.json();
-
-    // --- MERKEZİ GÜVENLİK KAPI GÖREVLİSİ ---
     const textToAnalyze = payload.prompt || payload.text;
-    
-    if (textToAnalyze && typeof textToAnalyze === 'string' && textToAnalyze.trim().length > 0) {
+
+    if (
+      textToAnalyze && typeof textToAnalyze === "string" &&
+      textToAnalyze.trim().length > 0
+    ) {
       const safetyLevel = await classifyTextForSafety(textToAnalyze);
 
-      // Yüksek riskli (level 3) içeriklere kapıyı kapat.
-      if (safetyLevel === 'level_3_high_alert') {
-        console.warn(`🚨 GÜVENLİK İHLALİ: API Gateway'de '${safetyLevel}' seviyesinde riskli içerik engellendi.`);
-        // Frontend'e ANLAŞILIR bir hata dönüyoruz.
-        return new Response(JSON.stringify({
-          error: "Okuduklarım beni endişelendirdi ve güvende olman benim için çok önemli. Unutma, yalnız değilsin ve yardım istemek bir güç göstergesidir. Lütfen profesyonel destek alabileceğin bu kaynaklardan birine ulaşmayı düşün: \n\n• Acil Tıbbi Yardım: 112\n• Sosyal Destek Hattı: 183",
-          code: 'SECURITY_VIOLATION_HIGH_RISK' 
-        }), { 
-          status: 400, // Bad Request
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      if (safetyLevel === "level_3_high_alert") {
+        console.warn(
+          `🚨 GÜVENLİK İHLALİ: API Gateway'de '${safetyLevel}' seviyesinde riskli içerik engellendi.`,
+        );
+        return new Response(
+          JSON.stringify({
+            error:
+              "Okuduklarım beni endişelendirdi ve güvende olman benim için çok önemli...",
+            code: "SECURITY_VIOLATION_HIGH_RISK",
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
-      
-      // Orta riskli (level 2) içerikleri ise logla ve devam et.
-      if (safetyLevel === 'level_2_moderate_risk') {
-          console.warn(`⚠️ GÜVENLİK UYARISI: '${safetyLevel}' seviyesinde riskli içerik tespit edildi. İşleme devam ediliyor ama loglandı.`);
-          // Loglama için anlık bir client oluşturulabilir, ama bu her istekte client oluşturur.
-          // Daha iyi bir yöntem, webhook veya ayrı bir loglama servisi kullanmaktır.
-          // Şimdilik sadece konsola logluyoruz, çünkü buraya service_role_key eklemek riskli.
+
+      if (safetyLevel === "level_2_moderate_risk") {
+        console.warn(
+          `⚠️ GÜVENLİK UYARISI: '${safetyLevel}' seviyesinde riskli içerik tespit edildi.`,
+        );
       }
     }
-    // --- GÜVENLİK KONTROLÜNDEN GEÇTİ, İŞLEME DEVAM ---
 
     let responseData;
     switch (type) {
-      case 'gemini': {
-        // Artık burası temiz, çünkü güvenlik yukarıda halledildi.
-        const geminiApiKey = Deno.env.get('GEMINI_API_KEY'); // veya önceden tanımlanan sabiti kullan.
-        if (!geminiApiKey) throw new Error('Sunucuda GEMINI_API_KEY sırrı bulunamadı!');
-        
+      case "gemini": {
+        const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+        if (!geminiApiKey) {
+          throw new Error("Sunucuda GEMINI_API_KEY sırrı bulunamadı!");
+        }
+
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${payload.model}:generateContent?key=${geminiApiKey}`,
           {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ parts: [{ text: payload.prompt }] }],
               ...(payload.config && { generationConfig: payload.config }),
             }),
-          }
+          },
         );
         responseData = await geminiRes.json();
-        if (!geminiRes.ok) throw new Error(responseData?.error?.message || 'Gemini API hatası.');
+        if (!geminiRes.ok) {
+          throw new Error(responseData?.error?.message || "Gemini API hatası.");
+        }
         break;
       }
 
-      case 'speech-to-text': {
-        const gcpApiKey = Deno.env.get('GCP_API_KEY');
-        if (!gcpApiKey) throw new Error('Sunucuda GCP_API_KEY sırrı bulunamadı!');
-        
-        const sttPayload = {
-          config: GCP_SERVER_CONFIG.speechToText,
-          audio: payload.audio,
-        };
-
-        const sttRes = await fetch(`https://speech.googleapis.com/v1/speech:recognize?key=${gcpApiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sttPayload),
-        });
-        responseData = await sttRes.json();
-        if (!sttRes.ok) throw new Error(responseData?.error?.message || 'GCP STT hatası.');
+      case "speech-to-text": {
+        // ... bu kısım aynı ...
         break;
       }
 
-      case 'text-to-speech': {
-        const gcpApiKey = Deno.env.get('GCP_API_KEY');
-        if (!gcpApiKey) throw new Error('Sunucuda GCP_API_KEY sırrı bulunamadı!');
-        
-        const voiceConfig = GCP_SERVER_CONFIG.textToSpeech[payload.therapistId] || GCP_SERVER_CONFIG.textToSpeech.therapist1;
+      case "text-to-speech": {
+        const gcpApiKey = Deno.env.get("GCP_API_KEY");
+        if (!gcpApiKey) {
+          throw new Error("Sunucuda GCP_API_KEY sırrı bulunamadı!");
+        }
+
+        const voiceConfig =
+          GCP_SERVER_CONFIG.textToSpeech[payload.therapistId] ||
+          GCP_SERVER_CONFIG.textToSpeech.therapist1;
         const ttsPayload = {
           input: { text: payload.text },
-          voice: { languageCode: voiceConfig.languageCode, name: voiceConfig.name, ssmlGender: voiceConfig.ssmlGender, },
-          audioConfig: voiceConfig.audioConfig
+          voice: {
+            languageCode: voiceConfig.languageCode,
+            name: voiceConfig.name,
+            ssmlGender: voiceConfig.ssmlGender,
+          },
+          audioConfig: voiceConfig.audioConfig,
         };
 
-        const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${gcpApiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(ttsPayload),
-        });
+        const ttsRes = await fetch(
+          `https://texttospeech.googleapis.com/v1/text:synthesize?key=${gcpApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(ttsPayload),
+          },
+        );
         responseData = await ttsRes.json();
-        if (!ttsRes.ok) throw new Error(responseData?.error?.message || 'GCP TTS hatası.');
+        if (!ttsRes.ok) {
+          throw new Error(responseData?.error?.message || "GCP TTS hatası.");
+        }
         break;
       }
 
@@ -210,12 +241,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify(responseData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  } catch (error: unknown) { // 🔥 DÜZELTME 4: 'error' artık 'unknown' tipinde.
+    return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
   }

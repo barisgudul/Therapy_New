@@ -15,6 +15,8 @@ import UndoToast from '../components/dream/UndoToast';
 import { AuthProvider, useAuth } from '../context/Auth'; // AuthProvider'ı import et
 import { LoadingProvider } from '../context/Loading';
 import { useGlobalLoading } from '../hooks/useGlobalLoading';
+import { useVault } from '../hooks/useVault'; // YENİ SİLAHINI İMPORT ET
+
 // QueryClient'ı oluştur.
 const queryClient = new QueryClient();
 
@@ -25,8 +27,22 @@ const toastConfig = {
   ),
 };
 
+// ======================================================================
+// YENİ BİR YARDIMCI BİLEŞEN: Sadece veri ön-yüklemesi yapacak.
+// ======================================================================
+const VaultPrefetcher = () => {
+  // Vault verisini çekmek için hook'u çağır.
+  // Bu hook, veri çekme işlemini başlatır ve sonucu TanStack'in cache'ine yazar.
+  // Biz burada dönen `data` veya `isLoading` değerleriyle ilgilenmiyoruz.
+  // Amacımız sadece süreci TETİKLEMEK.
+  useVault(); 
+  
+  // Bu bileşen ekrana hiçbir şey çizmez. Görevi görünmezdir.
+  return null; 
+}
+
 const InitialLayout = () => {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading: isAuthLoading } = useAuth(); // DEĞİŞTİ: isLoading'un adını değiştir.
   const segments = useSegments();
   const router = useRouter();
   
@@ -36,7 +52,7 @@ const InitialLayout = () => {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
 
-  const loading = isLoading || !fontsLoaded;
+  const loading = isAuthLoading || !fontsLoaded;
 
   useEffect(() => {
     if (loading) {
@@ -64,7 +80,14 @@ const InitialLayout = () => {
     );
   }
 
-  return <RootNavigation />;
+  // EĞER KULLANICI GİRİŞ YAPMIŞSA, NAVİGASYONU VE GÖRÜNMEZ VERİ YÜKLEYİCİYİ GÖSTER.
+  // GİRİŞ YAPMAMIŞSA SADECE NAVİGASYONU GÖSTER Kİ LOGIN EKRANINI GÖREBİLSİN.
+  return (
+    <>
+      {session && <VaultPrefetcher />}
+      <RootNavigation />
+    </>
+  );
 };
 
 function RootNavigation() {
@@ -84,9 +107,9 @@ function RootNavigation() {
 }
 
 export default function RootLayout() {
+  // <> ve </> fragment'larını geri koydum, ne olur ne olmaz.
+  // Aralarında boşluk olmadığından emin ol.
   return (
-    // <> ve </> fragment'larını geri koydum, ne olur ne olmaz.
-    // Aralarında boşluk olmadığından emin ol.
     <>
       <QueryClientProvider client={queryClient}>
         <KeyboardProvider>

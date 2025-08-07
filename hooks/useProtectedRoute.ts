@@ -2,11 +2,17 @@
 import { useRouter, useSegments } from 'expo-router/';
 import { useEffect } from 'react';
 import { useAuth } from '../context/Auth';
-import { useVaultStore } from '../store/vaultStore';
+import { useVault } from './useVault'; // YENİ SİLAHINI ÇAĞIR
 
 export const useProtectedRoute = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
-  const { vault, isLoading: isVaultLoading } = useVaultStore();
+  
+  // ESKİ HALİ:
+  // const { vault, isLoading: isVaultLoading } = useVaultStore();
+  
+  // YENİ HALİ (Tek satır):
+  const { data: vault, isLoading: isVaultLoading } = useVault();
+  
   const segments = useSegments();
   const router = useRouter();
 
