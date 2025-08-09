@@ -1,32 +1,52 @@
 // app/index.tsx (Gelişmiş Oturum Yönetimi)
-import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router/';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import PendingDeletionScreen from '../components/PendingDeletionScreen';
-import { Colors } from '../constants/Colors';
-import { useAuth } from '../context/Auth';
-import { useVault } from '../hooks/useVault';
+import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Notifications from "expo-notifications";
+import { useRouter } from "expo-router/";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import PendingDeletionScreen from "../components/PendingDeletionScreen";
+import ReportModal from "../components/ReportModal";
+import { Colors } from "../constants/Colors";
+import { useAuth } from "../context/Auth";
+import { useVault } from "../hooks/useVault";
+import { getLatestUserReport } from "../services/report.service";
 
-const todayISO = () => new Date().toISOString().split('T')[0];
-const { width } = Dimensions.get('window');
+const todayISO = () => new Date().toISOString().split("T")[0];
+const { width } = Dimensions.get("window");
 
 export default function HomeScreen() {
-  // === HOOKS & AUTH STATE ===
+  // === HOOKS & AUTH STATE (Mevcut Kısım) ===
   const router = useRouter();
   const { isPendingDeletion, isLoading: isAuthLoading } = useAuth();
-  
-  // ESKİ HALİ:
-  // const vault = useVaultStore((state) => state.vault);
-  // const isLoadingVault = useVaultStore((state) => state.isLoading);
-  
-  // YENİ HALİ (Tek satır):
   const { data: vault, isLoading: isVaultLoading } = useVault();
-  
+
+  // === YENİ KONTROL PANELİ ===
   const [modalVisible, setModalVisible] = useState(false);
+  const [isReportModalVisible, setReportModalVisible] = useState(false);
+  const queryClient = useQueryClient();
+
+  // En son raporu çek. 'enabled' seçeneği, vault yüklendikten sonra çalışmasını sağlar.
+  const { data: latestReport, isLoading: isReportLoading } = useQuery({
+    queryKey: ["latestReport"],
+    queryFn: getLatestUserReport,
+    enabled: !isVaultLoading, // Sadece vault yüklendikten sonra rapor sorgusu yap.
+  });
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // === BİLDİRİM YÖNETİMİ (Vault kontrolü ile) ===
@@ -35,11 +55,19 @@ export default function HomeScreen() {
       (async () => {
         await Notifications.cancelAllScheduledNotificationsAsync();
         await Notifications.scheduleNotificationAsync({
-          content: { title: 'Günaydın!', body: 'Bugün kendine iyi bakmayı unutma.', data: { route: '/daily_write' } },
+          content: {
+            title: "Günaydın!",
+            body: "Bugün kendine iyi bakmayı unutma.",
+            data: { route: "/daily_write" },
+          },
           trigger: { hour: 8, minute: 0, repeats: true } as any,
         });
         await Notifications.scheduleNotificationAsync({
-          content: { title: 'Bugün nasılsın?', body: '1 cümleyle kendini ifade etmek ister misin?', data: { route: '/daily_write' } },
+          content: {
+            title: "Bugün nasılsın?",
+            body: "1 cümleyle kendini ifade etmek ister misin?",
+            data: { route: "/daily_write" },
+          },
           trigger: { hour: 20, minute: 0, repeats: true } as any,
         });
       })();
@@ -60,7 +88,12 @@ export default function HomeScreen() {
     return <PendingDeletionScreen />;
   }
 
-  const animateBg = (open: boolean) => Animated.timing(scaleAnim, { toValue: open ? 0.9 : 1, duration: 250, useNativeDriver: true }).start();
+  const animateBg = (open: boolean) =>
+    Animated.timing(scaleAnim, {
+      toValue: open ? 0.9 : 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
 
   // === GÜNLÜK KARTI: ARTIK VAULT'TAN OKUYOR ===
   const handleCardPress = () => {
@@ -68,41 +101,50 @@ export default function HomeScreen() {
       setModalVisible(true);
       animateBg(true);
     } else {
-      router.push('/daily_write' as const);
+      router.push("/daily_write" as const);
     }
   };
 
   // === TERAPİSTİNİ SEÇ: ARTIK VAULT'TAN OKUYOR ===
   const handleStart = () => {
     if (vault?.profile?.nickname) {
-      router.push('/therapy/avatar' as const);
+      router.push("/therapy/avatar" as const);
     } else {
-      router.push('/profile' as const);
+      router.push("/profile" as const);
     }
   };
 
   // === GEÇMİŞ SEANSLARIM: DİREKT YÖNLENDİRME ===
   const handleGoToAllTranscripts = () => {
-    router.push('/transcripts');
+    router.push("/transcripts");
   };
 
   // Not: Görünen mesaj, AI'dan gelen ve Vault'a kaydedilen bir mesaj olmalı.
-  const dailyMessage = (!isVaultLoading && vault?.metadata?.dailyMessageContent) 
-    ? vault.metadata.dailyMessageContent 
-    : 'Bugün için mesajın burada görünecek.';
-  
+  const dailyMessage = (!isVaultLoading && vault?.metadata?.dailyMessageContent)
+    ? vault.metadata.dailyMessageContent
+    : "Bugün için mesajın burada görünecek.";
+
   // ------------- UI KISMI (DEĞİŞİKLİK AZ) -------------
   return (
-    <LinearGradient colors={['#F8F9FC', '#FFFFFF']} style={styles.flex}>
-      <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+    <LinearGradient colors={["#F8F9FC", "#FFFFFF"]} style={styles.flex}>
+      <Animated.View
+        style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
+      >
         {/* Üst Bar */}
         <View style={styles.topBar}>
           <Text style={styles.brand}>
             therapy<Text style={styles.dot}>.</Text>
           </Text>
           <View style={styles.topButtons}>
-            <TouchableOpacity onPress={() => router.push('/settings')} style={styles.settingButton}>
-              <Ionicons name="settings-sharp" size={28} color={Colors.light.tint} />
+            <TouchableOpacity
+              onPress={() => router.push("/settings")}
+              style={styles.settingButton}
+            >
+              <Ionicons
+                name="settings-sharp"
+                size={28}
+                color={Colors.light.tint}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -110,17 +152,52 @@ export default function HomeScreen() {
         {/* Ana İçerik */}
         <View style={styles.mainContent}>
           <View style={styles.illustrationContainer}>
-            <Image 
-              source={require('../assets/therapy-illustration.png')} 
-              style={styles.illustration} 
-              resizeMode="contain" 
+            <Image
+              source={require("../assets/therapy-illustration.png")}
+              style={styles.illustration}
+              resizeMode="contain"
             />
           </View>
-          <View style={[styles.textContainer, { marginTop: -60, marginBottom: 10 }]}>
+          <View
+            style={[styles.textContainer, { marginTop: -60, marginBottom: 10 }]}
+          >
             <Text style={styles.title}>Zihnine İyi Bak</Text>
-            <Text style={styles.subtitle}>Yapay zekâ destekli terapiyi deneyimle</Text>
+            <Text style={styles.subtitle}>
+              Yapay zekâ destekli terapiyi deneyimle
+            </Text>
           </View>
           <View style={[styles.buttonContainer, { marginTop: 0 }]}>
+            {/* === YENİ VE AKILLI RAPOR KARTI / BUTONU === */}
+            {isReportLoading && (
+              <ActivityIndicator style={{ marginBottom: 12 }} />
+            )}
+
+            {latestReport && !latestReport.read_at && (
+              <Pressable
+                onPress={() => setReportModalVisible(true)}
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.specialButton, // Vurgulamak için özel bir stil
+                  { transform: [{ scale: pressed ? 0.98 : 1 }] },
+                ]}
+              >
+                <LinearGradient
+                  colors={["#4F46E5", "#6D28D9"]} // Farklı, dikkat çekici bir renk
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.buttonGradient}
+                >
+                  <View style={styles.buttonContent}>
+                    <Ionicons name="sparkles-sharp" size={20} color="#FFFFFF" />
+                    <Text style={[styles.buttonText, { color: "#FFFFFF" }]}>
+                      Haftalık İçgörü Keşfin Hazır!
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </Pressable>
+            )}
+
+            {/* --- Mevcut Butonlar Buradan Devam Eder --- */}
             <Pressable
               onPress={handleCardPress}
               style={({ pressed }) => [
@@ -129,75 +206,97 @@ export default function HomeScreen() {
               ]}
             >
               <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                colors={["#FFFFFF", "#F8FAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.buttonGradient}
               >
                 <View style={styles.buttonContent}>
-                  <Ionicons name="sparkles-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>Bugün Nasıl Hissediyorsun?</Text>
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={20}
+                    color={Colors.light.tint}
+                  />
+                  <Text style={styles.buttonText}>
+                    Bugün Nasıl Hissediyorsun?
+                  </Text>
                 </View>
               </LinearGradient>
             </Pressable>
 
-            
+            <Pressable
+              onPress={() => router.push("/diary" as const)}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={["#FFFFFF", "#F8FAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons
+                    name="book-outline"
+                    size={20}
+                    color={Colors.light.tint}
+                  />
+                  <Text style={styles.buttonText}>
+                    Yapay Zeka Destekli Günlük
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/dream" as const)}
+              style={({ pressed }) => [
+                styles.button,
+                { transform: [{ scale: pressed ? 0.98 : 1 }] },
+              ]}
+            >
+              <LinearGradient
+                colors={["#FFFFFF", "#F8FAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.buttonGradient}
+              >
+                <View style={styles.buttonContent}>
+                  <Ionicons
+                    name="cloudy-night-outline"
+                    size={20}
+                    color={Colors.light.tint}
+                  />
+                  <Text style={styles.buttonText}>
+                    Yapay Zeka Destekli Rüya Analizi
+                  </Text>
+                </View>
+              </LinearGradient>
+            </Pressable>
 
             <Pressable
-              onPress={() => router.push('/diary' as const)}
+              onPress={() => router.push("/ai_summary" as const)}
               style={({ pressed }) => [
                 styles.button,
                 { transform: [{ scale: pressed ? 0.98 : 1 }] },
               ]}
             >
               <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                colors={["#FFFFFF", "#F8FAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.buttonGradient}
               >
                 <View style={styles.buttonContent}>
-                  <Ionicons name="book-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>Yapay Zeka Destekli Günlük</Text>
-                </View>
-              </LinearGradient>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/dream' as const)}
-              style={({ pressed }) => [
-                styles.button,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.buttonGradient}
-              >
-                <View style={styles.buttonContent}>
-                  <Ionicons name="cloudy-night-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>Yapay Zeka Destekli Rüya Analizi</Text>
-                </View>
-              </LinearGradient>
-            </Pressable>
-            
-            <Pressable
-              onPress={() => router.push('/ai_summary' as const)}
-              style={({ pressed }) => [
-                styles.button,
-                { transform: [{ scale: pressed ? 0.98 : 1 }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
-                style={styles.buttonGradient}
-              >
-                <View style={styles.buttonContent}>
-                  <Ionicons name="analytics-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.buttonText}>Yapay Zeka Destekli Ruh Hâli Analizi</Text>
+                  <Ionicons
+                    name="analytics-outline"
+                    size={20}
+                    color={Colors.light.tint}
+                  />
+                  <Text style={styles.buttonText}>
+                    Yapay Zeka Destekli Ruh Hâli Analizi
+                  </Text>
                 </View>
               </LinearGradient>
             </Pressable>
@@ -209,13 +308,17 @@ export default function HomeScreen() {
               ]}
             >
               <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                colors={["#FFFFFF", "#F8FAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.buttonGradient}
               >
                 <View style={styles.buttonContent}>
-                  <Ionicons name="heart-circle-outline" size={20} color={Colors.light.tint} />
+                  <Ionicons
+                    name="heart-circle-outline"
+                    size={20}
+                    color={Colors.light.tint}
+                  />
                   <Text style={styles.buttonText}>Terapistini Seç</Text>
                 </View>
               </LinearGradient>
@@ -228,48 +331,71 @@ export default function HomeScreen() {
               ]}
             >
               <LinearGradient
-                colors={['#FFFFFF', '#F8FAFF']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                colors={["#FFFFFF", "#F8FAFF"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.buttonGradient}
               >
                 <View style={styles.buttonContent}>
-                  <Ionicons name="chatbubbles-outline" size={20} color={Colors.light.tint} />
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={20}
+                    color={Colors.light.tint}
+                  />
                   <Text style={styles.buttonText}>Geçmiş Seanslarım</Text>
                 </View>
               </LinearGradient>
             </Pressable>
 
-            
-
-            <TouchableOpacity 
-              style={styles.linkButton} 
-              onPress={() => router.push('/how_it_works' as const)}
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={() => router.push("/how_it_works" as const)}
             >
               <Text style={styles.linkText}>Terapiler nasıl işler?</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Animated.View>
-      {modalVisible && <BlurView intensity={60} tint="default" style={StyleSheet.absoluteFill} />}
-      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
+      {modalVisible && (
+        <BlurView
+          intensity={60}
+          tint="default"
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+
+      {/* Günlük Mesaj Modalı */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => {
                 setModalVisible(false);
                 animateBg(false);
-              }} 
+              }}
               style={styles.modalBackButton}
             >
-              <Ionicons name="chevron-back" size={24} color={Colors.light.tint} />
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={Colors.light.tint}
+              />
             </TouchableOpacity>
             <View style={styles.modalIcon}>
               <LinearGradient
-                colors={['#E8EEF7', '#F0F4F9']}
+                colors={["#E8EEF7", "#F0F4F9"]}
                 style={styles.modalIconGradient}
               />
-              <Ionicons name="sparkles-outline" size={28} color={Colors.light.tint} />
+              <Ionicons
+                name="sparkles-outline"
+                size={28}
+                color={Colors.light.tint}
+              />
             </View>
             <Text style={styles.modalTitle}>Günün Mesajı</Text>
             <View style={styles.modalDivider} />
@@ -277,6 +403,19 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Raporu Gösterecek Olan Modal component'i */}
+      {latestReport && (
+        <ReportModal
+          isVisible={isReportModalVisible}
+          onClose={() => {
+            setReportModalVisible(false);
+            // Rapor okundu, listeyi yenile ki buton kaybolsun.
+            queryClient.invalidateQueries({ queryKey: ["latestReport"] });
+          }}
+          report={latestReport}
+        />
+      )}
     </LinearGradient>
   );
 }
@@ -285,65 +424,65 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  container: { 
-    flex: 1, 
-    paddingHorizontal: 20, 
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
     paddingTop: 50,
   },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 24,
   },
   brand: {
     fontSize: 28,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.light.tint,
-    textTransform: 'lowercase',
+    textTransform: "lowercase",
     letterSpacing: 1.5,
     opacity: 0.95,
   },
   dot: {
     color: Colors.light.tint,
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   topButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   devButton: {
     height: 40,
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
     shadowColor: Colors.light.tint,
     shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
     borderWidth: 0.5,
-    borderColor: 'rgba(227,232,240,0.4)',
+    borderColor: "rgba(227,232,240,0.4)",
   },
   devButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 16,
-    height: '100%',
+    height: "100%",
   },
   devButtonText: {
     color: Colors.light.tint,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 6,
     letterSpacing: -0.2,
   },
   settingButton: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: "rgba(255,255,255,0.92)",
     borderRadius: 16,
     padding: 8,
     shadowColor: Colors.light.tint,
@@ -351,42 +490,46 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
     borderWidth: 0.5,
-    borderColor: 'rgba(227,232,240,0.4)',
+    borderColor: "rgba(227,232,240,0.4)",
   },
   button: {
-    width: '100%',
+    width: "100%",
     height: 52,
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
     shadowColor: Colors.light.tint,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.2,
     shadowRadius: 24,
     elevation: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(93,161,217,0.3)',
+    borderColor: "rgba(93,161,217,0.3)",
+  },
+  specialButton: {
+    borderColor: "rgba(129, 140, 248, 0.5)", // Özel border rengi
+    shadowColor: "#6D28D9", // Özel gölge rengi
   },
   buttonGradient: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonText: {
     color: Colors.light.tint,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 8,
     letterSpacing: -0.2,
   },
   mainContent: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   illustrationContainer: {
     width: width * 0.85,
@@ -394,73 +537,78 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   illustration: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   textContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 32,
   },
   title: {
     fontSize: 26,
-    fontWeight: '600',
-    color: '#1A1F36',
+    fontWeight: "600",
+    color: "#1A1F36",
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 15,
-    color: '#4A5568',
-    textAlign: 'center',
+    color: "#4A5568",
+    textAlign: "center",
     lineHeight: 20,
     letterSpacing: -0.2,
   },
   buttonContainer: {
-    width: '100%',
+    width: "100%",
     gap: 12,
   },
   linkButton: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 4,
   },
   linkText: {
     fontSize: 14,
     color: Colors.light.tint,
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
     letterSpacing: -0.2,
   },
   debugContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 40,
     right: 24,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   resetBtn: {
-    backgroundColor: '#e11d48',
+    backgroundColor: "#e11d48",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    ...(Platform.OS === 'ios'
-      ? { shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4 }
+    ...(Platform.OS === "ios"
+      ? {
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowOffset: { width: 0, height: 2 },
+        shadowRadius: 4,
+      }
       : { elevation: 2 }),
   },
   resetTxt: {
-    color: '#fff',
-    fontWeight: '600',
+    color: "#fff",
+    fontWeight: "600",
     fontSize: 13,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    width: '85%',
+    width: "85%",
     maxWidth: 400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
     shadowColor: Colors.light.tint,
@@ -470,7 +618,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   modalBackButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     left: 16,
     zIndex: 5,
@@ -480,10 +628,10 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     marginBottom: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    overflow: 'hidden',
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    overflow: "hidden",
   },
   modalIconGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -491,22 +639,22 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.light.tint,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 12,
     letterSpacing: -0.3,
   },
   modalDivider: {
     height: 1,
-    backgroundColor: 'rgba(93,161,217,0.1)',
+    backgroundColor: "rgba(93,161,217,0.1)",
     marginBottom: 20,
   },
   modalText: {
     fontSize: 15,
-    color: '#4A5568',
+    color: "#4A5568",
     lineHeight: 22,
     letterSpacing: -0.2,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });

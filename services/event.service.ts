@@ -44,11 +44,48 @@ export async function logEvent(
       throw new Error("Olay kaydedilemiyor, kullanıcı giriş yapmamış.");
     }
     const eventData = { ...event, user_id: user.id, timestamp: Date.now() };
-    const { data, error } = await supabase.from("events").insert([eventData])
-      .select("id").single();
+    const { data: inserted, error } = await supabase.from("events").insert([
+      eventData,
+    ])
+      .select("id, created_at, data, type, mood").single();
     if (error) throw error;
     __DEV__ && console.log(`✅ [Event] ${event.type} kaydedildi.`);
-    return data.id.toString();
+
+    // --- YENİ VE KRİTİK KISIM ---
+    // Eğer olayda analiz edilecek bir metin varsa, yeni beyni tetikle.
+    const contentToAnalyze = inserted?.data?.dreamText ||
+      inserted?.data?.userMessage ||
+      inserted?.data?.initialEntry ||
+      inserted?.data?.todayNote;
+
+    if (contentToAnalyze && inserted) {
+      console.log(`🧠 [Orchestrator] Zihinsel DNA Çözücü tetikleniyor...`);
+      // Bu işlemi arka planda, beklemeden çalıştır. UI'ı yavaşlatmasın.
+      supabase.functions.invoke("process-and-embed-memory", {
+        body: {
+          source_event_id: inserted.id,
+          user_id: user.id,
+          content: contentToAnalyze,
+          event_time: inserted.created_at,
+          mood: inserted.mood,
+        },
+      }).catch((err) =>
+        console.error("⛔️ Arka plan hafıza işleme hatası:", err)
+      );
+
+      // === YENİ: DNA GÜNCELLEYİCİ TETİKLE ===
+      console.log(`🧬 [DNA_UPDATER] Kullanıcı DNA profili güncelleniyor...`);
+      supabase.functions.invoke("update-user-dna", {
+        body: {
+          user_id: user.id,
+          event_content: contentToAnalyze,
+          event_type: event.type,
+          event_time: inserted.created_at,
+        },
+      }).catch((err) => console.error("⛔️ DNA güncelleme hatası:", err));
+    }
+
+    return inserted.id.toString();
   } catch (error) {
     console.error("⛔️ Event log hatası:", (error as Error).message);
     throw error;

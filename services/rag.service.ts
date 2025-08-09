@@ -1,5 +1,4 @@
 // services/rag.service.ts
-import { SupabaseVectorStore } from "@langchain/community/vectorstores/supabase";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { AI_MODELS } from "../constants/AIConfig";
@@ -14,177 +13,204 @@ const embeddingsForRetrieval = new GoogleGenerativeAIEmbeddings({
     model: "embedding-001",
 });
 
-// Artık 'event' ve 'vault' objelerini de kabul ediyor.
-export async function addMemoryAsync(
-    userId: string,
-    content: string,
-    event: any,
-    vault: any,
-    metadata: Record<string, any> = {},
-): Promise<void> {
-    const { error } = await supabase.functions.invoke("embed-memory", {
-        body: { user_id: userId, content, event, vault, metadata },
-    });
+// ————————————————————————————————————————————————
+// Query Niyet Çözücü (Prefrontal Korteks)
+// ————————————————————————————————————————————————
+type QueryIntent =
+    | "emotion_expression"
+    | "event_recall"
+    | "pattern_inquiry"
+    | "unknown";
 
-    if (error) {
-        console.error(`[RAG] 'embed-memory' tetiklenemedi:`, error);
-        // Hata fırlatma, arka plan işlemi olduğu için UI'ı çökertmesin.
-    }
-}
-
-// YENİ: Akıllı Re-ranking için yardımcı fonksiyon
-async function rerankDocuments(
-    question: string,
-    documents: any[],
-): Promise<string> {
-    if (documents.length === 0) {
-        return "Geçmiş anı bulunamadı.";
-    }
-
-    if (documents.length <= 3) {
-        // 3 veya daha az doküman varsa direkt birleştir
-        return documents.map((d) => d.pageContent).join("\n---\n");
-    }
-
-    console.log(
-        `[RAG_RE-RANKING] ${documents.length} doküman arasından en alakalı 3 tanesi seçiliyor...`,
-    );
-
-    // Dokümanları formatla
-    const formattedDocs = documents.map((doc, index) =>
-        `DOKÜMAN ${index + 1}:\n${doc.pageContent}\n`
-    ).join("\n");
-
-    const rerankPrompt = `
-SORU: "${question}"
-
-AŞAĞIDAKİ DOKÜMANLAR ARASINDAN, BU SORUYA EN ÇOK IŞIK TUTAN 3 TANESİNİ SEÇ:
-
-${formattedDocs}
-
-GÖREV: Bu soruya en alakalı 3 dokümanın içeriğini seç ve birleştir. 
-Sadece seçtiğin dokümanların içeriğini ver, başka açıklama yapma.
-Eğer hiçbiri alakalı değilse "Bu soru için alakalı geçmiş anı bulunamadı." yaz.
-
-SEÇİLEN DOKÜMANLAR:
-`;
+async function analyzeQueryIntent(query: string): Promise<QueryIntent> {
+    const prompt =
+        `Bir kullanıcının sorgusunu analiz et ve niyetini şu kategorilerden biriyle etiketle: 'emotion_expression' (bir duygu ifade ediyor), 'event_recall' (geçmiş bir olayı hatırlamaya çalışıyor), 'pattern_inquiry' (bir davranış kalıbı hakkında soru soruyor). Sorgu: "${query}"`;
 
     try {
-        const selectedContext = await invokeGemini(
-            rerankPrompt,
-            AI_MODELS.FAST,
-            {
-                temperature: 0.3,
-                maxOutputTokens: 1000,
-            },
-        );
+        const classification = await invokeGemini(prompt, AI_MODELS.FAST, {
+            maxOutputTokens: 20,
+        });
 
-        console.log(
-            `[RAG_RE-RANKING] Re-ranking tamamlandı. Seçilen context uzunluğu: ${selectedContext.length}`,
-        );
-        return selectedContext;
-    } catch (error) {
-        console.error(
-            "[RAG_RE-RANKING] Re-ranking hatası, ilk 3 doküman kullanılıyor:",
-            error,
-        );
-        // Hata durumunda ilk 3 dokümanı kullan
-        return documents.slice(0, 3).map((d) => d.pageContent).join("\n---\n");
+        const normalized = classification.toLowerCase();
+        if (normalized.includes("emotion_expression")) {
+            return "emotion_expression";
+        }
+        if (normalized.includes("event_recall")) return "event_recall";
+        if (normalized.includes("pattern_inquiry")) return "pattern_inquiry";
+        return "unknown";
+    } catch (e) {
+        console.error("Sorgu niyeti analizi başarısız:", e);
+        return "unknown";
     }
 }
 
-// YENİ: Debug ve test fonksiyonları
-export async function debugRAGPipeline(
+// ————————————————————————————————————————————————
+// Embed Helper: Sorguyu Gemini ile vektörle
+// ————————————————————————————————————————————————
+async function embedQuery(query: string): Promise<number[]> {
+    const vector = await embeddingsForRetrieval.embedQuery(query);
+    return vector;
+}
+
+// ————————————————————————————————————————————————
+// Çok Katmanlı Arama: İçerik, Duygu ve Stil katmanları
+// ————————————————————————————————————————————————
+type MatchRow = { id: string | number; content: string; score: number };
+export type SourceLayer = "content" | "sentiment" | "stylometry";
+
+export async function retrieveContext(
     userId: string,
-    question: string,
-): Promise<{
-    step1_retrieval: any[];
-    step2_reranking: string;
-    step3_finalPrompt: string;
-}> {
-    console.log("[RAG_DEBUG] 🐛 Debug modu başlatılıyor...");
+    query: string,
+): Promise<{ content: string; source_layer: SourceLayer }[]> {
+    // 1) Niyeti anla
+    const intent = await analyzeQueryIntent(query);
 
-    // ADIM 1: Geniş arama
-    const vectorStore = new SupabaseVectorStore(embeddingsForRetrieval, {
-        client: supabase,
-        tableName: "memory_embeddings",
-        queryName: "match_documents",
-        filter: { user_id: userId },
-    });
-
-    const retriever = vectorStore.asRetriever({ k: 12 });
-    const potentialDocs = await retriever.getRelevantDocuments(question);
-
-    console.log(
-        `[RAG_DEBUG] 📚 Adım 1: ${potentialDocs.length} doküman bulundu`,
-    );
-
-    // ADIM 2: Re-ranking
-    const bestContext = await rerankDocuments(question, potentialDocs);
-
-    // ADIM 3: Final prompt (örnek)
-    const samplePromptTemplate = PromptTemplate.fromTemplate(
-        "Context: {context}\n\nSoru: {question}\n\nCevap:",
-    );
-    const finalPrompt = await samplePromptTemplate.format({
-        context: bestContext,
-        question: question,
-    });
-
-    return {
-        step1_retrieval: potentialDocs.map((doc) => ({
-            content: doc.pageContent.substring(0, 100) + "...",
-            metadata: doc.metadata,
-        })),
-        step2_reranking: bestContext,
-        step3_finalPrompt: finalPrompt,
+    // 2) Ağırlıkları belirle
+    let weights: { content: number; sentiment: number; stylometry: number } = {
+        content: 0.6,
+        sentiment: 0.3,
+        stylometry: 0.1,
     };
+    if (intent === "emotion_expression") {
+        weights = { content: 0.2, sentiment: 0.7, stylometry: 0.1 };
+    } else if (intent === "event_recall") {
+        weights = { content: 0.8, sentiment: 0.2, stylometry: 0.0 };
+    }
+
+    // 3) Sorguyu embed et
+    const queryEmbedding = await embedQuery(query);
+
+    // 4) Katmanlı aramaları paralel yap
+    const MATCH_COUNT = 12;
+    const MATCH_THRESHOLD = 0;
+
+    const [contentRes, sentimentRes, stylometryRes] = await Promise.all([
+        supabase.rpc("match_memories_by_content", {
+            p_user_id: userId,
+            query_embedding: queryEmbedding,
+            match_count: MATCH_COUNT,
+            match_threshold: MATCH_THRESHOLD,
+        }),
+        supabase.rpc("match_memories_by_sentiment", {
+            p_user_id: userId,
+            query_embedding: queryEmbedding,
+            match_count: MATCH_COUNT,
+            match_threshold: MATCH_THRESHOLD,
+        }),
+        supabase.rpc("match_memories_by_stylometry", {
+            p_user_id: userId,
+            query_embedding: queryEmbedding,
+            match_count: MATCH_COUNT,
+            match_threshold: MATCH_THRESHOLD,
+        }),
+    ]);
+
+    // 5) AKILLI BİRLEŞTİRME - Tek geçişte skorları topla ve dominant katmanı belirle
+    const fused = new Map<
+        string | number,
+        {
+            content: string;
+            score: number;
+            dominant_layer: SourceLayer;
+            dominant_score: number;
+        }
+    >();
+
+    const processMatches = (
+        matches: MatchRow[] | null,
+        weight: number,
+        layer: SourceLayer,
+    ) => {
+        if (!matches || weight <= 0) return;
+        for (const m of matches) {
+            const weightedScore = (m.score ?? 0) * weight;
+            const prev = fused.get(m.id);
+            if (prev) {
+                // Skoru ekle ve eğer bu katmanın katkısı daha yüksekse, dominant katmanı güncelle
+                if (weightedScore > prev.dominant_score) {
+                    prev.dominant_layer = layer;
+                    prev.dominant_score = weightedScore;
+                }
+                prev.score += weightedScore;
+            } else {
+                // Yeni olarak ekle ve bu katmanı dominant olarak ayarla
+                fused.set(m.id, {
+                    content: m.content,
+                    score: weightedScore,
+                    dominant_layer: layer,
+                    dominant_score: weightedScore,
+                });
+            }
+        }
+    };
+
+    // Her katmanı işle
+    processMatches(
+        contentRes.data as MatchRow[] | null,
+        weights.content,
+        "content",
+    );
+    processMatches(
+        sentimentRes.data as MatchRow[] | null,
+        weights.sentiment,
+        "sentiment",
+    );
+    processMatches(
+        stylometryRes.data as MatchRow[] | null,
+        weights.stylometry,
+        "stylometry",
+    );
+
+    // 6) Sonucu sırala ve formatla
+    const sorted = Array.from(fused.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 7);
+
+    return sorted.map((item) => ({
+        content: item.content,
+        source_layer: item.dominant_layer,
+    }));
 }
 
 export async function queryWithContext(
     userId: string,
     question: string,
-    promptTemplate: PromptTemplate,
+    promptTemplate?: PromptTemplate,
 ): Promise<string> {
-    console.log("[RAG_SERVICE] 🧠 Akıllı RAG süreci başlıyor...");
+    console.log("[RAG_SERVICE] 🧠 Algısal Sentez başlıyor...");
 
-    // ADIM 1: GENİŞ ARAMA - Daha fazla potansiyel doküman al
-    const vectorStore = new SupabaseVectorStore(embeddingsForRetrieval, {
-        client: supabase,
-        tableName: "memory_embeddings",
-        queryName: "match_documents",
-        filter: { user_id: userId },
-    });
+    const synthesizedContext = await retrieveContext(userId, question);
+    const formattedContext = synthesizedContext
+        .map((c) => `- (Kaynak: ${c.source_layer}) ${c.content}`)
+        .join("\n");
 
-    // 5 yerine 12 doküman al (daha geniş arama)
-    const retriever = vectorStore.asRetriever({ k: 12 });
-    const potentialDocs = await retriever.getRelevantDocuments(question);
+    let finalPrompt: string;
+    if (promptTemplate) {
+        // Özel şablon ile (ör. rüya analizi JSON çıktısı)
+        finalPrompt = await promptTemplate.format({
+            context: formattedContext,
+            question,
+        });
+    } else {
+        // Genel ve etiketli prompt
+        finalPrompt = `
+### BAĞLAM DOSYASI (En Alakalı Anılar) ###
+${formattedContext}
 
-    console.log(
-        `[RAG_SERVICE] 📚 ${potentialDocs.length} potansiyel doküman bulundu.`,
-    );
+### KULLANICI SORUSU ###
+"${question}"
 
-    // ADIM 2: AKILLI ELEME (RE-RANKING) - En alakalı 3 dokümanı seç
-    const bestContext = await rerankDocuments(question, potentialDocs);
-    console.log(
-        `[RAG_SERVICE] 🎯 Re-ranking tamamlandı. Final context uzunluğu: ${bestContext.length}`,
-    );
+### GÖREVİN ###
+Sen bir "bilinç sentezleyicisisin". Sana sunulan, farklı katmanlardan (olay, duygu) gelen en alakalı anıları birleştirerek, kullanıcıya daha önce hiç fark etmediği bir bağlantıyı gösteren derin bir cevap üret.`
+            .trim();
+    }
 
-    // ADIM 3: NİHAİ PROMPT OLUŞTURMA
-    const finalPrompt = await promptTemplate.format({
-        context: bestContext,
-        question: question,
-    });
-    console.log("[RAG_SERVICE] 📝 Final prompt oluşturuldu.");
-
-    // ADIM 4: NİHAİ CEVAP ÜRETİMİ - Güçlü modelle
     try {
         const resultText = await invokeGemini(finalPrompt, AI_MODELS.POWERFUL, {
             temperature: 0.7,
             maxOutputTokens: 1500,
         });
-
-        console.log("[RAG_SERVICE] ✅ Akıllı RAG süreci başarıyla tamamlandı.");
+        console.log("[RAG_SERVICE] ✅ Algısal Sentez tamamlandı.");
         return resultText;
     } catch (error) {
         console.error("[RAG_SERVICE] ❌ Nihai cevap üretiminde hata:", error);

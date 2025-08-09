@@ -3,7 +3,7 @@
 export default {
   expo: {
     name: 'Therapy_New',
-    slug: 'Therapy_New',
+    slug: 'therapynew',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/icon.png',
@@ -55,7 +55,7 @@ export default {
     // SENİN GİZLİ ANAHTARLARIN BURADA GÜVENDE
     extra: {
       eas: {
-        projectId: "PROJENIN_EAS_ID_SI" 
+        projectId: "56e80492-e055-42f0-b974-5007f88c7a8c" 
       },
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

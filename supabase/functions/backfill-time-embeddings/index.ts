@@ -3,9 +3,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 // Tipleri tanımlıyoruz, 'any' virüsüne yer yok.
-interface User {
-    id: string;
-}
 interface Vault {
     vault_data: Record<string, unknown>;
 }
