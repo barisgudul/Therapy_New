@@ -1,49 +1,15 @@
 {
-    // --- GÖREVLER ---
+  // --- GÖREVLER ---
   "tasks": {
     "start": "expo start",
     "test": "deno test --allow-env --allow-net --allow-read supabase/functions/",
     "lint": "deno lint supabase/functions/",
     "fmt": "deno fmt supabase/functions/"
   },
-  
-    // --- HARİTA (IMPORT MAP) ---
-    // Tüm testler ve fonksiyonlar için tek import map kullan.
-    "importMap": "./supabase/functions/import_map.json",
-  
-  // Deno 2: Auto-install npm deps (e.g., @types/node) into node_modules during CI
-  "nodeModulesDir": "auto",
-  
-    // --- LINTER KURALLARI ---
-    "lint": {
-      "files": {
-        "include": ["."],
-        "exclude": ["node_modules", ".expo", "dist"]
-      },
-      "rules": {
-        "tags": ["recommended"],
-        "exclude": []
-      }
-    },
-    
-    // --- FORMATLAYICI KURALLARI ---
-    "fmt": {
-      "options": {
-        "useTabs": false,
-        "lineWidth": 80,
-        "indentWidth": 2,
-        "singleQuote": false
-      }
-    },
-  
-    // --- TEST KURALLARI ---
-    "test": {
-      "include": [
-        "services/__tests__/",
-        "supabase/functions/"
-      ],
-      "exclude": [
-        "supabase/functions/_shared/"
-      ]
-    }
-  }
+
+  // --- HARİTA ---
+  "importMap": "./supabase/functions/import_map.json",
+
+  // --- NPM DESTEĞİ ---
+  "nodeModulesDir": true
+}
