@@ -1,6 +1,8 @@
 {
   "tasks": {
     "start": "expo start",
+    // İŞTE BURAYA! OLMASI GEREKEN YERDE!
+    "lock": "deno cache --lock=deno.lock --lock-write supabase/functions/**/*.ts",
     "test": "deno test --allow-env --allow-net --allow-read supabase/functions/ services/",
     "lint": "deno lint supabase/functions/ services/",
     "fmt": "deno fmt supabase/functions/ services/"
