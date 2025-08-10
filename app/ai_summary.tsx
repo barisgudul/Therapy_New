@@ -18,31 +18,31 @@ import {
   View,
 } from "react-native";
 import Markdown from "react-native-markdown-display";
-import { useVault } from "../hooks/useVault";
-// @ts-ignore
+import { useVault } from "../hooks/useVault.ts";
+// @ts-ignore: react-native-html-to-pdf package has incomplete TypeScript definitions
 import RNHTMLtoPDF from "react-native-html-to-pdf";
 
 import { v4 as uuidv4 } from "uuid";
-import { PremiumGate } from "../components/PremiumGate";
-import { Colors } from "../constants/Colors";
-import { commonStyles } from "../constants/Styles";
-import { useAuth } from "../context/Auth";
-import { useFeatureAccess } from "../hooks/useSubscription";
-import { generateStructuredAnalysisReport } from "../services/ai.service";
-import { incrementFeatureUsage } from "../services/api.service";
+import { PremiumGate } from "../components/PremiumGate.tsx";
+import { Colors } from "../constants/Colors.ts";
+import { commonStyles } from "../constants/Styles.ts";
+import { useAuth } from "../context/Auth.tsx";
+import { useFeatureAccess } from "../hooks/useSubscription.ts";
+import { generateStructuredAnalysisReport } from "../services/ai.service.ts";
+import { incrementFeatureUsage } from "../services/api.service.ts";
 import {
   AppEvent,
   deleteEventById,
   getAIAnalysisEvents,
   getOldestEventDate,
   logEvent,
-} from "../services/event.service";
-import { InteractionContext } from "../types/context";
+} from "../services/event.service.ts";
+import { InteractionContext } from "../types/context.ts";
 
 // 🎯 FAZ 2: Behavioral Pattern Analyzer entegrasyonu (arka planda)
 import {
   BehavioralAnalysisResult,
-} from "../services/behavioral-pattern-analyzer.service";
+} from "../services/behavioral-pattern-analyzer.service.ts";
 
 // Helper function to create a clean preview from markdown text
 // This version preserves line breaks and paragraph structure for a cleaner preview.
@@ -200,7 +200,7 @@ export default function AISummaryScreen() {
             days: selectedDays, // Beynin bekledeği veri bu. Kaç gün olduğu.
           },
         },
-        derivedData: {},
+        derivedData: {} as Record<string, unknown>,
       };
 
       console.log(
@@ -241,10 +241,11 @@ export default function AISummaryScreen() {
 
       setActiveSummary(result.trim());
       setModalVisible(true);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : "Bilinmeyen hata";
       console.error(
         "❌ [AI-SUMMARY] Bütünsel İçgörü Raporu oluşturma hatası:",
-        e.message,
+        errorMessage,
       );
       Alert.alert(
         "Hata",
@@ -553,7 +554,7 @@ export default function AISummaryScreen() {
                     style={styles.summaryCard}
                     activeOpacity={0.9}
                     onPress={() => {
-                      setActiveSummary(item.data.text);
+                      setActiveSummary(String(item.data.text));
                       setModalVisible(true);
                     }}
                   >
@@ -583,7 +584,7 @@ export default function AISummaryScreen() {
                         </Text>
                       </View>
                       <Text style={styles.summaryCardText} numberOfLines={3}>
-                        {stripMarkdownForPreview(item.data.text)}
+                        {stripMarkdownForPreview(String(item.data.text))}
                       </Text>
                       <TouchableOpacity
                         onPress={() => deleteSummary(item.id)}
@@ -645,7 +646,7 @@ export default function AISummaryScreen() {
                   ? <Markdown style={markdownStyles}>{activeSummary}</Markdown>
                   : (
                     <Text style={styles.modalText}>
-                      {"Analiz yüklenemedi."}
+                      Analiz yüklenemedi.
                     </Text>
                   )}
               </ScrollView>

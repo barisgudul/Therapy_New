@@ -19,10 +19,10 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import SkeletonCard from "../../components/dream/SkeletonCard";
-import { COSMIC_COLORS } from "../../constants/Colors";
-import { AppEvent, getDreamEvents } from "../../services/event.service";
-import { supabase } from "../../utils/supabase";
+import SkeletonCard from "../../components/dream/SkeletonCard.tsx";
+import { COSMIC_COLORS } from "../../constants/Colors.ts";
+import { AppEvent, getDreamEvents } from "../../services/event.service.ts";
+import { supabase } from "../../utils/supabase.ts";
 
 export default function DreamJournalScreen() {
   const router = useRouter();
@@ -86,14 +86,19 @@ export default function DreamJournalScreen() {
       await queryClient.cancelQueries({ queryKey: ["dreamEvents"] });
       const previousAnalyses = queryClient.getQueryData(["dreamEvents"]);
 
-      queryClient.setQueryData(["dreamEvents"], (old: any) => ({
-        pages: old?.pages?.map((page: AppEvent[]) =>
-          page.filter((event) => event.id !== deletedEventId)
-        ),
-        pageParams: old?.pageParams,
-      }));
+      queryClient.setQueryData(
+        ["dreamEvents"],
+        (
+          old: { pages?: AppEvent[][]; pageParams?: unknown[] } | undefined,
+        ) => ({
+          pages: old?.pages?.map((page: AppEvent[]) =>
+            page.filter((event) => event.id !== deletedEventId)
+          ),
+          pageParams: old?.pageParams,
+        }),
+      );
 
-      Toast.show({
+      Toast.default.show({
         type: "custom",
         text1: "Rüya Silindi",
         text2: "İşlem geri alınabilir.",
@@ -102,7 +107,7 @@ export default function DreamJournalScreen() {
             // Geri Alma mantığı şimdilik sadece UI'ı geri alır.
             // Sunucuda geri alma daha karmaşık, onu sonra yaparız.
             queryClient.setQueryData(["dreamEvents"], previousAnalyses);
-            Toast.hide();
+            Toast.default.hide();
           },
         },
       });
@@ -111,12 +116,12 @@ export default function DreamJournalScreen() {
     },
 
     // onError ve onSettled kısımları da aynı kalabilir.
-    onError: (err, variables, context) => {
+    onError: (err, _variables, context) => {
       console.error("Silme hatası, rollback yapılıyor:", err);
       if (context?.previousAnalyses) {
         queryClient.setQueryData(["dreamEvents"], context.previousAnalyses);
       }
-      Toast.show({
+      Toast.default.show({
         type: "error",
         text1: "Hata",
         text2: "Rüya silinirken bir sorun oluştu.",
@@ -163,7 +168,8 @@ export default function DreamJournalScreen() {
       >
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle} numberOfLines={1}>
-            {item.data.analysis.title}
+            {(item.data.analysis as { title?: string })?.title ||
+              "Başlıksız Rüya"}
           </Text>
           <Text style={styles.cardDate}>
             {new Date(item.timestamp).toLocaleDateString("tr-TR", {
@@ -191,7 +197,8 @@ export default function DreamJournalScreen() {
     <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()}
           style={styles.backButton}
         >
           <Ionicons
@@ -238,7 +245,8 @@ export default function DreamJournalScreen() {
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.newDreamButton}
-            onPress={() => router.push("/dream/analyze")}
+            onPress={() =>
+              router.push("/dream/analyze")}
           >
             <View style={styles.newDreamButtonContent}>
               <Ionicons

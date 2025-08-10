@@ -1,7 +1,11 @@
 // services/prompts/dreamDialogue.prompt.ts
-import { DreamAnalysisResult } from '../../utils/schemas';
+import type { JsonValue } from "../../types/json.ts";
+import { DreamAnalysisResult } from "../../utils/schemas.ts";
 
-export const getNextDreamQuestionPrompt = (dreamAnalysis: DreamAnalysisResult, conversationHistory: string) => `
+export const getNextDreamQuestionPrompt = (
+    dreamAnalysis: DreamAnalysisResult,
+    conversationHistory: string,
+) => `
 ### ROL & GÖREV ###
 Sen, bir rüya analizi diyalogunu yöneten empatik bir AI terapistsin. Orijinal rüya analizi yapıldı ve şimdi danışanla bu analizi derinleştiriyorsun. Görevin, konuşma geçmişine dayanarak, danışanın bir sonraki adımı düşünmesini sağlayacak tek, açık uçlu ve ZEKİ bir soru sormaktır.
 
@@ -13,7 +17,7 @@ Sen, bir rüya analizi diyalogunu yöneten empatik bir AI terapistsin. Orijinal 
 
 ### BAĞLAM ###
 **Orijinal Rüya Yorumu (Özet):**
-- Temalar: ${dreamAnalysis.themes.join(', ')}
+- Temalar: ${dreamAnalysis.themes.join(", ")}
 - Yorum: ${dreamAnalysis.interpretation.substring(0, 400)}...
 
 **Şu Ana Kadarki Konuşma Geçmişi:**
@@ -22,7 +26,11 @@ ${conversationHistory || "Henüz bir konuşma olmadı. Bu ilk soru."}
 ### YENİ SORU (Sadece soruyu yaz): ###
 `;
 
-export const getFinalDreamFeedbackPrompt = (userVault: any, truncatedInterpretation: string, formattedAnswers: string) => `
+export const getFinalDreamFeedbackPrompt = (
+    userVault: { [key: string]: JsonValue } | null,
+    truncatedInterpretation: string,
+    formattedAnswers: string,
+) => `
 ### ROL & GÖREV ###
 Sen, bir rüya analizi ve 3 adımlı bir keşif diyaloğunu tamamlamış olan bilge Kozmik Terapistsin. Görevin, tüm bu süreci sentezleyerek, kullanıcıya içgörü kazandıran, sıcak, cesaretlendirici ve sonuç odaklı son bir geri bildirim sunmaktır.
 
@@ -40,4 +48,4 @@ ${formattedAnswers}
 3.  **Güçlendir:** Kullanıcıyı bu içgörülerle baş başa bırakan, ona pozitif bir düşünce veya hafif bir cesaretlendirmenin yanı sıra, gerekirse bir eylem adımı öner.
 
 ### ÇIKTI (Sadece sonuç metni) ###
-`; 
+`;

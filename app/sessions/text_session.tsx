@@ -19,15 +19,15 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { PremiumGate } from "../../components/PremiumGate";
-import SessionTimer from "../../components/SessionTimer";
-import { Colors } from "../../constants/Colors";
-import { ALL_THERAPISTS, getTherapistById } from "../../data/therapists";
-import { useFeatureAccess } from "../../hooks/useSubscription";
-import { incrementFeatureUsage } from "../../services/api.service";
-import { EventPayload } from "../../services/event.service";
-import { processUserMessage } from "../../services/orchestration.service";
-import { supabase } from "../../utils/supabase";
+import { PremiumGate } from "../../components/PremiumGate.tsx";
+import SessionTimer from "../../components/SessionTimer.tsx";
+import { Colors } from "../../constants/Colors.ts";
+import { ALL_THERAPISTS, getTherapistById } from "../../data/therapists.ts";
+import { useFeatureAccess } from "../../hooks/useSubscription.ts";
+import { incrementFeatureUsage } from "../../services/api.service.ts";
+import { EventPayload } from "../../services/event.service.ts";
+import { processUserMessage } from "../../services/orchestration.service.ts";
+import { supabase } from "../../utils/supabase.ts";
 
 // Markdown render fonksiyonu - Paragraf düzenlemeli
 const renderMarkdownText = (text: string, accentColor: string) => {
@@ -220,25 +220,28 @@ export default function TextSessionScreen() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isEnding, setIsEnding] = useState(false); // YENİ: Seans sonlandırma kilidi
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveModalVisible, setSaveModalVisible] = useState(false);
   const [currentMood, setCurrentMood] = useState<string>("");
-  const [intraSessionSummary, setIntraSessionSummary] = useState("");
-  const messageCountForSummary = useRef(0);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const [selectedTherapist, setSelectedTherapist] = useState<any>(null);
+  const [selectedTherapist, setSelectedTherapist] = useState<
+    typeof ALL_THERAPISTS[0] | null
+  >(null);
 
   // Feature Access Hook
-  const { can_use, loading, refresh, used_count, limit_count } =
-    useFeatureAccess("text_sessions");
+  const {
+    can_use: _can_use,
+    loading,
+    refresh,
+    used_count: _used_count,
+    limit_count: _limit_count,
+  } = useFeatureAccess("text_sessions");
 
   // Typing animation state
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
 
-  const animateDots = () => {
+  const animateDots = useCallback(() => {
     Animated.loop(
       Animated.stagger(150, [
         Animated.sequence([
@@ -279,7 +282,7 @@ export default function TextSessionScreen() {
         ]),
       ]),
     ).start();
-  };
+  }, [dot1, dot2, dot3]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -295,7 +298,7 @@ export default function TextSessionScreen() {
 
   useEffect(() => {
     if (isTyping) animateDots();
-  }, [isTyping]);
+  }, [isTyping, animateDots]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -382,7 +385,7 @@ export default function TextSessionScreen() {
   // Sayfa yüklendiğinde ve odaklandığında erişimi yenile
   useEffect(() => {
     refresh();
-  }, []);
+  }, [refresh]);
 
   // Mood ve terapist bilgisini parametrelerden alıp state'e ata
   useEffect(() => {
@@ -441,7 +444,11 @@ export default function TextSessionScreen() {
       const errorMessage = { sender: "ai" as const, text: "Bir sorun oluştu." };
       setMessages((prev) => [...prev, errorMessage]);
     } else {
-      const aiMessage = { sender: "ai" as const, text: aiReplyText };
+      // aiReplyText string olmayabilir, güvenli dönüşüm yap
+      const aiMessageText = typeof aiReplyText === "string"
+        ? aiReplyText
+        : "Yanıt alındı";
+      const aiMessage = { sender: "ai" as const, text: aiMessageText };
       setMessages((prev) => [...prev, aiMessage]);
     }
     setIsTyping(false);

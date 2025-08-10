@@ -1,13 +1,13 @@
 // services/strategic-query-router.service.ts
-// 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ
-// Gemini 2.5 Pro anlaşması uyarınca: Tek API çağrısı, akıllı veri toplama
 
-import { AI_MODELS } from "../constants/AIConfig";
-import { InteractionContext } from "../types/context";
-import { invokeGemini } from "./ai.service";
-import { EventPayload } from "./event.service";
-import { retrieveContext } from "./rag.service";
-import * as VaultService from "./vault.service";
+import { AI_MODELS } from "../constants/AIConfig.ts";
+import { InteractionContext } from "../types/context.ts";
+import type { JsonValue } from "../types/json.ts";
+import { invokeGemini } from "./ai.service.ts";
+import { EventPayload } from "./event.service.ts";
+import { retrieveContext } from "./rag.service.ts";
+import type { VaultData } from "./vault.service.ts";
+import * as VaultService from "./vault.service.ts";
 
 export class StrategicQueryRouter {
     /**
@@ -89,13 +89,13 @@ export class StrategicQueryRouter {
     private static extractQueryFromEvent(event: EventPayload): string {
         switch (event.type) {
             case "dream_analysis":
-                return event.data.dreamText || "";
+                return String(event.data.dreamText ?? "");
             case "text_session":
-                return event.data.userMessage || "";
+                return String(event.data.userMessage ?? "");
             case "ai_analysis":
-                return `Son ${event.data.days} günlük analiz`;
+                return `Son ${String(event.data.days ?? "")} günlük analiz`;
             case "daily_reflection":
-                return event.data.todayNote || "";
+                return String(event.data.todayNote ?? "");
             default:
                 return "Genel sorgu";
         }
@@ -109,7 +109,7 @@ export class StrategicQueryRouter {
      */
     private static buildOptimizedPrompt(
         event: EventPayload,
-        userVault: any,
+        userVault: VaultData | { [key: string]: JsonValue },
         ragContext: { content: string; source_layer: string }[],
     ): string {
         // Temel sistem talimatları

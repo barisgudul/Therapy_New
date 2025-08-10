@@ -1,6 +1,6 @@
 // utils/schemas.ts
 import { z } from "zod";
-import { traitKeys } from "../services/trait.service";
+import { traitKeys } from "../services/trait.service.ts";
 
 // -------------------
 // TEMEL ŞEMALAR

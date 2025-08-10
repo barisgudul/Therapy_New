@@ -63,7 +63,17 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-Deno.serve(async (req) => {
+type FromApi = {
+  insert: (
+    values: Record<string, unknown>,
+  ) => Promise<{ error: unknown | null }>;
+};
+type SupabaseClientLike = { from: (table: string) => FromApi };
+
+export async function handleEmbedMemory(
+  req: Request,
+  providedClient?: SupabaseClientLike,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -109,10 +119,10 @@ Deno.serve(async (req) => {
       throw new Error("Google API yanıtı 'embedding' vektörü içermiyor.");
     }
 
-    const supabaseAdmin = createClient(
+    const supabaseAdmin: SupabaseClientLike = providedClient ?? createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    ) as unknown as SupabaseClientLike;
 
     const time_vector = TimeEmbeddingGenerator.generate(event, _vault);
 
@@ -141,4 +151,8 @@ Deno.serve(async (req) => {
       status: 500,
     });
   }
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => handleEmbedMemory(req));
+}

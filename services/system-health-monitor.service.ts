@@ -1,19 +1,6 @@
 // services/system-health-monitor.service.ts
-// 🎯 FAZ 1: SİSTEM SAĞLIK MONİTÖRÜ
-// AI Consciousness yerine somut, ölçülebilir metrikler
 
-import { supabase } from "../utils/supabase";
-
-/**
- * 🎯 FAZ 1: SİSTEM SAĞLIK MONİTÖRÜ
- *
- * Gemini 2.5 Pro'nun eleştirisi:
- * ❌ "AI'ın ruh hali" → Soyut ve ölçülemez
- * ✅ Somut sistem metrikleri → Ölçülebilir ve değerli
- *
- * Bu servis, AI Consciousness'ın yerine geçer ve
- * gerçek, somut sistem sağlık verilerini takip eder.
- */
+import { supabase } from "../utils/supabase.ts";
 
 export interface SystemMetrics {
     // 📊 API PERFORMANS METRİKLERİ
@@ -184,19 +171,18 @@ export class SystemHealthMonitor {
 
     /**
      * 📊 API PERFORMANS METRİKLERİ
+     * DÜZELTME: Bu fonksiyon içinde await yok, bu yüzden async DEĞİL.
      */
-    private static async getAPIMetrics(
+    private static getAPIMetrics(
         _since: Date,
     ): Promise<Partial<SystemMetrics>> {
         // TODO: Gerçek API call loglarından veri çek
-        // Şimdilik simüle edilmiş veriler
-
-        return {
+        return Promise.resolve({
             api_call_count_last_hour: Math.floor(Math.random() * 100) + 50,
             avg_response_time_ms: Math.floor(Math.random() * 2000) + 500,
             error_rate_percentage: Math.random() * 5,
             system_uptime_percentage: 99.5 + Math.random() * 0.5,
-        };
+        });
     }
 
     /**
@@ -240,30 +226,32 @@ export class SystemHealthMonitor {
 
     /**
      * 📝 İÇERİK KALİTE METRİKLERİ
+     * DÜZELTME: await yok, async DEĞİL.
      */
-    private static async getContentQualityMetrics(
+    private static getContentQualityMetrics(
         _since: Date,
     ): Promise<Partial<SystemMetrics>> {
         // TODO: Gerçek içerik analizi
-        return {
+        return Promise.resolve({
             new_theme_discovery_rate: Math.random() * 0.3, // %0-30 arası
             insight_relevance_score: 0.7 + Math.random() * 0.3, // 0.7-1.0 arası
             response_coherence_score: 0.8 + Math.random() * 0.2, // 0.8-1.0 arası
-        };
+        });
     }
 
     /**
      * 💰 MALİYET METRİKLERİ
+     * DÜZELTME: await yok, async DEĞİL.
      */
-    private static async getCostMetrics(
+    private static getCostMetrics(
         _since: Date,
     ): Promise<Partial<SystemMetrics>> {
         // TODO: Gerçek maliyet tracking
-        return {
+        return Promise.resolve({
             cost_per_interaction: 0.15 + Math.random() * 0.35, // $0.15-$0.50
             resource_utilization: 0.6 + Math.random() * 0.3, // %60-90
             cache_hit_rate: 0.4 + Math.random() * 0.4, // %40-80
-        };
+        });
     }
 
     /**
@@ -293,13 +281,14 @@ export class SystemHealthMonitor {
 
     /**
      * 📈 METRİK TRENDLERİNİ ANALİZ ET
+     * DÜZELTME: await yok, async DEĞİL.
      */
-    static async analyzeTrends(_hours: number = 24): Promise<{
+    static analyzeTrends(_hours: number = 24): Promise<{
         trends: Record<string, "improving" | "stable" | "declining">;
         insights: string[];
     }> {
         // TODO FAZ 2: Trend analizi implementasyonu
-        return {
+        return Promise.resolve({
             trends: {
                 response_time: "stable",
                 user_satisfaction: "improving",
@@ -310,21 +299,6 @@ export class SystemHealthMonitor {
                 "Kullanıcı memnuniyeti artış trendinde",
                 "Maliyet optimizasyonu başarılı",
             ],
-        };
+        });
     }
 }
-
-/**
- * 💡 KULLANIM ÖRNEĞİ:
- *
- * ```typescript
- * const health = await SystemHealthMonitor.evaluateSystemHealth();
- * console.log(`Sistem sağlığı: ${health.overall_health} (${health.health_score}/100)`);
- * ```
- *
- * Bu, AI'ın soyut "ruh hali" yerine somut sistem verilerini sağlar:
- * ✅ Ölçülebilir metrikler
- * ✅ Actionable insights
- * ✅ Gerçek değer üretimi
- * ✅ Gemini 2.5 Pro'nun istediği yaklaşım! 🎯
- */

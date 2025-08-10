@@ -2,7 +2,9 @@
 
 // Renk koyuluk kontrolü için yardımcı fonksiyon
 export function isColorDark(hexColor: string): boolean {
-  const color = hexColor.charAt(0) === '#' ? hexColor.substring(1, 7) : hexColor;
+  const color = hexColor.charAt(0) === "#"
+    ? hexColor.substring(1, 7)
+    : hexColor;
   const r = parseInt(color.substring(0, 2), 16);
   const g = parseInt(color.substring(2, 4), 16);
   const b = parseInt(color.substring(4, 6), 16);
@@ -11,23 +13,28 @@ export function isColorDark(hexColor: string): boolean {
 
 // Hex rengi RGB formatına çeviren yardımcı fonksiyon
 export function hexToRgb(hex: string): string {
-    // GERÇEK DÜZELTME
-  if(/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex)){
-        let c: any;
-        c= hex.trim().substring(1).split(''); // Temizlenmiş halini kullan
-        if(c.length === 3){
-            c= [c[0], c[0], c[1], c[1], c[2], c[2]];
-        }
-        c= '0x'+c.join('');
-        return [(c>>16)&255, (c>>8)&255, c&255].join(',');
+  // GERÇEK DÜZELTME
+  if (/^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6})$/.test(hex)) {
+    let c: string[] | string;
+    c = hex.trim().substring(1).split(""); // Temizlenmiş halini kullan
+    if (c.length === 3) {
+      c = [c[0], c[0], c[1], c[1], c[2], c[2]];
     }
-    // Varsayılan bir renk döndür, eğer hex geçersizse
-    return '99, 102, 241';
+    c = "0x" + c.join("");
+    const num = parseInt(c, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255].join(",");
+  }
+  // Varsayılan bir renk döndür, eğer hex geçersizse
+  return "99, 102, 241";
 }
 
 // İki hex renk arasında yumuşak bir geçiş sağlayan interpolasyon fonksiyonu
-export function interpolateColor(color1: string, color2: string, factor: number): string {
-  const hex = (c: number) => c.toString(16).padStart(2, '0');
+export function interpolateColor(
+  color1: string,
+  color2: string,
+  factor: number,
+): string {
+  const hex = (c: number) => c.toString(16).padStart(2, "0");
   const c1 = parseInt(color1.substring(1), 16);
   const r1 = (c1 >> 16) & 255;
   const g1 = (c1 >> 8) & 255;

@@ -32,7 +32,7 @@ import { processUserMessage } from "../../services/orchestration.service";
 import { supabase } from "../../utils/supabase";
 
 // Markdown render fonksiyonu - Paragraf düzenlemeli (voice session için)
-const renderMarkdownText = (text: string, accentColor: string) => {
+const _renderMarkdownText = (text: string, accentColor: string) => {
     if (!text) return null;
 
     // Metni paragraflar halinde işle
@@ -228,7 +228,7 @@ export default function VoiceSessionScreen() {
     const [isSpeaking, setIsSpeaking] = useState(false);
 
     // Feature Access Hook
-    const { can_use, loading, refresh } = useFeatureAccess("voice_sessions");
+    const { _can_use, loading, refresh } = useFeatureAccess("voice_sessions");
 
     // YENİ: Tek bir yerden yönetilen animasyon değerleri
     const circleScale = useRef(new Animated.Value(1)).current;
@@ -248,7 +248,7 @@ export default function VoiceSessionScreen() {
         isProcessing,
         startRecording,
         stopRecording,
-        cleanup,
+        _cleanup,
         speakText,
     } = useVoiceSession({
         onSpeechPlaybackStatusUpdate: (status) => {
@@ -464,7 +464,7 @@ export default function VoiceSessionScreen() {
     }, []);
 
     /* ---------------------------- HELPERS --------------------------------- */
-    const formatDuration = (s: number) =>
+    const _formatDuration = (s: number) =>
         `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
     /* ---------------------------------------------------------------------- */
@@ -472,7 +472,7 @@ export default function VoiceSessionScreen() {
     /* ---------------------------------------------------------------------- */
 
     return (
-        <PremiumGate featureType="voice_sessions" premiumOnly={true}>
+        <PremiumGate featureType="voice_sessions" premiumOnly>
             <LinearGradient
                 colors={isDark
                     ? ["#232526", "#414345"]
@@ -666,7 +666,7 @@ export default function VoiceSessionScreen() {
                                             activeOpacity={0.85}
                                         >
                                             <Ionicons
-                                                name={"stop-circle-outline"}
+                                                name="stop-circle-outline"
                                                 size={32}
                                                 color={Colors.light.tint}
                                             />

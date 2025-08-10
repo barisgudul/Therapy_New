@@ -1,0 +1,9 @@
+{
+  "imports": {
+    "std/": "https://deno.land/std@0.208.0/",
+    "assert/": "https://deno.land/std@0.208.0/assert/",
+    "mock": "https://deno.land/std@0.208.0/testing/mock.ts",
+    "zod": "https://deno.land/x/zod@v3.23.8/mod.ts",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}

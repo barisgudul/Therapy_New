@@ -374,7 +374,47 @@ ${recentContext}
 }
 
 // === ANA FONKSİYON ===
-Deno.serve(async (req) => {
+type FromApi = {
+    select: (sel: string) => FromApi;
+    eq: (c: string, v: string) => FromApi;
+    single: () => Promise<
+        {
+            data: Record<string, unknown> | null;
+            error: { message: string } | null;
+        }
+    >;
+    gte: (c: string, v: string) => FromApi;
+    order: (_: string, __: { ascending: boolean }) => FromApi;
+    limit: (
+        n: number,
+    ) => Promise<
+        {
+            data: Record<string, unknown>[] | null;
+            error: { message: string } | null;
+        }
+    >;
+    delete: () => {
+        eq: (
+            c: string,
+            v: string,
+        ) => {
+            lt: (
+                c: string,
+                v: string,
+            ) => Promise<{ error: { message: string } | null }>;
+        };
+    };
+    insert: (vals: unknown) => Promise<{ error: { message: string } | null }>;
+};
+
+type SupabaseClientLike = {
+    from: (table: string) => FromApi;
+};
+
+export async function handlePredictionEngine(
+    req: Request,
+    providedClient?: SupabaseClientLike,
+): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -384,10 +424,10 @@ Deno.serve(async (req) => {
             .json() as RequestBody;
 
         const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-        const adminClient = createClient(
+        const adminClient: SupabaseClientLike = providedClient ?? createClient(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-        );
+        ) as unknown as SupabaseClientLike;
 
         if (!GEMINI_API_KEY) {
             throw new Error("GEMINI_API_KEY bulunamadı");
@@ -410,6 +450,9 @@ Deno.serve(async (req) => {
             );
         }
 
+        // userDna'yı UserDna tipine cast et
+        const typedUserDna = userDna as unknown as UserDna;
+
         // 2) Son 7 günün anılarını çek
         const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000))
             .toISOString();
@@ -425,10 +468,14 @@ Deno.serve(async (req) => {
             console.warn("Son anılar çekilirken hata:", memoryError.message);
         }
 
+        // recentMemories'i RecentMemory[] tipine cast et
+        const typedRecentMemories =
+            (recentMemories || []) as unknown as RecentMemory[];
+
         // 3) AI ile tahminleri üret
         const predictions = await generatePredictions(
-            userDna,
-            recentMemories || [],
+            typedUserDna,
+            typedRecentMemories,
             GEMINI_API_KEY,
         );
 
@@ -458,7 +505,7 @@ Deno.serve(async (req) => {
 
         // 🎭 YENİ: YÜKSEK RİSKLİ TAHMİNLER İÇİN SİMÜLASYON TETİKLE
         await triggerSimulationsForHighRiskPredictions(
-            adminClient,
+            adminClient as unknown as SupabaseClient,
             predictions,
             user_id,
         );
@@ -488,4 +535,8 @@ Deno.serve(async (req) => {
             },
         );
     }
-});
+}
+
+if (import.meta.main) {
+    Deno.serve((req) => handlePredictionEngine(req));
+}

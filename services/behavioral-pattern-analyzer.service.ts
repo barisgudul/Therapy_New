@@ -2,20 +2,11 @@
 // 🚀 FAZ 2: BEHAVIORAL PATTERN ANALYZER
 // "Unconscious Detection" yerine veri-temelli davranış analizi
 
-import { AI_MODELS } from "../constants/AIConfig";
-import { supabase } from "../utils/supabase";
-import { invokeGemini } from "./ai.service";
-
-/**
- * 🚀 FAZ 2: BEHAVIORAL PATTERN ANALYZER
- *
- * Gemini 2.5 Pro'nun eleştirisi:
- * ❌ "Bilinçdışı tespit" → Falcılık, yasal risk
- * ✅ Davranış kalıpları analizi → Veri-temelli, objektif
- *
- * Bu servis, "unconscious-detection" yerine geçer ve
- * sadece gözlemlenebilir davranış kalıplarını analiz eder.
- */
+import { AI_MODELS } from "../constants/AIConfig.ts";
+import type { JsonValue } from "../types/json.ts";
+import { supabase } from "../utils/supabase.ts";
+import { invokeGemini } from "./ai.service.ts";
+import type { AppEvent } from "./event.service.ts";
 
 export interface BehavioralPattern {
     pattern_id: string;
@@ -110,7 +101,12 @@ export class BehavioralPatternAnalyzer {
     /**
      * 📊 KULLANICI VERİSİNİ TOPLAMA
      */
-    private static async gatherUserData(userId: string, days: number) {
+    private static async gatherUserData(userId: string, days: number): Promise<{
+        events: AppEvent[];
+        vault: { [key: string]: JsonValue };
+        period_start: string;
+        period_end: string;
+    }> {
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
 
@@ -130,8 +126,10 @@ export class BehavioralPatternAnalyzer {
         ]);
 
         return {
-            events: eventsResult.data || [],
-            vault: vaultResult.data?.vault_data || {},
+            events: (eventsResult.data as AppEvent[] | null) || [],
+            vault: (vaultResult.data?.vault_data as
+                | { [key: string]: JsonValue }
+                | undefined) || {},
             period_start: startDate.toISOString(),
             period_end: new Date().toISOString(),
         };
@@ -147,7 +145,7 @@ export class BehavioralPatternAnalyzer {
      * ❌ "Bilinçdışı" yorumlar, kesin tanılar
      */
     private static async detectPatterns(
-        userData: any,
+        userData: { events: AppEvent[] },
     ): Promise<BehavioralPattern[]> {
         const patterns: BehavioralPattern[] = [];
 
@@ -175,21 +173,23 @@ export class BehavioralPatternAnalyzer {
     /**
      * 💬 İLETİŞİM KALIPLARI TESPİTİ
      */
-    private static async detectCommunicationPatterns(
-        events: any[],
+    private static detectCommunicationPatterns(
+        events: AppEvent[],
     ): Promise<BehavioralPattern[]> {
         const textEvents = events.filter((e) =>
             e.data?.userMessage || e.data?.dreamText || e.data?.todayNote
         );
 
-        if (textEvents.length < 3) return [];
+        if (textEvents.length < 3) return Promise.resolve([]);
 
         const patterns: BehavioralPattern[] = [];
 
         // Mesaj uzunluğu kalıpları
         const messageLengths = textEvents.map((e) => {
-            const text = e.data?.userMessage || e.data?.dreamText ||
-                e.data?.todayNote || "";
+            const text = String(
+                e.data?.userMessage || e.data?.dreamText || e.data?.todayNote ||
+                    "",
+            );
             return text.length;
         });
 
@@ -207,8 +207,10 @@ export class BehavioralPatternAnalyzer {
                 first_observed: textEvents[0].created_at,
                 last_observed: textEvents[textEvents.length - 1].created_at,
                 examples: textEvents.slice(0, 3).map((e) =>
-                    (e.data?.userMessage || e.data?.dreamText ||
-                        e.data?.todayNote || "").substring(0, 100)
+                    String(
+                        e.data?.userMessage || e.data?.dreamText ||
+                            e.data?.todayNote || "",
+                    ).substring(0, 100)
                 ),
                 potential_triggers: [
                     "Zaman kısıtı",
@@ -223,22 +225,22 @@ export class BehavioralPatternAnalyzer {
             });
         }
 
-        return patterns;
+        return Promise.resolve(patterns);
     }
 
     /**
      * 🎭 MOOD KALIPLARI TESPİTİ
      */
     private static detectMoodPatterns(
-        events: any[],
+        events: AppEvent[],
     ): Promise<BehavioralPattern[]> {
         const moodEvents = events.filter((e) => e.mood);
 
         if (moodEvents.length < 5) return Promise.resolve([]);
 
         const patterns: BehavioralPattern[] = [];
-        const moods = moodEvents.map((e) => e.mood);
-        const moodCounts = moods.reduce((acc: any, mood) => {
+        const moods = moodEvents.map((e) => String(e.mood));
+        const moodCounts = moods.reduce<Record<string, number>>((acc, mood) => {
             acc[mood] = (acc[mood] || 0) + 1;
             return acc;
         }, {});
@@ -284,14 +286,19 @@ export class BehavioralPatternAnalyzer {
     /**
      * 🎯 AKTİVİTE KALIPLARI TESPİTİ
      */
-    private static detectActivityPatterns(events: any[]): BehavioralPattern[] {
+    private static detectActivityPatterns(
+        events: AppEvent[],
+    ): BehavioralPattern[] {
         const patterns: BehavioralPattern[] = [];
 
         // Event tipi dağılımı
-        const eventTypes = events.reduce((acc: any, event) => {
-            acc[event.type] = (acc[event.type] || 0) + 1;
-            return acc;
-        }, {});
+        const eventTypes = events.reduce<Record<string, number>>(
+            (acc, event) => {
+                acc[event.type] = (acc[event.type] || 0) + 1;
+                return acc;
+            },
+            {},
+        );
 
         const totalEvents = events.length;
         const dominantType = Object.keys(eventTypes).reduce((a, b) =>
@@ -299,7 +306,7 @@ export class BehavioralPatternAnalyzer {
         );
 
         if (eventTypes[dominantType] / totalEvents > 0.3) {
-            const typeNames: any = {
+            const typeNames: Record<string, string> = {
                 "text_session": "Metin Terapisi",
                 "dream_analysis": "Rüya Analizi",
                 "daily_reflection": "Günlük Yansıma",
@@ -352,12 +359,14 @@ export class BehavioralPatternAnalyzer {
     /**
      * ⏰ ZAMAN KALIPLARI TESPİTİ
      */
-    private static detectTemporalPatterns(events: any[]): BehavioralPattern[] {
+    private static detectTemporalPatterns(
+        events: AppEvent[],
+    ): BehavioralPattern[] {
         const patterns: BehavioralPattern[] = [];
 
         // Günün saati analizi
         const hours = events.map((e) => new Date(e.created_at).getHours());
-        const hourCounts = hours.reduce((acc: any, hour) => {
+        const hourCounts = hours.reduce<Record<number, number>>((acc, hour) => {
             acc[hour] = (acc[hour] || 0) + 1;
             return acc;
         }, {});
@@ -367,7 +376,7 @@ export class BehavioralPatternAnalyzer {
         );
 
         if (hourCounts[peakHour] / hours.length > 0.2) {
-            const timeNames: any = {
+            const timeNames: Record<string, string> = {
                 "6": "Sabah Erken",
                 "7": "Sabah Erken",
                 "8": "Sabah",
@@ -427,13 +436,13 @@ export class BehavioralPatternAnalyzer {
     /**
      * 📈 TREND ANALİZİ
      */
-    private static analyzeTrends(userData: any) {
+    private static analyzeTrends(userData: { events: AppEvent[] }) {
         const events = userData.events;
 
         // Basit trend analizi
         return {
             communication_trend: "stable" as const,
-            mood_stability: events.filter((e: any) => e.mood).length > 5
+            mood_stability: events.filter((e) => e.mood).length > 5
                 ? "medium" as const
                 : "low" as const,
             engagement_level: events.length > 20
@@ -447,7 +456,7 @@ export class BehavioralPatternAnalyzer {
     /**
      * 🎯 VERİ KALİTESİ DEĞERLENDİRMESİ
      */
-    private static assessDataQuality(userData: any): number {
+    private static assessDataQuality(userData: { events: AppEvent[] }): number {
         const events = userData.events;
 
         let score = 0;
@@ -458,7 +467,7 @@ export class BehavioralPatternAnalyzer {
         else if (events.length > 5) score += 0.1;
 
         // Çeşitlilik
-        const eventTypes = new Set(events.map((e: any) => e.type));
+        const eventTypes = new Set(events.map((e) => e.type));
         score += Math.min(eventTypes.size * 0.1, 0.3);
 
         // Zaman dağılımı
@@ -471,7 +480,7 @@ export class BehavioralPatternAnalyzer {
         else if (daySpan > 10) score += 0.1;
 
         // Mood verileri
-        const moodEvents = events.filter((e: any) => e.mood);
+        const moodEvents = events.filter((e) => e.mood);
         if (moodEvents.length > 10) score += 0.2;
         else if (moodEvents.length > 5) score += 0.1;
 
@@ -564,18 +573,3 @@ Maksimum 300 kelime.
         }
     }
 }
-
-/**
- * 💡 KULLANIM ÖRNEĞİ:
- *
- * ```typescript
- * const analysis = await BehavioralPatternAnalyzer.analyzePatterns(userId, 30);
- * const summary = await BehavioralPatternAnalyzer.generatePatternSummary(analysis);
- * ```
- *
- * Bu sistem:
- * ✅ Sadece gözlemlenebilir verileri analiz eder
- * ✅ Kesin tanı koymaz, sadece kalıp önerir
- * ✅ Yasal açıdan güvenli
- * ✅ Gemini 2.5 Pro'nun istediği yaklaşım! 🚀
- */

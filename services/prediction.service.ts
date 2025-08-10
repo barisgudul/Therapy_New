@@ -1,5 +1,5 @@
 // services/prediction.service.ts
-import { supabase } from "../utils/supabase";
+import { supabase } from "../utils/supabase.ts";
 
 // Tahmin sonucu tipi (Edge Function ile aynı)
 export interface PredictionOutcome {

@@ -1,14 +1,14 @@
 // services/orchestration.handlers.ts
 import { PromptTemplate } from "@langchain/core/prompts";
-import { InteractionContext } from "../types/context";
-import { ValidationError } from "../utils/errors";
-import { parseAndValidateJson } from "../utils/jsonValidator";
-import { DiaryStart, DreamAnalysisResultSchema } from "../utils/schemas";
-import * as AiService from "./ai.service";
-import * as EventService from "./event.service";
-import * as JourneyService from "./journey.service";
-import * as RagService from "./rag.service";
-import * as VaultService from "./vault.service";
+import { InteractionContext } from "../types/context.ts";
+import { ValidationError } from "../utils/errors.ts";
+import { parseAndValidateJson } from "../utils/jsonValidator.ts";
+import { DiaryStart, DreamAnalysisResultSchema } from "../utils/schemas.ts";
+import * as AiService from "./ai.service.ts";
+import * as EventService from "./event.service.ts";
+import * as JourneyService from "./journey.service.ts";
+import * as RagService from "./rag.service.ts";
+import * as VaultService from "./vault.service.ts";
 
 // Orkestratörden dönebilecek tüm olası başarılı sonuç tipleri
 export type OrchestratorSuccessResult =
@@ -43,20 +43,22 @@ function selectTherapistFunction(context: InteractionContext): Promise<string> {
     const { traits } = initialVault;
 
     // Kaygı seviyesi yüksekse 'sakinleştirici' yaklaşım
-    if (traits?.anxiety_level && traits.anxiety_level > 0.7) {
+    const anxiety = Number(traits?.anxiety_level);
+    if (!Number.isNaN(anxiety) && anxiety > 0.7) {
         console.log(
             `[ORCHESTRATOR] Yüksek kaygı tespit edildi (${
-                (traits.anxiety_level * 100).toFixed(0)
+                (anxiety * 100).toFixed(0)
             }%). 'calm' kişiliği seçiliyor.`,
         );
         return AiService.generateAdaptiveTherapistReply(context, "calm");
     }
 
     // Motivasyon düşükse 'motivasyonel' yaklaşım
-    if (traits?.motivation && traits.motivation < 0.4) {
+    const motivation = Number(traits?.motivation);
+    if (!Number.isNaN(motivation) && motivation < 0.4) {
         console.log(
             `[ORCHESTRATOR] Düşük motivasyon tespit edildi (${
-                (traits.motivation * 100).toFixed(0)
+                (motivation * 100).toFixed(0)
             }%). 'motivational' kişiliği seçiliyor.`,
         );
         return AiService.generateAdaptiveTherapistReply(
@@ -66,10 +68,11 @@ function selectTherapistFunction(context: InteractionContext): Promise<string> {
     }
 
     // Açıklık yüksekse 'analitik' yaklaşım
-    if (traits?.openness && traits.openness > 0.7) {
+    const openness = Number(traits?.openness);
+    if (!Number.isNaN(openness) && openness > 0.7) {
         console.log(
             `[ORCHESTRATOR] Yüksek açıklık tespit edildi (${
-                (traits.openness * 100).toFixed(0)
+                (openness * 100).toFixed(0)
             }%). 'analytical' kişiliği seçiliyor.`,
         );
         return AiService.generateAdaptiveTherapistReply(context, "analytical");
@@ -157,9 +160,11 @@ async function handleTherapySession(
         );
         await EventService.logEvent({
             type: context.initialEvent.type,
-            mood: context.initialEvent.data.finalMood,
+            mood: String(context.initialEvent.data.finalMood ?? ""),
             data: {
-                therapistId: context.initialEvent.data.therapistId,
+                therapistId: String(
+                    context.initialEvent.data.therapistId ?? "",
+                ),
                 messages: context.initialEvent.data.messages,
                 // Diğer önemli meta-veriler...
             },
@@ -252,7 +257,7 @@ async function handleDreamAnalysis(
         // ADIM 1: Ham yanıtı al.
         const rawResponse = await RagService.queryWithContext(
             userId,
-            dreamText,
+            String(dreamText ?? ""),
             dreamPrompt,
         );
 
@@ -285,7 +290,7 @@ async function handleDreamAnalysis(
         const newEventId = await EventService.logEvent({
             type: "dream_analysis",
             data: {
-                dreamText: dreamText,
+                dreamText: String(dreamText ?? ""),
                 analysis: analysisData,
                 dialogue: [],
             },
@@ -390,7 +395,7 @@ async function handleDailyReflection(
     // Adım 2: Bugünkü mood'u vault'a kaydet
     const { todayMood } = context.initialEvent.data;
     if (todayMood) {
-        await updateMoodInVault(context, todayMood);
+        await updateMoodInVault(context, String(todayMood));
     }
     // Adım 3: Mood trend'ini analiz et
     const moodTrend = analyzeMoodTrend(context);
@@ -406,7 +411,7 @@ async function handleDailyReflection(
     // Adım 5: Moodu vault'a tema olarak ekle
     if (todayMood) {
         const updatedVault = AiService.mergeVaultData(context.initialVault, {
-            themes: [todayMood],
+            themes: [String(todayMood)],
         });
         await VaultService.updateUserVault(updatedVault);
     }
@@ -423,7 +428,7 @@ async function handleDailyReflection(
 /**
  * Onboarding tamamlama akışı
  */
-async function handleOnboardingCompletion(
+function handleOnboardingCompletion(
     context: InteractionContext,
 ): Promise<{ success: boolean; message: string }> {
     console.log(
@@ -441,7 +446,7 @@ async function handleOnboardingCompletion(
     );
 
     // UI'a başarılı olduğuna dair bir sinyal döndür
-    return { success: true, message: "ONBOARDING_SAVED" };
+    return Promise.resolve({ success: true, message: "ONBOARDING_SAVED" });
 }
 
 // ===============================================

@@ -1,6 +1,7 @@
 // services/event.service.ts
-import { supabase } from "../utils/supabase";
-import { getUsageStatsForUser } from "./subscription.service"; // Üst kısma ekle
+import { isDev } from "../utils/dev.ts";
+import { supabase } from "../utils/supabase.ts";
+import { getUsageStatsForUser } from "./subscription.service.ts"; // Üst kısma ekle
 
 export const EVENT_TYPES = [
   "daily_reflection",
@@ -27,7 +28,7 @@ export interface AppEvent {
   timestamp: number;
   created_at: string;
   mood?: string;
-  data: Record<string, any>;
+  data: { [key: string]: import("../types/json.ts").JsonValue };
 }
 
 export type EventPayload = Omit<
@@ -49,7 +50,7 @@ export async function logEvent(
     ])
       .select("id, created_at, data, type, mood").single();
     if (error) throw error;
-    __DEV__ && console.log(`✅ [Event] ${event.type} kaydedildi.`);
+    if (isDev()) console.log(`✅ [Event] ${event.type} kaydedildi.`);
 
     // 🚨 FAZ 0: BİLİNÇ İŞLEME DEVRE DIŞI (STABİLİZASYON)
     // DNA ve hafıza işleme maliyet optimizasyonu için geçici olarak durduruldu
@@ -127,7 +128,7 @@ export async function deleteEventById(eventId: string): Promise<void> {
     const { error } = await supabase.from("events").delete().eq("id", eventId)
       .eq("user_id", user.id);
     if (error) throw error;
-    __DEV__ && console.log(`✅ [Event] ID'si ${eventId} olan olay silindi.`);
+    if (isDev()) console.log(`✅ [Event] ID'si ${eventId} olan olay silindi.`);
   } catch (error) {
     console.error("⛔️ Olay silme hatası:", (error as Error).message);
     throw error;
@@ -136,7 +137,7 @@ export async function deleteEventById(eventId: string): Promise<void> {
 
 export async function updateEventData(
   eventId: string,
-  newData: Record<string, any>,
+  newData: { [key: string]: import("../types/json.ts").JsonValue },
 ): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -144,10 +145,11 @@ export async function updateEventData(
     const { error } = await supabase.from("events").update({ data: newData })
       .eq("id", eventId).eq("user_id", user.id);
     if (error) throw error;
-    __DEV__ &&
+    if (isDev()) {
       console.log(
         `✅ [Event] ID'si ${eventId} olan olayın verisi güncellendi.`,
       );
+    }
   } catch (error) {
     console.error("⛔️ Olay veri güncelleme hatası:", (error as Error).message);
     throw error;

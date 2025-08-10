@@ -1,9 +1,13 @@
 // services/vault.service.ts
-import { supabase } from '../utils/supabase';
+import { isDev } from "../utils/dev.ts";
+import { supabase } from "../utils/supabase.ts";
 
 export interface VaultData {
-  traits?: Record<string, any>;
-  memories?: any[];
+  traits?: Partial<Record<string, number | string>>;
+  memories?: { [key: string]: import("../types/json.ts").JsonValue }[];
+  themes?: string[];
+  keyInsights?: string[];
+  coreBeliefs?: Record<string, string>;
   onboarding?: Record<string, string>;
   profile?: {
     nickname?: string;
@@ -11,25 +15,33 @@ export interface VaultData {
     expectation?: string;
     therapyGoals?: string;
     previousTherapy?: string;
-    relationshipStatus?: 'single' | 'in_relationship' | 'married' | 'complicated' | '';
-    gender?: 'male' | 'female' | 'other' | '';
+    relationshipStatus?:
+      | "single"
+      | "in_relationship"
+      | "married"
+      | "complicated"
+      | "";
+    gender?: "male" | "female" | "other" | "";
   };
   metadata?: {
     onboardingCompleted?: boolean;
-    [key: string]: any;
+    [key: string]: import("../types/json.ts").JsonValue;
   };
-  [key: string]: any;
+  moodHistory?: { mood: string; timestamp: string }[];
+  [key: string]: import("../types/json.ts").JsonValue;
 }
 
 export async function getUserVault(): Promise<VaultData | null> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-    const { data, error } = await supabase.from('user_vaults').select('vault_data').eq('user_id', user.id).single();
-    if (error && error.code !== 'PGRST116') throw error;
+    const { data, error } = await supabase.from("user_vaults").select(
+      "vault_data",
+    ).eq("user_id", user.id).single();
+    if (error && error.code !== "PGRST116") throw error;
     return data?.vault_data || null;
   } catch (error) {
-    console.error('⛔️ Vault getirme hatası:', (error as Error).message);
+    console.error("⛔️ Vault getirme hatası:", (error as Error).message);
     throw error;
   }
 }
@@ -39,15 +51,19 @@ export async function updateUserVault(newVaultData: VaultData): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { error } = await supabase
-      .from('user_vaults')
+      .from("user_vaults")
       .upsert(
-        { user_id: user.id, vault_data: newVaultData, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
+        {
+          user_id: user.id,
+          vault_data: newVaultData,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
       );
     if (error) throw error;
-    __DEV__ && console.log('✅ [Vault] Güncellendi.');
+    if (isDev()) console.log("✅ [Vault] Güncellendi.");
   } catch (error) {
-    console.error('⛔️ Vault update hatası:', (error as Error).message);
+    console.error("⛔️ Vault update hatası:", (error as Error).message);
     throw error;
   }
 }

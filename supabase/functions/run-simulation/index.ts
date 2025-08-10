@@ -14,7 +14,7 @@ interface SimulationRequest {
         | "scenario_walkthrough"
         | "social_interaction"
         | "stress_test";
-    duration_minutes?: number;
+    _duration_minutes?: number;
 }
 
 interface SimulationLogEntry {
@@ -42,7 +42,7 @@ interface SimulationContext {
     recent_memories: string[];
     setup_prompt: string;
     simulation_type: string;
-    adminClient: any;
+    adminClient: unknown;
     geminiApiKey: string;
 }
 
@@ -55,9 +55,10 @@ function getErrorMessage(error: unknown): string {
 // === KULLANICI DNA'SINI AL ===
 async function getUserDnaSnapshot(
     userId: string,
-    adminClient: any,
+    adminClient: unknown,
 ): Promise<UserDnaSnapshot> {
-    const { data, error } = await adminClient
+    // deno-lint-ignore no-explicit-any
+    const { data, error } = await (adminClient as any)
         .from("user_dna")
         .select("*")
         .eq("user_id", userId)
@@ -91,9 +92,10 @@ async function getUserDnaSnapshot(
 // === SON ANILARI AL ===
 async function getRecentMemories(
     userId: string,
-    adminClient: any,
+    adminClient: unknown,
 ): Promise<string[]> {
-    const { data, error } = await adminClient
+    // deno-lint-ignore no-explicit-any
+    const { data, error } = await (adminClient as any)
         .from("cognitive_memories")
         .select("content")
         .eq("user_id", userId)
@@ -345,7 +347,7 @@ Deno.serve(async (req) => {
             setup_prompt,
             trigger_prediction_id,
             simulation_type = "scenario_walkthrough",
-            duration_minutes = 30,
+            _duration_minutes = 30,
         } = requestBody;
 
         if (!user_id || !setup_prompt) {

@@ -1,49 +1,29 @@
 // services/orchestration.service.ts
 
-import { InteractionContext } from "../types/context";
-// 🚨 FAZ 0: AGENTIC CORE DEVRE DIŞI (STABİLİZASYON)
-// import { askMainBrain, checkMainBrainHealth } from "./agentic.service";
-
-// 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ ENTEGRASYONU
-import { EventPayload } from "./event.service";
-import {
-  eventHandlers,
-  OrchestratorSuccessResult,
-} from "./orchestration.handlers";
-import { StrategicQueryRouter } from "./strategic-query-router.service";
-import { SystemHealthMonitor } from "./system-health-monitor.service";
-import * as VaultService from "./vault.service";
+import { InteractionContext } from "../types/context.ts";
+import { ApiError } from "../utils/errors.ts";
+import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service.ts";
+import { EventPayload } from "./event.service.ts";
+import { OrchestratorSuccessResult } from "./orchestration.handlers.ts";
+import { SystemHealthMonitor } from "./system-health-monitor.service.ts";
+import * as VaultService from "./vault.service.ts";
 
 // React Native uyumlu UUID generator
 function generateId(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
-    const v = c === "x" ? r : (r & 0x3 | 0x8); // == yerine === kullan
+    const v = c === "x" ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }
 
-/**
- * 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ MODU
- *
- * Gemini 2.5 Pro anlaşması uyarınca:
- * ✅ Tek API çağrısı ile maksimum değer
- * ✅ Akıllı veri toplama ve birleştirme
- * ✅ Somut sistem sağlık metrikleri
- * ✅ Maliyet optimizasyonu
- * ✅ Yüksek güvenilirlik
- *
- * FAZ 0: Ana beyin devre dışı ✅
- * FAZ 1: Strategic Router aktif ✅
- * FAZ 2: Kontrollü hibrit sistem (gelecek)
- */
 export async function processUserMessage(
   userId: string,
   eventPayload: EventPayload,
 ): Promise<OrchestratorSuccessResult> {
-  // 1. İŞLEM BAŞLIYOR: Bağlamı oluştur.
+  // 1. İşlem bağlamını oluştur
   console.log(
-    `[ORCHESTRATOR] 🎯 FAZ 1 Strategic Router - İşlem başlıyor: ${eventPayload.type}`,
+    `[ORCHESTRATOR] 🎯 Tek Beyin - İşlem başlıyor: ${eventPayload.type}`,
   );
   const initialVault = await VaultService.getUserVault() ?? {};
 
@@ -61,116 +41,84 @@ export async function processUserMessage(
     derivedData: {},
   };
 
-  // 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ AKTIF
-  // Gemini 2.5 Pro anlaşması: Tek API çağrısı ile maksimum değer
-
-  // Sistem sağlığını kontrol et
+  // 2. SİSTEM SAĞLIĞINI KONTROL ET
   const systemHealth = await SystemHealthMonitor.evaluateSystemHealth();
   console.log(
-    `[ORCHESTRATOR] 🏥 Sistem sağlığı: ${systemHealth.overall_health} (${systemHealth.health_score}/100)`,
+    `[ORCHESTRATOR] 🏥 Sistem sağlığı: ${systemHealth.health_score}/100`,
   );
 
-  // Stratejik router'ı kullanmaya uygun mu?
-  const shouldUseRouter = shouldUseStrategicRouter(eventPayload, systemHealth);
-
-  if (shouldUseRouter) {
-    console.log(
-      `[ORCHESTRATOR] 🎯 Strategic Router kullanılıyor: ${eventPayload.type}`,
+  // EĞER SAĞLIK KÖTÜYSE, BASİT BİR CEVAP VER VE ÇIK
+  if (systemHealth.health_score < 60) {
+    console.warn(
+      `[ORCHESTRATOR] ⚠️ Sistem sağlığı kritik (${systemHealth.health_score}), basit cevap moduna geçiliyor.`,
     );
-
-    try {
-      const strategicResult = await StrategicQueryRouter.handleSimpleQuery(
-        context,
-      );
-      return ensureHumanityReminder(strategicResult);
-    } catch (strategicError) {
-      console.warn(
-        `[ORCHESTRATOR] ⚠️ Strategic Router hatası, geleneksel sisteme geçiliyor:`,
-        strategicError,
-      );
-      // Hata durumunda geleneksel sisteme devam et
-    }
+    return "Sistem şu an yoğun, lütfen daha sonra tekrar deneyin.";
   }
 
-  // 2. GELENEKSEl HANDLER SİSTEMİ (Fallback)
+  // 3. DOĞRU PİPELİNE'I BELİRLE VE BEYNE GÖNDER
+  const pipelineType = determinePipelineType(eventPayload.type);
+  console.log(`[ORCHESTRATOR] 🧠 Pipeline tipi belirlendi: ${pipelineType}`);
+
   try {
-    const handler = eventHandlers[eventPayload.type];
-
-    if (!handler) {
-      console.error(
-        `[ORCHESTRATOR] Bilinmeyen event tipi için handler bulunamadı: ${eventPayload.type}`,
-      );
-      throw new Error(`Desteklenmeyen işlem: ${eventPayload.type}`);
-    }
-
-    console.log(
-      `[ORCHESTRATOR] 📋 Geleneksel handler kullanılıyor (fallback): '${eventPayload.type}'`,
+    // 4. BEYNİ (PIPELINE'I) ÇAĞIR
+    const result = await ControlledHybridPipeline.executeComplexQuery(
+      context,
+      pipelineType,
     );
-    const handlerResult = await handler(context);
-    return ensureHumanityReminder(handlerResult);
+
+    // Sonuca insanlık hatırlatıcısı ekle
+    return ensureHumanityReminder(result);
   } catch (error) {
     console.error(
-      `[ORCHESTRATOR] İşlem sırasında kritik hata: ${context.transactionId}`,
+      `[ORCHESTRATOR] ❌ Pipeline işlemi sırasında kritik hata:`,
       error,
     );
-    throw error;
+    // Hata durumunda kullanıcıya anlamlı bir mesaj ver
+    throw new ApiError("İsteğiniz işlenirken bir sorun oluştu.");
   }
 }
-
-// 🎯 FAZ 1: STRATEJİK ROUTER KARAR FONKSİYONLARI
 
 /**
- * Bu işlem Strategic Router tarafından mı işlenmeli?
- * Sistem sağlığı ve event tipi göz önünde bulundurulur.
+ * Event tipine göre uygun pipeline tipini belirle
  */
-function shouldUseStrategicRouter(
-  eventPayload: EventPayload,
-  systemHealth: any,
-): boolean {
-  // Sistem sağlığı kötüyse geleneksel sistemi kullan
-  if (systemHealth.health_score < 70) {
-    console.log(
-      `[ORCHESTRATOR] ⚠️ Sistem sağlığı düşük (${systemHealth.health_score}), geleneksel sistem kullanılıyor`,
-    );
-    return false;
+function determinePipelineType(
+  eventType: string,
+):
+  | "deep_analysis"
+  | "pattern_discovery"
+  | "insight_synthesis"
+  | "therapy_session"
+  | "dream_analysis"
+  | "diary_management"
+  | "daily_reflection" {
+  switch (eventType) {
+    case "text_session":
+    case "voice_session":
+    case "video_session":
+      return "therapy_session"; // Terapi seansları için özel pipeline
+
+    case "dream_analysis":
+      return "dream_analysis"; // Rüya analizi için özel pipeline
+
+    case "daily_reflection":
+      return "daily_reflection"; // Günlük yansıma için özel pipeline
+
+    case "diary_entry":
+      return "diary_management"; // Günlük giriş için özel pipeline
+
+    case "ai_analysis":
+      return "deep_analysis"; // AI analizi için derin analiz
+
+    case "onboarding_completed":
+      return "insight_synthesis"; // Onboarding için içgörü sentezi
+
+    default:
+      console.log(
+        `[ORCHESTRATOR] ⚠️ Bilinmeyen event tipi: ${eventType}, varsayılan pipeline kullanılıyor`,
+      );
+      return "deep_analysis"; // Varsayılan olarak derin analiz
   }
-
-  // Strategic Router için uygun event tipleri
-  const strategicRouterTypes = [
-    "text_session", // Terapi seansları
-    "dream_analysis", // Rüya analizleri
-    "daily_reflection", // Günlük yansımalar
-    "ai_analysis", // AI analizleri
-  ];
-
-  const shouldUse = strategicRouterTypes.includes(eventPayload.type);
-
-  if (shouldUse) {
-    console.log(
-      `[ORCHESTRATOR] ✅ ${eventPayload.type} Strategic Router için uygun`,
-    );
-  } else {
-    console.log(
-      `[ORCHESTRATOR] ⏭️ ${eventPayload.type} geleneksel handler için uygun`,
-    );
-  }
-
-  return shouldUse;
 }
-
-// 🚨 FAZ 0: ESKİ AGENTIC CORE FONKSİYONLARI (DEVRE DIŞI)
-/*
-function shouldUseAgenticCore(eventPayload: EventPayload): boolean {
-  return false; // FAZ 0: Devre dışı
-}
-
-function createAgenticQuery(
-  eventPayload: EventPayload,
-  _context: InteractionContext,
-): string {
-  return ""; // FAZ 0: Kullanılmıyor
-}
-*/
 
 /**
  * Tüm AI cevaplarının dürüst olmasını sağlar - "Ben bir makineyim" anımsatıcısı
@@ -199,6 +147,6 @@ function ensureHumanityReminder(
   return result;
 }
 
-// === ZARIF VE YALGIN ORKESTRATÖR ===
-// Tüm handler mantığı orchestration.handlers.ts'e taşındı.
-// Bu dosya artık sadece bir "postacı" - gelen paketi doğru adrese yönlendiriyor.
+// === HADIM EDİLMİŞ ORKESTRATOR ===
+// Artık sadece bir kapıcı - gelen paketi tek beyne (ControlledHybridPipeline) yönlendiriyor.
+// Tüm karmaşık mantık ControlledHybridPipeline'da toplandı.

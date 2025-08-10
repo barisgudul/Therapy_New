@@ -1,11 +1,11 @@
 // context/Auth.tsx - AMELİYAT EDİLMİŞ VE GÜÇLENDİRİLMİŞ VERSİYON
 
-import { Session, User } from '@supabase/supabase-js';
-import { useQueryClient } from '@tanstack/react-query'; // EKLE
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { Session, User } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query"; // EKLE
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { Alert } from "react-native";
 // import { useVaultStore } from '../store/vaultStore'; // SİL
-import { supabase } from '../utils/supabase';
+import { supabase } from "../utils/supabase.ts";
 
 // 1. CONTEXT TİPİNİ GENİŞLETİYORUZ
 type AuthContextType = {
@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   isLoading: true,
   isPendingDeletion: false,
-  cancelDeletion: async () => { console.error("Cancel function not implemented"); }
+  cancelDeletion: () => Promise.resolve(),
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -37,11 +37,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Vault kullanılıyorsa, fonksiyonları al
   // const fetchVault = useVaultStore((state) => state.fetchVault); // SİL
   // const clearVault = useVaultStore((state) => state.clearVault); // SİL
-  
+
   const queryClient = useQueryClient(); // queryClient'ı al.
 
   // 3. İŞİN BEYNİ: KULLANICI DURUMUNU KONTROL ETME FONKSİYONU
-  const checkUserStatus = async (currentUser: User | null) => {
+  const checkUserStatus = (currentUser: User | null) => {
     if (!currentUser) {
       setIsPendingDeletion(false);
       return;
@@ -49,9 +49,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Supabase user_metadata'dan durumu oku.
     // Deno function'da 'status' alanını 'pending_deletion' olarak set etmiştin.
-    const deletionStatus = currentUser.user_metadata?.status === 'pending_deletion';
+    const deletionStatus =
+      currentUser.user_metadata?.status === "pending_deletion";
     setIsPendingDeletion(deletionStatus);
-    console.log(`[AUTH] Kullanıcı durumu kontrol edildi: ${currentUser.email} -> Silinme Bekliyor mu? ${deletionStatus ? 'EVET' : 'HAYIR'}`);
+    console.log(
+      `[AUTH] Kullanıcı durumu kontrol edildi: ${currentUser.email} -> Silinme Bekliyor mu? ${
+        deletionStatus ? "EVET" : "HAYIR"
+      }`,
+    );
   };
 
   // 4. SİLME İŞLEMİNİ İPTAL ETME FONKSİYONU
@@ -60,36 +65,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       // 'cancel-deletion' isimli Supabase Edge Function'ını çağırıyoruz.
-      const { error } = await supabase.functions.invoke('cancel-deletion');
+      const { error } = await supabase.functions.invoke("cancel-deletion");
       if (error) throw error;
-      
+
       // Lokal state'i anında güncelle ki UI değişsin.
       setIsPendingDeletion(false);
-      
+
       Alert.alert(
-        'Hesabınız Kurtarıldı',
-        'Hesap silme işlemi başarıyla iptal edildi. Tekrar hoş geldiniz!'
+        "Hesabınız Kurtarıldı",
+        "Hesap silme işlemi başarıyla iptal edildi. Tekrar hoş geldiniz!",
       );
-      
+
       // Kullanıcı bilgisini tazelemek için oturumu yenile. Bu, metadata'yı günceller.
       await supabase.auth.refreshSession();
-
-    } catch (err: any) {
-      console.error('Hesap kurtarma işlemi başarısız:', err);
-      Alert.alert('Hata', err.message || 'İşlem sırasında beklenmedik bir hata oluştu.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error
+        ? err.message
+        : "Beklenmedik bir hata oluştu";
+      console.error("Hesap kurtarma işlemi başarısız:", errorMessage);
+      Alert.alert("Hata", errorMessage);
     }
   };
 
   // 5. TEK VE GÜÇLÜ useEffect
   useEffect(() => {
-    const handleAuthStateChange = async (_event: string, session: Session | null) => {
-      console.log(`[AUTH] onAuthStateChange tetiklendi. Oturum: ${session ? 'VAR ✅' : 'YOK ❌'}`);
-      
+    const handleAuthStateChange = async (
+      _event: string,
+      session: Session | null,
+    ) => {
+      console.log(
+        `[AUTH] onAuthStateChange tetiklendi. Oturum: ${
+          session ? "VAR ✅" : "YOK ❌"
+        }`,
+      );
+
       setIsLoading(true); // İşlemler başlarken yükleniyor durumuna al
       setSession(session);
       const currentUser = session?.user ?? null;
       setUser(currentUser);
-      
+
       await checkUserStatus(currentUser); // ⬅️ İŞTE BÜTÜN OLAY BU SATIRDA
 
       if (currentUser) {
@@ -106,11 +120,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Uygulama ilk açıldığında mevcut oturumu al ve işle
     supabase.auth.getSession().then(({ data: { session } }) => {
-      handleAuthStateChange('INITIAL_SESSION', session);
+      handleAuthStateChange("INITIAL_SESSION", session);
     });
 
     // Oturum değişikliklerini dinle
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      handleAuthStateChange,
+    );
 
     // Component kaldırıldığında dinleyiciyi kapat
     return () => {

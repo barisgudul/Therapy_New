@@ -1,16 +1,6 @@
 {
-  "editor.codeActionsOnSave": {
-    "source.fixAll": "explicit",
-    "source.organizeImports": "explicit"
-  },
-  
-  "deno.enablePaths": [
-    "supabase/functions"
-  ],
-  
   "deno.enable": true,
   "deno.lint": true,
-
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno",
     "editor.formatOnSave": true
@@ -18,5 +8,9 @@
   "[typescriptreact]": {
     "editor.defaultFormatter": "denoland.vscode-deno",
     "editor.formatOnSave": true
-  }
+  },
+  "editor.codeActionsOnSave": [
+    "source.fixAll",
+    "source.organizeImports"
+  ]
 }

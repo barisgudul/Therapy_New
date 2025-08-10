@@ -65,7 +65,7 @@ const theme = {
 type ViewMode = 'menu' | 'summaryList' | 'detailView';
 interface SessionEvent extends AppEvent {
   mood?: 'happy' | 'neutral' | 'sad';
-  data: { messages: { sender: string; text: string }[]; [key: string]: any; };
+  data: { messages: { sender: string; text: string }[]; [key: string]: unknown; };
 }
 
 // ---- ALT BİLEŞENLER ----
@@ -82,7 +82,7 @@ const ScreenHeader: React.FC<{ title: string; onBack?: () => void }> = ({ title,
   </View>
 );
 
-const SelectionCard: React.FC<{ title: string; description: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; }> = ({ title, description, icon, onPress }) => (
+const _SelectionCard: React.FC<{ title: string; description: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void; }> = ({ title, description, icon, onPress }) => (
   <Pressable onPress={onPress} style={({ pressed }) => [styles.selectionCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
     <View style={styles.selectionContent}>
         <LinearGradient colors={theme.gradient} style={styles.selectionIconContainer}>
@@ -344,7 +344,7 @@ export default function PremiumHistoryScreen() {
               await deleteEventById(eventId);
               // Adım 2: Mevcut state'ten kaldırarak UI'ı anında güncelle
               setAllEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-            } catch (error) {
+            } catch (_error) {
               Alert.alert("Hata", "Seans silinirken bir sorun oluştu.");
             }
           },

@@ -1,4 +1,5 @@
 // app.config.js - DÜZELTİLMİŞ VE TAM HALİ
+import process from "node:process";
 
 export default {
   expo: {

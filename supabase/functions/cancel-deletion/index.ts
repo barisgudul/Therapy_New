@@ -8,16 +8,41 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-Deno.serve(async (req) => {
+interface SupabaseAuthAdminLike {
+  updateUserById(
+    userId: string,
+    params: { user_metadata: Record<string, unknown> },
+  ): Promise<{ error: unknown | null }>;
+}
+
+interface SupabaseClientLike {
+  auth: {
+    getUser(
+      jwt: string,
+    ): Promise<
+      {
+        data: {
+          user: { id: string; user_metadata?: Record<string, unknown> } | null;
+        };
+      }
+    >;
+    admin: SupabaseAuthAdminLike;
+  };
+}
+
+export async function handleCancelDeletion(
+  req: Request,
+  providedClient?: SupabaseClientLike,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const supabaseAdmin = createClient(
+    const supabaseAdmin: SupabaseClientLike = providedClient ?? createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    ) as unknown as SupabaseClientLike;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Yetkilendirme başlığı eksik.");
@@ -32,7 +57,7 @@ Deno.serve(async (req) => {
         user.id,
         {
           user_metadata: {
-            ...user.user_metadata,
+            ...(user.user_metadata || {}),
             status: "active",
             deletion_scheduled_at: null,
           },
@@ -53,4 +78,8 @@ Deno.serve(async (req) => {
       status: 400,
     });
   }
-});
+}
+
+if (import.meta.main) {
+  Deno.serve((req) => handleCancelDeletion(req));
+}

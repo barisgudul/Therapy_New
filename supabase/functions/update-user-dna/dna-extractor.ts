@@ -1,4 +1,4 @@
-// dna-extractor.ts
+// supabase/functions/update-user-dna/dna-extractor.ts
 // DNA çıkarma mantığını ayrı bir modülde tutalım ki test edilebilsin
 
 // === DNA ÇÖZÜCÜ KONFİGÜRASYONU ===

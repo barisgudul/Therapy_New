@@ -13,18 +13,19 @@ import {
     TouchableOpacity,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import CrossConnectionsCard from "../../components/dream/CrossConnectionsCard";
-import DialogueCard from "../../components/dream/DialogueCard";
-import ErrorState from "../../components/dream/ErrorState";
-import InterpretationCard from "../../components/dream/InterpretationCard";
-import ResultSkeleton from "../../components/dream/ResultSkeleton";
-import SummaryCard from "../../components/dream/SummaryCard";
-import ThemesCard from "../../components/dream/ThemesCard";
-import { COSMIC_COLORS } from "../../constants/Colors";
-import { getUsageStatsForUser } from "../../services/api.service";
-import { getEventById } from "../../services/event.service";
-import { processUserMessage } from "../../services/orchestration.service";
-import { supabase } from "../../utils/supabase";
+import CrossConnectionsCard from "../../components/dream/CrossConnectionsCard.tsx";
+import DialogueCard from "../../components/dream/DialogueCard.tsx";
+import ErrorState from "../../components/dream/ErrorState.tsx";
+import InterpretationCard from "../../components/dream/InterpretationCard.tsx";
+import ResultSkeleton from "../../components/dream/ResultSkeleton.tsx";
+import SummaryCard from "../../components/dream/SummaryCard.tsx";
+import ThemesCard from "../../components/dream/ThemesCard.tsx";
+import { COSMIC_COLORS } from "../../constants/Colors.ts";
+import { getUsageStatsForUser } from "../../services/api.service.ts";
+import { getEventById } from "../../services/event.service.ts";
+import { processUserMessage } from "../../services/orchestration.service.ts";
+import { JsonValue } from "../../types/json.ts";
+import { supabase } from "../../utils/supabase.ts";
 
 // Diyalog mesaj tipi
 interface DialogueMessage {
@@ -84,7 +85,15 @@ export default function DreamResultScreen() {
         mutationFn: (
             payload: {
                 userId: string;
-                dialoguePayload: any;
+                dialoguePayload: {
+                    type: "dream_analysis";
+                    data: {
+                        isFollowUp: boolean;
+                        event_id: string;
+                        dreamAnalysisResult: Record<string, unknown>;
+                        fullDialogue: DialogueMessage[];
+                    };
+                };
                 userMessage: string;
             },
         ) => processUserMessage(payload.userId, payload.dialoguePayload),
@@ -98,31 +107,36 @@ export default function DreamResultScreen() {
             const previousEvent = queryClient.getQueryData(["dreamResult", id]);
 
             // 3. Cache'i yeni mesajla anında güncelle.
-            queryClient.setQueryData(["dreamResult", id], (old: any) => {
-                if (!old) return old;
-                const userMessage: DialogueMessage = {
-                    text: newMessage.userMessage,
-                    role: "user",
-                };
-                return {
-                    ...old,
-                    data: {
-                        ...old.data,
-                        dialogue: [...old.data.dialogue, userMessage],
-                    },
-                };
-            });
+            queryClient.setQueryData(
+                ["dreamResult", id],
+                (
+                    old: { data: { dialogue: DialogueMessage[] } } | undefined,
+                ) => {
+                    if (!old) return old;
+                    const userMessage: DialogueMessage = {
+                        text: newMessage.userMessage,
+                        role: "user",
+                    };
+                    return {
+                        ...old,
+                        data: {
+                            ...old.data,
+                            dialogue: [...old.data.dialogue, userMessage],
+                        },
+                    };
+                },
+            );
 
             // 4. Yedeği geri döndür.
             return { previousEvent };
         },
-        onError: (err, newMessage, context) => {
+        onError: (_err, _newMessage, context) => {
             // Hata olursa, yedeği geri yükle.
             queryClient.setQueryData(
                 ["dreamResult", id],
                 context?.previousEvent,
             );
-            Toast.show({
+            Toast.default.show({
                 type: "error",
                 text1: "Hata",
                 text2: "Mesaj gönderilemedi.",
@@ -130,20 +144,25 @@ export default function DreamResultScreen() {
         },
         onSuccess: (aiReplyText, _variables) => {
             // Başarılı olursa, AI'ın cevabıyla cache'i tekrar güncelle.
-            queryClient.setQueryData(["dreamResult", id], (old: any) => {
-                if (!old) return old;
-                const aiMessage: DialogueMessage = {
-                    text: aiReplyText as string,
-                    role: "model",
-                };
-                return {
-                    ...old,
-                    data: {
-                        ...old.data,
-                        dialogue: [...old.data.dialogue, aiMessage],
-                    },
-                };
-            });
+            queryClient.setQueryData(
+                ["dreamResult", id],
+                (
+                    old: { data: { dialogue: DialogueMessage[] } } | undefined,
+                ) => {
+                    if (!old) return old;
+                    const aiMessage: DialogueMessage = {
+                        text: aiReplyText as string,
+                        role: "model",
+                    };
+                    return {
+                        ...old,
+                        data: {
+                            ...old.data,
+                            dialogue: [...old.data.dialogue, aiMessage],
+                        },
+                    };
+                },
+            );
         },
         onSettled: () => {
             // Başarılı veya hatalı, her durumda sonunda veriyi sunucuyla senkronize et.
@@ -160,11 +179,12 @@ export default function DreamResultScreen() {
         const dialogueLimit = event.dialogueLimit || 3;
         if (
             dialogueLimit > 0 &&
-            event.data.dialogue.filter((m: DialogueMessage) =>
-                    m.role === "user"
+            ((event.data.dialogue as unknown) as DialogueMessage[]).filter((
+                    m: DialogueMessage,
+                ) => m.role === "user"
                 ).length >= dialogueLimit
         ) {
-            Toast.show({
+            Toast.default.show({
                 type: "info",
                 text1: "Diyalog Tamamlandı",
                 text2: "Bu rüya için maksimum soru hakkını kullandın",
@@ -180,11 +200,14 @@ export default function DreamResultScreen() {
             data: {
                 isFollowUp: true,
                 event_id: event.id,
-                dreamAnalysisResult: event.data,
-                fullDialogue: [...event.data.dialogue, {
-                    text: userInput.trim(),
-                    role: "user",
-                }],
+                dreamAnalysisResult: event.data as { [key: string]: JsonValue },
+                fullDialogue: [
+                    ...((event.data.dialogue as unknown) as DialogueMessage[]),
+                    {
+                        text: userInput.trim(),
+                        role: "user" as const,
+                    },
+                ],
             },
         };
 
@@ -230,7 +253,13 @@ export default function DreamResultScreen() {
         return <ErrorState message="Analiz bulunamadı." />;
     }
 
-    const analysis = event.data.analysis;
+    const analysis = event.data.analysis as {
+        title?: string;
+        summary?: string;
+        themes?: string[];
+        interpretation?: string;
+        crossConnections?: { connection: string; evidence: string }[];
+    };
 
     return (
         <LinearGradient
@@ -289,7 +318,8 @@ export default function DreamResultScreen() {
 
                     {/* DİYALOG KARTI - YENİ COMPONENT */}
                     <DialogueCard
-                        dialogue={event.data.dialogue || []} // Doğrudan query'den gelen veri
+                        dialogue={((event.data
+                            .dialogue as unknown) as DialogueMessage[]) || []} // Doğrudan query'den gelen veri
                         userInput={userInput}
                         isReplying={sendMessageMutation.isPending} // Doğrudan mutasyonun durumu
                         onInputChange={setUserInput}

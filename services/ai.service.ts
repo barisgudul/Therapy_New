@@ -1,15 +1,15 @@
 // services/ai.service.ts
 import { z, ZodSchema } from "zod";
-import { AI_MODELS } from "../constants/AIConfig";
-import { getTherapistById } from "../data/therapists";
-import { InteractionContext } from "../types/context";
+import { AI_MODELS } from "../constants/AIConfig.ts";
+import { ALL_THERAPISTS_DATA } from "../data/therapists.data.ts";
+import { InteractionContext } from "../types/context.ts";
 import {
   ApiError,
   getErrorMessage,
   isAppError,
   ValidationError,
-} from "../utils/errors";
-import { parseAndValidateJson } from "../utils/jsonValidator";
+} from "../utils/errors.ts";
+import { parseAndValidateJson } from "../utils/jsonValidator.ts";
 import {
   DiaryStart,
   DiaryStartSchema,
@@ -19,32 +19,37 @@ import {
   SessionMemory,
   SessionMemorySchema,
   TraitsSchema,
-} from "../utils/schemas";
-import { supabase } from "../utils/supabase";
-import { getRecentJourneyLogEntries } from "./journey.service";
+} from "../utils/schemas.ts";
+import { supabase } from "../utils/supabase.ts";
+import { getRecentJourneyLogEntries } from "./journey.service.ts";
 // import { TemporalAnalysisResult, TemporalRAG } from "./temporal_rag.service"; // Geçici olarak devre dışı
-import type { Traits } from "./trait.service";
+import type { Traits } from "./trait.service.ts";
 
 // Prompt Imports
-import { getAdaptiveTherapistReplyPrompt } from "./prompts/adaptiveTherapy.prompt";
+import { getAdaptiveTherapistReplyPrompt } from "./prompts/adaptiveTherapy.prompt.ts";
 import {
   getCumulativeSummaryPrompt,
   getOnboardingAnalysisPrompt,
-} from "./prompts/analysis.prompt";
-import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt";
+} from "./prompts/analysis.prompt.ts";
+import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
 import {
   getDiaryNextQuestionsPrompt,
   getDiaryStartPrompt,
-} from "./prompts/diary.prompt";
-import { getDreamAnalysisPrompt } from "./prompts/dreamAnalysis.prompt";
+} from "./prompts/diary.prompt.ts";
+import { getDreamAnalysisPrompt } from "./prompts/dreamAnalysis.prompt.ts";
 import {
   getFinalDreamFeedbackPrompt,
   getNextDreamQuestionPrompt,
-} from "./prompts/dreamDialogue.prompt";
-import { getSessionMemoryPrompt } from "./prompts/sessionMemory.prompt";
+} from "./prompts/dreamDialogue.prompt.ts";
+import { getSessionMemoryPrompt } from "./prompts/sessionMemory.prompt.ts";
+
+import type { VaultData } from "./vault.service.ts";
 
 // YENİ EKLE: Terapist Kişilik Tipleri
 type TherapistPersonality = string;
+
+// Diyalog geçmişi öğesi
+type DialogueTurn = { role: "user" | "assistant"; text: string };
 
 // -------------------------------------------------------------
 // === ZOD DOĞRULAMALI FONKSİYONLAR ===
@@ -76,7 +81,7 @@ export async function generateDiaryStart(
   context: InteractionContext,
 ): Promise<DiaryStart> {
   const { initialEntry } = context.initialEvent.data;
-  const prompt = getDiaryStartPrompt(initialEntry);
+  const prompt = getDiaryStartPrompt(String(initialEntry ?? ""));
   try {
     return await invokeAndValidate(prompt, AI_MODELS.FAST, DiaryStartSchema, {
       responseMimeType: "application/json",
@@ -100,7 +105,7 @@ export async function generateDiaryNextQuestions(
   context: InteractionContext,
 ): Promise<string[]> {
   const { conversationHistory } = context.initialEvent.data;
-  const prompt = getDiaryNextQuestionsPrompt(conversationHistory);
+  const prompt = getDiaryNextQuestionsPrompt(String(conversationHistory ?? ""));
   try {
     const result = await invokeAndValidate(
       prompt,
@@ -131,7 +136,7 @@ export async function analyzeDreamWithContext(
   }\n### SON ZAMANLARDAKİ ETKİLEŞİMLER (Seyir Defterinden Fısıltılar) ###\n- ${
     recentLogs.join("\n- ")
   }`;
-  const prompt = getDreamAnalysisPrompt(ctx, dreamText);
+  const prompt = getDreamAnalysisPrompt(ctx, String(dreamText ?? ""));
   try {
     return await invokeAndValidate(
       prompt,
@@ -149,8 +154,10 @@ export async function analyzeDreamWithContext(
 export async function analyzeSessionForMemory(
   context: InteractionContext,
 ): Promise<SessionMemory> {
-  const transcript = context.initialEvent.data.transcript ||
-    context.initialEvent.data.userMessage || "";
+  const transcript = String(
+    context.initialEvent.data.transcript ??
+      context.initialEvent.data.userMessage ?? "",
+  );
   const userVault = context.initialVault;
   const prompt = getSessionMemoryPrompt(userVault, transcript);
   try {
@@ -177,8 +184,12 @@ export async function generateDailyReflectionResponse(
   const userVault = context.initialVault;
 
   try {
-    const userName = userVault?.profile?.nickname;
-    const prompt = getDailyReflectionPrompt(userName, todayMood, todayNote);
+    const userName = String(userVault?.profile?.nickname ?? "");
+    const prompt = getDailyReflectionPrompt(
+      userName,
+      String(todayMood ?? ""),
+      String(todayNote ?? ""),
+    );
     return await invokeGemini(prompt, AI_MODELS.FAST, {
       temperature: 0.7,
       maxOutputTokens: 150,
@@ -199,8 +210,8 @@ export async function generateCumulativeSummary(
 
   try {
     const prompt = getCumulativeSummaryPrompt(
-      previousSummary,
-      newConversationChunk,
+      String(previousSummary ?? ""),
+      String(newConversationChunk ?? ""),
     );
     const config: GenerationConfig = {
       temperature: 0.2,
@@ -225,7 +236,9 @@ export async function generateStructuredAnalysisReport(
     // temel analiz ile devam ediyoruz
 
     console.log(
-      `[AI-SUMMARY] Temporal RAG devre dışı, temel analiz kullanılıyor - ${days} gün`,
+      `[AI-SUMMARY] Temporal RAG devre dışı, temel analiz kullanılıyor - ${
+        String(days)
+      } gün`,
     );
 
     // Temel olayları çek
@@ -235,7 +248,7 @@ export async function generateStructuredAnalysisReport(
       .eq("user_id", userId)
       .gte(
         "created_at",
-        new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
+        new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000).toISOString(),
       )
       .order("created_at", { ascending: false })
       .limit(100);
@@ -261,9 +274,11 @@ Bu veriler zamanla biriktiğinde, çok daha detaylı ve kişiselleştirilmiş an
 
     // Basit analiz prompt'u
     const analysisPrompt = `
-Sen bir uzman terapistsin. Aşağıdaki ${days} günlük kullanıcı verilerini analiz et ve detaylı bir rapor hazırla:
+    Sen bir uzman terapistsin. Aşağıdaki ${
+      String(days)
+    } günlük kullanıcı verilerini analiz et ve detaylı bir rapor hazırla:
 
-## Kullanıcı Verileri (Son ${days} Gün):
+    ## Kullanıcı Verileri (Son ${String(days)} Gün):
 ${
       events.map((event) => `
 - **Tarih:** ${new Date(event.created_at).toLocaleDateString("tr-TR")}
@@ -300,26 +315,30 @@ export async function generateNextDreamQuestionAI(
   context: InteractionContext,
 ): Promise<string> {
   const { initialEvent } = context;
-  const dreamAnalysis = initialEvent.data.dreamAnalysisResult ||
-    initialEvent.data.analysis;
+  const dreamAnalysis =
+    (initialEvent.data.dreamAnalysisResult || initialEvent.data.analysis) as {
+      themes?: string[];
+    } | undefined;
 
   // NULL CHECK EKLE
-  if (!dreamAnalysis || !dreamAnalysis.themes) {
+  if (!dreamAnalysis || !Array.isArray(dreamAnalysis.themes)) {
     console.warn(
       "[generateNextDreamQuestionAI] Eksik veri tespit edildi, varsayılan soru dönülüyor.",
     );
     return "Bu rüya hakkında başka ne hissediyorsun?";
   }
 
-  const conversationHistory = (initialEvent.data.fullDialogue || [])
-    .map((m: any) =>
-      `${m.role === "user" ? "Kullanıcı" : "Terapist"}: ${m.text}`
-    )
-    .join("\n");
+  const conversationHistory =
+    (initialEvent.data.fullDialogue as DialogueTurn[] | undefined || [])
+      .map((m) => `${m.role === "user" ? "Kullanıcı" : "Terapist"}: ${m.text}`)
+      .join("\n");
 
   try {
     const prompt = getNextDreamQuestionPrompt(
-      dreamAnalysis,
+      {
+        themes: (dreamAnalysis.themes ?? []) as string[],
+        interpretation: "",
+      },
       conversationHistory,
     );
     const nextQuestion = await invokeGemini(prompt, AI_MODELS.FAST, {
@@ -340,22 +359,24 @@ export async function generateFinalDreamFeedback(
   context: InteractionContext,
 ): Promise<string> {
   const { initialEvent, initialVault } = context;
-  const dreamAnalysis = initialEvent.data.dreamAnalysisResult ||
-    initialEvent.data.analysis;
-  const userAnswers = initialEvent.data.fullDialogue.filter((m: any) =>
-    m.role === "user"
-  );
+  const dreamAnalysis =
+    (initialEvent.data.dreamAnalysisResult || initialEvent.data.analysis) as {
+      interpretation?: string;
+    } | undefined;
+  const userAnswers =
+    (initialEvent.data.fullDialogue as DialogueTurn[] | undefined || []).filter(
+      (m) => m.role === "user",
+    );
 
   try {
     const maxInterpretationLength = 1200;
     const maxAnswerLength = 400;
-    const truncatedInterpretation =
-      dreamAnalysis.interpretation.length > maxInterpretationLength
-        ? dreamAnalysis.interpretation.slice(0, maxInterpretationLength) +
-          "... (kısaltıldı)"
-        : dreamAnalysis.interpretation;
+    const fullInterp = String(dreamAnalysis?.interpretation ?? "");
+    const truncatedInterpretation = fullInterp.length > maxInterpretationLength
+      ? fullInterp.slice(0, maxInterpretationLength) + "... (kısaltıldı)"
+      : fullInterp;
     const formattedAnswers = userAnswers
-      .map((ans: any, i: number) => {
+      .map((ans, i) => {
         let t = ans.text || "";
         if (t.length > maxAnswerLength) {
           t = t.slice(0, maxAnswerLength) + "... (kısaltıldı)";
@@ -383,8 +404,10 @@ export async function generateFinalDreamFeedback(
     throw new ApiError("Rüya geri bildirimi oluşturulamadı.");
   }
 }
-
-export function mergeVaultData(currentVault: any, vaultUpdate: any): any {
+export function mergeVaultData(
+  currentVault: VaultData,
+  vaultUpdate: Partial<VaultData>,
+): VaultData {
   const newVault = JSON.parse(JSON.stringify(currentVault));
   const mergeArrayUnique = (
     target: string[],
@@ -433,16 +456,18 @@ export async function generateAdaptiveTherapistReply(
   const { userMessage, intraSessionChatHistory, therapistId } =
     context.initialEvent.data;
   const userVault = context.initialVault;
-  const therapist = getTherapistById(therapistId);
+  const therapist = ALL_THERAPISTS_DATA.find(
+    (t) => t.id === String(therapistId ?? ""),
+  ) ?? ALL_THERAPISTS_DATA.find((t) => t.id === "therapist1"); // Varsayılan fallback
   const therapistName = therapist?.name || "terapist";
 
   try {
     const isSimpleGreeting =
       /^(merhaba|selam|hey|hi|hello|nasılsın|iyi misin)$/i.test(
-        userMessage.trim(),
+        String(userMessage ?? "").trim(),
       );
     const conversationDepth = intraSessionChatHistory
-      ? intraSessionChatHistory.split("\n").length
+      ? String(intraSessionChatHistory).split("\n").length
       : 0;
 
     let contextLevel: "minimal" | "medium" | "full";
@@ -452,12 +477,12 @@ export async function generateAdaptiveTherapistReply(
 
     console.log(
       `[generateAdaptiveTherapistReply] Bağlam seviyesi: ${contextLevel} (mesaj: "${
-        userMessage.slice(0, 30)
+        String(userMessage ?? "").slice(0, 30)
       }...")`,
     );
 
     const limitedChatHistory = intraSessionChatHistory
-      ? intraSessionChatHistory.split("\n").slice(-8).join("\n")
+      ? String(intraSessionChatHistory).split("\n").slice(-8).join("\n")
       : "";
     const recentLogEntries = contextLevel === "full"
       ? await getRecentJourneyLogEntries(1)
@@ -469,7 +494,7 @@ export async function generateAdaptiveTherapistReply(
     const prompt = getAdaptiveTherapistReplyPrompt(
       personality,
       therapistName,
-      userMessage,
+      String(userMessage ?? ""),
       contextLevel,
       userVault,
       limitedChatHistory,
@@ -521,14 +546,17 @@ export async function invokeGemini(
       throw error;
     }
 
-    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const reply = (data as unknown as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    })?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!reply) throw new Error("API Gateway'den boş Gemini yanıtı alındı.");
     return reply;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ApiError) {
       throw err;
     }
-    console.error("[invokeGemini] Hatası:", err.message);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[invokeGemini] Hatası:", msg);
     throw new ApiError(
       "AI servisi şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
     );

@@ -20,12 +20,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import PendingDeletionScreen from "../components/PendingDeletionScreen";
-import ReportModal from "../components/ReportModal";
-import { Colors } from "../constants/Colors";
-import { useAuth } from "../context/Auth";
-import { useVault } from "../hooks/useVault";
-import { getLatestUserReport } from "../services/report.service";
+import PendingDeletionScreen from "../components/PendingDeletionScreen.tsx";
+import ReportModal from "../components/ReportModal.tsx";
+import { Colors } from "../constants/Colors.ts";
+import { useAuth } from "../context/Auth.tsx";
+import { useVault } from "../hooks/useVault.ts";
+import { getLatestUserReport, UserReport } from "../services/report.service.ts";
+import { VaultData } from "../services/vault.service.ts";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 const { width } = Dimensions.get("window");
@@ -259,7 +260,10 @@ export default function HomeScreen() {
   // === HOOKS & AUTH STATE (Mevcut Kısım) ===
   const router = useRouter();
   const { isPendingDeletion, isLoading: isAuthLoading } = useAuth();
-  const { data: vault, isLoading: isVaultLoading } = useVault();
+  const { data: vault, isLoading: isVaultLoading } = useVault() as {
+    data: VaultData | null;
+    isLoading: boolean;
+  };
 
   // === YENİ KONTROL PANELİ ===
   const [modalVisible, setModalVisible] = useState(false);
@@ -267,7 +271,9 @@ export default function HomeScreen() {
   const queryClient = useQueryClient();
 
   // En son raporu çek. 'enabled' seçeneği, vault yüklendikten sonra çalışmasını sağlar.
-  const { data: latestReport, isLoading: isReportLoading } = useQuery({
+  const { data: latestReport, isLoading: isReportLoading } = useQuery<
+    UserReport | null
+  >({
     queryKey: ["latestReport"],
     queryFn: getLatestUserReport,
     enabled: !isVaultLoading, // Sadece vault yüklendikten sonra rapor sorgusu yap.
@@ -286,7 +292,11 @@ export default function HomeScreen() {
             body: "Bugün kendine iyi bakmayı unutma.",
             data: { route: "/daily_write" },
           },
-          trigger: { hour: 8, minute: 0, repeats: true } as any,
+          trigger: {
+            hour: 8,
+            minute: 0,
+            repeats: true,
+          } as Notifications.NotificationTriggerInput,
         });
         await Notifications.scheduleNotificationAsync({
           content: {
@@ -294,7 +304,11 @@ export default function HomeScreen() {
             body: "1 cümleyle kendini ifade etmek ister misin?",
             data: { route: "/daily_write" },
           },
-          trigger: { hour: 20, minute: 0, repeats: true } as any,
+          trigger: {
+            hour: 20,
+            minute: 0,
+            repeats: true,
+          } as Notifications.NotificationTriggerInput,
         });
       })();
     }
@@ -347,7 +361,7 @@ export default function HomeScreen() {
 
   // Not: Görünen mesaj, AI'dan gelen ve Vault'a kaydedilen bir mesaj olmalı.
   const dailyMessage = (!isVaultLoading && vault?.metadata?.dailyMessageContent)
-    ? vault.metadata.dailyMessageContent
+    ? String(vault.metadata.dailyMessageContent)
     : "Bugün için mesajın burada görünecek.";
 
   // ------------- UI KISMI (DEĞİŞİKLİK AZ) -------------

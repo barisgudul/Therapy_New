@@ -8,17 +8,41 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-// 🔥 DÜZELTME 2: Artık modern Deno.serve kullanıyoruz. Eskisini çöpe at.
-Deno.serve(async (req) => {
+// Test edilebilir minimal Supabase arayüzü
+interface SupabaseAuthLike {
+  getUser(
+    jwt: string,
+  ): Promise<{ data: { user: { id: string } | null }; error: unknown | null }>;
+}
+
+interface SupabaseFromLike {
+  select(columns: string): SupabaseFromLike;
+  eq(column: string, value: string): SupabaseFromLike;
+  maybeSingle(): Promise<
+    { data: { id: string } | null; error: unknown | null }
+  >;
+  single(): Promise<{ data: { id: string } | null; error: unknown | null }>;
+  insert(values: Record<string, unknown>): Promise<{ error: unknown | null }>;
+}
+
+interface SupabaseClientLike {
+  auth: SupabaseAuthLike;
+  from(table: string): SupabaseFromLike;
+}
+
+export async function handleAssignFreePlan(
+  req: Request,
+  providedClient?: SupabaseClientLike,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const supabaseAdmin = createClient(
+    const supabaseAdmin: SupabaseClientLike = providedClient ?? createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    ) as unknown as SupabaseClientLike;
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Yetkilendirme başlığı eksik.");
@@ -58,7 +82,6 @@ Deno.serve(async (req) => {
       throw new Error('"Free" abonelik planı veritabanında bulunamadı.');
     }
 
-    // Bitiş tarihini bir yıl yapalım, 30 gün çok az.
     const endsAt = new Date();
     endsAt.setFullYear(endsAt.getFullYear() + 1);
 
@@ -81,10 +104,15 @@ Deno.serve(async (req) => {
         status: 200,
       },
     );
-  } catch (error: unknown) { // 🔥 DÜZELTME 3: Hataları standart ve güvenli yöntemle yakalıyoruz.
+  } catch (error: unknown) {
     return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,
     });
   }
-});
+}
+
+// 🔥 DÜZELTME 2: Artık modern Deno.serve kullanıyoruz ve test edilebilir handler'a delegasyon yapıyoruz.
+if (import.meta.main) {
+  Deno.serve((req) => handleAssignFreePlan(req));
+}
