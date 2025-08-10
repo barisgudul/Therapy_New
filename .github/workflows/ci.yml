@@ -10,25 +10,18 @@ jobs:
   ##################################################
   # 1. TEST (Supabase Functions ile sınırlı)
   ##################################################
-  test_functions:
+  test_backend:
     name: Test Supabase Functions
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./supabase/functions
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
           deno-version: v2.x
-      - name: Print Deno version
-        run: deno --version
-      - name: Lint (functions only)
-        run: deno lint --config ../../deno.jsonc .
-      - name: Run Unit Tests (functions only)
-        run: deno test --config ../../deno.jsonc --allow-env --allow-net --allow-read .
+      - name: Run Backend Tests
+        run: deno task test
 
   ##################################################
   # 2. STAGING DEPLOY: Testler geçerse, PROVA ortamına deploy et
@@ -36,7 +29,7 @@ jobs:
   deploy_staging:
     name: Deploy to Staging
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test_functions # Önce testlerin geçmesi LAZIM
+    needs: test_backend # Önce testlerin geçmesi LAZIM
     runs-on: ubuntu-latest
     environment: staging # Burası önemli, staging ortamı için ayrı kurallar tanımlayabiliriz
     steps:
