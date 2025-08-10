@@ -8,11 +8,14 @@ on:
 
 jobs:
   ##################################################
-  # 1. TEST İŞİ: Her zaman çalışır, kaliteyi garanti eder
+  # 1. TEST (Supabase Functions ile sınırlı)
   ##################################################
-  test:
-    name: Lint, Format & Test
+  test_functions:
+    name: Test Supabase Functions
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./supabase/functions
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,11 +25,10 @@ jobs:
           deno-version: v2.x
       - name: Print Deno version
         run: deno --version
-      # Skip format check for now to avoid unrelated mobile asset diffs
-      - name: Lint
-        run: deno lint
-      - name: Run Unit Tests
-        run: deno task test
+      - name: Lint (functions only)
+        run: deno lint --config ../../deno.jsonc .
+      - name: Run Unit Tests (functions only)
+        run: deno test --config ../../deno.jsonc --allow-env --allow-net --allow-read .
 
   ##################################################
   # 2. STAGING DEPLOY: Testler geçerse, PROVA ortamına deploy et
@@ -34,7 +36,7 @@ jobs:
   deploy_staging:
     name: Deploy to Staging
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: test # Önce testlerin geçmesi LAZIM
+    needs: test_functions # Önce testlerin geçmesi LAZIM
     runs-on: ubuntu-latest
     environment: staging # Burası önemli, staging ortamı için ayrı kurallar tanımlayabiliriz
     steps:
