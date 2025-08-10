@@ -1,57 +1,70 @@
-name: CI/CD
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"] # Sadece main dalı ilgimizi çekiyor
   pull_request:
-    branches: ["**"]
+    branches: ["main"]
 
 jobs:
+  ##################################################
+  # 1. TEST İŞİ: Her zaman çalışır, kaliteyi garanti eder
+  ##################################################
   test:
-    name: Lint, Format Check, Test
+    name: Lint, Format & Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Deno
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v2.x
-
-      - name: Print versions
-        run: deno --version
-
-      - name: Format check
-        run: deno task fmt -- --check
-
+          deno-version: v1.x # Supabase hala v1.x kullanıyor, v2.x değil
+      - name: Format Check
+        run: deno fmt --check
       - name: Lint
-        run: deno task lint
-
-      - name: Test
+        run: deno lint
+      - name: Run Unit Tests
         run: deno task test
 
-  deploy:
-    name: Deploy Supabase Edge Functions (main)
-    if: github.ref == 'refs/heads/main'
-    needs: test
+  ##################################################
+  # 2. STAGING DEPLOY: Testler geçerse, PROVA ortamına deploy et
+  ##################################################
+  deploy_staging:
+    name: Deploy to Staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test # Önce testlerin geçmesi LAZIM
     runs-on: ubuntu-latest
+    environment: staging # Burası önemli, staging ortamı için ayrı kurallar tanımlayabiliriz
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Deno
-        uses: denoland/setup-deno@v1
-        with:
-          deno-version: v2.x
-
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
-
-      - name: Deploy all Edge Functions
+      - name: Deploy to Staging Supabase Project
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.STAGING_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.STAGING_SUPABASE_PROJECT_REF }}
         run: supabase functions deploy --all --project-ref "$SUPABASE_PROJECT_REF"
 
-
+  #####################################################################
+  # 3. PRODUCTION DEPLOY: Sadece ve sadece MANUEL ONAY ile canlıya deploy et
+  #####################################################################
+  deploy_production:
+    name: Deploy to Production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: deploy_staging # Önce staging'e deploy edilmiş olmalı
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://app.YOUR_DOMAIN.com # Gerçek uygulamanın adresi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+      - name: Deploy to Production Supabase Project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.PRODUCTION_SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.PRODUCTION_SUPABASE_PROJECT_REF }}
+        run: supabase functions deploy --all --project-ref "$SUPABASE_PROJECT_REF"
