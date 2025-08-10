@@ -103,14 +103,28 @@ Deno.test("Hybrid Pipeline: Should execute steps in order on a healthy system", 
   );
 
   const stepExecutorStub: Stub = stub(
-    ControlledHybridPipeline,
-    "executeStep" as keyof typeof ControlledHybridPipeline,
-    (step: PipelineStep) =>
-      Promise.resolve({ status: `Emir alındı: ${step.step_id}` }),
+    ControlledHybridPipeline as unknown as {
+      executeStep: (...args: unknown[]) => unknown;
+    },
+    "executeStep",
+    function (this: typeof ControlledHybridPipeline, ...args: unknown[]) {
+      const [step, _context, _previousResults] = args as [
+        PipelineStep,
+        InteractionContext,
+        Record<string, unknown>,
+      ];
+      return Promise.resolve({ status: `Emir alındı: ${step.step_id}` });
+    },
   );
   const synthesizerStub: Stub = stub(
-    ControlledHybridPipeline,
-    "synthesizeResults" as keyof typeof ControlledHybridPipeline,
+    ControlledHybridPipeline as unknown as {
+      synthesizeResults: (
+        results: Record<string, unknown>,
+        context: InteractionContext,
+        pipelineType: string,
+      ) => Promise<string>;
+    },
+    "synthesizeResults",
     () => Promise.resolve("Hücum başarılı."),
   );
 
@@ -156,9 +170,16 @@ Deno.test("Hybrid Pipeline: Should abort the entire operation if a critical step
   );
 
   const stepExecutorStub: Stub = stub(
-    ControlledHybridPipeline,
-    "executeStep" as keyof typeof ControlledHybridPipeline,
-    (step: PipelineStep) => {
+    ControlledHybridPipeline as unknown as {
+      executeStep: (...args: unknown[]) => unknown;
+    },
+    "executeStep",
+    function (this: typeof ControlledHybridPipeline, ...args: unknown[]) {
+      const [step, _context, _previousResults] = args as [
+        PipelineStep,
+        InteractionContext,
+        Record<string, unknown>,
+      ];
       if (step.step_id === "run_pattern_analysis") {
         return Promise.reject(new Error("İstihbarat birimi vuruldu!"));
       }
@@ -166,8 +187,14 @@ Deno.test("Hybrid Pipeline: Should abort the entire operation if a critical step
     },
   );
   const synthesizerStub: Stub = stub(
-    ControlledHybridPipeline,
-    "synthesizeResults" as keyof typeof ControlledHybridPipeline,
+    ControlledHybridPipeline as unknown as {
+      synthesizeResults: (
+        results: Record<string, unknown>,
+        context: InteractionContext,
+        pipelineType: string,
+      ) => Promise<string>;
+    },
+    "synthesizeResults",
     () => Promise.resolve("Kısmi başarı - kritik adım başarısız"),
   );
 

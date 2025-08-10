@@ -1,15 +1,23 @@
 {
-  // --- GÖREVLER ---
   "tasks": {
     "start": "expo start",
-    "test": "deno test --allow-env --allow-net --allow-read supabase/functions/",
-    "lint": "deno lint supabase/functions/",
-    "fmt": "deno fmt supabase/functions/"
+    "test": "deno test --allow-env --allow-net --allow-read supabase/functions/ services/",
+    "lint": "deno lint supabase/functions/ services/",
+    "fmt": "deno fmt supabase/functions/ services/"
   },
-
-  // --- HARİTA ---
   "importMap": "./supabase/functions/import_map.json",
+  "nodeModulesDir": "auto",
 
-  // --- NPM DESTEĞİ ---
-  "nodeModulesDir": true
+  // --- BU BLOKLAR EDİTÖRÜN İÇİN HAYATİ ---
+  "lint": {
+    "files": {
+      // Sadece bu klasörleri umursa, gerisini görmezden gel
+      "include": ["supabase/functions/", "services/"]
+    }
+  },
+  "fmt": {
+    "files": {
+      "include": ["supabase/functions/", "services/"]
+    }
+  }
 }

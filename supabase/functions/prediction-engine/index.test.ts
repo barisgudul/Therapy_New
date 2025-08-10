@@ -1,6 +1,6 @@
 // supabase/functions/prediction-engine/index.test.ts
-import { assertEquals } from "assert/mod.ts";
-import { stub } from "mock";
+import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
 
 Deno.test("Prediction Engine: should call Gemini with correct prompt and insert predictions", async () => {
   // Env vars

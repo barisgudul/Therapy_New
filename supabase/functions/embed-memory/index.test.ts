@@ -1,6 +1,6 @@
 // DÜZELTME: Import yolları güncellendi.
-import { assert, assertEquals } from "assert/mod.ts";
-import { stub } from "mock";
+import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
 import { handleEmbedMemory } from "./index.ts";
 
 Deno.test("Embed Memory: should call embedding API and insert vectors", async () => {

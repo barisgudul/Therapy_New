@@ -1,7 +1,7 @@
 // supabase/functions/assign-free-plan/index.test.ts
 
-import { assertEquals } from "assert/mod.ts";
-import { stub } from "mock";
+import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
 import { handleAssignFreePlan } from "./index.ts"; // Ana mantığı export ediyoruz
 
 type InsertPayload = { user_id: string; plan_id: string; status: string };

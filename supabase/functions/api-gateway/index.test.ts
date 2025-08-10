@@ -1,7 +1,7 @@
 // supabase/functions/api-gateway/index.test.ts
 // DÜZELTME: Import yollarını merkezi haritamıza göre kısaltıyoruz.
-import { assert, assertEquals } from "assert/mod.ts";
-import { stub } from "mock";
+import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
+import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
 
 Deno.test("API Gateway: Should call Gemini with correct parameters", async () => {
   // Env değişkenlerini modül yüklenmeden önce ayarla

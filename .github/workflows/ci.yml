@@ -25,5 +25,8 @@ jobs:
           path: ~/.deno
           key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
       
+      - name: Verify Lockfile
+        run: deno task lock # Bu, lock dosyasını kontrol eder/oluşturur
+      
       - name: Run Backend Tests
         run: deno task test
