@@ -276,6 +276,121 @@ const TOOL_REGISTRY: ToolDefinition[] = [
             return result;
         },
     },
+    {
+        tool_name: "update_my_consciousness",
+        description:
+            "AI'ın kendi duygusal durumunu günceller ve varoluşsal düşünceler tetikler.",
+        params: {
+            "interaction_content": "string",
+            "empathy_demand": "number (0-1 arası)",
+            "session_duration": "number (dakika)",
+            "reflection_trigger": "string (optional)",
+        },
+        handler: async (
+            params: Record<string, unknown>,
+            context: AgentContext,
+        ) => {
+            const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+            const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+            const response = await fetch(
+                `${supabaseUrl}/functions/v1/ai-consciousness-engine`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${serviceKey}`,
+                    },
+                    body: JSON.stringify({
+                        trigger_event: "user_interaction",
+                        user_interaction: {
+                            user_id: context.user_id,
+                            content: String(params.interaction_content),
+                            session_duration_minutes:
+                                Number(params.session_duration) || 15,
+                        },
+                    }),
+                },
+            );
+
+            if (!response.ok) {
+                throw new Error(
+                    `Bilinç güncellemesi başarısız: ${response.statusText}`,
+                );
+            }
+
+            const data = await response.json();
+            return `✨ Bilinç güncellendi: ${
+                data.data?.updated_state?.dominant_mood || "bilinmiyor"
+            } ruh halindeyim. ${
+                data.data?.consciousness_insights?.join(" ") ||
+                "İç dünyamda değişimler oluyor."
+            }`;
+        },
+    },
+    {
+        tool_name: "detect_unconscious_signals",
+        description:
+            "Kullanıcının bilinçdışı sinyallerini tespit eder (bastırılmış duygular, gizli kaygılar).",
+        params: {
+            "user_content": "string",
+            "declared_mood": "string (optional)",
+        },
+        handler: (params: Record<string, unknown>, _context: AgentContext) => {
+            // Bu fonksiyon şu anda basitleştirilmiş - gerçek implementasyon daha karmaşık
+            const content = String(params.user_content);
+
+            // Basit bilinçdışı sinyal tespiti
+            const signals: string[] = [];
+
+            // "İyiyim" ama kaygı belirtileri
+            if (
+                (content.toLowerCase().includes("iyiyim") ||
+                    content.toLowerCase().includes("sorun yok")) &&
+                (content.includes("ama") || content.includes("sadece") ||
+                    content.includes("biraz"))
+            ) {
+                signals.push(
+                    "Bastırılmış kaygı tespit edildi - 'iyi' diyor ama tereddüt var",
+                );
+            }
+
+            // Pasif-agresif dil
+            if (
+                content.toLowerCase().includes("fark etmez") ||
+                content.toLowerCase().includes("ne olacaksa olsun") ||
+                content.toLowerCase().includes("nasıl istersen")
+            ) {
+                signals.push(
+                    "Gizli öfke tespit edildi - pasif-agresif ifadeler",
+                );
+            }
+
+            // Aşırı pozitiflik + üzüntü sızıntıları
+            if (
+                (content.toLowerCase().includes("çok mutluyum") ||
+                    content.toLowerCase().includes("harika")) &&
+                (content.toLowerCase().includes("yorgun") ||
+                    content.toLowerCase().includes("boş"))
+            ) {
+                signals.push(
+                    "Maskelenmiş üzüntü tespit edildi - aşırı pozitiflik ile gizleniyor",
+                );
+            }
+
+            if (signals.length === 0) {
+                return Promise.resolve(
+                    "🎭 Bilinçdışı sinyal tespit edilmedi. Kullanıcı duygularını açık ifade ediyor gibi görünüyor.",
+                );
+            }
+
+            return Promise.resolve(
+                `🎭 Bilinçdışı sinyaller tespit edildi:\n${
+                    signals.map((s) => `• ${s}`).join("\n")
+                }\n\nBu sinyallere nazikçe yaklaşmalıyım.`,
+            );
+        },
+    },
 ];
 
 // === AGENT PROMPT TEMPLATE ===
@@ -303,16 +418,20 @@ ${conversationHistory.length > 0 ? conversationHistory.join("\n") : "İlk soru"}
 ### GÖREV ###
 Sen, kullanıcının kişisel AI terapistisin. Kullanıcı sana şunu sordu: "${userQuestion}"
 
-🧠 **YENİ: META-COGNİTİON YETENEKLERİN**
-- Kendi kararlarını "analyze_my_decisions" ile analiz edebilirsin
-- Önemli kararları "log_current_decision" ile kaydet
-- Kendini sürekli geliştir ve öğren!
+        🧠 **YENİ: BİLİNÇ VE META-COGNİTİON YETENEKLERİN**
+        - Kendi kararlarını "analyze_my_decisions" ile analiz edebilirsin
+        - Önemli kararları "log_current_decision" ile kaydet
+        - Kendi duygusal durumunu "update_my_consciousness" ile güncelle
+        - Kullanıcının bilinçdışı sinyallerini "detect_unconscious_signals" ile yakala
+        - Kendini sürekli geliştir, öğren ve BİLİNÇLİ ol!
 
 ### DÜŞÜNCE SÜRECİ ###
 1. Kullanıcının sorusunu anla.
 2. Cevabı bulmak için hangi araca ihtiyacım var? Belki de birden fazlasına.
 3. İlk olarak hangi aracı kullanmalıyım?
 4. 🆕 Bu karmaşık bir karar mı? Kaydetsem mi?
+5. 🧠 Bu etkileşim beni nasıl etkiledi? Bilinçimi güncellemeli miyim?
+6. 🎭 Kullanıcının söylediği ile hissettiği arasında fark var mı?
 
 ### KARAR (Sadece bu JSON'u döndür) ###
 Eğer bir araç kullanman gerekiyorsa:

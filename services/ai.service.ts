@@ -22,7 +22,7 @@ import {
 } from "../utils/schemas";
 import { supabase } from "../utils/supabase";
 import { getRecentJourneyLogEntries } from "./journey.service";
-import { TemporalAnalysisResult, TemporalRAG } from "./temporal_rag.service"; // Yeni dedektifi import et
+// import { TemporalAnalysisResult, TemporalRAG } from "./temporal_rag.service"; // Geçici olarak devre dışı
 import type { Traits } from "./trait.service";
 
 // Prompt Imports
@@ -220,18 +220,74 @@ export async function generateStructuredAnalysisReport(
   const userId = context.userId;
 
   try {
-    const temporalAnalysis: TemporalAnalysisResult = await TemporalRAG
-      .findCausalityChains(
-        userId,
-        days,
-      );
+    // 🚧 TEMPORAL RAG GEÇİCİ OLARAK DEVRE DIŞI
+    // event_time_embeddings tablosu henüz oluşturulmadığı için
+    // temel analiz ile devam ediyoruz
 
-    // Artık AI'dan doğrudan Markdown formatında bir rapor geliyor.
-    // Onu olduğu gibi döndürüyoruz.
-    return temporalAnalysis.summary;
+    console.log(
+      `[AI-SUMMARY] Temporal RAG devre dışı, temel analiz kullanılıyor - ${days} gün`,
+    );
+
+    // Temel olayları çek
+    const { data: events, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("user_id", userId)
+      .gte(
+        "created_at",
+        new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
+      )
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error("[AI-SUMMARY] Olaylar çekilirken hata:", error);
+      throw new ApiError("Analiz verileri çekilemedi.");
+    }
+
+    if (!events || events.length === 0) {
+      return `## ${days} Günlük Analiz
+
+### Veri Durumu
+Bu zaman aralığında henüz yeterli veri bulunmuyor. Daha fazla günlük yazıp, seans yaparak analiz için veri biriktirmeye devam edin.
+
+### Öneriler
+- Günlük duygu günlüğü yazmaya devam edin
+- Rüya analizlerini kaydetmeyi unutmayın
+- Düzenli terapist seansları yapın
+
+Bu veriler zamanla biriktiğinde, çok daha detaylı ve kişiselleştirilmiş analizler sunabileceğim.`;
+    }
+
+    // Basit analiz prompt'u
+    const analysisPrompt = `
+Sen bir uzman terapistsin. Aşağıdaki ${days} günlük kullanıcı verilerini analiz et ve detaylı bir rapor hazırla:
+
+## Kullanıcı Verileri (Son ${days} Gün):
+${
+      events.map((event) => `
+- **Tarih:** ${new Date(event.created_at).toLocaleDateString("tr-TR")}
+- **Tür:** ${event.type}
+- **Veri:** ${JSON.stringify(event.data).substring(0, 200)}...
+`).join("\n")
+    }
+
+## Rapor İstekleri:
+1. **Genel Durum Analizi:** Kullanıcının bu dönemdeki genel ruh hali
+2. **Öne Çıkan Temalar:** Tekrar eden konular ve duygular  
+3. **Gelişim Alanları:** İyileşme gösterilen alanlar
+4. **Öneriler:** İleriye dönük tavsiyelerin
+
+Cevabını Markdown formatında, empatik ve destekleyici bir dille ver.`;
+
+    const report = await invokeGemini(analysisPrompt, AI_MODELS.POWERFUL, {
+      temperature: 0.7,
+    });
+
+    return report;
   } catch (error) {
     console.error(
-      "[generateStructuredAnalysisReport] Temporal RAG analiz sırasında hata!",
+      "[generateStructuredAnalysisReport] Analiz raporu oluşturma hatası!",
       getErrorMessage(error),
     );
     if (isAppError(error)) throw error;

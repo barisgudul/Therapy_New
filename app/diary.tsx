@@ -18,6 +18,191 @@ import {
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { Colors } from '../constants/Colors';
+
+// Markdown render fonksiyonu (daily_write.tsx'ten alındı)
+const renderMarkdownText = (text: string, accentColor: string) => {
+    if (!text) return null;
+
+    const parts = text.split(
+        /(\*\*.*?\*\*|\*.*?\*|💭.*?$|^###.*?$|^##.*?$|^#.*?$|^\*\*\d+\..*?\*\*|^- .*?$)/gm,
+    );
+
+    return (
+        <View>
+            {parts.map((part, index) => {
+                if (!part.trim()) return null;
+
+                // Bold text **text**
+                if (part.startsWith("**") && part.endsWith("**")) {
+                    return (
+                        <Text
+                            key={index}
+                            style={{
+                                fontSize: 16,
+                                color: "#1A202C",
+                                lineHeight: 22,
+                                fontWeight: "700",
+                                marginVertical: 1,
+                            }}
+                        >
+                            {part.slice(2, -2)}
+                        </Text>
+                    );
+                }
+
+                // Italic text *text*
+                if (
+                    part.startsWith("*") && part.endsWith("*") &&
+                    !part.startsWith("**")
+                ) {
+                    return (
+                        <Text
+                            key={index}
+                            style={{
+                                fontSize: 16,
+                                color: "#2D3748",
+                                lineHeight: 22,
+                                fontStyle: "italic",
+                            }}
+                        >
+                            {part.slice(1, -1)}
+                        </Text>
+                    );
+                }
+
+                // Headers
+                if (part.startsWith("###")) {
+                    return (
+                        <Text
+                            key={index}
+                            style={{
+                                fontSize: 18,
+                                color: "#1A202C",
+                                lineHeight: 24,
+                                fontWeight: "700",
+                                marginTop: 8,
+                                marginBottom: 4,
+                            }}
+                        >
+                            {part.slice(4)}
+                        </Text>
+                    );
+                }
+
+                if (part.startsWith("##")) {
+                    return (
+                        <Text
+                            key={index}
+                            style={{
+                                fontSize: 20,
+                                color: "#1A202C",
+                                lineHeight: 26,
+                                fontWeight: "700",
+                                marginTop: 10,
+                                marginBottom: 6,
+                            }}
+                        >
+                            {part.slice(3)}
+                        </Text>
+                    );
+                }
+
+                // Bullet points
+                if (part.startsWith("- ")) {
+                    return (
+                        <View
+                            key={index}
+                            style={{
+                                flexDirection: "row",
+                                marginVertical: 1,
+                                paddingLeft: 8,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 16,
+                                    color: accentColor,
+                                    marginRight: 6,
+                                    marginTop: 1,
+                                }}
+                            >
+                                •
+                            </Text>
+                            <Text
+                                style={{
+                                    fontSize: 16,
+                                    color: "#2D3748",
+                                    lineHeight: 22,
+                                    flex: 1,
+                                }}
+                            >
+                                {part.slice(2)}
+                            </Text>
+                        </View>
+                    );
+                }
+
+                // Special reminder text
+                if (part.includes("💭")) {
+                    return (
+                        <View
+                            key={index}
+                            style={{
+                                backgroundColor: "#F7FAFC",
+                                borderRadius: 8,
+                                padding: 10,
+                                marginTop: 8,
+                                borderLeftWidth: 3,
+                                borderLeftColor: accentColor,
+                            }}
+                        >
+                            <Text
+                                style={{
+                                    fontSize: 14,
+                                    color: "#4A5568",
+                                    lineHeight: 20,
+                                    fontStyle: "italic",
+                                }}
+                            >
+                                {part}
+                            </Text>
+                        </View>
+                    );
+                }
+
+                // Divider
+                if (part.trim() === "---") {
+                    return (
+                        <View
+                            key={index}
+                            style={{
+                                height: 1,
+                                backgroundColor: "rgba(0,0,0,0.1)",
+                                marginVertical: 10,
+                            }}
+                        />
+                    );
+                }
+
+                // Regular text
+                return (
+                    <Text
+                        key={index}
+                        style={{
+                            fontSize: 16,
+                            color: "#2D3748",
+                            lineHeight: 22,
+                            letterSpacing: -0.2,
+                            marginVertical: 1,
+                        }}
+                    >
+                        {part}
+                    </Text>
+                );
+            })}
+        </View>
+    );
+};
 import { useAuth } from '../context/Auth';
 import { useFeatureAccess } from '../hooks/useSubscription';
 import { useUpdateVault, useVault } from '../hooks/useVault';

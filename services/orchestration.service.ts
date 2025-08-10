@@ -1,12 +1,17 @@
 // services/orchestration.service.ts
 
 import { InteractionContext } from "../types/context";
-import { askMainBrain, checkMainBrainHealth } from "./agentic.service";
+// 🚨 FAZ 0: AGENTIC CORE DEVRE DIŞI (STABİLİZASYON)
+// import { askMainBrain, checkMainBrainHealth } from "./agentic.service";
+
+// 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ ENTEGRASYONU
 import { EventPayload } from "./event.service";
 import {
   eventHandlers,
   OrchestratorSuccessResult,
 } from "./orchestration.handlers";
+import { StrategicQueryRouter } from "./strategic-query-router.service";
+import { SystemHealthMonitor } from "./system-health-monitor.service";
 import * as VaultService from "./vault.service";
 
 // React Native uyumlu UUID generator
@@ -19,17 +24,27 @@ function generateId(): string {
 }
 
 /**
- * Kullanıcıdan gelen yeni bir terapi mesajını işler.
- * Bu fonksiyon, dinamik ve öğrenen bir AI beyni gibi davranır.
+ * 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ MODU
  *
- * YENİ: Agentic Core entegrasyonu - AI artık kendi kendine karar verebilir!
+ * Gemini 2.5 Pro anlaşması uyarınca:
+ * ✅ Tek API çağrısı ile maksimum değer
+ * ✅ Akıllı veri toplama ve birleştirme
+ * ✅ Somut sistem sağlık metrikleri
+ * ✅ Maliyet optimizasyonu
+ * ✅ Yüksek güvenilirlik
+ *
+ * FAZ 0: Ana beyin devre dışı ✅
+ * FAZ 1: Strategic Router aktif ✅
+ * FAZ 2: Kontrollü hibrit sistem (gelecek)
  */
 export async function processUserMessage(
   userId: string,
   eventPayload: EventPayload,
 ): Promise<OrchestratorSuccessResult> {
   // 1. İŞLEM BAŞLIYOR: Bağlamı oluştur.
-  console.log(`[ORCHESTRATOR] Yeni işlem başlıyor: ${eventPayload.type}`);
+  console.log(
+    `[ORCHESTRATOR] 🎯 FAZ 1 Strategic Router - İşlem başlıyor: ${eventPayload.type}`,
+  );
   const initialVault = await VaultService.getUserVault() ?? {};
 
   const context: InteractionContext = {
@@ -46,29 +61,35 @@ export async function processUserMessage(
     derivedData: {},
   };
 
-  // 🧠 YENİ: AGENTIC CORE KONTROLÜ
-  // Eğer Ana Beyin aktifse ve bu bir karmaşık işlemse, ona devret
-  try {
-    const isMainBrainHealthy = await checkMainBrainHealth();
-    const isComplexOperation = shouldUseAgenticCore(eventPayload);
+  // 🎯 FAZ 1: STRATEJİK SORGU YÖNLENDİRİCİ AKTIF
+  // Gemini 2.5 Pro anlaşması: Tek API çağrısı ile maksimum değer
 
-    if (isMainBrainHealthy && isComplexOperation) {
-      console.log(
-        `[ORCHESTRATOR] 🧠 Ana Beyin'e yönlendiriliyor: ${eventPayload.type}`,
-      );
+  // Sistem sağlığını kontrol et
+  const systemHealth = await SystemHealthMonitor.evaluateSystemHealth();
+  console.log(
+    `[ORCHESTRATOR] 🏥 Sistem sağlığı: ${systemHealth.overall_health} (${systemHealth.health_score}/100)`,
+  );
 
-      const agenticQuery = createAgenticQuery(eventPayload, context);
-      const agenticResult = await askMainBrain(agenticQuery);
+  // Stratejik router'ı kullanmaya uygun mu?
+  const shouldUseRouter = shouldUseStrategicRouter(eventPayload, systemHealth);
 
-      console.log(`[ORCHESTRATOR] ✅ Ana Beyin cevabı alındı`);
-      return ensureHumanityReminder(agenticResult);
-    }
-  } catch (agenticError) {
-    console.warn(
-      `[ORCHESTRATOR] ⚠️ Ana Beyin kullanılamadı, geleneksel sisteme geçiliyor:`,
-      agenticError,
+  if (shouldUseRouter) {
+    console.log(
+      `[ORCHESTRATOR] 🎯 Strategic Router kullanılıyor: ${eventPayload.type}`,
     );
-    // Hata durumunda geleneksel sisteme devam et
+
+    try {
+      const strategicResult = await StrategicQueryRouter.handleSimpleQuery(
+        context,
+      );
+      return ensureHumanityReminder(strategicResult);
+    } catch (strategicError) {
+      console.warn(
+        `[ORCHESTRATOR] ⚠️ Strategic Router hatası, geleneksel sisteme geçiliyor:`,
+        strategicError,
+      );
+      // Hata durumunda geleneksel sisteme devam et
+    }
   }
 
   // 2. GELENEKSEl HANDLER SİSTEMİ (Fallback)
@@ -83,7 +104,7 @@ export async function processUserMessage(
     }
 
     console.log(
-      `[ORCHESTRATOR] Geleneksel handler kullanılıyor: '${eventPayload.type}'`,
+      `[ORCHESTRATOR] 📋 Geleneksel handler kullanılıyor (fallback): '${eventPayload.type}'`,
     );
     const handlerResult = await handler(context);
     return ensureHumanityReminder(handlerResult);
@@ -96,49 +117,60 @@ export async function processUserMessage(
   }
 }
 
+// 🎯 FAZ 1: STRATEJİK ROUTER KARAR FONKSİYONLARI
+
 /**
- * Bu işlem Agentic Core tarafından mı işlenmeli?
- * Karmaşık, çok adımlı işlemler Ana Beyin'e yönlendirilir.
+ * Bu işlem Strategic Router tarafından mı işlenmeli?
+ * Sistem sağlığı ve event tipi göz önünde bulundurulur.
  */
-function shouldUseAgenticCore(eventPayload: EventPayload): boolean {
-  const agenticOperations = [
+function shouldUseStrategicRouter(
+  eventPayload: EventPayload,
+  systemHealth: any,
+): boolean {
+  // Sistem sağlığı kötüyse geleneksel sistemi kullan
+  if (systemHealth.health_score < 70) {
+    console.log(
+      `[ORCHESTRATOR] ⚠️ Sistem sağlığı düşük (${systemHealth.health_score}), geleneksel sistem kullanılıyor`,
+    );
+    return false;
+  }
+
+  // Strategic Router için uygun event tipleri
+  const strategicRouterTypes = [
     "text_session", // Terapi seansları
     "dream_analysis", // Rüya analizleri
-    "ai_analysis", // AI analiz istekleri
     "daily_reflection", // Günlük yansımalar
+    "ai_analysis", // AI analizleri
   ];
 
-  return agenticOperations.includes(eventPayload.type);
+  const shouldUse = strategicRouterTypes.includes(eventPayload.type);
+
+  if (shouldUse) {
+    console.log(
+      `[ORCHESTRATOR] ✅ ${eventPayload.type} Strategic Router için uygun`,
+    );
+  } else {
+    console.log(
+      `[ORCHESTRATOR] ⏭️ ${eventPayload.type} geleneksel handler için uygun`,
+    );
+  }
+
+  return shouldUse;
 }
 
-/**
- * EventPayload'ı Ana Beyin'in anlayacağı bir soruya çevirir
- */
+// 🚨 FAZ 0: ESKİ AGENTIC CORE FONKSİYONLARI (DEVRE DIŞI)
+/*
+function shouldUseAgenticCore(eventPayload: EventPayload): boolean {
+  return false; // FAZ 0: Devre dışı
+}
+
 function createAgenticQuery(
   eventPayload: EventPayload,
   _context: InteractionContext,
 ): string {
-  const { type, data } = eventPayload;
-
-  switch (type) {
-    case "text_session":
-      return `Kullanıcı benimle terapi seansı yapmak istiyor. Mesajı: "${data.userMessage}". Ona nasıl yardım edebilirim?`;
-
-    case "dream_analysis":
-      return `Kullanıcı rüyasını analiz etmemi istiyor. Rüya: "${data.dreamText}". Detaylı bir analiz yapabilir misin?`;
-
-    case "ai_analysis":
-      return `Kullanıcı ${data.days} günlük AI analizi istiyor. Kapsamlı bir değerlendirme yapabilir misin?`;
-
-    case "daily_reflection":
-      return `Kullanıcı bugünkü notuna yansıma istiyor. Not: "${data.todayNote}", Mood: "${data.todayMood}". Ona nasıl bir geri bildirim verebilirim?`;
-
-    default:
-      return `Kullanıcı ${type} işlemi gerçekleştirmek istiyor. Veri: ${
-        JSON.stringify(data)
-      }. Nasıl yardım edebilirim?`;
-  }
+  return ""; // FAZ 0: Kullanılmıyor
 }
+*/
 
 /**
  * Tüm AI cevaplarının dürüst olmasını sağlar - "Ben bir makineyim" anımsatıcısı

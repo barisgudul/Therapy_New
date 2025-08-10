@@ -51,16 +51,18 @@ export async function logEvent(
     if (error) throw error;
     __DEV__ && console.log(`✅ [Event] ${event.type} kaydedildi.`);
 
-    // --- YENİ VE KRİTİK KISIM ---
-    // Eğer olayda analiz edilecek bir metin varsa, yeni beyni tetikle.
+    // 🚨 FAZ 0: BİLİNÇ İŞLEME DEVRE DIŞI (STABİLİZASYON)
+    // DNA ve hafıza işleme maliyet optimizasyonu için geçici olarak durduruldu
     const contentToAnalyze = inserted?.data?.dreamText ||
       inserted?.data?.userMessage ||
       inserted?.data?.initialEntry ||
       inserted?.data?.todayNote;
 
     if (contentToAnalyze && inserted) {
-      console.log(`🧠 [Orchestrator] Zihinsel DNA Çözücü tetikleniyor...`);
-      // Bu işlemi arka planda, beklemeden çalıştır. UI'ı yavaşlatmasın.
+      console.log(`📋 [STABILIZATION] Bilinç işleme atlandı: ${event.type}`);
+      // TODO FAZ 1: Stratejik veri işleme buraya gelecek
+      /*
+      // DEVRE DIŞI: Process and embed memory
       supabase.functions.invoke("process-and-embed-memory", {
         body: {
           source_event_id: inserted.id,
@@ -73,8 +75,7 @@ export async function logEvent(
         console.error("⛔️ Arka plan hafıza işleme hatası:", err)
       );
 
-      // === YENİ: DNA GÜNCELLEYİCİ TETİKLE ===
-      console.log(`🧬 [DNA_UPDATER] Kullanıcı DNA profili güncelleniyor...`);
+      // DEVRE DIŞI: DNA updater
       supabase.functions.invoke("update-user-dna", {
         body: {
           user_id: user.id,
@@ -83,6 +84,7 @@ export async function logEvent(
           event_time: inserted.created_at,
         },
       }).catch((err) => console.error("⛔️ DNA güncelleme hatası:", err));
+      */
     }
 
     return inserted.id.toString();

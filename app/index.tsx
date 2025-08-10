@@ -14,6 +14,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -28,6 +29,231 @@ import { getLatestUserReport } from "../services/report.service";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 const { width } = Dimensions.get("window");
+
+// Markdown render fonksiyonu (daily_write.tsx'ten alındı)
+const renderMarkdownText = (text: string, accentColor: string) => {
+  if (!text) return null;
+
+  // Paragrafları ayır
+  const paragraphs = text.trim().split(/\n\s*\n/);
+
+  return (
+    <View>
+      {paragraphs.map((paragraph, paragraphIndex) => {
+        if (!paragraph.trim()) return null;
+
+        // Özel formatları kontrol et
+        if (paragraph.includes("💭")) {
+          // Özel kutu içindeki text'i de markdown ile işle
+          const renderSpecialText = (text: string) => {
+            const parts = text.split(/(\*\*[^*]+?\*\*|\*[^*]+?\*)/g);
+
+            return (
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: "#4A5568",
+                  lineHeight: 22,
+                  fontStyle: "italic",
+                }}
+              >
+                {parts.map((part, index) => {
+                  // Bold format **text**
+                  if (
+                    part.startsWith("**") && part.endsWith("**") &&
+                    part.length > 4
+                  ) {
+                    return (
+                      <Text
+                        key={index}
+                        style={{
+                          fontWeight: "700",
+                          color: "#2D3748",
+                          fontStyle: "normal",
+                        }}
+                      >
+                        {part.slice(2, -2)}
+                      </Text>
+                    );
+                  }
+
+                  // Italic format *text*
+                  if (
+                    part.startsWith("*") && part.endsWith("*") &&
+                    part.length > 2 && !part.startsWith("**")
+                  ) {
+                    return (
+                      <Text
+                        key={index}
+                        style={{
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {part.slice(1, -1)}
+                      </Text>
+                    );
+                  }
+
+                  return part;
+                })}
+              </Text>
+            );
+          };
+
+          return (
+            <View
+              key={paragraphIndex}
+              style={{
+                backgroundColor: "#F7FAFC",
+                borderRadius: 12,
+                padding: 15,
+                marginVertical: 8,
+                borderLeftWidth: 4,
+                borderLeftColor: accentColor,
+              }}
+            >
+              {renderSpecialText(paragraph)}
+            </View>
+          );
+        }
+
+        // Header kontrolü
+        if (paragraph.startsWith("###")) {
+          return (
+            <Text
+              key={paragraphIndex}
+              style={{
+                fontSize: 18,
+                color: "#1A202C",
+                lineHeight: 28,
+                fontWeight: "700",
+                marginTop: 12,
+                marginBottom: 6,
+              }}
+            >
+              {paragraph.slice(4)}
+            </Text>
+          );
+        }
+
+        if (paragraph.startsWith("##")) {
+          return (
+            <Text
+              key={paragraphIndex}
+              style={{
+                fontSize: 20,
+                color: "#1A202C",
+                lineHeight: 30,
+                fontWeight: "700",
+                marginTop: 15,
+                marginBottom: 8,
+              }}
+            >
+              {paragraph.slice(3)}
+            </Text>
+          );
+        }
+
+        // Bullet point kontrolü
+        if (paragraph.startsWith("- ")) {
+          return (
+            <View
+              key={paragraphIndex}
+              style={{
+                flexDirection: "row",
+                marginVertical: 4,
+                paddingLeft: 10,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: accentColor,
+                  marginRight: 8,
+                  marginTop: 2,
+                }}
+              >
+                •
+              </Text>
+              <Text
+                style={{
+                  fontSize: 16,
+                  color: "#2D3748",
+                  lineHeight: 26,
+                  flex: 1,
+                }}
+              >
+                {paragraph.slice(2)}
+              </Text>
+            </View>
+          );
+        }
+
+        // Normal paragraf - inline formatları işle
+        const renderInlineFormats = (text: string) => {
+          // Daha güçlü regex - ** formatını önce yakala
+          const parts = text.split(/(\*\*[^*]+?\*\*|\*[^*]+?\*)/g);
+
+          return (
+            <Text
+              key={paragraphIndex}
+              style={{
+                fontSize: 16,
+                color: "#2D3748",
+                lineHeight: 26,
+                letterSpacing: -0.3,
+                marginVertical: 4,
+              }}
+            >
+              {parts.map((part, index) => {
+                // Bold format **text**
+                if (
+                  part.startsWith("**") && part.endsWith("**") &&
+                  part.length > 4
+                ) {
+                  return (
+                    <Text
+                      key={index}
+                      style={{
+                        fontWeight: "700",
+                        color: "#1A202C",
+                      }}
+                    >
+                      {part.slice(2, -2)}
+                    </Text>
+                  );
+                }
+
+                // Italic format *text*
+                if (
+                  part.startsWith("*") &&
+                  part.endsWith("*") &&
+                  part.length > 2 &&
+                  !part.startsWith("**")
+                ) {
+                  return (
+                    <Text
+                      key={index}
+                      style={{
+                        fontStyle: "italic",
+                      }}
+                    >
+                      {part.slice(1, -1)}
+                    </Text>
+                  );
+                }
+
+                return part;
+              })}
+            </Text>
+          );
+        };
+
+        return renderInlineFormats(paragraph);
+      })}
+    </View>
+  );
+};
 
 export default function HomeScreen() {
   // === HOOKS & AUTH STATE (Mevcut Kısım) ===
@@ -373,33 +599,48 @@ export default function HomeScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <TouchableOpacity
-              onPress={() => {
-                setModalVisible(false);
-                animateBg(false);
-              }}
-              style={styles.modalBackButton}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={Colors.light.tint}
-              />
-            </TouchableOpacity>
-            <View style={styles.modalIcon}>
-              <LinearGradient
-                colors={["#E8EEF7", "#F0F4F9"]}
-                style={styles.modalIconGradient}
-              />
-              <Ionicons
-                name="sparkles-outline"
-                size={28}
-                color={Colors.light.tint}
-              />
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisible(false);
+                  animateBg(false);
+                }}
+                style={styles.modalBackButton}
+              >
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color="#666"
+                />
+              </TouchableOpacity>
+              <View style={styles.modalIcon}>
+                <LinearGradient
+                  colors={[Colors.light.tint, "#8B5CF6"]}
+                  style={styles.modalIconGradient}
+                >
+                  <Ionicons
+                    name="sparkles"
+                    size={24}
+                    color="white"
+                  />
+                </LinearGradient>
+              </View>
+              <View style={{ width: 40, height: 40 }} />
             </View>
-            <Text style={styles.modalTitle}>Günün Mesajı</Text>
+            <View style={styles.modalTitleContainer}>
+              <Text style={styles.modalTitle}>Günlük Yansıman</Text>
+              <Text style={styles.modalSubtitle}>
+                Bugünkü duygularına dair düşüncelerim
+              </Text>
+            </View>
             <View style={styles.modalDivider} />
-            <Text style={styles.modalText}>{dailyMessage}</Text>
+            <ScrollView
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.modalScrollContent}
+            >
+              {renderMarkdownText(dailyMessage, Colors.light.tint)}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -606,49 +847,80 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    width: "85%",
-    maxWidth: 400,
+    width: "90%",
+    maxWidth: 450,
+    maxHeight: "85%",
+    minHeight: "60%",
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    padding: 20,
+    padding: 0,
     shadowColor: Colors.light.tint,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 12,
   },
-  modalBackButton: {
-    position: "absolute",
-    top: 16,
-    left: 16,
-    zIndex: 5,
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
-  modalIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginBottom: 20,
+  modalBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0,0,0,0.05)",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
+  },
+  modalIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
     overflow: "hidden",
   },
   modalIconGradient: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalTitleContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 15,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: Colors.light.tint,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1A202C",
     textAlign: "center",
-    marginBottom: 12,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#718096",
+    textAlign: "center",
+    marginTop: 5,
+    letterSpacing: -0.2,
   },
   modalDivider: {
     height: 1,
-    backgroundColor: "rgba(93,161,217,0.1)",
-    marginBottom: 20,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    marginHorizontal: 20,
+  },
+  modalScrollView: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    paddingHorizontal: 25,
+    paddingVertical: 20,
+    paddingBottom: 30,
   },
   modalText: {
     fontSize: 15,

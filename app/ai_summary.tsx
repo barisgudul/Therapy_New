@@ -39,6 +39,11 @@ import {
 } from "../services/event.service";
 import { InteractionContext } from "../types/context";
 
+// 🎯 FAZ 2: Behavioral Pattern Analyzer entegrasyonu (arka planda)
+import {
+  BehavioralAnalysisResult,
+} from "../services/behavioral-pattern-analyzer.service";
+
 // Helper function to create a clean preview from markdown text
 // This version preserves line breaks and paragraph structure for a cleaner preview.
 const stripMarkdownForPreview = (markdown: string): string => {
@@ -74,6 +79,11 @@ export default function AISummaryScreen() {
   const [loading, setLoading] = useState(true); // Başlangıçta yükleniyor durumunda başlat
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
+
+  // 🎯 FAZ 2: Behavioral Pattern Analyzer durumu (arka planda)
+  const [_behavioralAnalysis, _setBehavioralAnalysis] = useState<
+    BehavioralAnalysisResult | null
+  >(null);
 
   // Feature Access Hooks
   const {
@@ -138,6 +148,8 @@ export default function AISummaryScreen() {
     };
     initializePage();
   }, []);
+
+  // 🎯 FAZ 2: Davranış kalıpları analizi (arka planda mevcut fetchSummary'ye entegre)
 
   // Özetleri kaydetme fonksiyonu
   // ai_summary.tsx dosyasındaki mevcut fetchSummary fonksiyonunu bununla değiştirin.
@@ -463,45 +475,49 @@ export default function AISummaryScreen() {
                   )}
                 />
               )}
-            <TouchableOpacity
-              style={[
-                styles.analyzeButton,
-                (loading || isVaultLoading) && { opacity: 0.6 },
-              ]}
-              disabled={loading || isVaultLoading}
-              onPress={fetchSummary}
-            >
-              <LinearGradient
-                colors={["#F8FAFF", "#FFFFFF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.analyzeButtonGradient}
+            <View style={styles.buttonContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.analyzeButton,
+                  (loading || isVaultLoading) && { opacity: 0.6 },
+                ]}
+                disabled={loading || isVaultLoading}
+                onPress={fetchSummary}
               >
-                <View style={styles.analyzeButtonContent}>
-                  {(loading || isVaultLoading)
-                    ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={Colors.light.tint}
-                      />
-                    )
-                    : (
-                      <Ionicons
-                        name="analytics-outline"
-                        size={24}
-                        color={Colors.light.tint}
-                      />
-                    )}
-                  <Text style={styles.analyzeButtonText}>
-                    {isVaultLoading
-                      ? "Veriler Hazırlanıyor..."
-                      : loading
-                      ? "Analiz Ediliyor..."
-                      : "Analiz Oluştur"}
-                  </Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={["#F8FAFF", "#FFFFFF"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.analyzeButtonGradient}
+                >
+                  <View style={styles.analyzeButtonContent}>
+                    {(loading || isVaultLoading)
+                      ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={Colors.light.tint}
+                        />
+                      )
+                      : (
+                        <Ionicons
+                          name="analytics-outline"
+                          size={24}
+                          color={Colors.light.tint}
+                        />
+                      )}
+                    <Text style={styles.analyzeButtonText}>
+                      {isVaultLoading
+                        ? "Veriler Hazırlanıyor..."
+                        : loading
+                        ? "Analiz Ediliyor..."
+                        : "Analiz Oluştur"}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* 🎯 Gereksiz davranış butonu kaldırıldı - mevcut AI analizi güçlendirildi */}
+            </View>
           </View>
 
           {analysisEvents.length === 0 && !loading
@@ -655,6 +671,8 @@ export default function AISummaryScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* 🎯 Gereksiz davranış modal'ı kaldırıldı */}
       </LinearGradient>
     </PremiumGate>
   );
@@ -993,5 +1011,138 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     letterSpacing: -0.3,
+  },
+
+  // 🎯 Gereksiz davranış analizi stilleri (kullanılmıyor artık)
+  buttonContainer: {
+    gap: 16,
+  },
+  behaviorButton: {
+    width: "100%",
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  behaviorButtonGradient: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  behaviorButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+    letterSpacing: -0.3,
+  },
+  patternModalContent: {
+    width: "95%",
+    maxWidth: 600,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    maxHeight: "90%",
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.2,
+    shadowRadius: 30,
+    elevation: 20,
+  },
+  analysisSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: "#F8FAFF",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(93,161,217,0.1)",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: Colors.light.tint,
+    marginBottom: 8,
+  },
+  sectionText: {
+    fontSize: 15,
+    color: "#4A5568",
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  confidenceText: {
+    fontSize: 14,
+    color: "#22C55E",
+    fontWeight: "600",
+  },
+  trendContainer: {
+    gap: 8,
+  },
+  trendItem: {
+    fontSize: 15,
+    color: "#4A5568",
+    lineHeight: 22,
+  },
+  patternCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.2)",
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  patternTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#8B5CF6",
+    marginBottom: 8,
+  },
+  patternDescription: {
+    fontSize: 15,
+    color: "#4A5568",
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  patternMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  patternFrequency: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  patternConfidence: {
+    fontSize: 13,
+    color: "#22C55E",
+    fontWeight: "600",
+  },
+  insightsContainer: {
+    backgroundColor: "rgba(139,92,246,0.05)",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  insightsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#8B5CF6",
+    marginBottom: 8,
+  },
+  insightText: {
+    fontSize: 14,
+    color: "#4A5568",
+    lineHeight: 20,
+    marginBottom: 4,
   },
 });
