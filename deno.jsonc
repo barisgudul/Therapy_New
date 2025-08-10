@@ -6,7 +6,7 @@
     "fmt": "deno fmt supabase/functions/ services/"
   },
   "importMap": "./supabase/functions/import_map.json",
-  "nodeModulesDir": "auto",
+  "nodeModulesDir": true,
 
   // --- BU BLOKLAR EDİTÖRÜN İÇİN HAYATİ ---
   "lint": {
