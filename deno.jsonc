@@ -11,6 +11,9 @@
     // Tüm testler ve fonksiyonlar için tek import map kullan.
     "importMap": "./supabase/functions/import_map.json",
   
+  // Deno 2: Auto-install npm deps (e.g., @types/node) into node_modules during CI
+  "nodeModulesDir": "auto",
+  
     // --- LINTER KURALLARI ---
     "lint": {
       "files": {
