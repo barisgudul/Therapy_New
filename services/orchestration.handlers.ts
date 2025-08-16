@@ -1,14 +1,14 @@
 // services/orchestration.handlers.ts
 import { PromptTemplate } from "@langchain/core/prompts";
-import { InteractionContext } from "../types/context.ts";
-import { ValidationError } from "../utils/errors.ts";
-import { parseAndValidateJson } from "../utils/jsonValidator.ts";
-import { DiaryStart, DreamAnalysisResultSchema } from "../utils/schemas.ts";
-import * as AiService from "./ai.service.ts";
-import * as EventService from "./event.service.ts";
-import * as JourneyService from "./journey.service.ts";
-import * as RagService from "./rag.service.ts";
-import * as VaultService from "./vault.service.ts";
+import { InteractionContext } from "../types/context";
+import { ValidationError } from "../utils/errors";
+import { parseAndValidateJson } from "../utils/jsonValidator";
+import { DiaryStart, DreamAnalysisResultSchema } from "../utils/schemas";
+import * as AiService from "./ai.service";
+import * as EventService from "./event.service";
+import * as JourneyService from "./journey.service";
+import * as RagService from "./rag.service";
+import * as VaultService from "./vault.service";
 
 // Orkestratörden dönebilecek tüm olası başarılı sonuç tipleri
 export type OrchestratorSuccessResult =
@@ -202,7 +202,7 @@ async function handleTherapySession(
  * Rüya analizi akışı (YENİ VE AKILLI VERSİYON)
  * RAG pipeline'ını kullanarak, kullanıcının geçmişiyle bağlam kurar.
  */
-async function handleDreamAnalysis(
+export async function handleDreamAnalysis(
     context: InteractionContext,
 ): Promise<string> {
     console.log(

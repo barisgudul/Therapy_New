@@ -2,11 +2,11 @@
 // 🚀 FAZ 2: BEHAVIORAL PATTERN ANALYZER
 // "Unconscious Detection" yerine veri-temelli davranış analizi
 
-import { AI_MODELS } from "../constants/AIConfig.ts";
-import type { JsonValue } from "../types/json.ts";
-import { supabase } from "../utils/supabase.ts";
-import { invokeGemini } from "./ai.service.ts";
-import type { AppEvent } from "./event.service.ts";
+import { AI_MODELS } from "../constants/AIConfig";
+import type { JsonValue } from "../types/json";
+import { supabase } from "../utils/supabase";
+import { invokeGemini } from "./ai.service";
+import type { AppEvent } from "./event.service";
 
 export interface BehavioralPattern {
     pattern_id: string;

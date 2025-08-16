@@ -1,5 +1,5 @@
 // services/report.service.ts
-import { supabase } from "../utils/supabase.ts";
+import { supabase } from "../utils/supabase";
 
 // Bu, veritabanındaki user_reports tablosunun tip tanımıdır.
 // Kendi tablonla eşleştiğinden emin ol.

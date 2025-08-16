@@ -1,6 +1,6 @@
 // data/therapists.data.ts
 
-import { TherapistCoreData } from "./therapists.types.ts";
+import { TherapistCoreData } from "./therapists.types";
 
 // BU DOSYADA ARTIK DIŞARIYA HİÇBİR BAĞIMLILIK YOK. SADECE VERİ VE TİP.
 export const ALL_THERAPISTS_DATA: TherapistCoreData[] = [

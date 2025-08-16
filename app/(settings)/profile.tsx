@@ -27,8 +27,8 @@ import {
     View,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { useSubscription } from "../../hooks/useSubscription.ts";
-import { useUpdateVault, useVault } from "../../hooks/useVault.ts";
+import { useSubscription } from "../../hooks/useSubscription";
+import { useUpdateVault, useVault } from "../../hooks/useVault";
 
 // Bu veriler artık merkezi /theme klasöründen gelmeli.
 // Şimdilik buraya fallback olarak ekliyoruz.
@@ -259,7 +259,7 @@ export default function ProfileScreen() {
 
     const handleSave = useCallback(() => {
         if (!localProfile.nickname.trim()) {
-            Toast.default.show({
+            Toast.show({
                 type: "error",
                 text1: "İsim alanı boş bırakılamaz.",
             });
@@ -276,7 +276,7 @@ export default function ProfileScreen() {
                 ? { ...vault, profile: { ...currentProfile, ...localProfile } }
                 : { profile: { ...currentProfile, ...localProfile } };
             updateVault(newVaultData);
-            Toast.default.show({
+            Toast.show({
                 type: "success",
                 text1: "Başarılı!",
                 text2: "Profilin güncellendi.",
@@ -290,7 +290,7 @@ export default function ProfileScreen() {
             }, 1000);
         } catch (error) {
             console.error("[PROFILE_SAVE_ERROR]", error);
-            Toast.default.show({
+            Toast.show({
                 type: "error",
                 text1: "Hata",
                 text2: "Profil güncellenirken bir sorun oluştu.",

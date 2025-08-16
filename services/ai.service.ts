@@ -1,15 +1,15 @@
 // services/ai.service.ts
 import { z, ZodSchema } from "zod";
-import { AI_MODELS } from "../constants/AIConfig.ts";
-import { ALL_THERAPISTS_DATA } from "../data/therapists.data.ts";
-import { InteractionContext } from "../types/context.ts";
+import { AI_MODELS } from "../constants/AIConfig";
+import { ALL_THERAPISTS_DATA } from "../data/therapists.data";
+import { InteractionContext } from "../types/context";
 import {
   ApiError,
   getErrorMessage,
   isAppError,
   ValidationError,
-} from "../utils/errors.ts";
-import { parseAndValidateJson } from "../utils/jsonValidator.ts";
+} from "../utils/errors";
+import { parseAndValidateJson } from "../utils/jsonValidator";
 import {
   DiaryStart,
   DiaryStartSchema,
@@ -19,31 +19,31 @@ import {
   SessionMemory,
   SessionMemorySchema,
   TraitsSchema,
-} from "../utils/schemas.ts";
-import { supabase } from "../utils/supabase.ts";
-import { getRecentJourneyLogEntries } from "./journey.service.ts";
+} from "../utils/schemas";
+import { supabase } from "../utils/supabase";
+import { getRecentJourneyLogEntries } from "./journey.service";
 // import { TemporalAnalysisResult, TemporalRAG } from "./temporal_rag.service"; // Geçici olarak devre dışı
-import type { Traits } from "./trait.service.ts";
+import type { Traits } from "./trait.service";
 
 // Prompt Imports
-import { getAdaptiveTherapistReplyPrompt } from "./prompts/adaptiveTherapy.prompt.ts";
+import { getAdaptiveTherapistReplyPrompt } from "./prompts/adaptiveTherapy.prompt";
 import {
   getCumulativeSummaryPrompt,
   getOnboardingAnalysisPrompt,
-} from "./prompts/analysis.prompt.ts";
-import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
+} from "./prompts/analysis.prompt";
+import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt";
 import {
   getDiaryNextQuestionsPrompt,
   getDiaryStartPrompt,
-} from "./prompts/diary.prompt.ts";
-import { getDreamAnalysisPrompt } from "./prompts/dreamAnalysis.prompt.ts";
+} from "./prompts/diary.prompt";
+import { getDreamAnalysisPrompt } from "./prompts/dreamAnalysis.prompt";
 import {
   getFinalDreamFeedbackPrompt,
   getNextDreamQuestionPrompt,
-} from "./prompts/dreamDialogue.prompt.ts";
-import { getSessionMemoryPrompt } from "./prompts/sessionMemory.prompt.ts";
+} from "./prompts/dreamDialogue.prompt";
+import { getSessionMemoryPrompt } from "./prompts/sessionMemory.prompt";
 
-import type { VaultData } from "./vault.service.ts";
+import type { VaultData } from "./vault.service";
 
 // YENİ EKLE: Terapist Kişilik Tipleri
 type TherapistPersonality = string;

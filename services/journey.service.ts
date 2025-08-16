@@ -1,6 +1,6 @@
 // services/journey.service.ts
-import { isDev } from "../utils/dev.ts";
-import { supabase } from "../utils/supabase.ts";
+import { isDev } from "../utils/dev";
+import { supabase } from "../utils/supabase";
 
 export async function addJourneyLogEntry(logText: string): Promise<void> {
   try {

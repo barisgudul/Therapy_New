@@ -1,11 +1,11 @@
 // services/__tests__/controlled-hybrid-pipeline.test.ts
 
-import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import { Stub, stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
-import type { InteractionContext } from "../../types/context.ts";
-import type { PipelineStep } from "../controlled-hybrid-pipeline.service.ts";
-import type { AppEvent } from "../event.service.ts";
-import type { SystemHealthStatus } from "../system-health-monitor.service.ts";
+import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod";
+import { Stub, stub } from "https://deno.land/std@0.208.0/testing/mock";
+import type { InteractionContext } from "../../types/context";
+import type { PipelineStep } from "../controlled-hybrid-pipeline.service";
+import type { AppEvent } from "../event.service";
+import type { SystemHealthStatus } from "../system-health-monitor.service";
 
 // Test ortam değişkenlerini, modüller import edilmeden ÖNCE ayarla
 Deno.env.set("SUPABASE_URL", "http://localhost");

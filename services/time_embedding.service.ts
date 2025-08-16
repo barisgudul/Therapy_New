@@ -1,6 +1,6 @@
 // services/time_embedding.service.ts
-import { AppEvent } from "./event.service.ts";
-import { VaultData } from "./vault.service.ts";
+import { AppEvent } from "./event.service";
+import { VaultData } from "./vault.service";
 
 // Bu sınıf, bir olayın ZAMANSAL DNA'sını çıkarır.
 export class TimeEmbeddingGenerator {

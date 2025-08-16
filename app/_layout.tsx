@@ -1,26 +1,26 @@
-// app/_layout.tsx
+// app/_layout.tsx --- KESİN VE NİHAİ VERSİYON
+
 import "react-native-get-random-values";
+import "react-native-reanimated";
 
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // QueryClientProvider'ı import et
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
-import { Stack, useRouter, useSegments } from "expo-router/";
+import { useRouter, useSegments } from "expo-router/";
+import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { KeyboardProvider } from "react-native-keyboard-controller"; // BU ÖNEMLİ, EKLE
-import "react-native-reanimated";
-import Toast from "react-native-toast-message"; // Toast'u import et
-import UndoToast from "../components/dream/UndoToast.tsx";
-import { AuthProvider, useAuth } from "../context/Auth.tsx"; // AuthProvider'ı import et
-import { LoadingProvider } from "../context/Loading.tsx";
-import { useGlobalLoading } from "../hooks/useGlobalLoading.ts";
-import { useVault } from "../hooks/useVault.ts"; // YENİ SİLAHINI İMPORT ET
+import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import Toast from "react-native-toast-message";
 
-// QueryClient'ı oluştur.
+import UndoToast from "../components/dream/UndoToast";
+import { AuthProvider, useAuth } from "../context/Auth";
+import { LoadingProvider } from "../context/Loading";
+import { useGlobalLoading } from "../hooks/useGlobalLoading";
+
 const queryClient = new QueryClient();
 
-// Toast konfigürasyonu
 const toastConfig = {
   custom: ({ props }: { props: { onUndo: () => void } }) => (
     <UndoToast onUndo={props.onUndo} />
@@ -28,100 +28,97 @@ const toastConfig = {
 };
 
 // ======================================================================
-// YENİ BİR YARDIMCI BİLEŞEN: Sadece veri ön-yüklemesi yapacak.
+// ANA NAVİGASYON VE YÖNLENDİRME MANTIĞI
 // ======================================================================
-const VaultPrefetcher = () => {
-  // Vault verisini çekmek için hook'u çağır.
-  // Bu hook, veri çekme işlemini başlatır ve sonucu TanStack'in cache'ine yazar.
-  // Biz burada dönen `data` veya `isLoading` değerleriyle ilgilenmiyoruz.
-  // Amacımız sadece süreci TETİKLEMEK.
-  useVault();
-
-  // Bu bileşen ekrana hiçbir şey çizmez. Görevi görünmezdir.
-  return null;
-};
-
-const InitialLayout = () => {
-  const { session, isLoading: isAuthLoading } = useAuth(); // DEĞİŞTİ: isLoading'un adını değiştir.
+function RootLayoutNav() {
+  const { session, isLoading: isAuthLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
   useGlobalLoading();
 
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  const loading = isAuthLoading || !fontsLoaded;
-
   useEffect(() => {
-    if (loading) {
-      return;
-    }
-    const inAuthGroup = segments[0] === "login" || segments[0] === "register" ||
-      segments[0] === "forgot-password";
-    const inOnboardingGroup = segments[0] === "(onboarding)";
-
-    if (inOnboardingGroup) {
+    // Henüz hiçbir şey hazır değilse, bekle.
+    if (isAuthLoading || (!fontsLoaded && !fontError)) {
       return;
     }
 
-    if (!session && !inAuthGroup) {
-      router.replace("/login");
-    } else if (session && inAuthGroup && segments[0] === "login") {
-      router.replace("/");
-    }
-  }, [loading, session, segments, router]);
+    // Kullanıcının bulunduğu rotanın ilk segmenti, hangi grupta olduğunu söyler.
+    const inAppGroup = segments[0] === "(app)";
+    const inAuthGroup = segments[0] === "(auth)";
 
-  if (loading) {
+    // KURAL 1: Eğer kullanıcı giriş yapmamışsa VE uygulama içinde bir yere gitmeye çalışıyorsa,
+    // onu acımasızca login ekranına fırlat.
+    if (!session && inAppGroup) {
+      router.replace("/(auth)/login");
+    } 
+    // KURAL 2: Eğer kullanıcı giriş yapmışsa VE login/register gibi auth ekranlarındaysa,
+    // onu ait olduğu yere, anasayfaya (yani (app) grubuna) gönder.
+    else if (session && inAuthGroup) {
+      router.replace("/"); // '/' otomatik olarak (app)/index.tsx'e yönlenir
+    }
+  }, [session, isAuthLoading, fontsLoaded, fontError, segments, router]);
+
+  // Yükleme ekranı
+  if (isAuthLoading || !fontsLoaded) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0a7ea4" />
       </View>
     );
   }
 
-  // EĞER KULLANICI GİRİŞ YAPMIŞSA, NAVİGASYONU VE GÖRÜNMEZ VERİ YÜKLEYİCİYİ GÖSTER.
-  // GİRİŞ YAPMAMIŞSA SADECE NAVİGASYONU GÖSTER Kİ LOGIN EKRANINI GÖREBİLSİN.
-  return (
-    <>
-      {session && <VaultPrefetcher />}
-      <RootNavigation />
-    </>
-  );
-};
-
-function RootNavigation() {
+  // Her şey hazır, ana navigasyonu göster.
   return (
     <ThemeProvider value={DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
+        {/* Bütün "giriş yapılmış" ekranlar bu gruptan yönetilecek */}
+        <Stack.Screen name="(app)" /> 
+        
+        {/* Bütün "giriş/kayıt" ekranları bu gruptan yönetilecek */}
+        <Stack.Screen name="(auth)" /> 
+        
+        {/* Diğer gruplar */}
         <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(settings)" />
-        <Stack.Screen name="dream" />
+        <Stack.Screen name="(settings)" /> 
       </Stack>
       <StatusBar style="dark" />
     </ThemeProvider>
   );
 }
 
+// ======================================================================
+// UYGULAMANIN GİRİŞ NOKTASI (Provider'lar burada)
+// ======================================================================
 export default function RootLayout() {
-  // <> ve </> fragment'larını geri koydum, ne olur ne olmaz.
-  // Aralarında boşluk olmadığından emin ol.
   return (
-    <>
+    <View style={styles.container}>
       <QueryClientProvider client={queryClient}>
         <KeyboardProvider>
-          <AuthProvider>
-            <LoadingProvider>
-              <InitialLayout />
-            </LoadingProvider>
-          </AuthProvider>
+          <LoadingProvider>
+            <AuthProvider>
+              <RootLayoutNav />
+            </AuthProvider>
+          </LoadingProvider>
         </KeyboardProvider>
       </QueryClientProvider>
+      
       <Toast config={toastConfig} />
-    </>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

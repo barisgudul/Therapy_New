@@ -1,7 +1,7 @@
 // types/context.ts
 
-import { AppEvent } from "../services/event.service.ts";
-import { VaultData } from "../services/vault.service.ts";
+import { AppEvent } from "../services/event.service";
+import { VaultData } from "../services/vault.service";
 
 /**
  * Her kullanıcı etkileşimini temsil eden, baştan sona taşınan bağlam.

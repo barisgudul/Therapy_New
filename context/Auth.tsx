@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"; // EKLE
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Alert } from "react-native";
 // import { useVaultStore } from '../store/vaultStore'; // SİL
-import { supabase } from "../utils/supabase.ts";
+import { supabase } from "../utils/supabase";
 
 // 1. CONTEXT TİPİNİ GENİŞLETİYORUZ
 type AuthContextType = {

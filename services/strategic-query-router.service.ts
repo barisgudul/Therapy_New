@@ -1,13 +1,13 @@
 // services/strategic-query-router.service.ts
 
-import { AI_MODELS } from "../constants/AIConfig.ts";
-import { InteractionContext } from "../types/context.ts";
-import type { JsonValue } from "../types/json.ts";
-import { invokeGemini } from "./ai.service.ts";
-import { EventPayload } from "./event.service.ts";
-import { retrieveContext } from "./rag.service.ts";
-import type { VaultData } from "./vault.service.ts";
-import * as VaultService from "./vault.service.ts";
+import { AI_MODELS } from "../constants/AIConfig";
+import { InteractionContext } from "../types/context";
+import type { JsonValue } from "../types/json";
+import { invokeGemini } from "./ai.service";
+import { EventPayload } from "./event.service";
+import { retrieveContext } from "./rag.service";
+import type { VaultData } from "./vault.service";
+import * as VaultService from "./vault.service";
 
 export class StrategicQueryRouter {
     /**

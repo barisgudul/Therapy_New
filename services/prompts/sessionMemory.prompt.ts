@@ -1,5 +1,5 @@
 // services/prompts/sessionMemory.prompt.ts
-import { VaultData } from "../../services/vault.service.ts";
+import { VaultData } from "../../services/vault.service";
 
 export const getSessionMemoryPrompt = (
     userVault: VaultData | null,

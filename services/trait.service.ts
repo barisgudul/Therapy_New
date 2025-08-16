@@ -1,7 +1,7 @@
 // services/trait.service.ts
-import { isDev } from "../utils/dev.ts";
-import { supabase } from "../utils/supabase.ts";
-import { getUserVault, updateUserVault } from "./vault.service.ts";
+import { isDev } from "../utils/dev";
+import { supabase } from "../utils/supabase";
+import { getUserVault, updateUserVault } from "./vault.service";
 
 export const traitKeys = [
   "confidence",

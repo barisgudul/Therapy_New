@@ -1,6 +1,6 @@
 // services/vault.service.ts
-import { isDev } from "../utils/dev.ts";
-import { supabase } from "../utils/supabase.ts";
+import { isDev } from "../utils/dev";
+import { supabase } from "../utils/supabase";
 
 export interface VaultData {
   traits?: Partial<Record<string, number | string>>;

@@ -1,19 +1,19 @@
 // services/controlled-hybrid-pipeline.service.ts
 
-import { AI_MODELS } from "../constants/AIConfig.ts";
-import { InteractionContext } from "../types/context.ts";
-import { DiaryStart } from "../utils/schemas.ts";
-import * as AiService from "./ai.service.ts";
-import { invokeGemini } from "./ai.service.ts";
-import { BehavioralPatternAnalyzer } from "./behavioral-pattern-analyzer.service.ts";
-import * as EventService from "./event.service.ts";
-import * as JourneyService from "./journey.service.ts";
-import { StrategicQueryRouter } from "./strategic-query-router.service.ts";
+import { AI_MODELS } from "../constants/AIConfig";
+import { InteractionContext } from "../types/context";
+import { DiaryStart } from "../utils/schemas";
+import * as AiService from "./ai.service";
+import { invokeGemini } from "./ai.service";
+import { BehavioralPatternAnalyzer } from "./behavioral-pattern-analyzer.service";
+import * as EventService from "./event.service";
+import * as JourneyService from "./journey.service";
+import { StrategicQueryRouter } from "./strategic-query-router.service";
 import {
     SystemHealthMonitor,
     SystemHealthStatus,
-} from "./system-health-monitor.service.ts";
-import * as VaultService from "./vault.service.ts";
+} from "./system-health-monitor.service";
+import * as VaultService from "./vault.service";
 
 // Sonuç tipleri (adım bazlı)
 type GatherUserDataResult = {

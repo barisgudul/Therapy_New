@@ -1,16 +1,26 @@
 {
-  "deno.enable": true,
-  "deno.lint": true,
+  // --- Deno Eklentisi için Talimatlar ---
+  "deno.enable": true, // Deno eklentisini bu projede etkinleştir.
+  "deno.lint": true,   // Kod stilini (linting) kontrol etmesine izin ver.
+  "deno.unstable": true, // Supabase Functions için genellikle gereklidir.
+
+  // --- EN ÖNEMLİ KURAL ---
+  // Deno eklentisine SADECE ve SADECE 'supabase/functions' klasöründe
+  // çalışması gerektiğini söylüyoruz. Projenin geri kalanına (React Native kodları)
+  // dokunmayacak. Bu, çakışmaları ve yavaşlamayı önler.
+  "deno.enablePaths": [
+    "supabase/functions"
+  ],
+
+  // --- Kod Formatlama Kuralları ---
+  // TypeScript dosyaları için...
   "[typescript]": {
-    "editor.defaultFormatter": "denoland.vscode-deno",
-    "editor.formatOnSave": true
+    // Varsayılan formatlayıcıyı Deno'nun formatlayıcısı yap.
+    // Bu, kodunun her zaman Supabase/Deno standartlarına uygun olmasını sağlar.
+    "editor.defaultFormatter": "denoland.vscode-deno"
   },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "denoland.vscode-deno",
-    "editor.formatOnSave": true
-  },
-  "editor.codeActionsOnSave": [
-    "source.fixAll",
-    "source.organizeImports"
-  ]
+  
+  // Bu ayar, dosyayı her kaydettiğinde Deno'nun otomatik olarak
+  // kodunu düzeltmesini sağlar. Disiplin iyidir.
+  "editor.formatOnSave": true
 }

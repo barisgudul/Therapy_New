@@ -1,7 +1,7 @@
 // services/temporal_rag.service.ts
-import { AI_MODELS } from "../constants/AIConfig.ts";
-import { supabase } from "../utils/supabase.ts";
-import { invokeGemini } from "./ai.service.ts";
+import { AI_MODELS } from "../constants/AIConfig";
+import { supabase } from "../utils/supabase";
+import { invokeGemini } from "./ai.service";
 
 // Dışarıya vereceğimiz analiz sonucunun tipini tanımlıyoruz.
 export interface TemporalAnalysisResult {

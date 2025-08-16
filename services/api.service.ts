@@ -1,15 +1,15 @@
 // services/api.service.ts
-import { getErrorMessage } from "../utils/errors.ts";
-import { supabase } from "../utils/supabase.ts";
+import { getErrorMessage } from "../utils/errors";
+import { supabase } from "../utils/supabase";
 
 // Event Service API calls
-import { AppEvent, logEvent as _logEvent } from "./event.service.ts";
+import { AppEvent, logEvent as _logEvent } from "./event.service";
 
 // Vault Service API calls
 import {
     updateUserVault as _updateUserVault,
     VaultData,
-} from "./vault.service.ts";
+} from "./vault.service";
 
 // Subscription Management API calls - Tüm import'ları tek satırda birleştir
 import {
@@ -23,7 +23,7 @@ import {
     isPremiumUser as _isPremiumUser,
     upgradeUserPlanForTesting as _upgradeUserPlanForTesting,
     type UsageStats,
-} from "./subscription.service.ts";
+} from "./subscription.service";
 
 // --- BU BÖLÜM TAMAMEN DEĞİŞECEK ---
 

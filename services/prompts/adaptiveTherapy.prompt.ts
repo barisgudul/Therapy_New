@@ -1,6 +1,6 @@
 // services/prompts/adaptiveTherapy.prompt.ts
-import { Traits } from "../../services/trait.service.ts";
-import { VaultData } from "../../services/vault.service.ts";
+import { Traits } from "../../services/trait.service";
+import { VaultData } from "../../services/vault.service";
 
 type TherapistPersonality = string;
 

@@ -3,7 +3,7 @@ import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system";
 import { useCallback, useRef, useState } from "react";
 import { PermissionsAndroid, Platform } from "react-native";
-import { textToSpeech, transcribeAudio } from "../utils/gcpServices.ts";
+import { textToSpeech, transcribeAudio } from "../utils/gcpServices";
 
 interface UseVoiceSessionProps {
   onTranscriptReceived?: (transcript: string) => void;

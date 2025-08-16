@@ -1,6 +1,6 @@
 // services/prompts/dreamDialogue.prompt.ts
-import type { JsonValue } from "../../types/json.ts";
-import { DreamAnalysisResult } from "../../utils/schemas.ts";
+import type { JsonValue } from "../../types/json";
+import { DreamAnalysisResult } from "../../utils/schemas";
 
 export const getNextDreamQuestionPrompt = (
     dreamAnalysis: DreamAnalysisResult,

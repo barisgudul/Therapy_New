@@ -1,5 +1,5 @@
 // services/prompt.service.ts
-import { supabase } from "../utils/supabase.ts";
+import { supabase } from "../utils/supabase";
 
 interface Prompt {
   content: string;

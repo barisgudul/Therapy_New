@@ -1,7 +1,7 @@
 // services/subscription.service.ts
 
 // Types
-import { supabase } from "../utils/supabase.ts"; // Dosyanın en üstüne ekle
+import { supabase } from "../utils/supabase"; // Dosyanın en üstüne ekle
 
 export interface SubscriptionPlan {
     id: string;

@@ -1,5 +1,5 @@
 // supabase/functions/weekly-prediction-trigger/index.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
 function getErrorMessage(error: unknown): string {

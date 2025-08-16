@@ -1,7 +1,7 @@
 // services/event.service.ts
-import { isDev } from "../utils/dev.ts";
-import { supabase } from "../utils/supabase.ts";
-import { getUsageStatsForUser } from "./subscription.service.ts"; // Üst kısma ekle
+import { isDev } from "../utils/dev";
+import { supabase } from "../utils/supabase";
+import { getUsageStatsForUser } from "./subscription.service"; // Üst kısma ekle
 
 export const EVENT_TYPES = [
   "daily_reflection",

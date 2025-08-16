@@ -2,8 +2,8 @@
 import { useRouter } from "expo-router/";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { useUpdateVault, useVault } from "../../hooks/useVault.ts"; // YENİ SİLAHLARINI ÇAĞIR
-import { useOnboardingStore } from "../../store/onboardingStore.ts";
+import { useUpdateVault, useVault } from "../../hooks/useVault"; // YENİ SİLAHLARINI ÇAĞIR
+import { useOnboardingStore } from "../../store/onboardingStore";
 
 export default function SummaryScreen() {
   const router = useRouter();

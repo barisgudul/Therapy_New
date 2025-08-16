@@ -1,12 +1,12 @@
 // services/orchestration.service.ts
 
-import { InteractionContext } from "../types/context.ts";
-import { ApiError } from "../utils/errors.ts";
-import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service.ts";
-import { EventPayload } from "./event.service.ts";
-import { OrchestratorSuccessResult } from "./orchestration.handlers.ts";
-import { SystemHealthMonitor } from "./system-health-monitor.service.ts";
-import * as VaultService from "./vault.service.ts";
+import { InteractionContext } from "../types/context";
+import { ApiError } from "../utils/errors";
+import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service";
+import { EventPayload } from "./event.service";
+import { OrchestratorSuccessResult } from "./orchestration.handlers";
+import { SystemHealthMonitor } from "./system-health-monitor.service";
+import * as VaultService from "./vault.service";
 
 // React Native uyumlu UUID generator
 function generateId(): string {

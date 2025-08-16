@@ -1,6 +1,6 @@
 // services/system-health-monitor.service.ts
 
-import { supabase } from "../utils/supabase.ts";
+import { supabase } from "../utils/supabase";
 
 export interface SystemMetrics {
     // 📊 API PERFORMANS METRİKLERİ

@@ -1,19 +1,18 @@
 // services/rag.service.ts
 import { PromptTemplate } from "@langchain/core/prompts";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
-import { AI_MODELS } from "../constants/AIConfig.ts";
-import { supabase } from "../utils/supabase.ts";
-import { invokeGemini } from "./ai.service.ts";
+import { AI_MODELS } from "../constants/AIConfig";
+import { supabase } from "../utils/supabase";
+import { invokeGemini } from "./ai.service";
 
-// API anahtarını Deno env veya global EXPO env'den oku
-function resolveGeminiApiKey(): string | undefined {
-  const fromDeno = Deno.env.get("GEMINI_API_KEY") ||
-    Deno.env.get("GOOGLE_API_KEY");
-  if (fromDeno && fromDeno.trim().length > 0) return fromDeno;
-  const expo = (globalThis as { EXPO_PUBLIC_GEMINI_API_KEY?: string })
-    .EXPO_PUBLIC_GEMINI_API_KEY;
-  return expo && expo.trim().length > 0 ? expo : undefined;
-}
+// API key'i ortam değişkenlerinden al
+const getGeminiApiKey = (): string => {
+  // React Native için process.env kullan
+  const fromEnv = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (fromEnv && fromEnv.trim().length > 0) return fromEnv;
+  
+  throw new Error("GEMINI_API_KEY veya GOOGLE_API_KEY ortam değişkeni bulunamadı");
+};
 
 // ————————————————————————————————————————————————
 // Query Niyet Çözücü (Prefrontal Korteks)
@@ -50,7 +49,7 @@ async function analyzeQueryIntent(query: string): Promise<QueryIntent> {
 // Embed Helper: Sorguyu Gemini ile vektörle (lazy init + güvenli fallback)
 // ————————————————————————————————————————————————
 async function embedQuery(query: string): Promise<number[]> {
-  const apiKey = resolveGeminiApiKey();
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
     // Test/CI veya anahtarsız ortamlarda güvenli fallback: boş vektör
     return [];

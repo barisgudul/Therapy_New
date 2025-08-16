@@ -1,7 +1,7 @@
 // data/therapists.ts
 
-import { ALL_THERAPISTS_DATA } from "./therapists.data.ts";
-import { TherapistCoreData } from "./therapists.types.ts";
+import { ALL_THERAPISTS_DATA } from "./therapists.data";
+import { TherapistCoreData } from "./therapists.types";
 
 // Bu, UI'ın kullanacağı nihai tiptir. Dinamik import sonucunu içerir.
 export interface TherapistDisplayData

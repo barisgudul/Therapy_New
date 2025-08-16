@@ -16,7 +16,7 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { supabase } from "../../utils/supabase.ts";
+import { supabase } from "../../utils/supabase";
 
 // --- BÖLÜM 1: DOĞRU YERDE, DOĞRU İSİMLERLE TANIMLANMIŞ COMPONENT ---
 // BU COMPONENT, ANA FONKSİYONUN DIŞINDA. HER RENDER'DA YENİDEN YARATILMIYOR.
