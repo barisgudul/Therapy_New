@@ -58,12 +58,18 @@ export interface ElegantReportPayload {
   };
 }
 
+// Tahmin öğesi tipi (kullanımda sadece title ve description alanları okunuyor)
+export interface Prediction {
+  title: string;
+  description: string;
+}
+
 // Paket üreten raporlayıcı
 export async function generateElegantReport(
   events: AppEvent[],
   vault: VaultData,
   _days: number,
-  predictions?: any[],
+  predictions?: Prediction[],
 ): Promise<ElegantReportPayload> {
   const hasAnyEvents = Array.isArray(events) && events.length > 0;
   const formattedEvents = hasAnyEvents
@@ -159,7 +165,13 @@ export async function generateElegantReport(
 }
 
 // Embedding helper - API Gateway üstünden Gemini Embedding çağrısı
-export async function embedContent(content: string): Promise<any> {
+export type EmbedContentResponse = {
+  embedding: number[] | null;
+  error?: string;
+};
+export async function embedContent(
+  content: string,
+): Promise<EmbedContentResponse> {
   try {
     const { data, error } = await supabase.functions.invoke("api-gateway", {
       body: {
@@ -168,10 +180,10 @@ export async function embedContent(content: string): Promise<any> {
       },
     });
     if (error) throw error;
-    return data;
+    return data as EmbedContentResponse;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[embedContent] Hatası:", msg);
-    return { embedding: null, error: msg };
+    return { embedding: null, error: msg } as EmbedContentResponse;
   }
 }

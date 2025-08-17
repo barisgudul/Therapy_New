@@ -23,9 +23,9 @@ import ThemesCard from "../../../components/dream/ThemesCard.tsx";
 import FeedbackCard from "../../../components/dream/FeedbackCard.tsx";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { getUsageStatsForUser } from "../../../services/api.service";
-import { AppEvent, getEventById } from "../../../services/event.service";
+import { AppEvent, getEventById, type EventPayload } from "../../../services/event.service";
 import { processUserMessage } from "../../../services/orchestration.service";
-import { JsonValue } from "../../../types/json";
+import type { JsonValue } from "../../../types/json";
 import { supabase } from "../../../utils/supabase";
 
 // Diyalog mesaj tipi
@@ -86,18 +86,10 @@ export default function DreamResultScreen() {
         mutationFn: (
             payload: {
                 userId: string;
-                dialoguePayload: {
-                    type: "dream_analysis";
-                    data: {
-                        isFollowUp: boolean;
-                        event_id: string;
-                        dreamAnalysisResult: Record<string, unknown>;
-                        fullDialogue: DialogueMessage[];
-                    };
-                };
+                dialoguePayload: EventPayload;
                 userMessage: string;
             },
-        ) => processUserMessage(payload.userId, payload.dialoguePayload as any),
+        ) => processUserMessage(payload.userId, payload.dialoguePayload),
 
         // İYİMSER GÜNCELLEME BURADA BAŞLIYOR
         onMutate: async (newMessage) => {
@@ -214,26 +206,24 @@ export default function DreamResultScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const dialoguePayload = {
-            type: "dream_analysis" as const,
-            data: {
-                isFollowUp: true,
-                event_id: event.id,
-                dreamAnalysisResult: event.data as { [key: string]: JsonValue },
-                fullDialogue: [
-                    ...((event.data.dialogue as unknown) as DialogueMessage[]),
-                    {
-                        text: userInput.trim(),
-                        role: "user" as const,
-                    },
-                ],
-            } as unknown as { [key: string]: JsonValue },
+        const payloadData: Record<string, JsonValue> = {
+            isFollowUp: true,
+            event_id: event.id,
+            dreamAnalysisResult: event.data as Record<string, JsonValue>,
+            fullDialogue: [
+                ...(event.data.dialogue as unknown as DialogueMessage[]),
+                { text: userInput.trim(), role: "user" as const },
+            ] as unknown as JsonValue,
+        };
+        const dialoguePayload: EventPayload = {
+            type: "dream_analysis",
+            data: payloadData,
         };
 
         // Bütün o eski kod yerine SADECE BU SATIR:
         sendMessageMutation.mutate({
             userId: user.id,
-            dialoguePayload: dialoguePayload as any,
+            dialoguePayload,
             userMessage: userInput.trim(),
         });
         setUserInput(""); // Input'u temizle

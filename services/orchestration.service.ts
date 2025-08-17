@@ -5,13 +5,13 @@ import { ApiError } from "../utils/errors";
 import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service";
 import { EventPayload } from "./event.service";
 import { DiaryStart } from "../utils/schemas";
+import { SystemHealthMonitor } from "./system-health-monitor.service";
+import * as VaultService from "./vault.service";
+import { supabase } from "../utils/supabase";
 type OrchestratorSuccessResult = string | DiaryStart | {
   success: boolean;
   message: string;
 };
-import { SystemHealthMonitor } from "./system-health-monitor.service";
-import * as VaultService from "./vault.service";
-import { supabase } from "../utils/supabase";
 
 // React Native uyumlu UUID generator
 function generateId(): string {
@@ -83,10 +83,22 @@ export async function processUserMessage(
   }
 }
 
-// BU FONKSİYON ARTIK TEK BİR İŞ YAPIYOR: BEYNİ ÇAĞIRMAK!
+// Yeni sözleşme tipleri
+export interface ConversationPayload {
+  userInput: string;
+  conversationId: string | null;
+}
+export interface ConversationResponse {
+  aiResponse: string;
+  nextQuestions?: string[];
+  isFinal: boolean;
+  conversationId: string;
+}
+
+// BU FONKSİYON GÜNCELLENDİ: Günlük konuşması tetikleyicisi
 export async function processUserEvent(
-  eventPayload: EventPayload,
-): Promise<any> {
+  eventPayload: { type: "diary_entry"; data: ConversationPayload },
+): Promise<ConversationResponse> {
   const { data, error } = await supabase.functions.invoke("orchestrator", {
     body: { eventPayload },
   });
@@ -96,7 +108,23 @@ export async function processUserEvent(
     throw new Error(error.message);
   }
 
-  return data;
+  return data as ConversationResponse;
+}
+
+// Rüya analizi için dar tipli yardımcı
+export async function processDreamAnalysisEvent(
+  eventPayload: { type: "dream_analysis"; data: { dreamText: string } },
+): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("orchestrator", {
+    body: { eventPayload },
+  });
+
+  if (error) {
+    console.error("Orchestrator function invoke error:", error);
+    throw new Error(error.message);
+  }
+
+  return data as string;
 }
 
 /**

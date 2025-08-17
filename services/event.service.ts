@@ -1,6 +1,9 @@
 // services/event.service.ts
 import { isDev } from "../utils/dev";
 import { supabase } from "../utils/supabase";
+import { DiaryEventsArraySchema } from "../schemas/diary.schema";
+import type { z } from "zod";
+import { AppEventSchema } from "../schemas/diary.schema";
 import { getUsageStatsForUser } from "./subscription.service"; // Üst kısma ekle
 
 export const EVENT_TYPES = [
@@ -30,6 +33,8 @@ export interface AppEvent {
   mood?: string;
   data: { [key: string]: import("../types/json.ts").JsonValue };
 }
+
+export type DiaryAppEvent = z.infer<typeof AppEventSchema>;
 
 export type EventPayload = Omit<
   AppEvent,
@@ -221,6 +226,29 @@ export async function getSessionEventsForUser(): Promise<AppEvent[]> {
       "⛔️ Geçmiş seansları çekme hatası:",
       (error as Error).message,
     );
+    throw error;
+  }
+}
+
+// Yalnızca günlük (diary_entry) event'lerini getirir
+export async function getDiaryEventsForUser(): Promise<DiaryAppEvent[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Kullanıcı giriş yapmamış, günlükler çekilemedi.");
+    }
+
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("type", "diary_entry")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return DiaryEventsArraySchema.parse(data || []);
+  } catch (error) {
+    console.error("⛔️ Günlük verisi doğrulama hatası:", error);
     throw error;
   }
 }

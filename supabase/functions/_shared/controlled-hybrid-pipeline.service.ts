@@ -2,6 +2,7 @@
 
 import {
   handleDailyReflection,
+  handleDiaryEntry,
   handleDreamAnalysis,
 } from "./orchestration.handlers.ts";
 import type { InteractionContext } from "./types/context.ts";
@@ -13,7 +14,7 @@ export class ControlledHybridPipeline {
   static async executeComplexQuery(
     context: InteractionContext,
     pipelineType: string,
-  ): Promise<string> {
+  ): Promise<unknown> {
     console.log(`[PIPELINE] 🎯 Pipeline başlatılıyor: ${pipelineType}`);
 
     try {
@@ -37,6 +38,10 @@ export class ControlledHybridPipeline {
 
       if (pipelineType === "daily_reflection") {
         return await handleDailyReflection(context);
+      }
+
+      if (pipelineType === "diary_management") {
+        return await handleDiaryEntry(context);
       }
 
       return responses[pipelineType] || "Bu özellik şu an geliştiriliyor.";

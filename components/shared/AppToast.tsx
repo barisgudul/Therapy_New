@@ -40,7 +40,7 @@ export function AppToast({ variant = 'info', text1, text2 }: AppToastProps) {
     >
       <LinearGradient colors={['#FFFFFF', '#F4F6FF'] as const} style={styles.backgroundGradient}>
         <LinearGradient colors={config.gradient} style={styles.iconContainer}>
-          <Ionicons name={config.icon as any} size={24} color="#FFFFFF" />
+          <Ionicons name={config.icon as unknown as keyof typeof Ionicons.glyphMap} size={24} color="#FFFFFF" />
         </LinearGradient>
         <View style={styles.textContainer}>
           <Text style={styles.title}>{text1}</Text>

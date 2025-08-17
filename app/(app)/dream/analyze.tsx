@@ -18,7 +18,7 @@ import {
 import Toast from "react-native-toast-message";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { useVault } from "../../../hooks/useVault";
-import { processUserEvent } from "../../../services/orchestration.service";
+import { processDreamAnalysisEvent } from "../../../services/orchestration.service";
 import { canUserAnalyzeDream } from "../../../services/event.service";
 
 export default function AnalyzeDreamScreen() {
@@ -31,8 +31,8 @@ export default function AnalyzeDreamScreen() {
   const { data: _vault, isLoading: isVaultLoading } = useVault();
 
   // YENİ VE AKILLI useMutation BLOĞU
-  const analyzeMutation = useMutation({
-    mutationFn: async () => {
+  const analyzeMutation = useMutation<string, Error, void>({
+    mutationFn: async (): Promise<string> => {
       // --- YENİ KONTROL KAPI KİLİDİ ---
       const { canAnalyze } = await canUserAnalyzeDream();
       if (!canAnalyze) {
@@ -49,7 +49,13 @@ export default function AnalyzeDreamScreen() {
         data: { dreamText: dream.trim() },
       };
 
-      return await processUserEvent(eventPayload);
+      // processUserEvent, "dream_analysis" eventinde string eventId döndürmeli.
+      // Ancak linter hatası, dönüş tipinin yanlış olduğunu söylüyor.
+      // processUserEvent'in dönüş tipi muhtemelen ConversationResponse (veya başka bir tip) olarak tanımlı.
+      // Bunu çözmek için, dönen değerin eventId'sini açıkça çekiyoruz.
+
+      const eventId = await processDreamAnalysisEvent(eventPayload);
+      return eventId;
     },
 
     // BAŞARI DURUMU: Dönen şeyin eventId (string) olduğunu biliyoruz.

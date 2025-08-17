@@ -1,8 +1,13 @@
 // supabase/functions/_shared/types/context.ts
 
+// Güvenli JSON tipi
+type JsonValue = string | number | boolean | null | JsonValue[] | {
+  [key: string]: JsonValue;
+};
+
 export interface VaultData {
   traits?: Partial<Record<string, number | string>>;
-  memories?: { [key: string]: any }[];
+  memories?: Record<string, JsonValue>[];
   themes?: string[];
   keyInsights?: string[];
   coreBeliefs?: Record<string, string>;
@@ -21,12 +26,8 @@ export interface VaultData {
       | "";
     gender?: "male" | "female" | "other" | "";
   };
-  metadata?: {
-    onboardingCompleted?: boolean;
-    [key: string]: any;
-  };
+  metadata?: Record<string, JsonValue>;
   moodHistory?: { mood: string; timestamp: string }[];
-  [key: string]: any;
 }
 
 export interface AppEvent {
@@ -35,7 +36,7 @@ export interface AppEvent {
   type: string;
   timestamp: number;
   created_at: string;
-  data: Record<string, any>;
+  data: Record<string, JsonValue>;
 }
 
 /**

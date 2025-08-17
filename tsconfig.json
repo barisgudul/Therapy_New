@@ -14,7 +14,8 @@
       "./types",
       "./node_modules/@types"
     ],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "types": ["jest"]
   },
   "include": [
     "**/*.ts",

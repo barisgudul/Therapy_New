@@ -8,10 +8,13 @@ import { invokeGemini } from "./ai.service";
 // API key'i ortam değişkenlerinden al
 const getGeminiApiKey = (): string => {
   // React Native için process.env kullan
+  // deno-lint-ignore no-process-global
   const fromEnv = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (fromEnv && fromEnv.trim().length > 0) return fromEnv;
-  
-  throw new Error("GEMINI_API_KEY veya GOOGLE_API_KEY ortam değişkeni bulunamadı");
+
+  throw new Error(
+    "GEMINI_API_KEY veya GOOGLE_API_KEY ortam değişkeni bulunamadı",
+  );
 };
 
 // ————————————————————————————————————————————————

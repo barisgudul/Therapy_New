@@ -1,7 +1,7 @@
 // supabase/functions/_shared/orchestration.handlers.ts
 
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
-import type { InteractionContext } from "./types/context.ts";
+import type { InteractionContext, VaultData } from "./types/context.ts";
 import { ValidationError } from "./errors.ts";
 import { supabase as adminClient } from "./supabase-admin.ts";
 import * as AiService from "./ai.service.ts";
@@ -9,7 +9,10 @@ import * as RagService from "./rag.service.ts";
 import { getDreamAnalysisV2Prompt } from "./prompts/dreamAnalysisV2.prompt.ts";
 import * as VaultService from "./vault.service.ts";
 import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
-import type { VaultData } from "./types/context.ts";
+import {
+  getDiaryNextQuestionsPrompt,
+  getDiaryStartPrompt,
+} from "./prompts/diary.prompt.ts";
 
 // ===============================================
 // ZOD ŞEMALARI VE DOĞRULAMA
@@ -400,6 +403,79 @@ export const eventHandlers: Record<
   "voice_session": handleDefault,
   "video_session": handleDefault,
   "ai_analysis": handleDefault,
-  "diary_entry": handleDefault,
+  "diary_entry": handleDiaryEntry,
   "onboarding_completed": handleDefault,
 };
+
+// =============================
+// GÜNLÜK (DIARY) HANDLER'I
+// =============================
+const DiaryStartSchema = z.object({
+  mood: z.string(),
+  questions: z.array(z.string()).min(3),
+});
+
+const NextQuestionsSchema = z.object({
+  questions: z.array(z.string()).min(1),
+});
+
+export async function handleDiaryEntry(
+  context: InteractionContext,
+): Promise<string> {
+  console.log(
+    `[ORCHESTRATOR] Günlük diyaloğu işleniyor: ${context.transactionId}`,
+  );
+  const input = context.initialEvent.data as {
+    initialEntry?: string;
+    conversationHistory?: string;
+  };
+
+  if (input.initialEntry) {
+    const prompt = getDiaryStartPrompt(input.initialEntry);
+    const raw = await AiService.invokeGemini(prompt, "gemini-1.5-flash", {
+      responseMimeType: "application/json",
+    });
+    let payload: { mood: string; questions: string[] } | null = null;
+    try {
+      const parsed = JSON.parse(raw);
+      const res = DiaryStartSchema.safeParse(parsed);
+      if (!res.success) {
+        throw new ValidationError(
+          "AI'dan beklenen başlangıç formatı alınamadı.",
+        );
+      }
+      payload = res.data;
+    } catch (_e) {
+      throw new ValidationError(
+        "Yapay zekadan gelen veri beklenen formata uymuyor (diary start).",
+      );
+    }
+    // Günlük başlangıcı için sadece sonuç döndür, kalıcı yazımı frontend tetikler
+    return JSON.stringify(payload);
+  }
+
+  if (input.conversationHistory) {
+    const prompt = getDiaryNextQuestionsPrompt(input.conversationHistory);
+    const raw = await AiService.invokeGemini(prompt, "gemini-1.5-flash", {
+      responseMimeType: "application/json",
+    });
+    let payload: { questions: string[] } | null = null;
+    try {
+      const parsed = JSON.parse(raw);
+      const res = NextQuestionsSchema.safeParse(parsed);
+      if (!res.success) {
+        throw new ValidationError("AI'dan beklenen devam formatı alınamadı.");
+      }
+      payload = res.data;
+    } catch (_e) {
+      throw new ValidationError(
+        "Yapay zekadan gelen veri beklenen formata uymuyor (diary next).",
+      );
+    }
+    return JSON.stringify({ nextQuestions: payload.questions });
+  }
+
+  throw new ValidationError(
+    "Eksik girdi: 'initialEntry' veya 'conversationHistory' gerekli.",
+  );
+}

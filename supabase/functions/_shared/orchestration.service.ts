@@ -3,7 +3,6 @@
 import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service.ts";
 import { ApiError } from "./errors.ts";
 import type { EventPayload } from "./event.service.ts";
-import type { OrchestratorSuccessResult } from "./orchestration.handlers.ts";
 import { SystemHealthMonitor } from "./system-health-monitor.service.ts";
 import type { InteractionContext } from "./types/context.ts";
 
@@ -19,12 +18,12 @@ function generateId(): string {
 export async function processUserMessage(
   userId: string,
   eventPayload: EventPayload,
-): Promise<OrchestratorSuccessResult> {
+): Promise<string> {
   // 1. İşlem bağlamını oluştur
   console.log(
     `[ORCHESTRATOR] 🎯 Tek Beyin - İşlem başlıyor: ${eventPayload.type}`,
   );
-  
+
   // Basit vault objesi - gerçek vault verisi create-analysis-report'ta alınacak
   const initialVault = {};
 
@@ -68,7 +67,7 @@ export async function processUserMessage(
     );
 
     // Sonuca insanlık hatırlatıcısı ekle
-    return ensureHumanityReminder(result);
+    return ensureHumanityReminder(String(result));
   } catch (error) {
     console.error(
       `[ORCHESTRATOR] ❌ Pipeline işlemi sırasında kritik hata:`,
@@ -125,8 +124,8 @@ function determinePipelineType(
  * Tüm AI cevaplarının dürüst olmasını sağlar - "Ben bir makineyim" anımsatıcısı
  */
 function ensureHumanityReminder(
-  result: OrchestratorSuccessResult,
-): OrchestratorSuccessResult {
+  result: string,
+): string {
   // Eğer sonuç string ise (çoğu durumda böyle)
   if (typeof result === "string") {
     const reminder =
