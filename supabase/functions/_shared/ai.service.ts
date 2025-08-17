@@ -69,14 +69,18 @@ export async function generateElegantReport(
   const predictionsBlock = (predictions && predictions.length > 0)
     ? `GEÇMİŞ TAHMİNLER:\n` + predictions.map((p) => `- ${p.title}: ${p.description}`).join('\n')
     : '';
+  // Kullanıcı bağlamı: isim bilgisi varsa, AI doğrudan ismiyle hitap etsin
+  const userName = vault?.profile?.nickname ?? null;
+  const userContextLine = userName ? `KULLANICI BİLGİSİ: İsmi ${userName}.` : '';
 
-  // PANO tarzı çıktı isteyen yeni prompt
+  // PANO tarzı çıktı isteyen yeni prompt (Aynadaki Yansıma: ikinci tekil şahıs zorunlu)
   const prompt = `
-  ROL: Sen, bir veri görselleştirme uzmanı ve psikolojik analistsin. Ham veriyi, sindirilebilir ve görsel olarak çekici "bilgi bloklarına" dönüştürüyorsun.
+  ROL: Sen, bir veri görselleştirme uzmanı ve psikolojik analistsin. Bir robottan çok, bilge ve empatik bir yol arkadaşı gibisin.
 
-  GÖREV: Sana verilen verilerden yola çıkarak, Zihin Panosu için yapısal bileşenleri içeren TEK BİR JSON objesi üret. Uzun paragraflardan kaçın. Her bölüm kısa ve öz olacak.
+  GÖREV: Sana verilen verilerden yola çıkarak, Zihin Panosu için yapısal bileşenleri içeren TEK BİR JSON objesi üret.
 
   SAĞLANAN VERİLER:
+  ${userContextLine}
   ${formattedEvents}
   ${goalLine}
   ${predictionsBlock}
@@ -87,7 +91,7 @@ export async function generateElegantReport(
       "mainTitle": "Bu dönemin en vurucu ve özet başlığını YAZ.",
       "overview": "2-3 cümlelik, dönemin ana temasını özetleyen bir giriş paragrafı YAZ.",
       "goldenThread": "Olaylar arasındaki ana neden-sonuç ilişkisini anlatan 2 paragraflık bir analiz YAZ. Bu, 'Günlük Kayıtların Analizi' bölümü olacak.",
-      "blindSpot": "'Fark ettin mi?' ile başlayan ve kullanıcının görmediği bir kalıbı ortaya çıkaran 1 paragraflık bölümü YAZ."
+      "blindSpot": "'Fark ettin mi?' ile başlayan ve görmediği bir kalıbı ortaya çıkaran 1 paragraflık bölümü YAZ."
     },
     "reportAnalogy": {
       "title": "Tüm analizi özetleyen bir metafor veya analoji başlığı YAZ. Örn: 'İki Cephede Savaşan Bir Komutan'.",
@@ -100,6 +104,8 @@ export async function generateElegantReport(
   }
 
   KURALLAR:
+  - **EN ÖNEMLİ KURAL: Tüm metni doğrudan ikinci tekil şahıs ('sen') kullanarak yaz. Sanki karşısında oturmuş onunla konuşuyorsun. Ona kendisinden üçüncü bir şahıs gibi ('Barış şunu yaptı', 'Barış'ın duyguları') ASLA bahsetme. Ona doğrudan hitap et ('Şunu yaptın', 'Senin duyguların...').**
+  - **Eğer ismini biliyorsan ('Barış'), cümlenin veya paragrafın başına bir kere ismiyle hitap et, sonra 'sen' diye devam et. Örnek: 'Barış, bu dönemde projelerine odaklandığını görüyorum. Senin için bu durum...'.**
   - Cevabın SADECE yukarıdaki JSON formatında olsun. Başka hiçbir şey ekleme.
   - Markdown kullanMA. Çıktı düz metin (plain text) olacak. Vurgu için **kelime** formatını KULLANABİLİRSİN.
   - Her metin alanı (overview, goldenThread vb.) kısa ve öz olsun. Amacımız bir bakışta anlaşılmak.

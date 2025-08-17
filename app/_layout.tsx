@@ -12,7 +12,9 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import Toast from "react-native-toast-message";
+import Toast, { BaseToastProps } from "react-native-toast-message";
+// Yeni AppToast'ımızı içeri al
+import { AppToast } from "../components/shared/AppToast";
 
 import UndoToast from "../components/dream/UndoToast";
 import { AuthProvider, useAuth } from "../context/Auth";
@@ -21,10 +23,16 @@ import { useGlobalLoading } from "../hooks/useGlobalLoading";
 
 const queryClient = new QueryClient();
 
+// ESKİ VE YENİ DÜNYAYI BİRLEŞTİRİYORUZ
 const toastConfig = {
+  // Senin özel 'undo' toast'ın burada güvende.
   custom: ({ props }: { props: { onUndo: () => void } }) => (
     <UndoToast onUndo={props.onUndo} />
   ),
+  // VE İŞTE BİZİM YENİ, MARKALI TİPLERİMİZ
+  success: (props: BaseToastProps) => <AppToast variant="success" {...props} />,
+  error: (props: BaseToastProps) => <AppToast variant="error" {...props} />,
+  info: (props: BaseToastProps) => <AppToast variant="info" {...props} />,
 };
 
 // ======================================================================

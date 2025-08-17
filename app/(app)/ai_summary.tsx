@@ -8,7 +8,6 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   Platform,
   ScrollView,
@@ -18,8 +17,11 @@ import {
   View,
 } from "react-native";
 import Markdown from "react-native-markdown-display";
+import ReportCard from "../../components/ai_summary/ReportCard";
 // @ts-ignore: react-native-html-to-pdf package has incomplete TypeScript definitions
 import RNHTMLtoPDF from "react-native-html-to-pdf";
+import Toast from "react-native-toast-message";
+import Animated, { LinearTransition } from 'react-native-reanimated';
 
 import { Colors } from "../../constants/Colors";
 import { commonStyles } from "../../constants/Styles";
@@ -50,22 +52,6 @@ interface AnalysisReport {
 }
 
 // deriveFromMarkdown artık backend'de yapılıyor; frontend'de kaldırıldı
-
-// Helper function to create a clean preview from markdown text (robust for object or string)
-const stripMarkdownForPreview = (reportPayload: unknown): string => {
-  // String verilirse direkt kullan
-  if (typeof reportPayload === 'string') {
-    const s = reportPayload as string;
-    return s.replace(/^#+\s/gm, "").replace(/\*\*/g, "").replace(/\*/g, "").replace(/^[\s]*[•-]\s/gm, "").replace(/\n\s*\n/g, "\n").trim();
-  }
-  // Yeni paket yapısı: reportSections.overview öncelikli
-  const obj = reportPayload as { reportSections?: { overview?: unknown; goldenThread?: unknown } };
-  const overview = typeof obj?.reportSections?.overview === 'string' ? obj.reportSections.overview : '';
-  const golden = typeof obj?.reportSections?.goldenThread === 'string' ? obj.reportSections.goldenThread : '';
-  const combined = (overview + (overview && golden ? ' ' : '') + golden).trim();
-  if (!combined) return 'Özet bulunmuyor.';
-  return combined;
-};
 
 export default function AISummaryScreen() {
   const { user } = useAuth();
@@ -119,12 +105,20 @@ export default function AISummaryScreen() {
       if (error) throw error;
 
       // 2) Bilgilendir
-      Alert.alert("Başarılı", "Yeni zihin portreniz oluşturuldu ve kaydedildi.");
+      Toast.show({
+        type: 'success',
+        text1: 'Raporun Hazır',
+        text2: 'Yeni kişisel raporun oluşturuldu ve kaydedildi.',
+      });
 
       // 3) Listeyi tazele
       await loadSavedReports();
     } catch (e: unknown) {
-      Alert.alert("Hata", e instanceof Error ? e.message : "Analiz oluşturulurken bir hata oluştu.");
+      Toast.show({
+        type: 'error',
+        text1: 'Bir Hata Oluştu',
+        text2: e instanceof Error ? e.message : 'Rapor oluşturulamadı.',
+      });
     } finally {
       setLoading(false);
     }
@@ -134,13 +128,15 @@ export default function AISummaryScreen() {
   const deleteSummary = (reportId: string) => {
     Alert.alert(
       "Analizi Sil",
-      "Bu AI analizini kalıcı olarak silmek istediğinizden emin misiniz?",
+      "Bu kişisel raporu kalıcı olarak silmek istediğinizden emin misiniz?",
       [
         { text: "Vazgeç", style: "cancel" },
         {
           text: "Sil",
           style: "destructive",
           onPress: async () => {
+            const reportsBeforeDelete = [...analysisReports];
+            setAnalysisReports(prev => prev.filter(r => r.id !== reportId));
             try {
               const { error } = await supabase
                 .from('analysis_reports')
@@ -149,10 +145,14 @@ export default function AISummaryScreen() {
 
               if (error) throw error;
 
-              setAnalysisReports(prev => prev.filter(r => r.id !== reportId));
+              Toast.show({ type: 'info', text1: 'Rapor Silindi' });
             } catch (_e) {
-              const errorMessage = _e instanceof Error ? _e.message : "Silme işlemi sırasında bir hata oluştu.";
-              Alert.alert("Hata", errorMessage);
+              setAnalysisReports(reportsBeforeDelete);
+              Toast.show({
+                type: 'error',
+                text1: 'Silinemedi',
+                text2: _e instanceof Error ? _e.message : 'Rapor silinirken bir hata oluştu.',
+              });
             }
           },
         },
@@ -197,7 +197,7 @@ export default function AISummaryScreen() {
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Zihin Portresi</title>
+            <title>Kişisel Rapor</title>
             <style>
               body { font-family: Helvetica, Arial, sans-serif; }
               .container { padding: 32px 18px; }
@@ -209,13 +209,13 @@ export default function AISummaryScreen() {
           </head>
           <body>
             <div class="container">
-              <h2>therapy<span style="color:#5DA1D9;">.</span> - Zihin Portresi</h2>
+              <h2>therapy<span style="color:#5DA1D9;">.</span> - Kişisel Rapor</h2>
               <div class="divider"></div>
               <div class="content">
                 ${convertMarkdownToHTML((activeSummary.reportSections.overview + '\n\n' + activeSummary.reportSections.goldenThread).trim())}
               </div>
               <div class="footer">
-                Bu PDF, therapy. uygulamasının AI analiz özelliği ile otomatik oluşturulmuştur.
+                Bu PDF, therapy. uygulamasının Kişisel Rapor özelliği ile otomatik oluşturulmuştur.
               </div>
             </div>
           </body>
@@ -224,7 +224,7 @@ export default function AISummaryScreen() {
 
       const options = {
         html: htmlContent,
-        fileName: `therapy_zihin_portresi_${new Date().toISOString().split("T")[0]}`,
+        fileName: `therapy_kisisel_rapor_${new Date().toISOString().split("T")[0]}`,
         directory: "Documents",
         base64: false,
         height: 842,
@@ -237,14 +237,14 @@ export default function AISummaryScreen() {
       if (file.filePath) {
         const fileUri = `file://${file.filePath}`;
         await Sharing.shareAsync(fileUri, {
-          dialogTitle: "Zihin Portresini Paylaş",
+          dialogTitle: "Raporunu Paylaş",
           mimeType: "application/pdf",
           UTI: Platform.OS === "ios" ? "com.adobe.pdf" : undefined,
         });
       }
     } catch (e) {
       console.error("PDF oluşturma hatası:", e);
-      Alert.alert("Hata", "PDF oluşturulurken bir hata oluştu.");
+      Toast.show({ type: 'error', text1: 'PDF Oluşturulamadı', text2: 'PDF oluşturulurken bir hata oluştu.' });
     }
   };
 
@@ -259,70 +259,85 @@ export default function AISummaryScreen() {
         <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Zihin Portresi</Text>
+        <Text style={styles.headerTitle}>Kişisel Rapor</Text>
 
       <View style={styles.content}>
-        <View style={styles.controlsBox}>
-          <Text style={styles.inputLabel}>
-            Kaç günlük veriyi analiz edelim?
-          </Text>
-          <Slider
-            minimumValue={1}
-            maximumValue={maxDays}
-            step={1}
-            value={selectedDays}
-            onValueChange={(v) => setSelectedDays(Array.isArray(v) ? v[0] : v)}
-            containerStyle={styles.sliderContainer}
-            trackStyle={styles.sliderTrack}
-            thumbStyle={styles.sliderThumb}
-            minimumTrackTintColor={Colors.light.tint}
-            renderThumbComponent={() => (
-              <View style={styles.thumbInner}>
-                <Text style={styles.thumbText}>{selectedDays}</Text>
-              </View>
-            )}
-          />
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.analyzeButton, loading && { opacity: 0.6 }]}
-              disabled={loading}
-              onPress={fetchSummary}
-            >
-              <LinearGradient
-                colors={["#F8FAFF", "#FFFFFF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.analyzeButtonGradient}
-              >
-                <View style={styles.analyzeButtonContent}>
-                  {loading ? (
-                    <ActivityIndicator size="small" color={Colors.light.tint} />
-                  ) : (
-                    <Ionicons
-                      name="analytics-outline"
-                      size={24}
-                      color={Colors.light.tint}
-                    />
-                  )}
-                  <Text style={styles.analyzeButtonText}>
-                    {loading ? "Analiz Ediliyor..." : "Analiz Oluştur"}
-                  </Text>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* YENİ: KARŞILAMA BÖLÜMÜ */}
+        <Text style={styles.welcomeTitle}>Tekrar Hoş Geldin</Text>
+        <Text style={styles.welcomeSubtitle}>
+          Geçmişini analiz ederek geleceğin için yeni bir kapı arala.
+        </Text>
 
+        {/* YENİ: KONTROL BÖLÜMÜ - ARTIK KART İÇİNDE DEĞİL */}
+        <Text style={styles.sectionHeader}>Yeni Bir Kişisel Rapor Oluştur</Text>
+        <Slider
+          minimumValue={1}
+          maximumValue={maxDays}
+          step={1}
+          value={selectedDays}
+          onValueChange={(v) => setSelectedDays(Array.isArray(v) ? v[0] : v)}
+          containerStyle={styles.sliderContainer}
+          trackStyle={styles.sliderTrack}
+          thumbStyle={styles.sliderThumb}
+          minimumTrackTintColor={Colors.light.tint}
+          renderThumbComponent={() => (
+            <View style={styles.thumbInner}>
+              <Text style={styles.thumbText}>{selectedDays}</Text>
+            </View>
+          )}
+        />
+        <TouchableOpacity
+          style={[styles.analyzeButton, loading && { opacity: 0.6 }]}
+          disabled={loading}
+          onPress={fetchSummary}
+        >
+          <LinearGradient
+            colors={[Colors.light.tint, '#4988E5']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.analyzeButtonGradient}
+          >
+            <View style={styles.analyzeButtonContent}>
+              {loading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="sparkles-outline" size={22} color="#FFFFFF" />
+              )}
+              <Text style={styles.analyzeButtonText}>
+                {loading ? "Analiz Ediliyor..." : `${selectedDays} Günlük Analiz Oluştur`}
+              </Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* LİSTE BÖLÜMÜ */}
         {loadingReports ? (
-          <View style={commonStyles.loadingCard}>
-            <ActivityIndicator size="small" color={Colors.light.tint} />
-            <Text style={commonStyles.loadingText}>Raporlar yükleniyor...</Text>
-          </View>
-        ) : analysisReports.length === 0 ? (
+          <View style={commonStyles.loadingCard}><ActivityIndicator /></View>
+        ) : analysisReports.length > 0 ? (
+          <>
+            <Text style={styles.listHeader}>Geçmiş Analizlerin</Text>
+            <Animated.FlatList
+              data={analysisReports}
+              itemLayoutAnimation={LinearTransition.duration(300)}
+              renderItem={({ item }) => (
+                <ReportCard
+                  item={item}
+                  onPress={() => {
+                    setActiveSummary(item.content);
+                    setModalVisible(true);
+                  }}
+                  onDelete={() => deleteSummary(item.id)}
+                />
+              )}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+            />
+          </>
+        ) : (
           <View style={styles.emptyState}>
             <View style={styles.emptyStateIconContainer}>
               <LinearGradient
-                colors={[Colors.light.tint, "rgba(255,255,255,0.9)"]}
+                colors={[Colors.light.tint, 'rgba(255,255,255,0.9)']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.emptyStateIconGradient}
@@ -341,67 +356,6 @@ export default function AISummaryScreen() {
               Duygu geçmişini analiz etmeye başla
             </Text>
           </View>
-        ) : (
-          <FlatList
-            data={analysisReports}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.summaryCard}
-                activeOpacity={0.9}
-                onPress={() => {
-                  setActiveSummary(item.content);
-                  setModalVisible(true);
-                }}
-              >
-                <LinearGradient
-                  colors={["#FFFFFF", "#F8FAFF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.summaryCardGradient}
-                >
-                  <View style={styles.summaryCardHeader}>
-                    <View style={styles.summaryCardIconContainer}>
-                      <Ionicons
-                        name="document-text-outline"
-                        size={20}
-                        color={Colors.light.tint}
-                      />
-                    </View>
-                    <View>
-                      <Text style={styles.summaryCardDate}>
-                        {new Date(item.created_at).toLocaleDateString(
-                          "tr-TR",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          },
-                        )}
-                      </Text>
-                      <Text style={styles.summaryCardDays}>
-                        {item.days_analyzed} günlük analiz
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={styles.summaryCardText} numberOfLines={3}>
-                    {stripMarkdownForPreview(item.content)}
-        </Text>
-                  <TouchableOpacity
-                    onPress={() => deleteSummary(item.id)}
-                    style={styles.deleteButton}
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={20}
-                      color="#E53E3E"
-                    />
-                  </TouchableOpacity>
-                </LinearGradient>
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContainer}
-          />
         )}
       </View>
 
@@ -441,11 +395,11 @@ export default function AISummaryScreen() {
                     colors={["#5DA1D9", "#4988E5"]}
                     style={styles.modalBadgeGradient}
                   >
-                    <Text style={styles.modalBadgeText}>AI ANALİZ</Text>
+                    <Text style={styles.modalBadgeText}>Kişisel Rapor</Text>
                   </LinearGradient>
       </View>
 
-                <Text style={styles.modalMainTitle}>{activeSummary ? activeSummary.reportSections.mainTitle : 'Zihin Portresi'}</Text>
+                <Text style={styles.modalMainTitle}>{activeSummary ? activeSummary.reportSections.mainTitle : 'Kişisel Rapor'}</Text>
                 <Text style={styles.modalSubtitle}>
                   {selectedDays} Günlük Derinlemesine Analiz
                 </Text>
@@ -828,27 +782,25 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    marginTop: 120,
+    paddingTop: 110,
   },
-  controlsBox: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 24,
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "rgba(93,161,217,0.15)",
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: '300',
+    color: '#1A1F36',
+    marginBottom: 8,
   },
-  inputLabel: {
+  welcomeSubtitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1A1F36",
+    color: '#6B7280',
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1F36',
     marginBottom: 16,
-    letterSpacing: -0.3,
   },
   sliderContainer: {
     marginBottom: 24,
@@ -878,27 +830,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 13,
   },
-  buttonContainer: {
-    gap: 16,
-  },
   analyzeButton: {
     width: "100%",
     height: 56,
     borderRadius: 28,
-    overflow: "hidden",
     shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(93,161,217,0.3)",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
   },
   analyzeButtonGradient: {
-    width: "100%",
-    height: "100%",
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: 28,
   },
   analyzeButtonContent: {
     flexDirection: "row",
@@ -906,11 +852,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   analyzeButtonText: {
-    color: Colors.light.tint,
+    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-    letterSpacing: -0.3,
+    fontWeight: '600',
+    marginLeft: 10,
   },
   emptyState: {
     alignItems: "center",
@@ -956,58 +901,12 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     letterSpacing: -0.3,
   },
-  summaryCard: {
-    marginBottom: 20,
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: Colors.light.tint,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 12,
-    borderWidth: 1.5,
-    borderColor: "rgba(93,161,217,0.3)",
-  },
-  summaryCardGradient: {
-    padding: 24,
-    backgroundColor: "#FFFFFF",
-  },
-  summaryCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  summaryCardIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(93,161,217,0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  summaryCardDate: {
+  listHeader: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1A1F36",
-    letterSpacing: -0.3,
-  },
-  summaryCardDays: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 2,
-  },
-  summaryCardText: {
-    fontSize: 15,
-    color: "#4A5568",
-    lineHeight: 22,
-    letterSpacing: -0.2,
-  },
-  deleteButton: {
-    position: "absolute",
-    top: 16,
-    right: 16,
-    padding: 8,
+    fontWeight: '600',
+    color: '#1A1F36',
+    marginTop: 40,
+    marginBottom: 16,
   },
   listContainer: {
     paddingVertical: 24,
