@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
+import UndoToast from "../../../components/dream/UndoToast.tsx";
 import SkeletonCard from "../../../components/dream/SkeletonCard.tsx";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { AppEvent, getDreamEvents } from "../../../services/event.service";
@@ -100,15 +101,21 @@ export default function DreamJournalScreen() {
 
       Toast.show({
         type: "custom",
-        text1: "Rüya Silindi",
-        text2: "İşlem geri alınabilir.",
+        position: 'bottom',
+        visibilityTime: 5000,
         props: {
           onUndo: () => {
-            // Geri Alma mantığı şimdilik sadece UI'ı geri alır.
-            // Sunucuda geri alma daha karmaşık, onu sonra yaparız.
+            console.log("UNDO! Silme işlemi geri alınıyor...");
             queryClient.setQueryData(["dreamEvents"], previousAnalyses);
+            deleteMutation.reset();
             Toast.hide();
           },
+          render: () => <UndoToast onUndo={() => {
+            console.log("UNDO! Silme işlemi geri alınıyor...");
+            queryClient.setQueryData(["dreamEvents"], previousAnalyses);
+            deleteMutation.reset();
+            Toast.hide();
+          }} />
         },
       });
 

@@ -203,6 +203,33 @@ export async function handleApiGateway(req: Request): Promise<Response> {
         break;
       }
 
+      case "gemini-embed": {
+        const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+        if (!geminiApiKey) {
+          throw new Error("Sunucuda GEMINI_API_KEY sırrı bulunamadı!");
+        }
+        const embedRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${geminiApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "models/embedding-001",
+              content: { parts: [{ text: payload.content }] },
+            }),
+          },
+        );
+        const embedData = await embedRes.json();
+        if (!embedRes.ok) {
+          throw new Error(
+            (embedData as { error?: { message?: string } })?.error?.message ||
+              "Embedding API error.",
+          );
+        }
+        responseData = embedData;
+        break;
+      }
+
       case "speech-to-text": {
         // ... bu kısım aynı ...
         responseData = { ok: true };

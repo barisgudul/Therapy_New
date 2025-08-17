@@ -4,9 +4,14 @@ import { InteractionContext } from "../types/context";
 import { ApiError } from "../utils/errors";
 import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service";
 import { EventPayload } from "./event.service";
-import { OrchestratorSuccessResult } from "./orchestration.handlers";
+import { DiaryStart } from "../utils/schemas";
+type OrchestratorSuccessResult = string | DiaryStart | {
+  success: boolean;
+  message: string;
+};
 import { SystemHealthMonitor } from "./system-health-monitor.service";
 import * as VaultService from "./vault.service";
+import { supabase } from "../utils/supabase";
 
 // React Native uyumlu UUID generator
 function generateId(): string {
@@ -76,6 +81,22 @@ export async function processUserMessage(
     // Hata durumunda kullanıcıya anlamlı bir mesaj ver
     throw new ApiError("İsteğiniz işlenirken bir sorun oluştu.");
   }
+}
+
+// BU FONKSİYON ARTIK TEK BİR İŞ YAPIYOR: BEYNİ ÇAĞIRMAK!
+export async function processUserEvent(
+  eventPayload: EventPayload,
+): Promise<any> {
+  const { data, error } = await supabase.functions.invoke("orchestrator", {
+    body: { eventPayload },
+  });
+
+  if (error) {
+    console.error("Orchestrator function invoke error:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
 }
 
 /**

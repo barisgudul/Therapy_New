@@ -20,9 +20,10 @@ import InterpretationCard from "../../../components/dream/InterpretationCard.tsx
 import ResultSkeleton from "../../../components/dream/ResultSkeleton.tsx";
 import SummaryCard from "../../../components/dream/SummaryCard.tsx";
 import ThemesCard from "../../../components/dream/ThemesCard.tsx";
+import FeedbackCard from "../../../components/dream/FeedbackCard.tsx";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { getUsageStatsForUser } from "../../../services/api.service";
-import { getEventById } from "../../../services/event.service";
+import { AppEvent, getEventById } from "../../../services/event.service";
 import { processUserMessage } from "../../../services/orchestration.service";
 import { JsonValue } from "../../../types/json";
 import { supabase } from "../../../utils/supabase";
@@ -167,6 +168,24 @@ export default function DreamResultScreen() {
         onSettled: () => {
             // Başarılı veya hatalı, her durumda sonunda veriyi sunucuyla senkronize et.
             queryClient.invalidateQueries({ queryKey: ["dreamResult", id] });
+        },
+    });
+
+    // Geri bildirim RPC mutasyonu
+    const feedbackMutation = useMutation({
+        mutationFn: async ({ eventId, score }: { eventId: string; score: 1 | -1 }) => {
+            const { error } = await supabase.rpc('submit_dream_feedback', {
+                event_id_to_update: eventId,
+                feedback_score: score,
+            });
+            if (error) throw new Error(error.message);
+        },
+        onSuccess: () => {
+            Toast.show({ type: 'success', text1: 'Geri bildiriminiz kaydedildi!' });
+            queryClient.invalidateQueries({ queryKey: ["dreamResult", id] });
+        },
+        onError: (e: Error) => {
+            Toast.show({ type: 'error', text1: 'Hata', text2: e.message });
         },
     });
 
@@ -325,6 +344,17 @@ export default function DreamResultScreen() {
                         onInputChange={setUserInput}
                         onSendMessage={handleSendMessage}
                         maxInteractions={event.dialogueLimit || 3}
+                    />
+
+                    {/* YENİ FEEDBACK KARTI */}
+                    <FeedbackCard
+                        isSubmitting={feedbackMutation.isPending}
+                        feedbackSent={!!(event as AppEvent).data?.feedback}
+                        onSubmitFeedback={(score) => {
+                            if (event?.id) {
+                                feedbackMutation.mutate({ eventId: event.id, score });
+                            }
+                        }}
                     />
                 </ScrollView>
             </SafeAreaView>

@@ -1,12 +1,20 @@
 // supabase/functions/_shared/ai.service.ts
 
-import { AppEvent } from './event.service.ts';
-import { supabase } from './supabase-admin.ts'; // Admin client'ı buradan alacağız
-import { ApiError } from './errors.ts';
-import { VaultData } from './types/context.ts'; // VaultData tipini import et
+import { AppEvent } from "./event.service.ts";
+import { supabase } from "./supabase-admin.ts"; // Admin client'ı buradan alacağız
+import { ApiError } from "./errors.ts";
+import { VaultData } from "./types/context.ts"; // VaultData tipini import et
 
 // Bu fonksiyonu bu dosyanın içine taşıdık.
-export async function invokeGemini(prompt: string, model: string, config?: { temperature?: number; responseMimeType?: string }): Promise<string> {
+export async function invokeGemini(
+  prompt: string,
+  model: string,
+  config?: {
+    temperature?: number;
+    responseMimeType?: string;
+    maxOutputTokens?: number;
+  },
+): Promise<string> {
   try {
     const { data, error } = await supabase.functions.invoke("api-gateway", {
       body: {
@@ -16,10 +24,10 @@ export async function invokeGemini(prompt: string, model: string, config?: { tem
     });
 
     if (error) throw error;
-    
+
     const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!reply) throw new Error("API Gateway'den boş Gemini yanıtı alındı.");
-    
+
     return reply;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -33,15 +41,15 @@ export async function invokeGemini(prompt: string, model: string, config?: { tem
 export interface ElegantReportPayload {
   // Artık tek bir markdown yok. Her parçanın kendi kimliği var.
   reportSections: {
-    mainTitle: string;        // Ana Başlık
-    overview: string;         // Genel Bakış
-    goldenThread: string;     // Altın İplik
-    blindSpot: string;        // Kör Nokta
+    mainTitle: string; // Ana Başlık
+    overview: string; // Genel Bakış
+    goldenThread: string; // Altın İplik
+    blindSpot: string; // Kör Nokta
   };
   // Metafor: Kelimelerin ötesine geçmek için.
   reportAnalogy: {
-    title: string;            // Metafor Başlığı
-    text: string;             // Metaforun açıklaması
+    title: string; // Metafor Başlığı
+    text: string; // Metaforun açıklaması
   };
   // Türetilmiş veri (keywords kaldırıldı)
   derivedData: {
@@ -60,18 +68,29 @@ export async function generateElegantReport(
   const hasAnyEvents = Array.isArray(events) && events.length > 0;
   const formattedEvents = hasAnyEvents
     ? events.map((e) => {
-        const content = e.data?.text || e.data?.dreamText || e.data?.todayNote || 'İçerik detayı yok.';
-        return `- ${new Date(e.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' })}: [${e.type}] - ${String(content).substring(0, 150)}`;
-      }).join('\n')
-    : '- Veri sinyali sınırlı.';
+      const content = e.data?.text || e.data?.dreamText || e.data?.todayNote ||
+        "İçerik detayı yok.";
+      return `- ${
+        new Date(e.created_at).toLocaleDateString("tr-TR", {
+          day: "numeric",
+          month: "long",
+        })
+      }: [${e.type}] - ${String(content).substring(0, 150)}`;
+    }).join("\n")
+    : "- Veri sinyali sınırlı.";
 
-  const goalLine = vault?.profile?.therapyGoals ? `KULLANICININ HEDEFİ: ${String(vault.profile.therapyGoals)}` : '';
+  const goalLine = vault?.profile?.therapyGoals
+    ? `KULLANICININ HEDEFİ: ${String(vault.profile.therapyGoals)}`
+    : "";
   const predictionsBlock = (predictions && predictions.length > 0)
-    ? `GEÇMİŞ TAHMİNLER:\n` + predictions.map((p) => `- ${p.title}: ${p.description}`).join('\n')
-    : '';
+    ? `GEÇMİŞ TAHMİNLER:\n` +
+      predictions.map((p) => `- ${p.title}: ${p.description}`).join("\n")
+    : "";
   // Kullanıcı bağlamı: isim bilgisi varsa, AI doğrudan ismiyle hitap etsin
   const userName = vault?.profile?.nickname ?? null;
-  const userContextLine = userName ? `KULLANICI BİLGİSİ: İsmi ${userName}.` : '';
+  const userContextLine = userName
+    ? `KULLANICI BİLGİSİ: İsmi ${userName}.`
+    : "";
 
   // PANO tarzı çıktı isteyen yeni prompt (Aynadaki Yansıma: ikinci tekil şahıs zorunlu)
   const prompt = `
@@ -112,7 +131,10 @@ export async function generateElegantReport(
   - Emoji YOK. Liste YOK.
   `;
 
-  const responseText = await invokeGemini(prompt, 'gemini-1.5-pro', { responseMimeType: 'application/json', temperature: 0.7 });
+  const responseText = await invokeGemini(prompt, "gemini-1.5-pro", {
+    responseMimeType: "application/json",
+    temperature: 0.7,
+  });
 
   try {
     const parsed = JSON.parse(responseText) as ElegantReportPayload;
@@ -126,12 +148,30 @@ export async function generateElegantReport(
   // Güvenli fallback
   return {
     reportSections: {
-      mainTitle: 'Analiz Başarısız Oldu',
-      overview: 'Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.',
-      goldenThread: '',
-      blindSpot: '',
+      mainTitle: "Analiz Başarısız Oldu",
+      overview: "Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.",
+      goldenThread: "",
+      blindSpot: "",
     },
-    reportAnalogy: { title: 'Veri Akışı Kesintisi', text: 'Sinyal alınamadı.' },
+    reportAnalogy: { title: "Veri Akışı Kesintisi", text: "Sinyal alınamadı." },
     derivedData: { readMinutes: 1, headingsCount: 1 },
   };
+}
+
+// Embedding helper - API Gateway üstünden Gemini Embedding çağrısı
+export async function embedContent(content: string): Promise<any> {
+  try {
+    const { data, error } = await supabase.functions.invoke("api-gateway", {
+      body: {
+        type: "gemini-embed",
+        payload: { content },
+      },
+    });
+    if (error) throw error;
+    return data;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[embedContent] Hatası:", msg);
+    return { embedding: null, error: msg };
+  }
 }

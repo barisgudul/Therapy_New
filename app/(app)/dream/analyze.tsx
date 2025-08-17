@@ -18,8 +18,8 @@ import {
 import Toast from "react-native-toast-message";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { useVault } from "../../../hooks/useVault";
-import { handleDreamAnalysis } from "../../../services/orchestration.handlers";
-import { supabase } from "../../../utils/supabase";
+import { processUserEvent } from "../../../services/orchestration.service";
+import { canUserAnalyzeDream } from "../../../services/event.service";
 
 export default function AnalyzeDreamScreen() {
   const [dream, setDream] = useState("");
@@ -28,46 +28,28 @@ export default function AnalyzeDreamScreen() {
   const queryClient = useQueryClient();
 
   // ADIM 2'DEKİ DÜZELTME: Vault verisini baştan alıyoruz.
-  const { data: vault, isLoading: isVaultLoading } = useVault();
+  const { data: _vault, isLoading: isVaultLoading } = useVault();
 
   // YENİ VE AKILLI useMutation BLOĞU
   const analyzeMutation = useMutation({
-    // MUTATIONFN ARTIK BÖYLE: Parametre almayan bir async fonksiyon.
-    // İhtiyacı olan her şeyi içeriden, anlık olarak kendisi toplar.
     mutationFn: async () => {
-      // 1. Önce kontrollerini yap, boş yere backend'i yorma.
+      // --- YENİ KONTROL KAPI KİLİDİ ---
+      const { canAnalyze } = await canUserAnalyzeDream();
+      if (!canAnalyze) {
+        throw new Error("Günlük rüya analizi limitinize ulaştınız.");
+      }
+      // --- KONTROL BİTTİ ---
+
       if (dream.trim().length < 20) {
-        throw new Error(
-          "Lütfen analize başlamak için rüyanızı biraz daha detaylı anlatın.",
-        );
+        throw new Error("Lütfen rüyanızı biraz daha detaylı anlatın.");
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // Bu bir yetkilendirme hatası.
-        throw new Error(
-          "Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.",
-        );
-      }
-
-      // Context'i burada, butona basıldığı anki TAZE verilerle oluştur.
-      const dreamAnalysisContext = {
-        transactionId: "dream-tx-" + Date.now(),
-        userId: user.id,
-        initialVault: vault || {}, // Vault'u buraya TAZE TAZE koy.
-        initialEvent: {
-          id: "temp-event-" + Date.now(),
-          user_id: user.id,
-          type: "dream_analysis" as const,
-          timestamp: Date.now(),
-          created_at: new Date().toISOString(),
-          data: { dreamText: dream.trim() }, // trim() ekle, boşlukları temizle.
-        },
-        derivedData: {},
+      const eventPayload = {
+        type: "dream_analysis" as const,
+        data: { dreamText: dream.trim() },
       };
 
-      // İşte beyni burada çağırıyoruz.
-      return handleDreamAnalysis(dreamAnalysisContext);
+      return await processUserEvent(eventPayload);
     },
 
     // BAŞARI DURUMU: Dönen şeyin eventId (string) olduğunu biliyoruz.
@@ -90,11 +72,15 @@ export default function AnalyzeDreamScreen() {
     // HATA DURUMU: Gelen hatayı olduğu gibi basma, anlaşılır hale getir.
     onError: (e: Error) => {
       setError(e.message || "Beklenmedik bir hata oluştu.");
-      Toast.show({
-        type: "error",
-        text1: "Analiz Başarısız Oldu",
-        text2: e.message || "Lütfen daha sonra tekrar deneyin.",
-      });
+      if ((e.message || "").includes("limitinize ulaştınız")) {
+        Toast.show({ type: "info", text1: "Limit Doldu", text2: e.message });
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "Analiz Başarısız Oldu",
+          text2: e.message || "Lütfen daha sonra tekrar deneyin.",
+        });
+      }
     },
   });
 
