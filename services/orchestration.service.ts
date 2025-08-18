@@ -87,6 +87,7 @@ export async function processUserMessage(
 export interface ConversationPayload {
   userInput: string;
   conversationId: string | null;
+  turn: number;
 }
 export interface ConversationResponse {
   aiResponse: string;

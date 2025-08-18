@@ -83,17 +83,7 @@ function RootLayoutNav() {
   // Her şey hazır, ana navigasyonu göster.
   return (
     <ThemeProvider value={DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Bütün "giriş yapılmış" ekranlar bu gruptan yönetilecek */}
-        <Stack.Screen name="(app)" /> 
-        
-        {/* Bütün "giriş/kayıt" ekranları bu gruptan yönetilecek */}
-        <Stack.Screen name="(auth)" /> 
-        
-        {/* Diğer gruplar */}
-        <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="(settings)" /> 
-      </Stack>
+      <Stack screenOptions={{ headerShown: false }} />
       <StatusBar style="dark" />
     </ThemeProvider>
   );

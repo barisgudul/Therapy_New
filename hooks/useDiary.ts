@@ -22,6 +22,7 @@ export interface Message {
     text: string;
     isUser: boolean;
     timestamp: number;
+    isQuestionContext?: boolean;
 }
 export type DiaryMode = "list" | "view" | "write";
 
@@ -29,12 +30,15 @@ export function useDiary() {
     const queryClient = useQueryClient();
 
     const [mode, setMode] = useState<DiaryMode>("list");
+    const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
     const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [currentQuestions, setCurrentQuestions] = useState<string[]>([]);
     const [currentInput, setCurrentInput] = useState("");
     const [isModalVisible, setIsModalVisible] = useState(false);
-    const [conversationId, setConversationId] = useState<string | null>(null);
+    const [conversationState, setConversationState] = useState<
+        { id: string | null; turn: number }
+    >({ id: null, turn: 0 });
     const [isConversationDone, setIsConversationDone] = useState<boolean>(
         false,
     );
@@ -56,19 +60,24 @@ export function useDiary() {
     // --- BEYNE BAĞLANAN MUTASYONLAR ---
 
     const conversationMutation = useMutation({
-        mutationFn: (payload: { text: string; convoId: string | null }) =>
-            processUserEvent({
-                type: "diary_entry",
-                data: {
-                    userInput: payload.text,
-                    conversationId: payload.convoId,
-                },
-            }),
+        mutationFn: (
+            payload: { text: string; convoId: string | null; turn: number },
+        ) => processUserEvent({
+            type: "diary_entry",
+            data: {
+                userInput: payload.text,
+                conversationId: payload.convoId,
+                turn: payload.turn,
+            },
+        }),
         onSuccess: (response: ConversationResponse) => {
             if (response.aiResponse) {
                 addMessage(response.aiResponse, false);
             }
-            setConversationId(response.conversationId);
+            setConversationState((prev) => ({
+                id: response.conversationId,
+                turn: prev.turn + 1,
+            }));
             if (response.isFinal) {
                 setIsConversationDone(true);
                 setCurrentQuestions([]);
@@ -158,26 +167,52 @@ export function useDiary() {
         setCurrentQuestions([]);
         setCurrentInput("");
         setSelectedDiaryId(null);
-        setConversationId(null);
+        setConversationState({ id: null, turn: 0 });
         setIsConversationDone(false);
+        setActiveQuestion(null);
     }, []);
 
     const handleStartNewDiary = useCallback(() => {
         resetWritingState();
         setMode("write");
     }, [resetWritingState]);
-    const addMessage = (text: string, isUser: boolean) =>
-        setMessages(
-            (prev) => [...prev, { text, isUser, timestamp: Date.now() }],
-        );
+    const addMessage = (
+        text: string,
+        isUser: boolean,
+        options?: { isQuestionContext?: boolean },
+    ) => setMessages(
+        (
+            prev,
+        ) => [...prev, { text, isUser, timestamp: Date.now(), ...options }],
+    );
 
     const handleSubmitAnswer = () => {
         if (!currentInput.trim() || conversationMutation.isPending) return;
-        const text = currentInput.trim();
-        addMessage(text, true);
-        conversationMutation.mutate({ text, convoId: conversationId });
+
+        const userInputText = currentInput.trim();
+        let combinedInput: string;
+
+        if (activeQuestion) {
+            // Önce seçilen soruyu doğru aktörle (AI) ve özel işaretle kaydet, sonra cevabı ekle
+            addMessage(activeQuestion, false, { isQuestionContext: true });
+            addMessage(userInputText, true);
+            combinedInput = `${activeQuestion}\n\n${userInputText}`;
+        } else {
+            addMessage(userInputText, true);
+            combinedInput = userInputText;
+        }
+
+        conversationMutation.mutate({
+            text: combinedInput,
+            convoId: conversationState.id,
+            turn: conversationState.turn,
+        });
+
+        // Temizlik
         setCurrentInput("");
+        setActiveQuestion(null);
         setIsModalVisible(false);
+        setCurrentQuestions([]);
     };
 
     return {
@@ -192,6 +227,7 @@ export function useDiary() {
             currentQuestions,
             isModalVisible,
             currentInput,
+            activeQuestion,
             isConversationDone,
         },
         handlers: {
@@ -205,10 +241,13 @@ export function useDiary() {
                 setSelectedDiaryId(null);
             },
             openModal: () => setIsModalVisible(true),
-            closeModal: () => setIsModalVisible(false),
+            closeModal: () => {
+                setIsModalVisible(false);
+                setActiveQuestion(null);
+            },
             changeInput: setCurrentInput,
             selectQuestion: (q: string) => {
-                addMessage(q, false);
+                setActiveQuestion(q);
                 setIsModalVisible(true);
             },
             submitAnswer: handleSubmitAnswer,

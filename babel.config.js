@@ -1,9 +1,9 @@
-// babel.config.js
-module.exports = {
-  presets: [
-    'module:metro-react-native-babel-preset',
-    '@babel/preset-typescript',
-  ],
+// babel.config.js (Expo önerilen yapılandırma)
+module.exports = function(api) {
+  api.cache(true);
+  return {
+    presets: ['babel-preset-expo'],
+  };
 };
 
 

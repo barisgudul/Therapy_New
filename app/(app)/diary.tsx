@@ -7,9 +7,12 @@ import { DiaryView } from "../../components/diary/DiaryView";
 import { WritingMode } from "../../components/diary/WritingMode";
 import ErrorBoundary from 'react-native-error-boundary';
 import { ErrorFallbackUI } from '../../components/shared/ErrorFallbackUI';
+import { useAuth } from "../../context/Auth";
 
 export default function DiaryScreen() {
   const { state, handlers } = useDiary();
+  const { user } = useAuth();
+  const userName = user?.user_metadata?.nickname ?? "Sen";
 
   const errorHandler = (error: Error, stackTrace: string) => {
     console.error("ErrorBoundary yakaladı:", error, stackTrace);
@@ -36,6 +39,8 @@ export default function DiaryScreen() {
           isConversationDone={state.isConversationDone}
           isModalVisible={state.isModalVisible}
           currentInput={state.currentInput}
+          activeQuestion={state.activeQuestion}
+          userName={userName}
           onSelectQuestion={handlers.selectQuestion}
           onSaveDiary={handlers.saveDiary}
           onOpenModal={handlers.openModal}

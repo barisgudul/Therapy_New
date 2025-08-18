@@ -1,18 +1,17 @@
 // utils/supabase.ts
 import { createClient } from "@supabase/supabase-js";
 import Constants from "expo-constants";
-import process from "node:process";
-
-// React Native için doğru ortam değişkeni yaklaşımı
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl ||
-  process.env.EXPO_PUBLIC_SUPABASE_URL;
-
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey ||
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// React Native ortamında sadece Expo Constants kullan
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl as
+  | string
+  | undefined;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey as
+  | string
+  | undefined;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    "Supabase URL veya Anon Key bulunamadı. app.config.js'i kontrol et.",
+    "Supabase URL veya Anon Key bulunamadı. Lütfen app.config.js'deki 'extra' alanını kontrol et.",
   );
 }
 

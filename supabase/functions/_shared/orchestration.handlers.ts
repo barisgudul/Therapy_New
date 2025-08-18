@@ -10,6 +10,7 @@ import { getDreamAnalysisV2Prompt } from "./prompts/dreamAnalysisV2.prompt.ts";
 import * as VaultService from "./vault.service.ts";
 import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
 import {
+  getDiaryConclusionPrompt,
   getDiaryNextQuestionsPrompt,
   getDiaryStartPrompt,
 } from "./prompts/diary.prompt.ts";
@@ -394,7 +395,7 @@ export function handleDefault(
 
 export const eventHandlers: Record<
   string,
-  (context: InteractionContext) => Promise<string>
+  (context: InteractionContext) => Promise<unknown>
 > = {
   "dream_analysis": handleDreamAnalysis,
   "daily_reflection": handleDailyReflection,
@@ -421,61 +422,111 @@ const NextQuestionsSchema = z.object({
 
 export async function handleDiaryEntry(
   context: InteractionContext,
-): Promise<string> {
-  console.log(
-    `[ORCHESTRATOR] Günlük diyaloğu işleniyor: ${context.transactionId}`,
-  );
-  const input = context.initialEvent.data as {
-    initialEntry?: string;
-    conversationHistory?: string;
+): Promise<
+  {
+    aiResponse: string;
+    nextQuestions: string[];
+    isFinal: boolean;
+    conversationId: string;
+  }
+> {
+  console.log(`[DiaryHandler] İşlem başladı: ${context.transactionId}`);
+
+  const { userInput, conversationId } = context.initialEvent.data as {
+    userInput?: string;
+    conversationId?: string | null;
+  };
+  const userName = context.initialVault.profile?.nickname ?? null;
+  const vaultContext = `
+    - Terapi Hedefleri: ${
+    context.initialVault.profile?.therapyGoals || "Belirtilmemiş"
+  }
+    - Temel İnançları: ${
+    JSON.stringify(context.initialVault.coreBeliefs || {}) || "Belirtilmemiş"
+  }
+  `;
+
+  if (!userInput) {
+    throw new ValidationError("Giriş metni ('userInput') eksik.");
+  }
+
+  const responsePayload: {
+    aiResponse: string;
+    nextQuestions: string[];
+    isFinal: boolean;
+    conversationId: string;
+  } = {
+    aiResponse: "",
+    nextQuestions: [],
+    isFinal: false,
+    conversationId: conversationId || context.transactionId,
   };
 
-  if (input.initialEntry) {
-    const prompt = getDiaryStartPrompt(input.initialEntry);
-    const raw = await AiService.invokeGemini(prompt, "gemini-1.5-flash", {
-      responseMimeType: "application/json",
-    });
-    let payload: { mood: string; questions: string[] } | null = null;
-    try {
-      const parsed = JSON.parse(raw);
-      const res = DiaryStartSchema.safeParse(parsed);
-      if (!res.success) {
-        throw new ValidationError(
-          "AI'dan beklenen başlangıç formatı alınamadı.",
-        );
-      }
-      payload = res.data;
-    } catch (_e) {
-      throw new ValidationError(
-        "Yapay zekadan gelen veri beklenen formata uymuyor (diary start).",
-      );
+  if (!conversationId) {
+    // Yeni konuşma başlangıcı
+    console.log("[DiaryHandler] Yeni bir günlük konuşması başlatılıyor.");
+    const prompt = getDiaryStartPrompt(userInput, userName, vaultContext);
+    const rawAiResponse = await AiService.invokeGemini(
+      prompt,
+      "gemini-1.5-flash",
+      {
+        responseMimeType: "application/json",
+      },
+    );
+    const validation = DiaryStartSchema.safeParse(JSON.parse(rawAiResponse));
+    if (!validation.success) {
+      throw new ValidationError("AI'dan dönen başlangıç verisi geçersiz.");
     }
-    // Günlük başlangıcı için sadece sonuç döndür, kalıcı yazımı frontend tetikler
-    return JSON.stringify(payload);
+    responsePayload.aiResponse = userName
+      ? `Anlıyorum seni ${userName}. Daha derine inmek için şu konulardan biriyle devam edelim mi?`
+      : "Anlattıklarını anlıyorum. Daha derine inmek için şu konulardan biriyle devam edelim mi?";
+    responsePayload.nextQuestions = validation.data.questions;
+  } else {
+    // Devam eden konuşma
+    console.log(`[DiaryHandler] Konuşma devam ediyor: ${conversationId}`);
+    const prompt = getDiaryNextQuestionsPrompt(userInput, userName);
+    const rawAiResponse = await AiService.invokeGemini(
+      prompt,
+      "gemini-1.5-flash",
+      {
+        responseMimeType: "application/json",
+      },
+    );
+    const validation = NextQuestionsSchema.safeParse(JSON.parse(rawAiResponse));
+    if (!validation.success) {
+      throw new ValidationError("AI'dan dönen devam verisi geçersiz.");
+    }
+
+    const shouldEndConversation = Math.random() > 0.6;
+    if (shouldEndConversation) {
+      console.log(
+        "[DiaryHandler] Konuşma bitiriliyor. Kapanış analizi üretiliyor...",
+      );
+      const conclusionPrompt = getDiaryConclusionPrompt(userInput, userName);
+      const rawConclusion = await AiService.invokeGemini(
+        conclusionPrompt,
+        "gemini-1.5-flash",
+        { responseMimeType: "application/json" },
+      );
+      let summary = "";
+      try {
+        const parsed = JSON.parse(rawConclusion) as { summary?: string };
+        summary = parsed.summary ||
+          "Bugünkü konuşmanın ana fikrini güzelce toparladın.";
+      } catch (_e) {
+        summary = "Bugünkü konuşmanın ana fikrini güzelce toparladın.";
+      }
+      responsePayload.aiResponse =
+        `${summary}\n\nHarika gidiyorsun! Günlüğü kaydetmeye ne dersin?`;
+      responsePayload.isFinal = true;
+      responsePayload.nextQuestions = [];
+    } else {
+      responsePayload.aiResponse = userName
+        ? `Bu önemli bir nokta, ${userName}. Peki, bu düşünceni biraz daha açalım mı?`
+        : "Bu önemli bir nokta. Peki, bu düşünceni biraz daha açalım mı?";
+      responsePayload.nextQuestions = validation.data.questions;
+    }
   }
 
-  if (input.conversationHistory) {
-    const prompt = getDiaryNextQuestionsPrompt(input.conversationHistory);
-    const raw = await AiService.invokeGemini(prompt, "gemini-1.5-flash", {
-      responseMimeType: "application/json",
-    });
-    let payload: { questions: string[] } | null = null;
-    try {
-      const parsed = JSON.parse(raw);
-      const res = NextQuestionsSchema.safeParse(parsed);
-      if (!res.success) {
-        throw new ValidationError("AI'dan beklenen devam formatı alınamadı.");
-      }
-      payload = res.data;
-    } catch (_e) {
-      throw new ValidationError(
-        "Yapay zekadan gelen veri beklenen formata uymuyor (diary next).",
-      );
-    }
-    return JSON.stringify({ nextQuestions: payload.questions });
-  }
-
-  throw new ValidationError(
-    "Eksik girdi: 'initialEntry' veya 'conversationHistory' gerekli.",
-  );
+  return responsePayload;
 }

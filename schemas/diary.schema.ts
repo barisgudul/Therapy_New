@@ -12,7 +12,7 @@ export const DiaryEventDataSchema = z.object({
 }).nullable();
 
 export const AppEventSchema = z.object({
-    id: z.string(),
+    id: z.union([z.string(), z.number()]).transform((val) => String(val)),
     user_id: z.string(),
     type: z.string(),
     timestamp: z.number(),
