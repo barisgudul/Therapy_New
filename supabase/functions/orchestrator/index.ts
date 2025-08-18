@@ -55,18 +55,18 @@ serve(async (req: Request) => {
 
     const result = await handler(context);
 
-    // SON DİKİŞ: DÖNEN SONUCUN TİPİNİ KONTROL ET
-    let responseBody: string;
+    // SON DİKİŞ: DÖNEN SONUCUN TİPİNİ KONTROL ET VE STANDARTLAŞTIR
+    let responsePayload: unknown;
 
+    // RÜYA ANALİZİ GİBİ SADECE ID DÖNEN DURUMLAR İÇİN: her zaman tutarlı bir JSON objesi döndür.
     if (typeof result === "string") {
-      // Eğer sonuç string ise (eski handler'lar gibi), olduğu gibi kullan.
-      responseBody = JSON.stringify({ aiResponse: result }); // Frontend'in bekleme ihtimaline karşı obje formatında yollamak daha güvenli.
+      responsePayload = { eventId: result };
     } else {
-      // Eğer sonuç bir obje ise (bizim yeni diary handler'ımız gibi), onu string'e çevir.
-      responseBody = JSON.stringify(result);
+      // GÜNLÜK GİBİ KOMPLEKS OBJE DÖNEN DURUMLAR İÇİN: zaten obje olanı olduğu gibi kullan.
+      responsePayload = result;
     }
 
-    return new Response(responseBody, {
+    return new Response(JSON.stringify(responsePayload), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router/";
+import { MotiView } from "moti";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { COSMIC_COLORS } from "../../../constants/Colors";
@@ -97,68 +99,85 @@ export default function AnalyzeDreamScreen() {
     analyzeMutation.mutate(); // Mutasyonu parametresiz çağır.
   };
 
+  const MIN_LEN = 20;
+  const trimmedLen = dream.trim().length;
+  const canSubmit = trimmedLen >= MIN_LEN && !analyzeMutation.isPending && !isVaultLoading;
+
   return (
     <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
-      <TouchableOpacity
-        onPress={() =>
-          router.back()}
-        style={styles.backButton}
-      >
-        <Ionicons
-          name="chevron-back"
-          size={28}
-          color={COSMIC_COLORS.textPrimary}
-        />
-      </TouchableOpacity>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color={COSMIC_COLORS.textPrimary} />
+        </TouchableOpacity>
+      </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.container}
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={20}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={styles.headerTitle}>Yeni Rüya</Text>
-          <Text style={styles.headerSubtext}>
-            Zihninizin derinliklerinden gelen mesajı yazın.
-          </Text>
+          <MotiView from={{ opacity: 0, translateY: -10 }} animate={{ opacity: 1, translateY: 0 }}>
+            <Ionicons name="moon-outline" size={36} color={COSMIC_COLORS.accent} style={styles.moonIcon} />
+            <Text style={styles.headerTitle}>Yeni Rüya</Text>
+            <Text style={styles.headerSubtext}>
+              Zihninizin derinliklerinden gelen mesajı yazın.
+            </Text>
+          </MotiView>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Gecenin sessizliğinde zihnimde belirenler..."
-            placeholderTextColor={COSMIC_COLORS.textSecondary}
-            multiline
-            value={dream}
-            onChangeText={setDream}
-            editable={!analyzeMutation.isPending}
-            selectionColor={COSMIC_COLORS.accent}
-          />
+          <MotiView from={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 100 }}>
+            <View style={styles.inputCard}>
+              <TextInput
+                style={styles.input}
+                placeholder="Gecenin sessizliğinde zihnimde belirenler..."
+                placeholderTextColor={COSMIC_COLORS.textSecondary}
+                multiline
+                value={dream}
+                onChangeText={setDream}
+                editable={!analyzeMutation.isPending}
+                selectionColor={COSMIC_COLORS.accent}
+              />
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.helperText}>Özel kalır, sadece analiz için kullanılır.</Text>
+              <Text style={styles.counter}>{trimmedLen}/{MIN_LEN}</Text>
+            </View>
+          </MotiView>
 
           {error && <Text style={styles.errorText}>{error}</Text>}
-
-          <TouchableOpacity
-            style={[
-              styles.analyzeButton,
-              // Butonun pasif görünmesini sağlayan stil
-              (analyzeMutation.isPending || isVaultLoading) && { opacity: 0.7 },
-            ]}
-            // Analiz işlemi sürerken VEYA vault yüklenirken butonu devre dışı bırak
-            disabled={analyzeMutation.isPending || isVaultLoading}
-            onPress={handleAnalyzePress}
-          >
-            {analyzeMutation.isPending
-              ? <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
-              : isVaultLoading
-              ? (
-                // Vault yüklenirken farklı bir mesaj göster, daha şık olur.
-                <Text style={styles.analyzeButtonText}>
-                  Veriler Hazırlanıyor...
-                </Text>
-              )
-              : <Text style={styles.analyzeButtonText}>Analiz Et</Text>}
-          </TouchableOpacity>
         </ScrollView>
+
+        <View style={styles.footer}>
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ delay: 200 }}
+            style={{ width: '100%' }}
+          >
+            <TouchableOpacity
+              style={styles.buttonContainer}
+              disabled={!canSubmit}
+              onPress={handleAnalyzePress}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={!canSubmit ? ['#4A5568', '#2D3748'] : ['#6AB1EC', '#4E98D9']}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.analyzeButton}
+              >
+                {analyzeMutation.isPending ? (
+                  <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
+                ) : (
+                  <Text style={styles.analyzeButtonText}>Analiz Et</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </MotiView>
+        </View>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -167,16 +186,12 @@ export default function AnalyzeDreamScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   backButton: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    zIndex: 10,
-    padding: 8,
+    padding: 8 
   },
   scrollContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: 24,
+    paddingTop: 120,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 32,
@@ -192,14 +207,37 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   input: {
-    backgroundColor: COSMIC_COLORS.inputBg,
+    backgroundColor: COSMIC_COLORS.card,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COSMIC_COLORS.cardBorder,
     padding: 16,
     fontSize: 16,
-    minHeight: 200,
+    minHeight: 250,
     textAlignVertical: "top",
     color: COSMIC_COLORS.textPrimary,
-    marginBottom: 16,
+    lineHeight: 24,
+  },
+  inputCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COSMIC_COLORS.cardBorder,
+    backgroundColor: 'rgba(17, 24, 39, 0.35)',
+    padding: 8,
+  },
+  metaRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  helperText: {
+    color: COSMIC_COLORS.textSecondary,
+    fontSize: 12,
+  },
+  counter: {
+    color: COSMIC_COLORS.textSecondary,
+    fontSize: 12,
   },
   errorText: {
     color: "#FF7B7B",
@@ -208,15 +246,50 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   analyzeButton: {
-    backgroundColor: COSMIC_COLORS.accent,
     borderRadius: 28,
     paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 40,
+    justifyContent: 'center',
   },
   analyzeButtonText: {
     color: COSMIC_COLORS.textPrimary,
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "bold",
+    marginLeft: 10,
+    letterSpacing: 0.3,
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  header: {
+    position: 'absolute',
+    top: 60,
+    left: 12,
+    zIndex: 10,
+  },
+  footer: {
+    padding: 20,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COSMIC_COLORS.cardBorder,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+  },
+  moonIcon: {
+    alignSelf: 'center',
+    marginBottom: 8,
+    opacity: 0.9,
+  },
+  buttonContainer: {
+    borderRadius: 28,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 12,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

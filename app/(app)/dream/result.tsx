@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router/";
 import { MotiView } from "moti";
-import React, { useState } from "react";
+import React, { useRef, useLayoutEffect } from "react";
 import {
     SafeAreaView,
     ScrollView,
@@ -14,156 +14,80 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import CrossConnectionsCard from "../../../components/dream/CrossConnectionsCard.tsx";
-import DialogueCard from "../../../components/dream/DialogueCard.tsx";
 import ErrorState from "../../../components/dream/ErrorState.tsx";
 import InterpretationCard from "../../../components/dream/InterpretationCard.tsx";
 import ResultSkeleton from "../../../components/dream/ResultSkeleton.tsx";
 import SummaryCard from "../../../components/dream/SummaryCard.tsx";
 import ThemesCard from "../../../components/dream/ThemesCard.tsx";
 import FeedbackCard from "../../../components/dream/FeedbackCard.tsx";
+import Oracle from "../../../components/dream/Oracle.tsx";
+// NOTE: _Moti alias kaldırıldı; tek import kullanacağız
 import { COSMIC_COLORS } from "../../../constants/Colors";
-import { getUsageStatsForUser } from "../../../services/api.service";
-import { AppEvent, getEventById, type EventPayload } from "../../../services/event.service";
-import { processUserMessage } from "../../../services/orchestration.service";
-import type { JsonValue } from "../../../types/json";
+import { getLatestAnalysisReport } from "../../../services/api.service";
+import type { OracleOutput } from "../../../services/ai.service";
+import { AppEvent, getEventById } from "../../../services/event.service";
 import { supabase } from "../../../utils/supabase";
+// SimulationCard kaldırıldı
 
-// Diyalog mesaj tipi
-interface DialogueMessage {
-    text: string;
-    role: "user" | "model";
-}
+// Diyalog kartı kaldırıldı
 
 export default function DreamResultScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const queryClient = useQueryClient(); // Query Client'a erişim
+    const scrollRef = useRef<ScrollView | null>(null);
+    const isInitialLoad = useRef(true);
 
-    // YENİ: TanStack Query ile veri çekme - useState ve useEffect çöplüğünü temizledik!
+    // YENİ: TanStack Query ile birleşik veri (event + latest report)
+    type CombinedDreamResult = {
+        event: AppEvent;
+        report: import("../../../types/analysis").AnalysisReport | null;
+    };
+
     const {
-        data: event, // Gelen verinin adını 'event' yap
-        isLoading, // Yükleniyor durumu hazır
-        isError, // Hata durumu hazır
-        error, // Hatanın kendisi hazır
-    } = useQuery({
-        // 1. Sorgu anahtarı: ID'ye özel olmalı
+        data, // { event, report }
+        isLoading,
+        isError,
+        error,
+    } = useQuery<CombinedDreamResult>({
         queryKey: ["dreamResult", id],
-        // 2. Veri çekme fonksiyonu
         queryFn: async () => {
             if (!id) throw new Error("Analiz ID eksik.");
 
-            // İki isteği aynı anda at, daha hızlı olsun.
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Kullanıcı bulunamadı!");
 
-            const [fetchedEvent, usage] = await Promise.all([
+            // İki isteği aynı anda at, daha hızlı olsun.
+            const [fetchedEvent, latestReportResp] = await Promise.all([
                 getEventById(id),
-                getUsageStatsForUser(user.id, "dream_dialogue"),
+                getLatestAnalysisReport(),
             ]);
 
             if (!fetchedEvent) {
-                throw new Error(
-                    "Analiz bulunamadı veya bu analize erişim yetkiniz yok.",
-                );
+                throw new Error("Analiz bulunamadı veya bu analize erişim yetkiniz yok.");
             }
 
-            // Kullanım limitini event'e ekle
-            const eventWithLimit = {
-                ...fetchedEvent,
-                dialogueLimit: usage?.data?.limit_count || 3,
+            return {
+                event: fetchedEvent,
+                report: latestReportResp?.data ?? null,
             };
-
-            return eventWithLimit;
         },
-        // 3. Ne zaman çalışsın? Sadece 'id' varsa.
         enabled: !!id,
     });
 
-    // ŞİMDİ O SİLDİĞİN useState'lerin yerine bu gelecek:
-    const [userInput, setUserInput] = useState("");
+    // Diyalog mekanizması kaldırıldı
 
-    const sendMessageMutation = useMutation({
-        mutationFn: (
-            payload: {
-                userId: string;
-                dialoguePayload: EventPayload;
-                userMessage: string;
-            },
-        ) => processUserMessage(payload.userId, payload.dialoguePayload),
+    // Veri ilk kez yüklendiğinde en tepeye kaydır; sonradan değişimlerde yerinde kal
+    useLayoutEffect(() => {
+        if (!isLoading && data && isInitialLoad.current) {
+            setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: 0, animated: false });
+            }, 0);
+            isInitialLoad.current = false;
+        }
+    }, [isLoading, data]);
 
-        // İYİMSER GÜNCELLEME BURADA BAŞLIYOR
-        onMutate: async (newMessage) => {
-            // 1. Devam eden sorguyu iptal et ki bizim değişikliğimizin üzerine yazmasın.
-            await queryClient.cancelQueries({ queryKey: ["dreamResult", id] });
-
-            // 2. Önceki verinin yedeğini al (hata olursa geri dönmek için).
-            const previousEvent = queryClient.getQueryData(["dreamResult", id]);
-
-            // 3. Cache'i yeni mesajla anında güncelle.
-            queryClient.setQueryData(
-                ["dreamResult", id],
-                (
-                    old: { data: { dialogue: DialogueMessage[] } } | undefined,
-                ) => {
-                    if (!old) return old;
-                    const userMessage: DialogueMessage = {
-                        text: newMessage.userMessage,
-                        role: "user",
-                    };
-                    return {
-                        ...old,
-                        data: {
-                            ...old.data,
-                            dialogue: [...old.data.dialogue, userMessage],
-                        },
-                    };
-                },
-            );
-
-            // 4. Yedeği geri döndür.
-            return { previousEvent };
-        },
-        onError: (_err, _newMessage, context) => {
-            // Hata olursa, yedeği geri yükle.
-            queryClient.setQueryData(
-                ["dreamResult", id],
-                context?.previousEvent,
-            );
-            Toast.show({
-                type: "error",
-                text1: "Hata",
-                text2: "Mesaj gönderilemedi.",
-            });
-        },
-        onSuccess: (aiReplyText, _variables) => {
-            // Başarılı olursa, AI'ın cevabıyla cache'i tekrar güncelle.
-            queryClient.setQueryData(
-                ["dreamResult", id],
-                (
-                    old: { data: { dialogue: DialogueMessage[] } } | undefined,
-                ) => {
-                    if (!old) return old;
-                    const aiMessage: DialogueMessage = {
-                        text: aiReplyText as string,
-                        role: "model",
-                    };
-                    return {
-                        ...old,
-                        data: {
-                            ...old.data,
-                            dialogue: [...old.data.dialogue, aiMessage],
-                        },
-                    };
-                },
-            );
-        },
-        onSettled: () => {
-            // Başarılı veya hatalı, her durumda sonunda veriyi sunucuyla senkronize et.
-            queryClient.invalidateQueries({ queryKey: ["dreamResult", id] });
-        },
-    });
-
-    // Geri bildirim RPC mutasyonu
+    // Geri bildirim RPC mutasyonu (YAZMA: her zaman veritabanından gelen gerçek UUID - event.id)
     const feedbackMutation = useMutation({
         mutationFn: async ({ eventId, score }: { eventId: string; score: 1 | -1 }) => {
             const { error } = await supabase.rpc('submit_dream_feedback', {
@@ -181,53 +105,41 @@ export default function DreamResultScreen() {
         },
     });
 
-    // --- YENİ FONKSİYON ---
-    const handleSendMessage = async () => {
-        if (!userInput.trim() || !event || sendMessageMutation.isPending) {
-            return;
-        }
-
-        const dialogueLimit = event.dialogueLimit || 3;
-        if (
-            dialogueLimit > 0 &&
-            ((event.data.dialogue as unknown) as DialogueMessage[]).filter((
-                    m: DialogueMessage,
-                ) => m.role === "user"
-                ).length >= dialogueLimit
-        ) {
-            Toast.show({
-                type: "info",
-                text1: "Diyalog Tamamlandı",
-                text2: "Bu rüya için maksimum soru hakkını kullandın",
+    // Oracle sonucunu kaydetmek için RPC mutasyonu (YAZMA: her zaman veritabanından gelen gerçek UUID - event.id)
+    const oracleMutation = useMutation({
+        mutationFn: async ({ eventId, oracleData }: { eventId: string; oracleData: OracleOutput }) => {
+            const { error } = await supabase.rpc('submit_oracle_result', {
+                event_id_to_update: eventId,
+                oracle_data: oracleData,
             });
-            return;
-        }
-
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const payloadData: Record<string, JsonValue> = {
-            isFollowUp: true,
-            event_id: event.id,
-            dreamAnalysisResult: event.data as Record<string, JsonValue>,
-            fullDialogue: [
-                ...(event.data.dialogue as unknown as DialogueMessage[]),
-                { text: userInput.trim(), role: "user" as const },
-            ] as unknown as JsonValue,
-        };
-        const dialoguePayload: EventPayload = {
-            type: "dream_analysis",
-            data: payloadData,
-        };
-
-        // Bütün o eski kod yerine SADECE BU SATIR:
-        sendMessageMutation.mutate({
-            userId: user.id,
-            dialoguePayload,
-            userMessage: userInput.trim(),
-        });
-        setUserInput(""); // Input'u temizle
-    };
+            if (error) throw new Error(`Oracle sonucu kaydedilemedi: ${error.message}`);
+            return { oracleData };
+        },
+        onSuccess: ({ oracleData }) => {
+            // Cache'i anında güncelle (tek doğru anahtar: id)
+            queryClient.setQueryData(
+                ["dreamResult", id],
+                (oldData: { event: AppEvent; report: import("../../../types/analysis").AnalysisReport | null } | undefined) => {
+                    if (!oldData) return oldData;
+                    return {
+                        ...oldData,
+                        event: {
+                            ...oldData.event,
+                            data: {
+                                ...oldData.event.data,
+                                oracle_result: oracleData,
+                            },
+                        },
+                    };
+                }
+            );
+            queryClient.invalidateQueries({ queryKey: ["dreamResult", id] });
+        },
+        onError: (e: Error) => {
+            console.error("Oracle kaydetme hatası:", e);
+            Toast.show({ type: 'error', text1: 'Hata', text2: 'Derin analiz sonucu kaydedilemedi.' });
+        },
+    });
 
     if (isLoading) {
         return (
@@ -258,9 +170,14 @@ export default function DreamResultScreen() {
         return <ErrorState message={error?.message || "Analiz yüklenemedi."} />;
     }
 
-    if (!event) {
+    if (!data) {
         return <ErrorState message="Analiz bulunamadı." />;
     }
+
+    const { event, report } = data;
+
+    // UUID doğrulayıcı (yazma işlemlerinde numeric ID'leri engelle)
+    const isUuid = (s: string) => /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(s);
 
     const analysis = event.data.analysis as {
         title?: string;
@@ -269,6 +186,10 @@ export default function DreamResultScreen() {
         interpretation?: string;
         crossConnections?: { connection: string; evidence: string }[];
     };
+    // Veritabanından gelen oracle sonucu (varsa)
+    const oracleResult = (event.data as any)?.oracle_result as OracleOutput | undefined;
+
+    // Veri yüklendiğinde en tepeye kaydır (ikinci kez güvenli kullanım kaldırıldı)
 
     return (
         <LinearGradient
@@ -287,6 +208,7 @@ export default function DreamResultScreen() {
                     />
                 </TouchableOpacity>
                 <ScrollView
+                    ref={scrollRef}
                     contentContainerStyle={styles.scrollContainer}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -320,20 +242,24 @@ export default function DreamResultScreen() {
                         interpretation={analysis?.interpretation}
                     />
 
-                    {/* 🔥🔥🔥 YENİ KARTIMIZ BURAYA MONTE EDİLİYOR 🔥🔥🔥 */}
+                    {/* 🔥🔥🔥 Geçmiş bağlantılar */}
                     <CrossConnectionsCard
                         connections={analysis?.crossConnections}
                     />
 
-                    {/* DİYALOG KARTI - YENİ COMPONENT */}
-                    <DialogueCard
-                        dialogue={((event.data
-                            .dialogue as unknown) as DialogueMessage[]) || []} // Doğrudan query'den gelen veri
-                        userInput={userInput}
-                        isReplying={sendMessageMutation.isPending} // Doğrudan mutasyonun durumu
-                        onInputChange={setUserInput}
-                        onSendMessage={handleSendMessage}
-                        maxInteractions={event.dialogueLimit || 3}
+                    {/* YENİ YER: SESSİZ KÂHİN, GERİ BİLDİRİMDEN HEMEN ÖNCE */}
+                    <Oracle
+                        event={event}
+                        report={report?.content ?? null}
+                        initialData={oracleResult}
+                        onSaveResult={(oracleData) => {
+                            const writeId = event?.id;
+                            if (!writeId || !isUuid(writeId)) {
+                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Bu kayıt için geçerli bir UUID bulunamadı.' });
+                                return;
+                            }
+                            oracleMutation.mutate({ eventId: writeId, oracleData });
+                        }}
                     />
 
                     {/* YENİ FEEDBACK KARTI */}
@@ -341,9 +267,12 @@ export default function DreamResultScreen() {
                         isSubmitting={feedbackMutation.isPending}
                         feedbackSent={!!(event as AppEvent).data?.feedback}
                         onSubmitFeedback={(score) => {
-                            if (event?.id) {
-                                feedbackMutation.mutate({ eventId: event.id, score });
+                            const writeId = event?.id;
+                            if (!writeId || !isUuid(writeId)) {
+                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Bu kayıt için geçerli bir UUID bulunamadı.' });
+                                return;
                             }
+                            feedbackMutation.mutate({ eventId: writeId, score });
                         }}
                     />
                 </ScrollView>

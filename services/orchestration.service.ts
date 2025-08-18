@@ -125,7 +125,17 @@ export async function processDreamAnalysisEvent(
     throw new Error(error.message);
   }
 
-  return data as string;
+  // Beklenen sözleşme: { eventId: string }
+  if (
+    data && typeof data === "object" &&
+    "eventId" in (data as Record<string, unknown>) &&
+    typeof (data as { eventId?: unknown }).eventId === "string"
+  ) {
+    return (data as { eventId: string }).eventId;
+  }
+
+  console.error("Beklenmedik yanıt formatı:", data);
+  throw new Error("Sunucudan geçersiz analiz ID'si formatı alındı.");
 }
 
 /**
@@ -196,7 +206,3 @@ function ensureHumanityReminder(
   // Çünkü onlar UI'da farklı şekilde işleniyor
   return result;
 }
-
-// === HADIM EDİLMİŞ ORKESTRATOR ===
-// Artık sadece bir kapıcı - gelen paketi tek beyne (ControlledHybridPipeline) yönlendiriyor.
-// Tüm karmaşık mantık ControlledHybridPipeline'da toplandı.

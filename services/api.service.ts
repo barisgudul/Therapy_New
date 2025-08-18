@@ -24,6 +24,7 @@ import {
     upgradeUserPlanForTesting as _upgradeUserPlanForTesting,
     type UsageStats,
 } from "./subscription.service";
+import type { AnalysisReport } from "../types/analysis";
 
 // --- BU BÖLÜM TAMAMEN DEĞİŞECEK ---
 
@@ -191,4 +192,25 @@ export function upgradeUserPlanForTesting(
     planName: "Free" | "+Plus" | "Premium",
 ) {
     return apiCall(_upgradeUserPlanForTesting(userId, planName));
+}
+
+// YENİ: En son kişisel raporu getirir
+export function getLatestAnalysisReport() {
+    const promise = (async (): Promise<AnalysisReport | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        const { data, error } = await supabase
+            .from("analysis_reports")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) throw error;
+        return (data as AnalysisReport) ?? null;
+    })();
+
+    return apiCall(promise);
 }

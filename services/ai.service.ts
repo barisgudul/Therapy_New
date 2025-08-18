@@ -42,6 +42,7 @@ import {
   getNextDreamQuestionPrompt,
 } from "./prompts/dreamDialogue.prompt";
 import { getSessionMemoryPrompt } from "./prompts/sessionMemory.prompt";
+import { buildSilentOraclePrompt, type OracleInputs } from "./prompt.service";
 
 import type { VaultData } from "./vault.service";
 
@@ -403,6 +404,29 @@ export async function generateFinalDreamFeedback(
     );
     throw new ApiError("Rüya geri bildirimi oluşturulamadı.");
   }
+}
+
+// === SILENT ORACLE ===
+export type OracleOutput = { f1: string; f2: string; f3: string };
+
+export async function generateSilentOracle(
+  inputs: OracleInputs,
+): Promise<OracleOutput> {
+  const prompt = buildSilentOraclePrompt(inputs);
+  const json = await invokeGemini(prompt, AI_MODELS.FAST, {
+    responseMimeType: "application/json",
+    temperature: 0.2,
+    maxOutputTokens: 180,
+  });
+  const parsed = JSON.parse(json) as Partial<OracleOutput>;
+  const f1 = typeof parsed.f1 === "string" ? parsed.f1 : "Bu his tanıdık...";
+  const f2 = typeof parsed.f2 === "string"
+    ? parsed.f2
+    : "Görmediğin şey şu: Bu tema, kaçınma alışkanlığından besleniyor.";
+  const f3 = typeof parsed.f3 === "string"
+    ? parsed.f3
+    : "Atacağın adım: Bugün 1 dakikalığına kontrolü bırak.";
+  return { f1, f2, f3 };
 }
 export function mergeVaultData(
   currentVault: VaultData,
