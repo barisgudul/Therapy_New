@@ -146,7 +146,3 @@ function ensureHumanityReminder(
   // Çünkü onlar UI'da farklı şekilde işleniyor
   return result;
 }
-
-// === HADIM EDİLMİŞ ORKESTRATOR ===
-// Artık sadece bir kapıcı - gelen paketi tek beyne (ControlledHybridPipeline) yönlendiriyor.
-// Tüm karmaşık mantık ControlledHybridPipeline'da toplandı.

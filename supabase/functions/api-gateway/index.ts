@@ -139,6 +139,7 @@ export async function handleApiGateway(req: Request): Promise<Response> {
 
   try {
     const { type, payload } = await req.json();
+    const transactionId: string = String(payload?.transaction_id || "no-tx");
     const textToAnalyze = payload?.prompt || payload?.text;
 
     const disableSafety = Deno.env.get("DISABLE_SAFETY_CHECKS") === "true";
@@ -174,6 +175,92 @@ export async function handleApiGateway(req: Request): Promise<Response> {
       }
     }
 
+    // --- DRY Helpers: Embedding ---
+    const getGeminiApiKeyStrict = (): string => {
+      const key = Deno.env.get("GEMINI_API_KEY");
+      if (!key) throw new Error("Sunucuda GEMINI_API_KEY sırrı bulunamadı!");
+      return key;
+    };
+
+    const fetchEmbedSingle = async (text: string): Promise<number[]> => {
+      const geminiApiKey = getGeminiApiKeyStrict();
+      console.log(`[API-Gateway][${transactionId}] Single embedding request.`);
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "models/embedding-001",
+            content: { parts: [{ text }] },
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        const msg =
+          (data as { error?: { message?: string } })?.error?.message ||
+          "Embedding API error.";
+        console.error(
+          `[API-Gateway][${transactionId}] Single embedding error:`,
+          msg,
+        );
+        throw new Error(
+          msg,
+        );
+      }
+      return ((data as { embedding?: { values?: number[] } }).embedding
+        ?.values) || [];
+    };
+
+    const fetchEmbedBatch = async (
+      texts: string[],
+    ): Promise<(number[] | null)[]> => {
+      const geminiApiKey = getGeminiApiKeyStrict();
+      // Önce batch dene
+      try {
+        console.log(
+          `[API-Gateway][${transactionId}] Batch embedding request started for ${texts.length} items.`,
+        );
+        const requests = texts.map((t) => ({
+          model: "models/embedding-001",
+          content: { parts: [{ text: t }] },
+        }));
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:batchEmbedContents?key=${geminiApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ requests }),
+          },
+        );
+        const data = await res.json();
+        if (!res.ok) {
+          const msg =
+            (data as { error?: { message?: string } })?.error?.message ||
+            "Batch Embedding API error.";
+          console.error(
+            `[API-Gateway][${transactionId}] Batch embedding error:`,
+            msg,
+          );
+          throw new Error(msg);
+        }
+        const vectors = ((data as { embeddings?: { values?: number[] }[] })
+          ?.embeddings || []).map((e) => e?.values || null);
+        console.log(`[API-Gateway][${transactionId}] Batch embedding success.`);
+        return vectors;
+      } catch (_e) {
+        // Batch başarısızsa, tek tek çağrılara düş; null ile devam et
+        console.warn(
+          `[API-Gateway][${transactionId}] Batch failed, falling back to single embeddings.`,
+        );
+        const settled = await Promise.allSettled(
+          texts.map((t) => fetchEmbedSingle(t)),
+        );
+        return settled.map((r) => r.status === "fulfilled" ? r.value : null);
+      }
+    };
+
     let responseData: unknown;
     switch (type) {
       case "gemini": {
@@ -182,6 +269,9 @@ export async function handleApiGateway(req: Request): Promise<Response> {
           throw new Error("Sunucuda GEMINI_API_KEY sırrı bulunamadı!");
         }
 
+        console.log(
+          `[API-Gateway][${transactionId}] Gemini generateContent start: ${payload.model}`,
+        );
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${payload.model}:generateContent?key=${geminiApiKey}`,
           {
@@ -200,33 +290,29 @@ export async function handleApiGateway(req: Request): Promise<Response> {
               ?.message || "Gemini API hatası.",
           );
         }
+        console.log(
+          `[API-Gateway][${transactionId}] Gemini generateContent success.`,
+        );
         break;
       }
 
       case "gemini-embed": {
-        const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
-        if (!geminiApiKey) {
-          throw new Error("Sunucuda GEMINI_API_KEY sırrı bulunamadı!");
-        }
-        const embedRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${geminiApiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "models/embedding-001",
-              content: { parts: [{ text: payload.content }] },
-            }),
-          },
-        );
-        const embedData = await embedRes.json();
-        if (!embedRes.ok) {
+        const values = await fetchEmbedSingle(String(payload.content || ""));
+        responseData = { embedding: values || null };
+        break;
+      }
+
+      case "gemini-embed-batch": {
+        const texts: string[] = Array.isArray(payload.texts)
+          ? payload.texts
+          : [];
+        if (texts.length === 0) {
           throw new Error(
-            (embedData as { error?: { message?: string } })?.error?.message ||
-              "Embedding API error.",
+            "Batch embedding için 'texts' dizisi boş veya geçersiz.",
           );
         }
-        responseData = embedData;
+        const vectors = await fetchEmbedBatch(texts);
+        responseData = { embeddings: vectors };
         break;
       }
 

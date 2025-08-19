@@ -1,6 +1,5 @@
 // supabase/functions/_shared/ai.service.ts
 
-import { AppEvent } from "./event.service.ts";
 import { supabase } from "./supabase-admin.ts"; // Admin client'ı buradan alacağız
 import { ApiError } from "./errors.ts";
 import { VaultData } from "./types/context.ts"; // VaultData tipini import et
@@ -14,12 +13,14 @@ export async function invokeGemini(
     responseMimeType?: string;
     maxOutputTokens?: number;
   },
+  transactionId?: string,
 ): Promise<string> {
   try {
+    const start = Date.now();
     const { data, error } = await supabase.functions.invoke("api-gateway", {
       body: {
         type: "gemini",
-        payload: { model, prompt, config },
+        payload: { model, prompt, config, transaction_id: transactionId },
       },
     });
 
@@ -27,7 +28,29 @@ export async function invokeGemini(
 
     const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!reply) throw new Error("API Gateway'den boş Gemini yanıtı alındı.");
-
+    const durationMs = Date.now() - start;
+    // JSON geçerliliğini opsiyonel olarak kontrol et (yalnızca application/json istendiyse)
+    let isValidJson: boolean | null = null;
+    if (config?.responseMimeType === "application/json") {
+      try {
+        JSON.parse(reply);
+        isValidJson = true;
+      } catch (_e) {
+        isValidJson = false;
+      }
+    }
+    // AI interaction'ı arkada kaydet (fire-and-forget)
+    supabase.from("ai_interactions").insert({
+      transaction_id: transactionId ?? null,
+      model,
+      prompt,
+      response: reply,
+      is_valid_json: isValidJson,
+      duration_ms: durationMs,
+    }).then(
+      () => {},
+      () => {},
+    );
     return reply;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -64,76 +87,81 @@ export interface Prediction {
   description: string;
 }
 
+// Rapor tarafında kullanılan işlenmiş hafıza tipi
+export interface ProcessedMemory {
+  content: string;
+  sentiment_data: { dominant_emotion?: string; [key: string]: unknown };
+  event_time: string;
+}
+
 // Paket üreten raporlayıcı
 export async function generateElegantReport(
-  events: AppEvent[],
   vault: VaultData,
-  _days: number,
+  memories: ProcessedMemory[],
+  days: number,
   predictions?: Prediction[],
 ): Promise<ElegantReportPayload> {
-  const hasAnyEvents = Array.isArray(events) && events.length > 0;
-  const formattedEvents = hasAnyEvents
-    ? events.map((e) => {
-      const content = e.data?.text || e.data?.dreamText || e.data?.todayNote ||
-        "İçerik detayı yok.";
+  const formattedMemories = memories.length > 0
+    ? memories.map((m) => {
+      const sentiment = m.sentiment_data?.dominant_emotion || "belirsiz";
       return `- ${
-        new Date(e.created_at).toLocaleDateString("tr-TR", {
-          day: "numeric",
-          month: "long",
-        })
-      }: [${e.type}] - ${String(content).substring(0, 150)}`;
+        new Date(m.event_time).toLocaleDateString("tr-TR")
+      }: [${sentiment}] "${String(m.content).substring(0, 150)}..."`;
     }).join("\n")
-    : "- Veri sinyali sınırlı.";
+    : "- Bu dönemde öne çıkan bir anı kaydedilmemiş.";
 
-  const goalLine = vault?.profile?.therapyGoals
-    ? `KULLANICININ HEDEFİ: ${String(vault.profile.therapyGoals)}`
-    : "";
-  const predictionsBlock = (predictions && predictions.length > 0)
-    ? `GEÇMİŞ TAHMİNLER:\n` +
-      predictions.map((p) => `- ${p.title}: ${p.description}`).join("\n")
-    : "";
-  // Kullanıcı bağlamı: isim bilgisi varsa, AI doğrudan ismiyle hitap etsin
   const userName = vault?.profile?.nickname ?? null;
   const userContextLine = userName
     ? `KULLANICI BİLGİSİ: İsmi ${userName}.`
     : "";
+  const goalLine = vault?.profile?.therapyGoals
+    ? `KULLANICININ HEDEFİ: ${String(vault.profile.therapyGoals)}`
+    : "";
 
-  // PANO tarzı çıktı isteyen yeni prompt (Aynadaki Yansıma: ikinci tekil şahıs zorunlu)
+  const predictionsBlock = (predictions && predictions.length > 0)
+    ? `\n### GEÇMİŞ TAHMİNLER (Son ${days} Gün) ###\n` +
+      predictions.map((p) => `- ${p.title}: ${p.description}`).join("\n")
+    : "";
+
   const prompt = `
-  ROL: Sen, bir veri görselleştirme uzmanı ve psikolojik analistsin. Bir robottan çok, bilge ve empatik bir yol arkadaşı gibisin.
+  ROL: Sen, bilge ve empatik bir "Zihin Arkeoloğu"sun. Bir robot gibi değil, bir yol arkadaşı gibi konuş.
 
-  GÖREV: Sana verilen verilerden yola çıkarak, Zihin Panosu için yapısal bileşenleri içeren TEK BİR JSON objesi üret.
+  GÖREV: Sana verilen yapısal verilerden yola çıkarak, Zihin Panosu için TEK BİR JSON objesi üret.
 
   SAĞLANAN VERİLER:
+
+  ### KULLANICI PROFİLİ (VAULT) ###
+  Bu, kullanıcının kim olduğunun özeti.
   ${userContextLine}
-  ${formattedEvents}
   ${goalLine}
+  Temel İnançları: ${JSON.stringify(vault.coreBeliefs || {})}
+
+  ### EN ALAKALI ANILAR (Son ${days} Gün) ###
+  Bunlar, kullanıcının zihninde son zamanlarda yer etmiş önemli anlar.
+  ${formattedMemories}
+
   ${predictionsBlock}
 
   İSTENEN JSON ÇIKTI YAPISI (KESİNLİKLE UYULMALIDIR):
   {
     "reportSections": {
       "mainTitle": "Bu dönemin en vurucu ve özet başlığını YAZ.",
-      "overview": "2-3 cümlelik, dönemin ana temasını özetleyen bir giriş paragrafı YAZ.",
-      "goldenThread": "Olaylar arasındaki ana neden-sonuç ilişkisini anlatan 2 paragraflık bir analiz YAZ. Bu, 'Günlük Kayıtların Analizi' bölümü olacak.",
-      "blindSpot": "'Fark ettin mi?' ile başlayan ve görmediği bir kalıbı ortaya çıkaran 1 paragraflık bölümü YAZ."
+      "overview": "2-3 cümlelik, dönemin ana temasını (Vault ve Anılardan yola çıkarak) özetleyen bir giriş paragrafı YAZ.",
+      "goldenThread": "Anılar arasındaki ana neden-sonuç ilişkisini anlatan 2 paragraflık bir analiz YAZ. 'Günlük Kayıtların Analizi' bölümü bu olacak.",
+      "blindSpot": "'Fark ettin mi?' ile başlayan ve görmediği bir kalıbı (Vault ve Anıları birleştirerek) ortaya çıkaran 1 paragraflık bölümü YAZ."
     },
     "reportAnalogy": {
-      "title": "Tüm analizi özetleyen bir metafor veya analoji başlığı YAZ. Örn: 'İki Cephede Savaşan Bir Komutan'.",
+      "title": "Tüm analizi özetleyen bir metafor veya analoji başlığı YAZ. Örn: 'Pusulasını Arayan Kaptan'.",
       "text": "Bu metaforu 1-2 cümleyle açıkla."
     },
-    "derivedData": {
-      "readMinutes": 2,
-      "headingsCount": 4
-    }
+    "derivedData": { "readMinutes": 2, "headingsCount": 4 }
   }
 
   KURALLAR:
-  - **EN ÖNEMLİ KURAL: Tüm metni doğrudan ikinci tekil şahıs ('sen') kullanarak yaz. Sanki karşısında oturmuş onunla konuşuyorsun. Ona kendisinden üçüncü bir şahıs gibi ('Barış şunu yaptı', 'Barış'ın duyguları') ASLA bahsetme. Ona doğrudan hitap et ('Şunu yaptın', 'Senin duyguların...').**
-  - **Eğer ismini biliyorsan ('Barış'), cümlenin veya paragrafın başına bir kere ismiyle hitap et, sonra 'sen' diye devam et. Örnek: 'Barış, bu dönemde projelerine odaklandığını görüyorum. Senin için bu durum...'.**
+  - **EN ÖNEMLİ KURAL: Tüm metni doğrudan ikinci tekil şahıs ('sen') kullanarak yaz. Ona kendisinden üçüncü bir şahıs gibi ASLA bahsetme.**
+  - Eğer ismini biliyorsan ('Ahmet'), cümlenin başına bir kere ismiyle hitap et, sonra 'sen' diye devam et.
   - Cevabın SADECE yukarıdaki JSON formatında olsun. Başka hiçbir şey ekleme.
-  - Markdown kullanMA. Çıktı düz metin (plain text) olacak. Vurgu için **kelime** formatını KULLANABİLİRSİN.
-  - Her metin alanı (overview, goldenThread vb.) kısa ve öz olsun. Amacımız bir bakışta anlaşılmak.
+  - Markdown kullanMA. Vurgu için **kelime** formatını KULLANABİLİRSİN.
   - Emoji YOK. Liste YOK.
   `;
 
@@ -185,5 +213,31 @@ export async function embedContent(
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[embedContent] Hatası:", msg);
     return { embedding: null, error: msg } as EmbedContentResponse;
+  }
+}
+
+// Batch embedding helper - Tek ağ çağrısında birden fazla metni embed eder
+export type BatchEmbedContentsResponse = {
+  embeddings: (number[] | null)[];
+  error?: string;
+};
+export async function embedContentsBatch(
+  texts: string[],
+  transactionId?: string,
+): Promise<BatchEmbedContentsResponse> {
+  try {
+    const { data, error } = await supabase.functions.invoke("api-gateway", {
+      body: {
+        type: "gemini-embed-batch",
+        payload: { texts, transaction_id: transactionId },
+      },
+    });
+    if (error) throw error;
+    const embeddings = (data?.embeddings as (number[] | null)[]) || [];
+    return { embeddings } as BatchEmbedContentsResponse;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[embedContentsBatch] Hatası:", msg);
+    return { embeddings: [], error: msg } as BatchEmbedContentsResponse;
   }
 }

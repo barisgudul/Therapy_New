@@ -41,6 +41,7 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
             ), -1, true );
     }, []);
 
+    
     const handlePressIn = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         scale.value = withSpring(1.3, { damping: 10, stiffness: 200 });

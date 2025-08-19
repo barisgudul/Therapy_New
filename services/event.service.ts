@@ -59,41 +59,61 @@ export async function logEvent(
     if (error) throw error;
     if (isDev()) console.log(`✅ [Event] ${event.type} kaydedildi.`);
 
-    // 🚨 FAZ 0: BİLİNÇ İŞLEME DEVRE DIŞI (STABİLİZASYON)
-    // DNA ve hafıza işleme maliyet optimizasyonu için geçici olarak durduruldu
+    // İşlem zinciri için transactionId üret (RN ortamında fallback'li)
+    const generateId = (): string =>
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        const v = c === "x" ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    const transactionId = (globalThis.crypto &&
+        typeof (globalThis.crypto as unknown as { randomUUID?: () => string })
+            .randomUUID === "function")
+      ? (globalThis.crypto as unknown as { randomUUID: () => string })
+        .randomUUID()
+      : generateId();
+
+    // --- BİLİNÇ İŞLEME DEVRESİ ---
+    // Event loglandıktan sonra, eğer analiz edilebilir bir içerik varsa,
+    // bu içerik arkaplanda "beyin" tarafından işlenir.
+    // Bu işlem "ateşle ve unut" prensibiyle çalışır, UI beklemez.
     const contentToAnalyze = inserted?.data?.dreamText ||
       inserted?.data?.userMessage ||
       inserted?.data?.initialEntry ||
-      inserted?.data?.todayNote;
+      inserted?.data?.todayNote ||
+      // Yeni alanlar
+      (inserted?.data as Record<string, unknown>)?.diary_content as
+        | string
+        | undefined;
 
     if (contentToAnalyze && inserted) {
-      console.log(`📋 [STABILIZATION] Bilinç işleme atlandı: ${event.type}`);
-      // TODO FAZ 1: Stratejik veri işleme buraya gelecek
-      /*
-      // DEVRE DIŞI: Process and embed memory
-      supabase.functions.invoke("process-and-embed-memory", {
+      console.log(
+        `🧠 [Event Brain][${transactionId}] Bilinç işleme tetikleniyor: ${event.type}`,
+      );
+
+      // ARKA PLANDA ÇALIŞACAK BEYİN FONKSİYONU
+      // AWAIT KULLANMA! UI bunu beklememeli. Bu "ateşle ve unut" tarzı bir çağrı.
+      supabase.functions.invoke("process-memory", {
         body: {
           source_event_id: inserted.id,
           user_id: user.id,
           content: contentToAnalyze,
           event_time: inserted.created_at,
           mood: inserted.mood,
+          event_type: event.type,
+          transaction_id: transactionId,
         },
       }).catch((err) =>
-        console.error("⛔️ Arka plan hafıza işleme hatası:", err)
+        console.error(
+          `⛔️ Arka plan hafıza işleme hatası [${transactionId}]:`,
+          err,
+        )
       );
-
-      // DEVRE DIŞI: DNA updater
-      supabase.functions.invoke("update-user-dna", {
-        body: {
-          user_id: user.id,
-          event_content: contentToAnalyze,
-          event_type: event.type,
-          event_time: inserted.created_at,
-        },
-      }).catch((err) => console.error("⛔️ DNA güncelleme hatası:", err));
-      */
     }
+
+    // TODO: Faz 2 - update_user_dna fonksiyonu, bu olaydan sonra
+    // kullanıcının genetik haritasını (traits, core beliefs) günceller.
+    // Örnek: "Terk edilme korkusu" +1 puan.
 
     return inserted.id.toString();
   } catch (error) {

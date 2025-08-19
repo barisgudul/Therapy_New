@@ -9,7 +9,6 @@ import {
   Animated,
   BackHandler,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -20,7 +19,6 @@ import {
   View,
 } from "react-native";
 import { PremiumGate } from "../../../components/PremiumGate.tsx";
-import SessionTimer from "../../../components/SessionTimer.tsx";
 import { Colors } from "../../../constants/Colors";
 import { ALL_THERAPISTS, getTherapistById } from "../../../data/therapists";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
@@ -490,7 +488,7 @@ export default function TextSessionScreen() {
                 />
               </TouchableOpacity>
 
-              <SessionTimer onSessionEnd={handleSessionEnd} />
+  
 
               <View style={styles.therapistHeaderRow}>
                 <View style={styles.avatarGradientBox}>
@@ -500,11 +498,7 @@ export default function TextSessionScreen() {
                     end={{ x: 1, y: 1 }}
                     style={styles.avatarGradient}
                   >
-                    <Image
-                      source={selectedTherapist?.thumbnail ||
-                        ALL_THERAPISTS[0].thumbnail}
-                      style={styles.therapistAvatarXL}
-                    />
+                  
                   </LinearGradient>
                 </View>
                 <View style={styles.therapistInfoBoxRow}>
