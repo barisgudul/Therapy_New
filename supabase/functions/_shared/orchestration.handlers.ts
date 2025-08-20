@@ -502,7 +502,37 @@ export async function handleDiaryEntry(
       console.log(
         "[DiaryHandler] Konuşma bitiriliyor. Kapanış analizi üretiliyor...",
       );
-      const conclusionPrompt = getDiaryConclusionPrompt(userInput, userName);
+
+      // --- HAFIZA ENJEKSİYONU: Günün temasını çıkar ve RAG ile geçmişten bağlam getir ---
+      const themeExtractionPrompt =
+        `Bu konuşmanın ana temasını 3-5 kelimeyle özetle: "${userInput}"`;
+      const theme = await AiService.invokeGemini(
+        themeExtractionPrompt,
+        "gemini-1.5-flash",
+      );
+      const retrievedMemories = await RagService.retrieveContext(
+        context.userId,
+        `Bugünkü konuşmanın ana teması: ${theme}. Bu temayla ilgili geçmişteki en alakalı anılar, rüyalar veya farkındalık anları.`,
+      );
+      const pastContext = (retrievedMemories || [])
+        .map((mem) => {
+          const text = typeof mem.content === "string"
+            ? mem.content
+            : String(mem.content ?? "");
+          const source_type = (mem as { source_layer?: string }).source_layer ||
+            "anı";
+          return `- Geçmişten bir ${source_type}: "${
+            text.substring(0, 150)
+          }..."`;
+        })
+        .join("\n");
+
+      // Zenginleştirilmiş bağlam ile kapanış prompt'u
+      const conclusionPrompt = getDiaryConclusionPrompt(
+        userInput,
+        userName,
+        pastContext,
+      );
       const rawConclusion = await AiService.invokeGemini(
         conclusionPrompt,
         "gemini-1.5-flash",
