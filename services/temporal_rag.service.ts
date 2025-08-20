@@ -1,7 +1,6 @@
 // services/temporal_rag.service.ts
-import { AI_MODELS } from "../constants/AIConfig";
 import { supabase } from "../utils/supabase";
-import { invokeGemini } from "./ai.service";
+// Frontend'de AI servisleri kaldırıldı; bu modül kullanılmıyor.
 
 // Dışarıya vereceğimiz analiz sonucunun tipini tanımlıyoruz.
 export interface TemporalAnalysisResult {
@@ -71,7 +70,7 @@ export class TemporalRAG {
         // FAZ 2 & 3: OLAY YERİ İNCELEME ve RAPOR YAZMA
         // =======================================================
         try {
-            const analysisPrompt = this.getTemporalAnalysisPrompt(
+            const _analysisPrompt = this.getTemporalAnalysisPrompt(
                 memories as TimeEmbedding[],
                 days,
             );
@@ -80,13 +79,9 @@ export class TemporalRAG {
                 `[TEMPORAL-RAG] ${memories.length} anı ile zaman yolcusu beyni çağrılıyor...`,
             );
 
-            const rawReport = await invokeGemini(
-                analysisPrompt,
-                AI_MODELS.POWERFUL,
-                {
-                    temperature: 0.6,
-                },
-            );
+            // Frontend tarafında AI çağrısı kaldırıldı. Bu sınıf şu an devre dışı.
+            const rawReport =
+                `Temporal RAG devre dışı. Toplam ${memories.length} anı bulundu, ancak istemci tarafında AI çağrısı yapılmıyor.`;
 
             // Burada normalde AI'dan dönen JSON'u parse ederdik, ama şimdilik
             // doğrudan metin olarak dönen bir rapor istiyoruz.

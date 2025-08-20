@@ -7,6 +7,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 // Frontend'in bu dosyalardan haberi bile olmayacak.
 import { generateElegantReport } from "../_shared/ai.service.ts";
 import { getUserVault } from "../_shared/vault.service.ts"; // Bunu import et
+import { logRagInvocation } from "../_shared/utils/logging.service.ts";
 
 // Gelen isteğin body'sinin neye benzemesi gerektiğini tanımlıyoruz.
 // Frontend bize sadece 'days' adında bir sayı gönderecek. Başka bir şey gönderirse suratına kapatacağız.
@@ -134,6 +135,15 @@ Deno.serve(async (req) => {
     );
 
     if (memoriesError) throw memoriesError;
+    // --- MİKROSKOP BURADA ---
+    // Bu fonksiyonun transactionId'si olmadığı için şimdilik boş bırakıyoruz.
+    await logRagInvocation(supabaseAdmin, {
+      user_id: user.id,
+      source_function: "ai_summary",
+      search_query: search_query,
+      retrieved_memories: memories || [],
+    });
+    // --- KANIT KAYDEDİLDİ ---
     console.log(
       `[Report-API] RAG ile hafızadan ${memories.length} adet alakalı anı çekildi.`,
     );

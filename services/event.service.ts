@@ -7,6 +7,7 @@ import {
 } from "../schemas/diary.schema";
 import type { z } from "zod";
 import { getUsageStatsForUser } from "./subscription.service"; // Üst kısma ekle
+import { extractContentFromEvent } from "../utils/event-helpers";
 
 export const EVENT_TYPES = [
   "daily_reflection",
@@ -77,14 +78,10 @@ export async function logEvent(
     // Event loglandıktan sonra, eğer analiz edilebilir bir içerik varsa,
     // bu içerik arkaplanda "beyin" tarafından işlenir.
     // Bu işlem "ateşle ve unut" prensibiyle çalışır, UI beklemez.
-    const contentToAnalyze = inserted?.data?.dreamText ||
-      inserted?.data?.userMessage ||
-      inserted?.data?.initialEntry ||
-      inserted?.data?.todayNote ||
-      // Yeni alanlar
-      (inserted?.data as Record<string, unknown>)?.diary_content as
-        | string
-        | undefined;
+    const contentToAnalyze = extractContentFromEvent({
+      type: inserted?.type as string,
+      data: inserted?.data as Record<string, unknown> | null,
+    }) ?? undefined;
 
     if (contentToAnalyze && inserted) {
       console.log(

@@ -58,9 +58,14 @@ serve(async (req: Request) => {
     // SON DİKİŞ: DÖNEN SONUCUN TİPİNİ KONTROL ET VE STANDARTLAŞTIR
     let responsePayload: unknown;
 
-    // RÜYA ANALİZİ GİBİ SADECE ID DÖNEN DURUMLAR İÇİN: her zaman tutarlı bir JSON objesi döndür.
     if (typeof result === "string") {
-      responsePayload = { eventId: result };
+      // daily_reflection string döndürür: aiResponse olarak sarmala
+      if (eventPayload.type === "daily_reflection") {
+        responsePayload = { aiResponse: result };
+      } else {
+        // RÜYA ANALİZİ vb. için string ise eventId olarak sarmala
+        responsePayload = { eventId: result };
+      }
     } else {
       // GÜNLÜK GİBİ KOMPLEKS OBJE DÖNEN DURUMLAR İÇİN: zaten obje olanı olduğu gibi kullan.
       responsePayload = result;

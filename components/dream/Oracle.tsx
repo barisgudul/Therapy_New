@@ -15,12 +15,9 @@ import {
 import { useSharedValue, withTiming } from "react-native-reanimated";
 
 import { COSMIC_COLORS } from "../../constants/Colors";
-import {
-    generateSilentOracle,
-    type OracleOutput,
-} from "../../services/ai.service";
+import { generateSilentOracle } from "../../services/prompt.service";
 import type { AppEvent } from "../../services/event.service";
-import type { OracleInputs } from "../../services/prompt.service";
+import type { OracleOutput, OracleInputs } from "../../services/prompt.service";
 import type { AnalysisReportContent } from "../../types/analysis";
 import DreamSigil from "./Sigil";
 
@@ -283,8 +280,14 @@ const styles = StyleSheet.create({
 });
 
 function buildInputs(event: AppEvent, report: AnalysisReportContent | null): OracleInputs {
-    const data = event.data as Record<string, any>;
-    const a = (data?.analysis ?? {}) as any;
+    type DreamAnalysis = {
+        themes?: string[];
+        crossConnections?: { connection: string; evidence: string }[];
+        summary?: string;
+        interpretation?: string;
+    };
+    const data = event.data as Record<string, unknown>;
+    const a = (data?.analysis ?? {}) as DreamAnalysis;
     const dreamTheme = a.themes?.[0] || "Kontrol Kaybı";
     const pastLink = a.crossConnections?.[0] ? `${a.crossConnections[0].connection}: ${a.crossConnections[0].evidence}` : (report?.reportSections.goldenThread || a.summary || a.interpretation || "Geçmiş bir bağ");
     const blindSpot = report?.reportSections.blindSpot || a.interpretation || "zor konuşmadan kaçınma";

@@ -6,9 +6,13 @@ import { ValidationError } from "./errors.ts";
 import { supabase as adminClient } from "./supabase-admin.ts";
 import * as AiService from "./ai.service.ts";
 import * as RagService from "./rag.service.ts";
+import { logRagInvocation } from "./utils/logging.service.ts";
 import { getDreamAnalysisV2Prompt } from "./prompts/dreamAnalysisV2.prompt.ts";
 import * as VaultService from "./vault.service.ts";
-import { getDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
+import {
+  getDailyReflectionPrompt as _getDailyReflectionPrompt,
+  getDailyReflectionPromptV2,
+} from "./prompts/dailyReflection.prompt.ts";
 import {
   getDiaryConclusionPrompt,
   getDiaryNextQuestionsPrompt,
@@ -145,7 +149,11 @@ async function prepareDreamContext(userId: string) {
   return context;
 }
 
-async function getEnhancedRagContext(userId: string, dreamText: string) {
+async function getEnhancedRagContext(
+  userId: string,
+  dreamText: string,
+  transactionId?: string,
+) {
   try {
     const themePrompt =
       `Şu rüyanın 1-3 anahtar kelimelik temasını çıkar: "${dreamText}". Sadece temaları virgülle ayırarak yaz.`;
@@ -157,7 +165,17 @@ async function getEnhancedRagContext(userId: string, dreamText: string) {
     const retrievedMemories = await RagService.retrieveContext(
       userId,
       enrichedQuery,
+      { threshold: 0.37, count: 9 }, // Rüya analizi için orta eşik, daha fazla sonuç
     );
+    // --- MİKROSKOP BURADA ---
+    await logRagInvocation(adminClient, {
+      transaction_id: transactionId,
+      user_id: userId,
+      source_function: "dream_analysis",
+      search_query: enrichedQuery,
+      retrieved_memories: retrievedMemories,
+    });
+    // --- KANIT KAYDEDİLDİ ---
     return retrievedMemories.map((c) =>
       `- (Kaynak: ${c.source_layer}) ${c.content}`
     ).join("\n");
@@ -170,6 +188,7 @@ async function getEnhancedRagContext(userId: string, dreamText: string) {
     const retrievedMemories = await RagService.retrieveContext(
       userId,
       dreamText,
+      { threshold: 0.27, count: 7 }, // Fallback için düşük eşik, orta sayıda sonuç
     );
     return retrievedMemories.map((c) => `- ${c.content}`).join("\n");
   }
@@ -201,7 +220,7 @@ export async function handleDreamAnalysis(
     // ADIM 1 & 2: Tüm bağlamı paralel olarak topla
     const [userDossier, ragContextString] = await Promise.all([
       prepareDreamContext(userId),
-      getEnhancedRagContext(userId, dreamText),
+      getEnhancedRagContext(userId, dreamText, context.transactionId),
     ]);
 
     // ADIM 3: Master Prompt'u oluştur ve AI'ı çağır
@@ -278,6 +297,24 @@ export async function handleDreamAnalysis(
     console.log(
       `[ORCHESTRATOR] Beyin ameliyatı başarılı. Yeni event ID: ${newEventId}`,
     );
+
+    // --- HAFIZA KAYDI: process-memory (ateşle ve unut) ---
+    adminClient.functions.invoke("process-memory", {
+      body: {
+        source_event_id: newEventId,
+        user_id: userId,
+        content: dreamText,
+        event_time: new Date().toISOString(),
+        mood: null,
+        event_type: "dream_analysis",
+        transaction_id: context.transactionId,
+      },
+    }).catch((err) =>
+      console.error(
+        `[Orchestrator] process-memory invoke hatası (dream_analysis):`,
+        err,
+      )
+    );
     return newEventId;
   } catch (error) {
     console.error(`[ORCHESTRATOR] Rüya analizi sırasında kritik hata:`, error);
@@ -292,7 +329,7 @@ export async function handleDailyReflection(
   context: InteractionContext,
 ): Promise<string> {
   console.log(
-    `[ORCHESTRATOR] Günlük yansıma işleniyor: ${context.transactionId}`,
+    `[ORCHESTRATOR] Gelişmiş günlük yansıma işleniyor: ${context.transactionId}`,
   );
   const { todayNote, todayMood } = context.initialEvent.data as {
     todayNote?: string;
@@ -305,22 +342,84 @@ export async function handleDailyReflection(
   }
 
   try {
+    // --- HAFIZA ENJEKSİYONU BAŞLIYOR ---
+    const searchQuery =
+      `Bugünkü duygu ve not: ${todayMood} - "${todayNote}". Bu durumla ilgili geçmişteki en alakalı anılar, desenler veya rüyalar.`;
+    const retrievedMemories = await RagService.retrieveContext(
+      userId,
+      searchQuery,
+      { threshold: 0.31, count: 7 }, // Düşük eşik, az sayıda sonuç. "Saçmalı tüfek" modu.
+    );
+
+    // --- MİKROSKOP BURADA (daily_reflection) ---
+    await logRagInvocation(adminClient, {
+      transaction_id: context.transactionId,
+      user_id: userId,
+      source_function: "daily_reflection",
+      search_query: searchQuery,
+      retrieved_memories: retrievedMemories,
+    });
+    // --- KANIT KAYDEDİLDİ ---
+    const pastContext = (retrievedMemories || [])
+      .map((mem) =>
+        `- Geçmişten bir not (${mem.source_layer}): "${
+          mem.content.substring(0, 150)
+        }..."`
+      )
+      .join("\n");
+    // --- HAFIZA ENJEKSİYONU BİTTİ ---
+
     const userName = initialVault.profile?.nickname ?? null;
-    const prompt = getDailyReflectionPrompt(userName, todayMood, todayNote);
-    const aiResponse = await AiService.invokeGemini(prompt, "gemini-1.5-flash");
+
+    // 3. Bu yeni, zenginleştirilmiş bağlamı YENİ BİR PROMPT'A gönder.
+    const prompt = getDailyReflectionPromptV2(
+      userName,
+      todayMood,
+      todayNote,
+      pastContext,
+    );
+    const aiResponse = await AiService.invokeGemini(prompt, "gemini-1.5-pro");
 
     // Olayı kaydet
-    const { error: eventInsertError } = await adminClient.from("events").insert(
-      {
+    const { data: insertedDaily, error: eventInsertError } = await adminClient
+      .from("events").insert({
         user_id: userId,
         type: "daily_reflection",
         timestamp: Date.now(),
         data: { text: todayNote, aiResponse },
         mood: todayMood,
-      },
-    );
+      })
+      .select("id, created_at")
+      .single();
     if (eventInsertError) {
       console.error("[EventInsert] Hata:", eventInsertError);
+    }
+
+    // --- HAFIZA KAYDI: process-memory (ateşle ve unut) ---
+    try {
+      const sourceId = String(insertedDaily?.id ?? "");
+      if (sourceId) {
+        adminClient.functions.invoke("process-memory", {
+          body: {
+            source_event_id: sourceId,
+            user_id: userId,
+            content: todayNote,
+            event_time:
+              (insertedDaily as { created_at?: string })?.created_at ??
+                new Date().toISOString(),
+            mood: todayMood,
+            event_type: "daily_reflection",
+            transaction_id: context.transactionId,
+          },
+        }).catch((err) =>
+          console.error(
+            `[Orchestrator] process-memory invoke hatası (daily_reflection):`,
+            err,
+          )
+        );
+      }
+    } catch (_e) {
+      // swallow - asenkron tetikleyici başarısız olsa bile devam
     }
 
     // Vault güncelle (beklemeden başlat)
@@ -352,7 +451,6 @@ export async function handleDailyReflection(
     }
 
     // Journey log (opsiyonel; mevcut olmayabilir) - try/catch ile güvenli
-    // Journey log tablosuna kısa not (opsiyonel tablo yoksa sessizce geç)
     try {
       const { error: journeyError } = await adminClient.from("journey_logs")
         .insert({
@@ -367,7 +465,7 @@ export async function handleDailyReflection(
       // tablo olmayabilir; sessizce geç
     }
 
-    console.log(`[ORCHESTRATOR] Günlük yansıma yanıtı üretildi.`);
+    console.log(`[ORCHESTRATOR] RAG destekli günlük yansıma yanıtı üretildi.`);
     return aiResponse;
   } catch (error) {
     console.error(
@@ -510,10 +608,23 @@ export async function handleDiaryEntry(
         themeExtractionPrompt,
         "gemini-1.5-flash",
       );
+      const searchQuery =
+        `Bugünkü konuşmanın ana teması: ${theme}. Bu temayla ilgili geçmişteki en alakalı anılar, rüyalar veya farkındalık anları.`;
       const retrievedMemories = await RagService.retrieveContext(
         context.userId,
-        `Bugünkü konuşmanın ana teması: ${theme}. Bu temayla ilgili geçmişteki en alakalı anılar, rüyalar veya farkındalık anları.`,
+        searchQuery,
+        { threshold: 0.37, count: 7 }, // Günlük kapanış için düşük eşik, az sayıda sonuç
       );
+
+      // --- MİKROSKOP BURADA ---
+      await logRagInvocation(adminClient, {
+        transaction_id: context.transactionId,
+        user_id: context.userId,
+        source_function: "diary_conclusion",
+        search_query: searchQuery,
+        retrieved_memories: retrievedMemories,
+      });
+      // --- KANIT KAYDEDİLDİ ---
       const pastContext = (retrievedMemories || [])
         .map((mem) => {
           const text = typeof mem.content === "string"

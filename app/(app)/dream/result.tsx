@@ -24,12 +24,13 @@ import Oracle from "../../../components/dream/Oracle.tsx";
 // NOTE: _Moti alias kaldırıldı; tek import kullanacağız
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { getLatestAnalysisReport } from "../../../services/api.service";
-import type { OracleOutput } from "../../../services/ai.service";
 import { AppEvent, getEventById } from "../../../services/event.service";
 import { supabase } from "../../../utils/supabase";
 // SimulationCard kaldırıldı
 
 // Diyalog kartı kaldırıldı
+
+type OracleOutput = { f1: string; f2: string; f3: string };
 
 export default function DreamResultScreen() {
     const router = useRouter();
@@ -187,7 +188,8 @@ export default function DreamResultScreen() {
         crossConnections?: { connection: string; evidence: string }[];
     };
     // Veritabanından gelen oracle sonucu (varsa)
-    const oracleResult = (event.data as any)?.oracle_result as OracleOutput | undefined;
+    const oracleResult = (event.data as { oracle_result?: OracleOutput })
+        ?.oracle_result as OracleOutput | undefined;
 
     // Veri yüklendiğinde en tepeye kaydır (ikinci kez güvenli kullanım kaldırıldı)
 

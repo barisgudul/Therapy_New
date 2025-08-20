@@ -290,7 +290,7 @@ export default function HomeScreen() {
           content: {
             title: "Günaydın!",
             body: "Bugün kendine iyi bakmayı unutma.",
-            data: { route: "/daily_write" },
+            data: { route: "/daily_reflection" },
           },
           trigger: {
             hour: 8,
@@ -302,7 +302,7 @@ export default function HomeScreen() {
           content: {
             title: "Bugün nasılsın?",
             body: "1 cümleyle kendini ifade etmek ister misin?",
-            data: { route: "/daily_write" },
+            data: { route: "/daily_reflection" },
           },
           trigger: {
             hour: 20,
@@ -341,7 +341,7 @@ export default function HomeScreen() {
       setModalVisible(true);
       animateBg(true);
     } else {
-      router.push("/daily_write" as const);
+      router.push("/daily_reflection" as const);
     }
   };
 

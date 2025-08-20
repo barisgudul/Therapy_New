@@ -2,7 +2,8 @@
 
 import { InteractionContext } from "../types/context";
 import { ApiError } from "../utils/errors";
-import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service";
+// Frontend'de pipeline yok; tüm zeka sunucuda. Bu import kaldırıldı.
+// import { ControlledHybridPipeline } from "./controlled-hybrid-pipeline.service";
 import { EventPayload } from "./event.service";
 import { DiaryStart } from "../utils/schemas";
 import { SystemHealthMonitor } from "./system-health-monitor.service";
@@ -32,7 +33,7 @@ export async function processUserMessage(
   );
   const initialVault = await VaultService.getUserVault() ?? {};
 
-  const context: InteractionContext = {
+  const _context: InteractionContext = {
     transactionId: generateId(),
     userId,
     initialVault,
@@ -60,25 +61,15 @@ export async function processUserMessage(
     return "Sistem şu an yoğun, lütfen daha sonra tekrar deneyin.";
   }
 
-  // 3. DOĞRU PİPELİNE'I BELİRLE VE BEYNE GÖNDER
-  const pipelineType = determinePipelineType(eventPayload.type);
-  console.log(`[ORCHESTRATOR] 🧠 Pipeline tipi belirlendi: ${pipelineType}`);
-
+  // 3-4. Tüm zeka sunucu tarafında: Orchestrator fonksiyonunu çağırıyoruz
   try {
-    // 4. BEYNİ (PIPELINE'I) ÇAĞIR
-    const result = await ControlledHybridPipeline.executeComplexQuery(
-      context,
-      pipelineType,
-    );
-
-    // Sonuca insanlık hatırlatıcısı ekle
-    return ensureHumanityReminder(result);
+    const { data, error } = await supabase.functions.invoke("orchestrator", {
+      body: { eventPayload },
+    });
+    if (error) throw error;
+    return ensureHumanityReminder(data as string);
   } catch (error) {
-    console.error(
-      `[ORCHESTRATOR] ❌ Pipeline işlemi sırasında kritik hata:`,
-      error,
-    );
-    // Hata durumunda kullanıcıya anlamlı bir mesaj ver
+    console.error(`[ORCHESTRATOR] ❌ Orchestrator invoke hatası:`, error);
     throw new ApiError("İsteğiniz işlenirken bir sorun oluştu.");
   }
 }
@@ -138,10 +129,39 @@ export async function processDreamAnalysisEvent(
   throw new Error("Sunucudan geçersiz analiz ID'si formatı alındı.");
 }
 
+// Günlük hızlı yansıma için dar tipli yardımcı
+export async function processDailyReflectionEvent(
+  eventPayload: {
+    type: "daily_reflection";
+    mood?: string;
+    data: { todayNote: string; todayMood: string };
+  },
+): Promise<{ aiResponse: string }> {
+  const { data, error } = await supabase.functions.invoke("orchestrator", {
+    body: { eventPayload },
+  });
+
+  if (error) {
+    console.error("Orchestrator function invoke error:", error);
+    throw new Error(error.message);
+  }
+
+  if (
+    data && typeof data === "object" &&
+    "aiResponse" in (data as Record<string, unknown>) &&
+    typeof (data as { aiResponse?: unknown }).aiResponse === "string"
+  ) {
+    return { aiResponse: (data as { aiResponse: string }).aiResponse };
+  }
+
+  console.error("Beklenmedik yanıt formatı:", data);
+  throw new Error("Sunucudan geçersiz daily_reflection yanıt formatı alındı.");
+}
+
 /**
  * Event tipine göre uygun pipeline tipini belirle
  */
-function determinePipelineType(
+function _determinePipelineType(
   eventType: string,
 ):
   | "deep_analysis"

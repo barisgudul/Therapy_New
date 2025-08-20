@@ -32,8 +32,50 @@ Veriler:
   "f1": "Bu his tanıdık... <golden thread veya bağlantıya dayalı vurucu cümle>",
   "f2": "Görmediğin şey şu: Bu <tema>, senin <kör nokta> alışkanlığından besleniyor.",
   "f3": "Atacağın adım: <tema ile uyumlu mikro eylem>"
+}`;
 }
-`;
+
+export type OracleOutput = { f1: string; f2: string; f3: string };
+
+export async function generateSilentOracle(
+  i: OracleInputs,
+): Promise<OracleOutput> {
+  const prompt = buildSilentOraclePrompt(i);
+  const { data, error } = await supabase.functions.invoke("api-gateway", {
+    body: {
+      type: "gemini",
+      payload: {
+        model: "gemini-1.5-flash",
+        prompt,
+        config: {
+          responseMimeType: "application/json",
+          maxOutputTokens: 180,
+        },
+      },
+    },
+  });
+  if (error) throw error;
+  const text = (data as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  } | undefined)?.candidates?.[0]?.content?.parts?.[0]?.text;
+  try {
+    const parsed = JSON.parse(String(text)) as Partial<OracleOutput>;
+    return {
+      f1: typeof parsed.f1 === "string" ? parsed.f1 : "Bu his tanıdık...",
+      f2: typeof parsed.f2 === "string"
+        ? parsed.f2
+        : "Görmediğin şey şu: Bu tema, kaçınma alışkanlığından besleniyor.",
+      f3: typeof parsed.f3 === "string"
+        ? parsed.f3
+        : "Atacağın adım: Bugün 1 dakikalığına kontrolü bırak.",
+    };
+  } catch (_e) {
+    return {
+      f1: "Bu his tanıdık...",
+      f2: "Görmediğin şey şu: Bu tema, kaçınma alışkanlığından besleniyor.",
+      f3: "Atacağın adım: Bugün 1 dakikalığına kontrolü bırak.",
+    };
+  }
 }
 
 interface Prompt {
