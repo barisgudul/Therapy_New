@@ -9,10 +9,7 @@ import * as RagService from "./rag.service.ts";
 import { logRagInvocation } from "./utils/logging.service.ts";
 import { getDreamAnalysisV2Prompt } from "./prompts/dreamAnalysisV2.prompt.ts";
 import * as VaultService from "./vault.service.ts";
-import {
-  getDailyReflectionPrompt as _getDailyReflectionPrompt,
-  getDailyReflectionPromptV2,
-} from "./prompts/dailyReflection.prompt.ts";
+import { getTemporalReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
 import {
   getDiaryConclusionPrompt,
   getDiaryNextQuestionsPrompt,
@@ -329,8 +326,9 @@ export async function handleDailyReflection(
   context: InteractionContext,
 ): Promise<string> {
   console.log(
-    `[ORCHESTRATOR] Gelişmiş günlük yansıma işleniyor: ${context.transactionId}`,
+    `[ORCHESTRATOR] Zamansal yansıma işleniyor: ${context.transactionId}`,
   );
+
   const { todayNote, todayMood } = context.initialEvent.data as {
     todayNote?: string;
     todayMood?: string;
@@ -342,43 +340,47 @@ export async function handleDailyReflection(
   }
 
   try {
-    // --- HAFIZA ENJEKSİYONU BAŞLIYOR ---
-    const searchQuery =
-      `Bugünkü duygu ve not: ${todayMood} - "${todayNote}". Bu durumla ilgili geçmişteki en alakalı anılar, desenler veya rüyalar.`;
-    const retrievedMemories = await RagService.retrieveContext(
-      userId,
-      searchQuery,
-      { threshold: 0.31, count: 7 }, // Düşük eşik, az sayıda sonuç. "Saçmalı tüfek" modu.
-    );
+    // --- YENİ, HAFİF VERİ TOPLAMA ---
+    // Dünün tarihini hesapla
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayISO = yesterday.toISOString().split("T")[0];
 
-    // --- MİKROSKOP BURADA (daily_reflection) ---
-    await logRagInvocation(adminClient, {
-      transaction_id: context.transactionId,
-      user_id: userId,
-      source_function: "daily_reflection",
-      search_query: searchQuery,
-      retrieved_memories: retrievedMemories,
-    });
-    // --- KANIT KAYDEDİLDİ ---
-    const pastContext = (retrievedMemories || [])
-      .map((mem) =>
-        `- Geçmişten bir not (${mem.source_layer}): "${
-          mem.content.substring(0, 150)
-        }..."`
-      )
-      .join("\n");
-    // --- HAFIZA ENJEKSİYONU BİTTİ ---
+    // SADECE dünün daily_reflection'ını bul. Başka hiçbir şeye bakma.
+    const { data: yesterdayEvent, error: yesterdayError } = await adminClient
+      .from("events")
+      .select("mood, data") // Sadece mood ve data'yı çek
+      .eq("user_id", userId)
+      .eq("type", "daily_reflection")
+      .like("created_at", `${yesterdayISO}%`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (yesterdayError) {
+      console.warn(
+        `[Reflection] Dünün verisi çekilirken hata:`,
+        yesterdayError,
+      );
+    }
+    // --- BİTTİ ---
 
     const userName = initialVault.profile?.nickname ?? null;
 
-    // 3. Bu yeni, zenginleştirilmiş bağlamı YENİ BİR PROMPT'A gönder.
-    const prompt = getDailyReflectionPromptV2(
+    const prompt = getTemporalReflectionPrompt(
       userName,
-      todayMood,
-      todayNote,
-      pastContext,
+      { mood: todayMood, note: todayNote },
+      yesterdayEvent
+        ? { mood: yesterdayEvent.mood, note: yesterdayEvent.data?.text || "" }
+        : null,
     );
-    const aiResponse = await AiService.invokeGemini(prompt, "gemini-1.5-pro");
+
+    // Hızlı ve ucuz model bu iş için mükemmel.
+    const aiResponse = await AiService.invokeGemini(
+      prompt,
+      "gemini-1.5-flash",
+      { temperature: 0.7 },
+    );
 
     // Olayı kaydet
     const { data: insertedDaily, error: eventInsertError } = await adminClient
