@@ -497,44 +497,64 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   aiResponse: string;
   usedMemory: { content: string; source_layer: string } | null;
 }> {
-  const { userMessage, messages } = context.initialEvent
-    .data as {
-      userMessage?: string;
-      messages?: { sender: "user" | "ai"; text: string }[];
-    };
+  const { userMessage, messages } = context.initialEvent.data as {
+    userMessage?: string;
+    messages?: { sender: "user" | "ai"; text: string }[];
+  };
 
   if (!userMessage) {
     throw new ValidationError("Kullanıcı mesajı eksik.");
   }
 
-  // --- RAG: HER ZAMAN BİLGİ TOPLA ---
-  // AI'ın her zaman bilgili olması için RAG'ı her seferinde çağırıyoruz.
-  // Ama bu bilgiyi nasıl kullanacağına prompt içinde karar verecek.
+  // --- HİBRİT ADIM 1: GÜVENLİK İÇİN ANLAMA (AMA SADECE GEREKTİĞİNDE) ---
+  // Karmaşık veya duygusal mesajları tespit edip, sadece onlar için ön anlama adımı çalıştır.
+  const complexityCheckPrompt = `
+    Kullanıcının şu mesajı basit bir ifade mi ('basit'), yoksa birden fazla kişi, olay veya karmaşık duygu içeren bir anlatım mı ('karmaşık')? Sadece 'basit' veya 'karmaşık' diye cevap ver.
+    Mesaj: "${userMessage}"
+    Cevap:
+  `;
+  const complexity = await AiService.invokeGemini(
+    complexityCheckPrompt,
+    "gemini-1.5-flash",
+    { maxOutputTokens: 5 },
+  );
+
+  let understandingContext = "";
+  if (complexity.trim().toLowerCase() === "karmaşık") {
+    console.log(
+      "[Orchestrator] Karmaşık mesaj algılandı, ön anlama adımı çalıştırılıyor.",
+    );
+    const understandingPrompt =
+      `Kullanıcının şu mesajını bir cümleyle özetle: "${userMessage}"`;
+    const mainIdea = await AiService.invokeGemini(
+      understandingPrompt,
+      "gemini-1.5-flash",
+    );
+    understandingContext =
+      `KULLANICININ MESAJININ ANA FİKRİ (ÖZET): ${mainIdea}\n`;
+  }
+
+  // --- HİBRİT ADIM 2: RAG (HER ZAMAN OLDUĞU GİBİ) ---
   const retrievedMemories = await RagService.retrieveContext(
     context.userId,
     userMessage,
-    { threshold: 0.45, count: 3 }, // Daha az ama daha isabetli anı alalım
+    { threshold: 0.45, count: 3 },
   );
-
   const pastContext = retrievedMemories.length > 0
     ? retrievedMemories.map((m) => `- ${m.content}`).join("\n")
     : "Yok";
 
-  // YENİ: Yapılandırılmış mesaj dizisinden temiz hafıza oluştur
-  const shortTermMemory = (messages && messages.length > 1)
-    // Son kullanıcı mesajını dahil etme, çünkü o zaten prompt'ta ayrı veriliyor.
-    ? messages.slice(0, -1).map((m) =>
-      `${m.sender === "user" ? "Danışan" : "Sen"}: ${m.text}`
-    ).join("\n")
-    : "Bu sohbetin başlangıcı.";
+  const shortTermMemory = (messages || []).slice(0, -1).map((m) =>
+    `${m.sender === "user" ? "Danışan" : "Sen"}: ${m.text}`
+  ).join("\n");
 
-  // --- YENİ MASTER PROMPT: "GÖRÜNMEZ ZEKA" ---
+  // --- BEĞENDİĞİN PROMPT'UN GÜNCELLENMİŞ HALİ ---
   const masterPrompt = `
     SENİN KARAKTERİN: Sen doğal, akıcı ve hafızası olan bir sohbet arkadaşısın. Amacın terapi yapmak veya analiz sunmak DEĞİL, sadece iyi bir sohbet etmek. Bazen derin, bazen yüzeysel, tamamen sohbetin akışına göre...
 
     ELİNDEKİ GİZLİ BİLGİLER (BUNLARI KULLANICIYA ASLA 'İŞTE BİLGİLER' DİYE SUNMA):
     1.  GEÇMİŞTEN NOTLAR: ${pastContext}
-    2.  SON KONUŞULANLAR: ${shortTermMemory}
+    2.  SON KONUŞULANLAR: ${shortTermMemory || "Bu sohbetin başlangıcı."}
     3.  KULLANICININ SON SÖZÜ: "${userMessage}"
 
     GÖREVİN:
@@ -544,27 +564,19 @@ export async function handleTextSession(context: InteractionContext): Promise<{
         -   Eğer kullanıcı "canım sıkkın" derse ve SON KONUŞULANLARDA "gözlükçü olayı" varsa, cevabın "Hala o gözlükçü olayına mı canın sıkkın yoksa başka bir şey mi var?" olabilir.
     3.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
     4.  Sohbeti her zaman canlı tut. Soru sor, merak et, konuyu değiştir ama asla "Kendine iyi bak" gibi sohbeti bitiren cümleler kurma.
-
+    5.  SOHBETİN RİTMİNİ KORU: Cevapların kullanıcıyı bunaltmamalı. Bir yorum yap, sonra sohbeti devam ettirmek için genellikle tek ve açık uçlu bir soru sor. Bazen, sadece bir gözlemde bulunup kullanıcının tepki vermesini beklemek de güçlü bir yöntemdir. Her mesajın bir sorgulama olmak zorunda değil. Kullanıcıya düşünmesi ve nefes alması için alan bırak.
     Şimdi, bu kurallara göre, sanki her şeyi doğal olarak hatırlıyormuş gibi cevap ver:
   `;
 
-  // --- MODEL SEÇİMİ: HER ZAMAN HIZLI VE UCUZ MODEL ---
-  // Artık periyodik olarak pahalı modele geçmiyoruz. Sürekli aynı moddayız.
-  // Bu, maliyeti ve karmaşıklığı büyük oranda azaltır.
   const aiResponse = await AiService.invokeGemini(
     masterPrompt,
-    "gemini-1.5-flash", // HER ZAMAN FLASH!
+    "gemini-1.5-flash",
     { temperature: 0.8 },
     undefined,
     userMessage,
   );
 
-  // NOT: usedMemory'yi hala döndürüyoruz. Belki gelecekte bunu UI'da
-  // farklı bir şekilde (örneğin tıklayınca açılan bir "ilgili anılar" butonu) kullanabiliriz.
-  // Ama şimdilik mor balon olmayacak.
   const usedMemory = retrievedMemories.length > 0 ? retrievedMemories[0] : null;
-
-  // Frontend'e artık 'isInsight' diye bir şey göndermiyoruz. Her mesaj normal mesaj.
   return { aiResponse, usedMemory };
 }
 
