@@ -1,114 +1,81 @@
 // supabase/functions/process-session-memory/index.ts
-
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { invokeGemini } from "../_shared/ai.service.ts";
+import { supabase as adminClient } from "../_shared/supabase-admin.ts";
+import * as AiService from "../_shared/ai.service.ts";
+import { AI_MODELS } from "../_shared/config.ts";
 
-const getSummaryPrompt = (transcript: string) => `
-Aşağıdaki sohbet transkriptini, sanki bir günlüğe not alıyormuş gibi, geçmiş zaman kipiyle ve birinci tekil şahıs ("ben") ağzından 2-3 cümlelik kısa bir anıya dönüştür. Bu anı, konuşmanın ana fikrini ve duygusunu yansıtmalıdır.
+const getSummaryPrompt = (transcript: string) =>
+  `Bu sohbet transkriptini analiz et ve özetle. Ana temaları, duyguları ve önemli noktaları çıkar. Özet, hafıza sisteminde saklanacak ve gelecekteki sohbetlerde kullanılacak. Transkript:
 
-TRANSKRİPT:
 ${transcript}
 
-ANI ÖZETİ (2-3 CÜMLE):
-`;
+Özet:`;
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const { transcript } = await req.json();
-
-    // Authorization header'dan JWT'yi al
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Authorization header eksik");
-    }
-
+    const authHeader = req.headers.get("Authorization")!;
     const jwt = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await adminClient.auth.getUser(
-      jwt,
-    );
+    const { data: { user } } = await adminClient.auth.getUser(jwt);
+    if (!user) throw new Error("Kullanıcı doğrulanamadı.");
 
-    if (authError || !user) {
-      throw new Error("Kullanıcı doğrulanamadı.");
+    const { messages, eventId } = await req.json(); // eventId'yi client'tan alacağız
+    if (!messages || messages.length < 2) {
+      throw new Error("Özetlenecek kadar mesaj yok.");
     }
+    if (!eventId) throw new Error("Kaynak event ID'si eksik.");
 
-    if (!transcript) {
-      throw new Error("Transkript eksik.");
-    }
+    const transcript = messages.map((m: { sender: string; text: string }) =>
+      `${m.sender === "user" ? "Ben" : "O"}: ${m.text}`
+    ).join("\n");
 
-    console.log(
-      `🧠 [Memory] Kullanıcı ${user.id} için sohbet özeti oluşturuluyor...`,
+    const summary = await AiService.invokeGemini(
+      getSummaryPrompt(transcript),
+      AI_MODELS.INTENT,
     );
-
-    // 1. AI ile özeti oluştur
-    const summaryPrompt = getSummaryPrompt(transcript);
-    const summary = await invokeGemini(summaryPrompt, "gemini-1.5-flash");
-
     if (!summary || summary.trim().length < 10) {
-      throw new Error("AI'dan geçerli bir özet alınamadı.");
+      throw new Error("AI'dan geçerli özet alınamadı.");
     }
 
-    console.log(
-      `📝 [Memory] Özet oluşturuldu: "${summary.substring(0, 100)}..."`,
+    // İŞTE KRİTİK DEĞİŞİKLİK BURADA!
+    // Özeti doğrudan veritabanına kaydetmek yerine, asıl işi yapan 'process-memory' function'ını çağırıyoruz.
+    const { error: invokeError } = await adminClient.functions.invoke(
+      "process-memory",
+      {
+        body: {
+          source_event_id: eventId,
+          user_id: user.id,
+          content: summary,
+          event_time: new Date().toISOString(),
+          event_type: "text_session_summary", // Tipini değiştirelim ki karışmasın
+        },
+      },
     );
 
-    // 2. cognitive_memories'e kaydet
-    const { error: insertError } = await adminClient.from("cognitive_memories")
-      .insert({
-        user_id: user.id,
-        content: summary,
-        event_time: new Date().toISOString(),
-        event_type: "text_session",
-        // sentiment ve stylometry'yi şimdilik null geçebiliriz veya ayrı bir AI çağrısıyla üretebiliriz
-        sentiment_data: null,
-        stylometry_data: null,
-      });
-
-    if (insertError) {
-      console.error(
-        `❌ [Memory] cognitive_memories'e kayıt hatası:`,
-        insertError,
+    if (invokeError) {
+      throw new Error(
+        `process-memory'i tetiklerken hata: ${invokeError.message}`,
       );
-      throw insertError;
     }
 
     console.log(
-      `✅ [Memory] Kullanıcı ${user.id} için hafıza kaydı başarıyla oluşturuldu.`,
+      `✅ [Process-Session-Memory] Hafıza işleme, ${eventId} için başarıyla tetiklendi.`,
     );
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Hafıza kaydı oluşturuldu.",
-        summary: summary.substring(0, 200) + "...", // Özetin ilk 200 karakterini döndür
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      },
-    );
+    return new Response(JSON.stringify({ success: true, summary }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`❌ [Memory] process-session-memory hatası:`, errorMessage);
-
-    return new Response(
-      JSON.stringify({
-        error: errorMessage,
-        success: false,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      },
-    );
+    const errorMessage = error instanceof Error
+      ? error.message
+      : "Unknown error";
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });

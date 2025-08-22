@@ -5,7 +5,7 @@ export const AI_MODELS = {
 };
 
 export const RAG_CONFIG = {
-  THRESHOLD: 0.45,
+  THRESHOLD: 0.75,
   COUNT: 3,
 };
 

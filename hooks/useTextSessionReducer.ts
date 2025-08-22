@@ -360,17 +360,44 @@ export function useTextSessionReducer({
         dispatch({ type: "END_SESSION_START" });
 
         try {
-            // TODO: Backend'e session data gönderilecek
-            // Şimdilik basit bir log
             if (state.messages.length >= 2) {
-                console.log(
-                    "Session ended with messages:",
-                    state.messages.length,
-                );
+                // 1. Önce bu biten seans için bir 'olay' kaydı oluştur.
+                // Önce kullanıcıyı almamız lazım.
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    throw new Error(
+                        "Kullanıcı bulunamadı, seans sonlandırılamıyor.",
+                    );
+                }
+
+                const { data: event, error: eventError } = await supabase
+                    .from("events")
+                    .insert({
+                        user_id: user.id, // BU SATIRI EKLE
+                        type: "session_end",
+                        data: { messageCount: state.messages.length },
+                        timestamp: new Date().toISOString(), // BU SATIRI EKLE
+                    })
+                    .select("id")
+                    .single();
+
+                if (eventError) throw eventError;
+
+                // 2. Şimdi bu olayın ID'si ile birlikte hafıza işleme function'ını çağır.
+                // Bu "ateşle ve unut" çağrısıdır. Kullanıcı, işlemin bitmesini beklemez.
+                supabase.functions.invoke("process-session-memory", {
+                    body: {
+                        messages: state.messages,
+                        eventId: event.id, // Olayın ID'sini yolluyoruz ki kaynak belli olsun.
+                    },
+                }).catch((err) => {
+                    // Bu hata kritik değil, sadece UI'ı etkilemez. Konsola logla.
+                    console.error("Arka plan hafıza işleme hatası:", err);
+                });
             }
 
             dispatch({ type: "END_SESSION_SUCCESS" });
-            onSessionEnd();
+            onSessionEnd(); // Kullanıcıyı hemen ekrandan çıkar.
         } catch (error) {
             console.error("[endSession] Error:", error);
             dispatch({

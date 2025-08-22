@@ -5,17 +5,13 @@
 import { useRouter } from 'expo-router/';
 import React from 'react';
 import MoodSelector from '../../../components/MoodSelector';
-import { logEvent } from '../../../services/api.service';
 
 export default function AfterFeelingScreen() {
   const router = useRouter();
 
   const handleSaveMood = async (moodLabel: string) => {
-    await logEvent({
-      type: 'session_end',
-      mood: moodLabel,
-      data: {} // Gerekirse ek veri eklenebilir
-    });
+    // ARTIK HİÇBİR ŞEYİ LOG'LAMIYORUZ.
+    // Sadece ruh hali bilgisini alıp bir sonraki ekrana gidiyoruz.
     router.replace({
       pathname: '/feel/mood_comparison',
       params: { afterMood: moodLabel }

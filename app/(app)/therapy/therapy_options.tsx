@@ -54,7 +54,7 @@ export default function TherapyOptionsScreen() {
   const handleOptionPress = (route: string) => {
     const sessionType = route.split("/").pop()?.replace("_session", "");
     router.push({
-      pathname: "../feel/before_feeling",
+      pathname: "../sessions/text_session",
       params: {
         sessionType: sessionType || "text",
         therapistId,

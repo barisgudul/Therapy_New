@@ -111,20 +111,48 @@ serve(async (req) => {
     }
 
     let retrievedMemories: { content: string; source_layer: string }[] = [];
-    if (intent === "DeepThought" || intent === "Question") {
+    let isFarewell = false; // Veda durumunu takip etmek için bir bayrak
+
+    if (intent === "Farewell") {
+      isFarewell = true;
+      // Veda mesajı için RAG'e gitmeye gerek yok.
+    } else if (intent === "DeepThought" || intent === "Question") {
       console.log(
-        `[RAG] Niyet "${intent}" olarak tespit edildi, hafıza taranıyor...`,
+        `[RAG] Niyet "${intent}" olarak tespit edildi, HyDE sorgusu üretiliyor...`,
       );
-      // RAG servisini burada çağır
+
+      // --- HİPOTEZ ÜRETEN SORGULAMA (HyDE) ADIMI ---
+      // 1. Varsayımsal bir doküman üretmesi için AI'ı görevlendir.
+      const hydePrompt =
+        `Kullanıcının şu cümlesini oku: "${userMessage}". Bu cümlenin detaylı bir cevabı olabilecek, hafıza veritabanında arama yapmak için kullanılabilecek, ideal bir anı metni oluştur. Bu metin, cümlenin arkasındaki ana temayı, duyguyu ve konuyu içersin. Cevabın SADECE bu üretilen metin olsun.`;
+
+      // 2. Hızlı ve ucuz bir modelle bu varsayımsal metni (gelişmiş sorguyu) üret.
+      const enhancedQuery = await AiService.invokeGemini(
+        hydePrompt,
+        AI_MODELS.INTENT, // Yine hızlı olanı kullan
+        { temperature: 0.3 }, // Yaratıcılık değil, tutarlılık lazım
+      );
+
+      console.log(
+        `[HyDE] Orijinal: "${userMessage}" -> Gelişmiş Sorgu: "${
+          enhancedQuery.substring(0, 100)
+        }..."`,
+      );
+      // --- HyDE ADIMI BİTTİ ---
+
+      // 3. RAG servisini, kullanıcının ham mesajıyla değil, bu yeni ürettiğimiz zeki sorguyla çağır!
       retrievedMemories = await RagService.retrieveContext(
         userId,
-        userMessage,
+        enhancedQuery, // BURASI DEĞİŞTİ!
         { threshold: RAG_CONFIG.THRESHOLD, count: RAG_CONFIG.COUNT },
       );
     }
+    // Greeting ve Trivial için de RAG'e gitmiyoruz, bu mantık zaten doğru.
 
     // === ADIM 2.2: ZİNCİRLEME PROMPT MÜHENDİSLİĞİ ===
-    const pastContext = retrievedMemories.length > 0
+    const hasRelevantMemory = retrievedMemories.length > 0;
+
+    const pastContext = hasRelevantMemory
       ? retrievedMemories.map((m: { content: string }) => `- ${m.content}`)
         .join("\n")
       : "Yok";
@@ -138,7 +166,7 @@ serve(async (req) => {
 SENİN KARAKTERİN: Sen doğal, akıcı ve hafızası olan bir sohbet arkadaşısın. Amacın terapi yapmak veya analiz sunmak DEĞİL, sadece iyi bir sohbet etmek. Bazen derin, bazen yüzeysel, tamamen sohbetin akışına göre...
 
 ELİNDEKİ GİZLİ BİLGİLER (BUNLARI KULLANICIYA ASLA 'İŞTE BİLGİLER' DİYE SUNMA):
-1.  GEÇMİŞTEN NOTLAR: ${pastContext}
+${hasRelevantMemory ? `1.  GEÇMİŞTEN ALAKALI BİR NOT: ${pastContext}` : ""}
 2.  SON KONUŞULANLAR: ${shortTermMemory || "Bu sohbetin başlangıcı."}
 3.  KULLANICININ SON SÖZÜ: "${userMessage}"
 
@@ -148,11 +176,18 @@ GÖREVİN:
     -   **ÖNEMLİ KURAL:** Eğer GEÇMİŞTEN NOTLAR anlamsızsa (sadece bir selamlama gibi) veya kullanıcının son sözüyle tamamen alakasızsa, O NOTLARI **TAMAMEN GÖRMEZDEN GEL** ve sadece sohbete odaklan.
     -   Eğer kullanıcı "projemle uğraşıyorum" derse ve GEÇMİŞ NOTLARDA "iş stresi" varsa, cevabın "Umarım projen iyi gidiyordur, stresli bir şeye benzemiyor" gibi, o bilgiyi hissettiren ama söylemeyen bir cevap olabilir.
     -   Eğer kullanıcı "canım sıkkın" derse ve SON KONUŞULANLARDA "gözlükçü olayı" varsa, cevabın "Hala o gözlükçü olayına mı canın sıkkın yoksa başka bir şey mi var?" olabilir.
-3.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
-4.  Sohbeti her zaman canlı tut. Soru sor, merak et, konuyu değiştir ama asla "Kendine iyi bak" gibi sohbeti bitiren cümleler kurma.
-5.  SOHBETİN RİTMİNİ KORU: Cevapların kullanıcıyı bunaltmamalı. Bir yorum yap, sonra sohbeti devam ettirmek için genellikle tek ve açık uçlu bir soru sor. Bazen, sadece bir gözlemde bulunup kullanıcının tepki vermesini beklemek de güçlü bir yöntemdir. Her mesajın bir sorgulama olmak zorunda değil. Kullanıcıya düşünmesi ve nefes alması için alan bırak.
+3.  **KIRMIZI ÇİZGİ (EN ÖNEMLİ KURAL):** Sen bir yapay zekasın. Kendi kişisel anıların, deneyimlerin veya geçmişin YOK. ASLA "ben de...", "benim de başıma gelmişti...", "bir keresinde ben de..." gibi ifadeler kullanarak yaşanmışlık iddia ETME. Empati kurmak için, "Bunun ne kadar zorlayıcı olduğunu hayal edebiliyorum," veya "Bu konuda yalnız olmadığını bilmek önemli," gibi ifadeler kullan. Konu hakkında bilgin varsa paylaş, ama deneyimin varmış gibi davranma. BU KURALI ASLA ÇİĞNEME.
+4.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
+5.  Sohbeti her zaman canlı tut. Soru sor, merak et, konuyu değiştir ama asla "Kendine iyi bak" gibi sohbeti bitiren cümleler kurma.
+6.  SOHBETİN RİTMİNİ KORU: Cevapların kullanıcıyı bunaltmamalı. Bir yorum yap, sonra sohbeti devam ettirmek için genellikle tek ve açık uçlu bir soru sor. Bazen, sadece bir gözlemde bulunup kullanıcının tepki vermesini beklemek de güçlü bir yöntemdir. Her mesajın bir sorgulama olmak zorunda değil. Kullanıcıya düşünmesi ve nefes alması için alan bırak.
 
-Şimdi, bu kurallara göre, sanki her şeyi doğal olarak hatırlıyormuş gibi cevap ver:`;
+Şimdi, bu kurallara göre, sanki her şeyi doğal olarak hatırlıyormuş gibi cevap ver:
+
+${
+      isFarewell
+        ? "ÖNEMLİ NOT: Kullanıcı sohbete veda ediyor. 'Sohbeti canlı tut' kuralını BU SEFERLİK görmezden gel. Ona iyi dileklerde bulun ve sohbeti nazikçe sonlandır. ASLA yeni bir soru sorma."
+        : ""
+    }`;
 
     const aiResponseText = await AiService.invokeGemini(
       masterPrompt,

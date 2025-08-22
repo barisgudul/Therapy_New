@@ -54,7 +54,7 @@ export default function TextSessionScreen() {
     initialMood: mood,
     eventId: eventId, // eventId'yi hook'a geçir
     onSessionEnd: () => {
-      router.replace("/feel/after_feeling");
+      router.replace("/");
     },
   });
 
