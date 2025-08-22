@@ -19,11 +19,6 @@ import {
 } from "react-native";
 import { PremiumGate } from "../../../components/PremiumGate";
 import { Colors } from "../../../constants/Colors";
-import {
-    ALL_THERAPISTS,
-    getTherapistById,
-    TherapistData,
-} from "../../../data/therapists";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useVoiceSession } from "../../../hooks/useVoice";
 import { incrementFeatureUsage } from "../../../services/api.service";

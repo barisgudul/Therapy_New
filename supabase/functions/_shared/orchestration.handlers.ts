@@ -489,6 +489,85 @@ export function handleDefault(
   );
 }
 
+// =============================
+// TEXT SESSION HANDLER'I - RAG ile Kişiselleştirilmiş AI
+// =============================
+
+export async function handleTextSession(context: InteractionContext): Promise<{
+  aiResponse: string;
+  usedMemory: { content: string; source_layer: string } | null;
+}> {
+  const { userMessage, messages } = context.initialEvent
+    .data as {
+      userMessage?: string;
+      messages?: { sender: "user" | "ai"; text: string }[];
+    };
+
+  if (!userMessage) {
+    throw new ValidationError("Kullanıcı mesajı eksik.");
+  }
+
+  // --- RAG: HER ZAMAN BİLGİ TOPLA ---
+  // AI'ın her zaman bilgili olması için RAG'ı her seferinde çağırıyoruz.
+  // Ama bu bilgiyi nasıl kullanacağına prompt içinde karar verecek.
+  const retrievedMemories = await RagService.retrieveContext(
+    context.userId,
+    userMessage,
+    { threshold: 0.45, count: 3 }, // Daha az ama daha isabetli anı alalım
+  );
+
+  const pastContext = retrievedMemories.length > 0
+    ? retrievedMemories.map((m) => `- ${m.content}`).join("\n")
+    : "Yok";
+
+  // YENİ: Yapılandırılmış mesaj dizisinden temiz hafıza oluştur
+  const shortTermMemory = (messages && messages.length > 1)
+    // Son kullanıcı mesajını dahil etme, çünkü o zaten prompt'ta ayrı veriliyor.
+    ? messages.slice(0, -1).map((m) =>
+      `${m.sender === "user" ? "Danışan" : "Sen"}: ${m.text}`
+    ).join("\n")
+    : "Bu sohbetin başlangıcı.";
+
+  // --- YENİ MASTER PROMPT: "GÖRÜNMEZ ZEKA" ---
+  const masterPrompt = `
+    SENİN KARAKTERİN: Sen doğal, akıcı ve hafızası olan bir sohbet arkadaşısın. Amacın terapi yapmak veya analiz sunmak DEĞİL, sadece iyi bir sohbet etmek. Bazen derin, bazen yüzeysel, tamamen sohbetin akışına göre...
+
+    ELİNDEKİ GİZLİ BİLGİLER (BUNLARI KULLANICIYA ASLA 'İŞTE BİLGİLER' DİYE SUNMA):
+    1.  GEÇMİŞTEN NOTLAR: ${pastContext}
+    2.  SON KONUŞULANLAR: ${shortTermMemory}
+    3.  KULLANICININ SON SÖZÜ: "${userMessage}"
+
+    GÖREVİN:
+    1.  Kullanıcının son sözüne DOĞRUDAN ve DOĞAL bir cevap ver.
+    2.  Cevabını oluştururken, elindeki GİZLİ BİLGİLERİ bir ilham kaynağı olarak kullan.
+        -   Eğer kullanıcı "projemle uğraşıyorum" derse ve GEÇMİŞ NOTLARDA "iş stresi" varsa, cevabın "Umarım projen iyi gidiyordur, stresli bir şeye benzemiyor" gibi, o bilgiyi hissettiren ama söylemeyen bir cevap olabilir.
+        -   Eğer kullanıcı "canım sıkkın" derse ve SON KONUŞULANLARDA "gözlükçü olayı" varsa, cevabın "Hala o gözlükçü olayına mı canın sıkkın yoksa başka bir şey mi var?" olabilir.
+    3.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
+    4.  Sohbeti her zaman canlı tut. Soru sor, merak et, konuyu değiştir ama asla "Kendine iyi bak" gibi sohbeti bitiren cümleler kurma.
+
+    Şimdi, bu kurallara göre, sanki her şeyi doğal olarak hatırlıyormuş gibi cevap ver:
+  `;
+
+  // --- MODEL SEÇİMİ: HER ZAMAN HIZLI VE UCUZ MODEL ---
+  // Artık periyodik olarak pahalı modele geçmiyoruz. Sürekli aynı moddayız.
+  // Bu, maliyeti ve karmaşıklığı büyük oranda azaltır.
+  const aiResponse = await AiService.invokeGemini(
+    masterPrompt,
+    "gemini-1.5-flash", // HER ZAMAN FLASH!
+    { temperature: 0.8 },
+    undefined,
+    userMessage,
+  );
+
+  // NOT: usedMemory'yi hala döndürüyoruz. Belki gelecekte bunu UI'da
+  // farklı bir şekilde (örneğin tıklayınca açılan bir "ilgili anılar" butonu) kullanabiliriz.
+  // Ama şimdilik mor balon olmayacak.
+  const usedMemory = retrievedMemories.length > 0 ? retrievedMemories[0] : null;
+
+  // Frontend'e artık 'isInsight' diye bir şey göndermiyoruz. Her mesaj normal mesaj.
+  return { aiResponse, usedMemory };
+}
+
 // ===============================================
 // STRATEJİ HARİTASI
 // ===============================================
@@ -500,7 +579,7 @@ export const eventHandlers: Record<
   "dream_analysis": handleDreamAnalysis,
   "daily_reflection": handleDailyReflection,
   // Diğer tüm event'ler için varsayılan bir handler
-  "text_session": handleDefault,
+  "text_session": handleTextSession, // YENİ: Özel text_session handler'ı
   "voice_session": handleDefault,
   "video_session": handleDefault,
   "ai_analysis": handleDefault,

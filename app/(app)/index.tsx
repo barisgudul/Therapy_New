@@ -348,7 +348,7 @@ export default function HomeScreen() {
   // === TERAPİSTİNİ SEÇ: ARTIK VAULT'TAN OKUYOR ===
   const handleStart = () => {
     if (vault?.profile?.nickname) {
-      router.push("/therapy/avatar" as const);
+      router.push("/therapy/therapy_options" as const);
     } else {
       router.push("/profile" as const);
     }

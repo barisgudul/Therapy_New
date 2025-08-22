@@ -14,13 +14,20 @@ export async function invokeGemini(
     maxOutputTokens?: number;
   },
   transactionId?: string,
+  userMessage?: string, // YENİ PARAMETRE: Kullanıcının orijinal mesajı
 ): Promise<string> {
   try {
     const start = Date.now();
     const { data, error } = await supabase.functions.invoke("api-gateway", {
       body: {
         type: "gemini",
-        payload: { model, prompt, config, transaction_id: transactionId },
+        payload: {
+          model,
+          prompt,
+          config,
+          transaction_id: transactionId,
+          userMessage: userMessage, // YENİ ALAN: Güvenlik kontrolü için
+        },
       },
     });
 

@@ -140,15 +140,18 @@ export async function handleApiGateway(req: Request): Promise<Response> {
   try {
     const { type, payload } = await req.json();
     const transactionId: string = String(payload?.transaction_id || "no-tx");
-    const textToAnalyze = payload?.prompt || payload?.text;
+    // Güvenlik kontrolü için SADECE kullanıcıdan gelen ham metni kullan.
+    // Bu, RAG'dan gelen geçmiş anıları içermez, sadece kullanıcının o anki mesajıdır.
+    const textToAnalyzeForSafety = payload?.userMessage || payload?.content ||
+      payload?.text;
 
     const disableSafety = Deno.env.get("DISABLE_SAFETY_CHECKS") === "true";
     if (!disableSafety) {
       if (
-        textToAnalyze && typeof textToAnalyze === "string" &&
-        textToAnalyze.trim().length > 0
+        textToAnalyzeForSafety && typeof textToAnalyzeForSafety === "string" &&
+        textToAnalyzeForSafety.trim().length > 0
       ) {
-        const safetyLevel = await classifyTextForSafety(textToAnalyze);
+        const safetyLevel = await classifyTextForSafety(textToAnalyzeForSafety);
 
         if (safetyLevel === "level_3_high_alert") {
           console.warn(

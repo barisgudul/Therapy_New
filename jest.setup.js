@@ -1,20 +1,60 @@
 // jest.setup.js
-// JSDOM polyfills
-if (!globalThis.requestAnimationFrame) {
-  globalThis.requestAnimationFrame = (cb) => setTimeout(cb, 0);
-}
 
-// React Query: wrap notifications in React Testing Library's act to avoid act warnings
+// React Native için temel mock'lar
+jest.mock('react-native', () => {
+  const RN = jest.requireActual('react-native');
+  
+  return {
+    ...RN,
+    // Native modülleri taklit et
+    NativeModules: {
+      ...RN.NativeModules,
+      DevMenu: {
+        show: jest.fn(),
+        reload: jest.fn(),
+      },
+      Clipboard: {
+        setString: jest.fn(),
+        getString: jest.fn().mockResolvedValue(''),
+      },
+    },
+    
+    // BackHandler mock'u
+    BackHandler: {
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      removeEventListener: jest.fn(),
+    },
+    
+    // LayoutAnimation mock'u
+    LayoutAnimation: {
+      configureNext: jest.fn(),
+      create: jest.fn(),
+      easeInEaseOut: jest.fn(),
+      linear: jest.fn(),
+      spring: jest.fn(),
+    },
+  };
+});
+
+// Reanimated için mock'lar
+jest.mock('react-native-reanimated', () => {
+  const Reanimated = require('react-native-reanimated/mock');
+  Reanimated.useSharedValue = jest.fn;
+  Reanimated.useAnimatedStyle = jest.fn;
+  Reanimated.withTiming = jest.fn;
+  Reanimated.withSpring = jest.fn;
+  return Reanimated;
+});
+
+// React Query için olan ayar
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { notifyManager } = require('@tanstack/query-core');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { act } = require('@testing-library/react-native');
   if (notifyManager && typeof notifyManager.setBatchNotifyFunction === 'function') {
     notifyManager.setBatchNotifyFunction((cb) => act(cb));
   }
 } catch (_) {
-  // ignore setup errors in non-test environments
+  // Hata durumunda yoksay
 }
 
 

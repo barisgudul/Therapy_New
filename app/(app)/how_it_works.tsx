@@ -167,7 +167,7 @@ export default function HowItWorksScreen() {
 
         <TouchableOpacity
           style={styles.startButton}
-          onPress={() => router.push("/therapy/avatar")}
+          onPress={() => router.push("/therapy/therapy_options")}
           activeOpacity={0.7}
         >
           <LinearGradient

@@ -11,7 +11,8 @@ export async function logRagInvocation(
       | "diary_conclusion"
       | "dream_analysis"
       | "ai_summary"
-      | "daily_reflection";
+      | "daily_reflection"
+      | "text_session"; // YENİ: text_session için eklendi
     search_query: string;
     retrieved_memories: unknown[];
   },

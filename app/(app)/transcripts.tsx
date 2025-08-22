@@ -1,14 +1,11 @@
 // app/transcripts.tsx
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as React from 'react';
 import {
   ActivityIndicator,
-  Alert, // <-- YENİ: Onay penceresi için import edildi
   Animated,
-  Easing, // <-- YENİ: Buraya eklendi
-  Image, // <-- YENİ: Terapist fotoğrafı için eklendi
+  Easing,
   Platform,
   Pressable,
   ScrollView,
@@ -18,10 +15,8 @@ import {
   UIManager,
   View
 } from 'react-native';
-// YENİ: deleteEventById fonksiyonu import edildi
-import { useRouter } from 'expo-router/';
-import { ALL_THERAPISTS } from '../../data/therapists';
-import { AppEvent, deleteEventById, EventType, getEventsForLast } from '../../services/event.service';
+
+import { useTranscripts, ViewMode, SessionEvent } from '../../hooks/useTranscripts';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -62,11 +57,7 @@ const theme = {
 };
 
 // ---- TİP TANIMLAMALARI ----
-type ViewMode = 'menu' | 'summaryList' | 'detailView';
-interface SessionEvent extends AppEvent {
-  mood?: 'happy' | 'neutral' | 'sad';
-  data: { messages: { sender: string; text: string }[]; [key: string]: unknown; };
-}
+// Tipler artık useTranscripts hook'undan geliyor
 
 // ---- ALT BİLEŞENLER ----
 
@@ -146,7 +137,7 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
       ? firstUserMessage.substring(0, 25) + '...'
       : firstUserMessage;
   
-  const therapist = ALL_THERAPISTS.find(t => t.id === event.data.therapistId);
+  
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.summaryCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
@@ -155,16 +146,7 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
                 <Ionicons name="calendar-outline" size={18} color={theme.tint} />
                 <Text style={styles.summaryDateText}>{formattedDate}</Text>
             </View>
-            
-            {therapist && (
-              <View style={styles.therapistInfoContainer}>
-                <Image source={therapist.photo} style={styles.therapistImage} />
-                <View>
-                  <Text style={styles.therapistName}>{therapist.name}</Text>
-                  <Text style={styles.therapistSpecialty}>{therapist.title}</Text>
-                </View>
-              </View>
-            )}
+
 
             <Text style={styles.summaryTitle}>{summaryTitle}</Text>
             <Text style={styles.summaryText} numberOfLines={2}>
@@ -180,7 +162,7 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
 };
 
 
-const MessageBubble: React.FC<{ message: { sender: string; text: string } }> = ({ message }) => {
+const _MessageBubble: React.FC<{ message: { sender: string; text: string } }> = ({ message }) => {
   const isAI = message.sender === 'ai';
   return (
     <View style={[ styles.bubble, isAI ? styles.aiBubble : styles.userBubble ]}>
@@ -189,19 +171,7 @@ const MessageBubble: React.FC<{ message: { sender: string; text: string } }> = (
   );
 };
 
-const AnimatedSessionCard: React.FC<{ event: SessionEvent }> = ({ event }) => {
-    const fadeAnim = React.useRef(new Animated.Value(0)).current;
-    React.useEffect(() => { Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start(); }, []);
-    return (
-        <Animated.View style={{ opacity: fadeAnim }}>
-            <View style={styles.detailCard}>
-                <View style={styles.messagesContainer}>
-                    {event.data?.messages?.length ? event.data.messages.map((m, i) => <MessageBubble key={i} message={m} />) : <Text style={styles.emptyText}>Bu seans için döküm bulunamadı.</Text>}
-                </View>
-            </View>
-        </Animated.View>
-    );
-};
+
 
 // ---- YENİ: AŞIRI ZARİF VE TERAPÖTİK SERENITY KARTI (SON VERSİYON) ----
 const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
@@ -236,7 +206,7 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
                 useNativeDriver: true,
             }),
         ]).start();
-    }, []);
+    }, [leafTranslateY, contentFadeAnim, rippleAnim]);
 
     // Farklı halkalar için animasyon enterpolasyonları
     const ripple1 = {
@@ -282,8 +252,8 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
                         >
                             <Ionicons name="sparkles-outline" size={20} color={theme.serenityCtaText} style={{ opacity: 0.9 }} />
                             <Text style={styles.serenityCtaText}>
-                              {/* YENİ: İlk kaydı oluşturmaya yönelik eylem */}
-                              Terapistini Seç ve Başla
+                              {/* YENİ: Gerçek duruma uygun eylem */}
+                              Yeni Bir Görüşme Başlat
                             </Text>
                         </LinearGradient>
                     </Pressable>
@@ -295,63 +265,9 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
 
 // ---- ANA EKRAN BİLEŞENİ ----
 export default function PremiumHistoryScreen() {
-  const navigation = useNavigation();
-  const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [viewMode, setViewMode] = React.useState<ViewMode>('menu');
-  const [allEvents, setAllEvents] = React.useState<AppEvent[]>([]);
-  const [selectedSessionType, setSelectedSessionType] = React.useState<EventType | null>(null);
-  const [selectedEvent, setSelectedEvent] = React.useState<SessionEvent | null>(null);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadAllEvents = async () => {
-        setIsLoading(true);
-        setViewMode('menu'); 
-        const eventsFromStorage = await getEventsForLast(365);
-        setAllEvents(eventsFromStorage);
-        setIsLoading(false);
-      };
-      loadAllEvents();
-    }, [])
-  );
-  
-  const handleSelectSessionType = (type: EventType) => { setSelectedSessionType(type); setViewMode('summaryList'); };
-  const handleSelectEvent = (event: SessionEvent) => { setSelectedEvent(event); setViewMode('detailView'); };
-  
-  // Fix typo in function name
-  const handleNavigateToPremium = () => {
-      console.log("Navigating to AvatarScreen...");
-      router.replace('/therapy/avatar');
-  };
-
-  // YENİ: Silme işlemini yöneten fonksiyon
-  const handleDeleteEvent = (eventId: string) => {
-    Alert.alert(
-      "Seansı Sil",
-      "Bu seans kaydını kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
-      [
-        {
-          text: "Vazgeç",
-          style: "cancel"
-        },
-        {
-          text: "Sil",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Adım 1: AsyncStorage'dan sil
-              await deleteEventById(eventId);
-              // Adım 2: Mevcut state'ten kaldırarak UI'ı anında güncelle
-              setAllEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
-            } catch (_error) {
-              Alert.alert("Hata", "Seans silinirken bir sorun oluştu.");
-            }
-          },
-        },
-      ]
-    );
-  };
+  const { state, actions } = useTranscripts();
+  const { isLoading, viewMode, allEvents, selectedSessionType } = state;
+  const { handleSelectSessionType, handleDeleteEvent, handleNavigateToPremium, goBack, navigateToSession, setViewModeToMenu } = actions;
 
 
   const renderContent = () => {
@@ -364,7 +280,7 @@ export default function PremiumHistoryScreen() {
       case 'menu':
         return (
           <>
-            <ScreenHeader title="" onBack={() => navigation.goBack()} />
+            <ScreenHeader title="" onBack={goBack} />
             <ScrollView contentContainerStyle={styles.menuContainer}>
               <View style={styles.introContainer}>
                   <Text style={styles.introTitle}>İç Dünyanız</Text>
@@ -410,17 +326,17 @@ export default function PremiumHistoryScreen() {
         const title = sessionTitles[selectedSessionType!] || "Geçmiş Seanslar";
         return (
           <View style={{flex: 1}}>
-            <ScreenHeader title={title} onBack={() => setViewMode('menu')} />
+            <ScreenHeader title={title} onBack={setViewModeToMenu} />
             {filteredEvents.length === 0 ? (
                 <SerenityCard onPressCTA={handleNavigateToPremium} />
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.summaryListContainer}>
                 {filteredEvents.map(event => ( 
-                    // YENİ: onDelete prop'u SummaryCard'a geçirildi
+                    // YENİ: onPress'i doğrudan router.push'a bağla
                     <SummaryCard 
                         key={event.id} 
                         event={event} 
-                        onPress={() => handleSelectEvent(event)} 
+                        onPress={() => navigateToSession(event.id, event.mood)} 
                         onDelete={() => handleDeleteEvent(event.id)}
                     /> 
                 ))}
@@ -429,19 +345,7 @@ export default function PremiumHistoryScreen() {
           </View>
         );
       }
-      case 'detailView': {
-        if (!selectedEvent) return null;
-        const date = new Date(selectedEvent.timestamp);
-        const detailTitle = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
-        return (
-          <View style={{flex: 1}}>
-            <ScreenHeader title={detailTitle} onBack={() => setViewMode('summaryList')} />
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <AnimatedSessionCard key={selectedEvent.id} event={selectedEvent} />
-            </ScrollView>
-          </View>
-        );
-      }
+
     }
   };
   return ( <LinearGradient colors={theme.serenityBackground} style={styles.screen}><View style={styles.container}>{renderContent()}</View></LinearGradient> );
