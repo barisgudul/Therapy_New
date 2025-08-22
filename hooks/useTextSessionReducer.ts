@@ -19,8 +19,14 @@ interface TextSessionState {
     isEnding: boolean;
     currentMood: string;
     error: string | null;
-    // status'e yeni bir durum ekliyoruz: 'initializing'
-    status: "initializing" | "idle" | "loading" | "error" | "success";
+    // status'e yeni durumlar ekliyoruz: 'initializing', 'welcoming'
+    status:
+        | "initializing"
+        | "welcoming"
+        | "idle"
+        | "loading"
+        | "error"
+        | "success";
     // YENİ: Hafıza modal için state
     isMemoryModalVisible: boolean;
     selectedMemory: TextMessage["memory"] | null;
@@ -86,14 +92,10 @@ function textSessionReducer(
             return { ...state, input: action.payload };
 
         case "ADD_MESSAGE":
-            const newMessageText = `${
-                action.payload.sender === "user" ? "Danışan" : "Terapist"
-            }: ${action.payload.text}\n`;
             const isUserMessage = action.payload.sender === "user";
             return {
                 ...state,
                 messages: [...state.messages, action.payload],
-                transcript: state.transcript + newMessageText, // YENİ: Transcript'e sadece ekleme yap
                 turnCount: isUserMessage
                     ? state.turnCount + 1
                     : state.turnCount, // Sadece kullanıcı mesajında artır
@@ -129,14 +131,9 @@ function textSessionReducer(
         case "INITIALIZE_NEW_SESSION":
             return {
                 ...state,
-                messages: [{
-                    sender: "ai",
-                    text:
-                        "Merhaba, ben buradayım. Hazır olduğunda seninle konuşmaya hazırım.",
-                }],
-                transcript:
-                    "Terapist: Merhaba, ben buradayım. Hazır olduğunda seninle konuşmaya hazırım.\n",
-                status: "idle",
+                messages: [], // MESAJ LİSTESİ BOMBOŞ BAŞLAYACAK!
+                transcript: "", // Transcript de boş başlasın
+                status: "welcoming", // YENİ STATUS'U AYARLA!
             };
         case "INITIALIZE_FROM_HISTORY":
             return {
@@ -167,12 +164,10 @@ function textSessionReducer(
             };
 
         case "SEND_MESSAGE_SUCCESS":
-            // YENİ: AI mesajını transcript'e eklemek için metni oluştur
-            const aiMessageText = `Terapist: ${action.payload.aiResponse}\n`;
             return {
                 ...state,
                 isTyping: false,
-                status: "success",
+                status: "idle", // Sohbet devam ediyor, idle'a dön
                 input: "",
                 error: null,
                 // YENİ: AI mesajını memory bilgisiyle birlikte ekle
@@ -181,8 +176,6 @@ function textSessionReducer(
                     text: action.payload.aiResponse,
                     memory: action.payload.usedMemory || undefined,
                 }],
-                // transcript string'ine de AI mesajını ekle
-                transcript: state.transcript + aiMessageText,
             };
 
         case "SEND_MESSAGE_ERROR":
@@ -355,7 +348,7 @@ export function useTextSessionReducer({
     }, [
         state.input,
         state.isTyping,
-        state.transcript, // YENİ: messages yerine transcript kullan
+        state.messages,
         initialMood,
     ]);
 
@@ -367,11 +360,22 @@ export function useTextSessionReducer({
 
         try {
             // Save session data if there are messages
-            if (state.messages.length > 2) {
+            if (state.messages.length >= 2) {
+                // TRANSCRIPT'İ SADECE BURADA, TEK SEFERDE OLUŞTUR!
+                const finalTranscript = state.messages
+                    .map((m) =>
+                        `${
+                            m.sender === "user"
+                                ? "Danışan"
+                                : "Terapist"
+                        }: ${m.text}\n`
+                    )
+                    .join("");
+
                 await SessionService.endSession({
                     initialMood,
                     finalMood: state.currentMood,
-                    transcript: state.transcript, // YENİ: Hazır transcript'i kullan
+                    transcript: finalTranscript, // BURAYA YENİ OLUŞTURDUĞUNU VER
                     messages: state.messages,
                 });
             }
@@ -390,7 +394,6 @@ export function useTextSessionReducer({
     }, [
         state.isEnding,
         state.messages, // messages.length kontrolü için gerekli
-        state.transcript, // YENİ: messages yerine transcript kullan
         state.currentMood,
         initialMood,
         onSessionEnd,

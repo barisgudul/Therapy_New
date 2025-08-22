@@ -46,7 +46,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {isAI ? (
           renderMarkdownText(message.text, accentColor)
         ) : (
-          <Text style={styles.bubbleText}>{message.text}</Text>
+          <Text style={[styles.bubbleText, styles.userBubbleText]}>{message.text}</Text>
         )}
       </View>
     </View>
@@ -63,12 +63,26 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   userBubble: {
-    backgroundColor: "#E0E0E0",
+    backgroundColor: "#5DA1D9", // Marka ana rengi
     alignSelf: "flex-end",
+    shadowColor: "#5DA1D9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "rgba(93, 161, 217, 0.2)",
   },
   aiBubble: {
     backgroundColor: "#F4F6FF",
     alignSelf: "flex-start",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(93, 161, 217, 0.15)",
   },
   // YENİ: İçgörü mesajları için özel stil
   insightBubble: {
@@ -84,5 +98,9 @@ const styles = StyleSheet.create({
   bubbleText: {
     fontSize: 16,
     color: "#333",
+  },
+  userBubbleText: {
+    color: "#FFFFFF", // Kullanıcı mesajları için beyaz yazı
+    fontWeight: "500",
   },
 });

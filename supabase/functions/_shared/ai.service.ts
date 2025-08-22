@@ -46,18 +46,21 @@ export async function invokeGemini(
         isValidJson = false;
       }
     }
-    // AI interaction'ı arkada kaydet (fire-and-forget)
-    supabase.from("ai_interactions").insert({
-      transaction_id: transactionId ?? null,
-      model,
-      prompt,
-      response: reply,
-      is_valid_json: isValidJson,
-      duration_ms: durationMs,
-    }).then(
-      () => {},
-      () => {},
-    );
+    // AI interaction'ı kaydet (artık await kullanıyoruz)
+    try {
+      await supabase.from("ai_interactions").insert({
+        transaction_id: transactionId ?? null,
+        model,
+        prompt,
+        response: reply,
+        is_valid_json: isValidJson,
+        duration_ms: durationMs,
+      });
+    } catch (logError) {
+      // Loglama hatası ana işlemi etkilemesin
+      console.warn("[invokeGemini] Loglama hatası:", logError);
+    }
+
     return reply;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

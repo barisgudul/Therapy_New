@@ -84,18 +84,28 @@ export class SessionService {
             throw new Error("User not authenticated");
         }
 
+        // ADIM 1: Mevcut session_end event'ini logla. Bu zaten vardı.
         const sessionEndPayload: EventPayload = {
-            type: "text_session",
-            data: {
-                ...data,
-                isSessionEnd: true,
-            },
+            type: "session_end", // Tipini 'text_session' yerine 'session_end' yapalım ki karışmasın
+            data: { ...data },
         };
-
-        // Process session end
         await processUserMessage(user.id, sessionEndPayload);
 
-        // Increment usage
+        // ADIM 2: ARKA PLANDA "HAFIZAYA KAYDET" İŞLEMİNİ TETİKLE (ATEŞLE VE UNUT)
+        // Kullanıcı bu işlemin bitmesini beklemeyecek.
+        if (data.messages.length > 2) { // En az bir kullanıcı ve bir AI mesajı varsa
+            console.log(
+                "🧠 [Memory] Sohbet özeti için backend tetikleniyor...",
+            );
+            supabase.functions.invoke("process-session-memory", {
+                body: { transcript: data.transcript },
+            }).catch((err) => {
+                // Bu hata kritik değil, sadece logla.
+                console.error("⛔️ Arka plan hafıza işleme hatası:", err);
+            });
+        }
+
+        // ADIM 3: Kullanım sayacını artır
         incrementFeatureUsage("text_sessions");
         console.log("✅ [USAGE] text_sessions kullanımı başarıyla artırıldı.");
     }

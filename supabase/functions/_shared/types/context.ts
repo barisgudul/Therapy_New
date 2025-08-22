@@ -1,7 +1,7 @@
 // supabase/functions/_shared/types/context.ts
 
 // Güvenli JSON tipi
-type JsonValue = string | number | boolean | null | JsonValue[] | {
+export type JsonValue = string | number | boolean | null | JsonValue[] | {
   [key: string]: JsonValue;
 };
 
@@ -37,6 +37,7 @@ export interface AppEvent {
   timestamp: number;
   created_at: string;
   data: Record<string, JsonValue>;
+  mood?: string; // Mood bilgisi eklendi
 }
 
 /**

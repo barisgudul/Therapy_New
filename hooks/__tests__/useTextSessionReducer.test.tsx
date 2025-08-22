@@ -29,10 +29,9 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       })
     );
 
-    // Initial state check
-    expect(result.current.state.messages).toHaveLength(1);
-    expect(result.current.state.transcript).toContain('Terapist: Merhaba, ben buradayım');
-    expect(result.current.state.transcript).toContain('Hazır olduğunda seninle konuşmaya hazırım');
+    // Initial state check - artık boş başlıyor
+    expect(result.current.state.messages).toHaveLength(0);
+    expect(result.current.state.status).toBe('welcoming');
 
     // Send a user message
     act(() => {
@@ -51,17 +50,12 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       await result.current.sendMessage();
     });
 
-    // Check synchronization
-    expect(result.current.state.messages).toHaveLength(3); // Initial AI + User + AI Response
-    expect(result.current.state.transcript).toContain('Danışan: Merhaba, bugün kendimi iyi hissetmiyorum');
-    expect(result.current.state.transcript).toContain('Terapist: Merhaba! Neden kendini iyi hissetmediğini anlatabilir misin?');
-
-    // Verify transcript format
-    const transcriptLines = result.current.state.transcript.split('\n').filter(line => line.trim());
-    expect(transcriptLines).toHaveLength(3);
-    expect(transcriptLines[0]).toMatch(/^Terapist: .+/);
-    expect(transcriptLines[1]).toMatch(/^Danışan: .+/);
-    expect(transcriptLines[2]).toMatch(/^Terapist: .+/);
+    // Check synchronization - artık sadece User + AI Response
+    expect(result.current.state.messages).toHaveLength(2); // User + AI Response
+    expect(result.current.state.messages[0].sender).toBe('user');
+    expect(result.current.state.messages[0].text).toContain('Merhaba, bugün kendimi iyi hissetmiyorum');
+    expect(result.current.state.messages[1].sender).toBe('ai');
+    expect(result.current.state.messages[1].text).toContain('Merhaba! Neden kendini iyi hissetmediğini anlatabilir misin?');
   });
 
   it('should handle multiple message exchanges correctly', async () => {
@@ -102,16 +96,16 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       await result.current.sendMessage();
     });
 
-    // Check final state
-    expect(result.current.state.messages).toHaveLength(5); // Initial + 2 exchanges
-    expect(result.current.state.transcript).toContain('İlk kullanıcı mesajı');
-    expect(result.current.state.transcript).toContain('İlk AI cevabı');
-    expect(result.current.state.transcript).toContain('İkinci kullanıcı mesajı');
-    expect(result.current.state.transcript).toContain('İkinci AI cevabı');
-
-    // Verify transcript line count matches message count
-    const transcriptLines = result.current.state.transcript.split('\n').filter(line => line.trim());
-    expect(transcriptLines).toHaveLength(5);
+    // Check final state - artık 2 exchange = 4 mesaj
+    expect(result.current.state.messages).toHaveLength(4); // 2 exchanges
+    expect(result.current.state.messages[0].sender).toBe('user');
+    expect(result.current.state.messages[0].text).toContain('İlk kullanıcı mesajı');
+    expect(result.current.state.messages[1].sender).toBe('ai');
+    expect(result.current.state.messages[1].text).toContain('İlk AI cevabı');
+    expect(result.current.state.messages[2].sender).toBe('user');
+    expect(result.current.state.messages[2].text).toContain('İkinci kullanıcı mesajı');
+    expect(result.current.state.messages[3].sender).toBe('ai');
+    expect(result.current.state.messages[3].text).toContain('İkinci AI cevabı');
   });
 
   it('should handle session end with correct transcript', async () => {
@@ -143,8 +137,8 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       await result.current.endSession();
     });
 
-    // Verify SessionService.endSession was called with correct transcript
-    const expectedTranscript = "Terapist: Merhaba, ben buradayım. Hazır olduğunda seninle konuşmaya hazırım.\nDanışan: Test mesajı\nTerapist: AI cevabı\n";
+    // Verify SessionService.endSession was called with correct transcript - artık başlangıç mesajı yok
+    const expectedTranscript = "Danışan: Test mesajı\nTerapist: AI cevabı\n";
     
     expect(mockSessionService.endSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -152,7 +146,6 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
         finalMood: 'happy',
         transcript: expectedTranscript,
         messages: expect.arrayContaining([
-          expect.objectContaining({ sender: 'ai', text: 'Merhaba, ben buradayım. Hazır olduğunda seninle konuşmaya hazırım.' }),
           expect.objectContaining({ sender: 'user', text: 'Test mesajı' }),
           expect.objectContaining({ sender: 'ai', text: 'AI cevabı' }),
         ]),

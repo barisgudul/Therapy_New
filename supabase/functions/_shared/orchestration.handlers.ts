@@ -86,27 +86,75 @@ function calculateConnectionConfidence(
 // ===============================================
 
 async function prepareDreamContext(userId: string) {
-  const [vaultResult, eventsResult, predictionsResult, journeyLogsResult] =
-    await Promise.all([
-      adminClient.from("user_vaults").select("vault_data").eq("user_id", userId)
-        .single(),
-      adminClient.from("events").select("type, created_at, data").eq(
-        "user_id",
-        userId,
-      ).order("created_at", { ascending: false }).limit(5),
-      adminClient.from("predicted_outcomes").select("title, description").eq(
-        "user_id",
-        userId,
-      ).gt("expires_at", new Date().toISOString()),
-      adminClient.from("journey_logs").select("log_text").eq("user_id", userId)
-        .order("created_at", { ascending: false }).limit(3),
-    ]);
+  const results = await Promise.allSettled([
+    adminClient.from("user_vaults").select("vault_data").eq("user_id", userId)
+      .single(),
+    adminClient.from("user_traits").select("trait_key, trait_value").eq(
+      "user_id",
+      userId,
+    ),
+    adminClient.from("events").select("type, created_at, data").eq(
+      "user_id",
+      userId,
+    ).order("created_at", { ascending: false }).limit(5),
+    adminClient.from("predicted_outcomes").select("title, description").eq(
+      "user_id",
+      userId,
+    ).gt("expires_at", new Date().toISOString()),
+    adminClient.from("journey_logs").select("log_text").eq("user_id", userId)
+      .order("created_at", { ascending: false }).limit(3),
+  ]);
+
+  // Her bir sonucun başarılı olup olmadığını kontrol et
+  const vaultResult = results[0].status === "fulfilled"
+    ? results[0].value
+    : { data: null, error: results[0].reason };
+  const traitsResult = results[1].status === "fulfilled"
+    ? results[1].value
+    : { data: [], error: results[1].reason };
+  const eventsResult = results[2].status === "fulfilled"
+    ? results[2].value
+    : { data: [], error: results[2].reason };
+  const predictionsResult = results[3].status === "fulfilled"
+    ? results[3].value
+    : { data: [], error: results[3].reason };
+  const journeyLogsResult = results[4].status === "fulfilled"
+    ? results[4].value
+    : { data: [], error: results[4].reason };
+
+  // Hataları logla ama sistemi durdurma
+  if (vaultResult.error) console.error("Vault çekilemedi:", vaultResult.error);
+  if (traitsResult.error) {
+    console.error("Traits çekilemedi:", traitsResult.error);
+  }
+  if (eventsResult.error) {
+    console.error("Events çekilemedi:", eventsResult.error);
+  }
+  if (predictionsResult.error) {
+    console.error("Predictions çekilemedi:", predictionsResult.error);
+  }
+  if (journeyLogsResult.error) {
+    console.error("Journey logs çekilemedi:", journeyLogsResult.error);
+  }
 
   const vaultData: VaultData =
     (vaultResult.data?.vault_data ?? {}) as VaultData;
+
+  // Traits'i user_traits tablosundan al
+  const traits = (traitsResult.data ?? []).reduce(
+    (
+      acc: Record<string, string>,
+      trait: { trait_key: string; trait_value: string },
+    ) => {
+      acc[trait.trait_key] = trait.trait_value;
+      return acc;
+    },
+    {} as Record<string, string>,
+  );
+
   const context = `
         ### KULLANICI DOSYASI ###
-        **Kişilik Özellikleri:** ${JSON.stringify(vaultData.traits || {})}
+        **Kişilik Özellikleri:** ${JSON.stringify(traits)}
         **Temel Hedefleri:** ${
     vaultData.profile?.therapyGoals || "Belirtilmemiş"
   }
@@ -215,10 +263,26 @@ export async function handleDreamAnalysis(
 
   try {
     // ADIM 1 & 2: Tüm bağlamı paralel olarak topla
-    const [userDossier, ragContextString] = await Promise.all([
+    const results = await Promise.allSettled([
       prepareDreamContext(userId),
       getEnhancedRagContext(userId, dreamText, context.transactionId),
     ]);
+
+    // Her bir sonucun başarılı olup olmadığını kontrol et
+    const userDossier = results[0].status === "fulfilled"
+      ? results[0].value
+      : "Kullanıcı dosyası yüklenemedi.";
+    const ragContextString = results[1].status === "fulfilled"
+      ? results[1].value
+      : "Hafıza bağlamı yüklenemedi.";
+
+    // Hataları logla ama sistemi durdurma
+    if (results[0].status === "rejected") {
+      console.error("Dream context hazırlama hatası:", results[0].reason);
+    }
+    if (results[1].status === "rejected") {
+      console.error("RAG context hatası:", results[1].reason);
+    }
 
     // ADIM 3: Master Prompt'u oluştur ve AI'ı çağır
     const masterPrompt = getDreamAnalysisV2Prompt(
@@ -245,7 +309,7 @@ export async function handleDreamAnalysis(
       .insert({
         user_id: userId,
         type: "dream_analysis",
-        timestamp: Date.now(),
+        timestamp: new Date().toISOString(),
         data: {
           dreamText,
           analysis: analysisData,
@@ -295,23 +359,25 @@ export async function handleDreamAnalysis(
       `[ORCHESTRATOR] Beyin ameliyatı başarılı. Yeni event ID: ${newEventId}`,
     );
 
-    // --- HAFIZA KAYDI: process-memory (ateşle ve unut) ---
-    adminClient.functions.invoke("process-memory", {
-      body: {
-        source_event_id: newEventId,
-        user_id: userId,
-        content: dreamText,
-        event_time: new Date().toISOString(),
-        mood: null,
-        event_type: "dream_analysis",
-        transaction_id: context.transactionId,
-      },
-    }).catch((err) =>
+    // --- HAFIZA KAYDI: process-memory (artık await kullanıyoruz) ---
+    try {
+      await adminClient.functions.invoke("process-memory", {
+        body: {
+          source_event_id: newEventId,
+          user_id: userId,
+          content: dreamText,
+          event_time: new Date().toISOString(),
+          mood: null,
+          event_type: "dream_analysis",
+          transaction_id: context.transactionId,
+        },
+      });
+    } catch (err) {
       console.error(
         `[Orchestrator] process-memory invoke hatası (dream_analysis):`,
         err,
-      )
-    );
+      );
+    }
     return newEventId;
   } catch (error) {
     console.error(`[ORCHESTRATOR] Rüya analizi sırasında kritik hata:`, error);
@@ -387,7 +453,7 @@ export async function handleDailyReflection(
       .from("events").insert({
         user_id: userId,
         type: "daily_reflection",
-        timestamp: Date.now(),
+        timestamp: new Date().toISOString(),
         data: { text: todayNote, aiResponse },
         mood: todayMood,
       })
@@ -397,11 +463,11 @@ export async function handleDailyReflection(
       console.error("[EventInsert] Hata:", eventInsertError);
     }
 
-    // --- HAFIZA KAYDI: process-memory (ateşle ve unut) ---
+    // --- HAFIZA KAYDI: process-memory (artık await kullanıyoruz) ---
     try {
       const sourceId = String(insertedDaily?.id ?? "");
       if (sourceId) {
-        adminClient.functions.invoke("process-memory", {
+        await adminClient.functions.invoke("process-memory", {
           body: {
             source_event_id: sourceId,
             user_id: userId,
@@ -413,15 +479,13 @@ export async function handleDailyReflection(
             event_type: "daily_reflection",
             transaction_id: context.transactionId,
           },
-        }).catch((err) =>
-          console.error(
-            `[Orchestrator] process-memory invoke hatası (daily_reflection):`,
-            err,
-          )
-        );
+        });
       }
-    } catch (_e) {
-      // swallow - asenkron tetikleyici başarısız olsa bile devam
+    } catch (err) {
+      console.error(
+        `[Orchestrator] process-memory invoke hatası (daily_reflection):`,
+        err,
+      );
     }
 
     // Vault güncelle (beklemeden başlat)
@@ -506,40 +570,34 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     throw new ValidationError("Kullanıcı mesajı eksik.");
   }
 
-  // --- HİBRİT ADIM 1: GÜVENLİK İÇİN ANLAMA (AMA SADECE GEREKTİĞİNDE) ---
-  // Karmaşık veya duygusal mesajları tespit edip, sadece onlar için ön anlama adımı çalıştır.
-  const complexityCheckPrompt = `
-    Kullanıcının şu mesajı basit bir ifade mi ('basit'), yoksa birden fazla kişi, olay veya karmaşık duygu içeren bir anlatım mı ('karmaşık')? Sadece 'basit' veya 'karmaşık' diye cevap ver.
-    Mesaj: "${userMessage}"
-    Cevap:
-  `;
-  const complexity = await AiService.invokeGemini(
-    complexityCheckPrompt,
-    "gemini-1.5-flash",
-    { maxOutputTokens: 5 },
-  );
+  // === YENİ AKILLI KONTROL BLOKU BAŞLANGICI ===
+  const STOP_WORDS = new Set([
+    "merhaba",
+    "selam",
+    "selamun aleyküm",
+    "naber",
+    "nasılsın",
+    "iyi akşamlar",
+    "günaydın",
+    "ok",
+    "tamam",
+    "evet",
+    "hayır",
+  ]);
+  const normalizedMessage = userMessage.trim().toLowerCase();
 
-  let understandingContext = "";
-  if (complexity.trim().toLowerCase() === "karmaşık") {
-    console.log(
-      "[Orchestrator] Karmaşık mesaj algılandı, ön anlama adımı çalıştırılıyor.",
+  let retrievedMemories: { content: string; source_layer: string }[] = [];
+  // EĞER MESAJ ANLAMSIZ BİR KELİME DEĞİLSE RAG'İ ÇAĞIR
+  if (!STOP_WORDS.has(normalizedMessage)) {
+    retrievedMemories = await RagService.retrieveContext(
+      context.userId,
+      userMessage,
+      { threshold: 0.45, count: 3 },
     );
-    const understandingPrompt =
-      `Kullanıcının şu mesajını bir cümleyle özetle: "${userMessage}"`;
-    const mainIdea = await AiService.invokeGemini(
-      understandingPrompt,
-      "gemini-1.5-flash",
-    );
-    understandingContext =
-      `KULLANICININ MESAJININ ANA FİKRİ (ÖZET): ${mainIdea}\n`;
+  } else {
+    console.log("[RAG] Anlamsız kelime algılandı, RAG sorgusu atlanıyor.");
   }
-
-  // --- HİBRİT ADIM 2: RAG (HER ZAMAN OLDUĞU GİBİ) ---
-  const retrievedMemories = await RagService.retrieveContext(
-    context.userId,
-    userMessage,
-    { threshold: 0.45, count: 3 },
-  );
+  // === YENİ AKILLI KONTROL BLOKU SONU ===
   const pastContext = retrievedMemories.length > 0
     ? retrievedMemories.map((m) => `- ${m.content}`).join("\n")
     : "Yok";
@@ -560,6 +618,7 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     GÖREVİN:
     1.  Kullanıcının son sözüne DOĞRUDAN ve DOĞAL bir cevap ver.
     2.  Cevabını oluştururken, elindeki GİZLİ BİLGİLERİ bir ilham kaynağı olarak kullan.
+        -   **ÖNEMLİ KURAL:** Eğer GEÇMİŞTEN NOTLAR anlamsızsa (sadece bir selamlama gibi) veya kullanıcının son sözüyle tamamen alakasızsa, O NOTLARI **TAMAMEN GÖRMEZDEN GEL** ve sadece sohbete odaklan.
         -   Eğer kullanıcı "projemle uğraşıyorum" derse ve GEÇMİŞ NOTLARDA "iş stresi" varsa, cevabın "Umarım projen iyi gidiyordur, stresli bir şeye benzemiyor" gibi, o bilgiyi hissettiren ama söylemeyen bir cevap olabilir.
         -   Eğer kullanıcı "canım sıkkın" derse ve SON KONUŞULANLARDA "gözlükçü olayı" varsa, cevabın "Hala o gözlükçü olayına mı canın sıkkın yoksa başka bir şey mi var?" olabilir.
     3.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
@@ -592,6 +651,7 @@ export const eventHandlers: Record<
   "daily_reflection": handleDailyReflection,
   // Diğer tüm event'ler için varsayılan bir handler
   "text_session": handleTextSession, // YENİ: Özel text_session handler'ı
+  "session_end": handleDefault, // YENİ: session_end handler'ı
   "voice_session": handleDefault,
   "video_session": handleDefault,
   "ai_analysis": handleDefault,

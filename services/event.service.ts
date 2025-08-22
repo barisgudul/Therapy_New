@@ -31,7 +31,7 @@ export interface AppEvent {
   id: string;
   user_id: string;
   type: EventType;
-  timestamp: number;
+  timestamp: string; // Artık ISO string formatında
   created_at: string;
   mood?: string;
   data: { [key: string]: import("../types/json.ts").JsonValue };
@@ -52,7 +52,7 @@ export async function logEvent(
     if (!user) {
       throw new Error("Olay kaydedilemiyor, kullanıcı giriş yapmamış.");
     }
-    const eventData = { ...event, user_id: user.id, timestamp: Date.now() };
+    const eventData = { ...event, user_id: user.id }; // timestamp'ı kaldır - veritabanı otomatik doldursun
     const { data: inserted, error } = await supabase.from("events").insert([
       eventData,
     ])

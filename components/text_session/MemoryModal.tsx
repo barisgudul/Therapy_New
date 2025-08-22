@@ -15,6 +15,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
   onClose 
 }) => {
   if (!memory) return null;
+  
 
   // Source layer'a göre ikon ve başlık seç
   const getSourceInfo = (layer: string) => {
@@ -59,12 +60,12 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
           {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.memoryContainer}>
-              <Text style={styles.memoryLabel}>🧠 AI'ın Hatırladığı Anı</Text>
+              <Text style={styles.memoryLabel}>🧠 AI&apos;ın Hatırladığı Anı</Text>
               <Text style={styles.memoryContent}>{memory.content}</Text>
             </View>
 
             <View style={styles.infoContainer}>
-              <Text style={styles.infoLabel}>Bu anı, AI'ın size daha kişisel ve anlamlı bir cevap verebilmesi için kullanıldı.</Text>
+              <Text style={styles.infoLabel}>Bu anı, AI&apos;ın size daha kişisel ve anlamlı bir cevap verebilmesi için kullanıldı.</Text>
             </View>
           </ScrollView>
         </View>

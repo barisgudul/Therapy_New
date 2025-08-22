@@ -214,3 +214,23 @@ export function getLatestAnalysisReport() {
 
     return apiCall(promise);
 }
+
+// YENİ: Behavioral pattern analizi tetikleme
+export function triggerBehavioralAnalysis(periodDays: number) {
+    const promise = (async () => {
+        const { data, error } = await supabase.functions.invoke(
+            "analyze-behavioral-patterns",
+            {
+                body: { periodDays },
+            },
+        );
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data;
+    })();
+
+    return apiCall(promise);
+}

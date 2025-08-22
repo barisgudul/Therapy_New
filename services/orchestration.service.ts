@@ -41,7 +41,7 @@ export async function processUserMessage(
       ...eventPayload,
       id: generateId(),
       user_id: userId,
-      timestamp: Date.now(),
+      timestamp: Date.now().toString(),
       created_at: new Date().toISOString(),
     },
     derivedData: {},

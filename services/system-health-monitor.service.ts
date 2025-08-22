@@ -60,17 +60,49 @@ export class SystemHealthMonitor {
             oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
             // Paralel veri toplama (performans optimizasyonu)
-            const [
-                apiMetrics,
-                userMetrics,
-                contentMetrics,
-                costMetrics,
-            ] = await Promise.all([
+            const results = await Promise.allSettled([
                 this.getAPIMetrics(oneHourAgo),
                 this.getUserInteractionMetrics(oneHourAgo),
                 this.getContentQualityMetrics(oneHourAgo),
                 this.getCostMetrics(oneHourAgo),
             ]);
+
+            // Her bir sonucun başarılı olup olmadığını kontrol et
+            const apiMetrics = results[0].status === "fulfilled"
+                ? results[0].value
+                : {};
+            const userMetrics = results[1].status === "fulfilled"
+                ? results[1].value
+                : {};
+            const contentMetrics = results[2].status === "fulfilled"
+                ? results[2].value
+                : {};
+            const costMetrics = results[3].status === "fulfilled"
+                ? results[3].value
+                : {};
+
+            // Hataları logla ama sistemi durdurma
+            if (results[0].status === "rejected") {
+                console.error("API metrikleri alınamadı:", results[0].reason);
+            }
+            if (results[1].status === "rejected") {
+                console.error(
+                    "Kullanıcı metrikleri alınamadı:",
+                    results[1].reason,
+                );
+            }
+            if (results[2].status === "rejected") {
+                console.error(
+                    "İçerik metrikleri alınamadı:",
+                    results[2].reason,
+                );
+            }
+            if (results[3].status === "rejected") {
+                console.error(
+                    "Maliyet metrikleri alınamadı:",
+                    results[3].reason,
+                );
+            }
 
             const metrics: SystemMetrics = {
                 // API Metrikleri (varsayılan değerlerle)
