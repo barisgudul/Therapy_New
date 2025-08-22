@@ -152,7 +152,7 @@ export default function DailyReflectionScreen() {
               Kullanım: {state.freemium.used_count}/{state.freemium.limit_count}
             </Text>
             <TouchableOpacity style={styles.premiumButton} onPress={() => handlers.router.push("/subscription")}>
-              <Text style={styles.premiumButtonText}>Premium'a Geç</Text>
+              <Text style={styles.premiumButtonText}>Premium&apos;a Geç</Text>
               <Ionicons name="arrow-forward" size={20} color="#6366F1" />
             </TouchableOpacity>
           </LinearGradient>

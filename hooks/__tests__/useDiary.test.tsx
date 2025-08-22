@@ -142,7 +142,7 @@ describe('useDiary Hook', () => {
     };
 
     act(() => {
-      result.current.handlers.viewDiary(mockDiary as unknown as import('../../services/event.service').AppEvent);
+      result.current.handlers.viewDiary(mockDiary as any);
     });
     expect(result.current.state.mode).toBe('view');
 

@@ -12,6 +12,7 @@ import { logEvent } from "../services/event.service";
 import { getErrorMessage } from "../utils/errors";
 import { useFeatureAccess } from "./useSubscription";
 import { useUpdateVault, useVault } from "./useVault";
+import { supabase } from "../utils/supabase";
 
 const { width, height } = Dimensions.get("window");
 
@@ -112,15 +113,24 @@ export function useDailyReflection() {
 
             const todayMood = MOOD_LEVELS[Math.round(moodValue)].label;
 
-            const { processDailyReflectionEvent } = await import(
-                "../services/orchestration.service"
+            const { data, error } = await supabase.functions.invoke(
+                "orchestrator",
+                {
+                    body: {
+                        eventPayload: {
+                            type: "daily_reflection",
+                            mood: todayMood,
+                            data: { todayNote: note, todayMood },
+                        },
+                    },
+                },
             );
 
-            const { aiResponse } = await processDailyReflectionEvent({
-                type: "daily_reflection",
-                mood: todayMood,
-                data: { todayNote: note, todayMood },
-            });
+            if (error) throw error;
+
+            const aiResponse = typeof data === "string"
+                ? data
+                : data?.aiResponse || "";
 
             setAiMessage(aiResponse);
         } catch (err) {

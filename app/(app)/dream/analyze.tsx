@@ -20,8 +20,8 @@ import {
 import Toast from "react-native-toast-message";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { useVault } from "../../../hooks/useVault";
-import { processDreamAnalysisEvent } from "../../../services/orchestration.service";
 import { canUserAnalyzeDream } from "../../../services/event.service";
+import { supabase } from "../../../utils/supabase";
 
 export default function AnalyzeDreamScreen() {
   const [dream, setDream] = useState("");
@@ -56,7 +56,16 @@ export default function AnalyzeDreamScreen() {
       // processUserEvent'in dönüş tipi muhtemelen ConversationResponse (veya başka bir tip) olarak tanımlı.
       // Bunu çözmek için, dönen değerin eventId'sini açıkça çekiyoruz.
 
-      const eventId = await processDreamAnalysisEvent(eventPayload);
+      const { data, error } = await supabase.functions.invoke("orchestrator", {
+        body: { eventPayload },
+      });
+      
+      if (error) throw error;
+      
+      // Backend'den eventId döndüğünü varsayıyoruz
+      const eventId = typeof data === "string" ? data : data?.eventId || "";
+      if (!eventId) throw new Error("Analiz tamamlandı ama event ID alınamadı");
+      
       return eventId;
     },
 

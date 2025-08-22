@@ -93,31 +93,31 @@ export default function SubscriptionScreen() {
       {
         key: "text_sessions",
         name: "Metin Seansları",
-        icon: "chatbubble-ellipses-outline",
+        icon: "chatbubble-ellipses-outline" as const,
       },
-      { key: "voice_sessions", name: "Sesli Seanslar", icon: "mic-outline" },
-      { key: "dream_analysis", name: "Rüya Analizi", icon: "moon-outline" },
-      { key: "ai_reports", name: "AI Raporları", icon: "analytics-outline" },
+      { key: "voice_sessions", name: "Sesli Seanslar", icon: "mic-outline" as const },
+      { key: "dream_analysis", name: "Rüya Analizi", icon: "moon-outline" as const },
+      { key: "ai_reports", name: "AI Raporları", icon: "analytics-outline" as const },
       {
         key: "therapist_selection",
         name: "Terapist Seçimi",
-        icon: "people-outline",
+        icon: "people-outline" as const,
       },
-      { key: "session_history", name: "Seans Geçmişi", icon: "time-outline" },
-      { key: "pdf_export", name: "PDF Export", icon: "download-outline" },
+      { key: "session_history", name: "Seans Geçmişi", icon: "time-outline" as const },
+      { key: "pdf_export", name: "PDF Export", icon: "download-outline" as const },
       {
         key: "priority_support",
         name: "Öncelikli Destek",
-        icon: "headset-outline",
+        icon: "headset-outline" as const,
       },
     ];
 
     return allFeatureKeys.map((feature) => ({
       feature: feature.name,
       // Backend'den gelen 'features' objesinden değeri al, yoksa '❌' bas.
-      plus: plusPlan.features[feature.key] || "❌",
-      premium: premiumPlan.features[feature.key] || "❌",
-      icon: feature.icon as string, // Tipi string olarak belirt
+      plus: String(plusPlan.features[feature.key] || "❌"),
+      premium: String(premiumPlan.features[feature.key] || "❌"),
+      icon: feature.icon, // Artık as const ile tanımlandı
     }));
   }, [plans]); // Sadece planlar değiştiğinde yeniden hesapla
   // DÜZELTİLDİ: Orijinal diziyi bozmuyor ve her render'da yeniden hesaplanmıyor.

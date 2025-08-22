@@ -1,12 +1,24 @@
 // utils/schemas.ts
 import { z } from "zod";
-import { traitKeys } from "../services/trait.service";
 
 // -------------------
 // TEMEL ŞEMALAR
 // -------------------
 
 // GENEL TRAITS ŞEMASI
+const traitKeys = [
+  "openness",
+  "conscientiousness",
+  "extraversion",
+  "agreeableness",
+  "neuroticism",
+  "optimism",
+  "resilience",
+  "self_awareness",
+  "emotional_intelligence",
+  "growth_mindset",
+] as const;
+
 const traitsSchemaCore = traitKeys.reduce((acc, key) => {
   // Tüm trait'ler opsiyoneldir, çünkü AI bazen hepsini bulamayabilir.
   acc[key] = z.union([z.number(), z.string()]).optional();

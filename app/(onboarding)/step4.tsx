@@ -4,8 +4,8 @@ import React from "react";
 import OnboardingStep from "../../components/OnboardingStep";
 import { useAuth } from "../../context/Auth";
 import { logEvent } from "../../services/api.service";
-import { processUserMessage } from "../../services/orchestration.service";
 import { useOnboardingStore } from "../../store/onboardingStore";
+import { supabase } from "../../utils/supabase";
 
 export default function Step4Screen() {
     const router = useRouter();
@@ -26,12 +26,16 @@ export default function Step4Screen() {
                 data: { answers: allAnswers },
             });
 
-            // 2. AI analizi için orchestration service'e gönder
+            // 2. AI analizi için orchestrator function'a gönder
             if (user?.id) {
                 console.log("🧠 [ONBOARDING] AI analizi başlatılıyor...");
-                await processUserMessage(user.id, {
-                    type: "onboarding_completed",
-                    data: { answers: allAnswers },
+                await supabase.functions.invoke("orchestrator", {
+                    body: {
+                        eventPayload: {
+                            type: "onboarding_completed",
+                            data: { answers: allAnswers },
+                        },
+                    },
                 });
                 console.log("✅ [ONBOARDING] AI analizi tamamlandı");
             }

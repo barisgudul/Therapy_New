@@ -17,7 +17,7 @@ const therapyOptions = [
   //   id: 'video',
   //   title: 'Görüntülü Görüşme',
   //   description: 'Terapistinizle yüz yüze görüşme imkanı. Vücut dilinizi ve duygularınızı daha iyi anlayabilir.',
-  //   icon: 'videocam-outline',
+  //   icon: 'videocam-outline' as const,
   //   colors: ['#E0ECFD', '#F4E6FF'] as const,
   //   route: '/sessions/video_session',
   //   duration: '30 dakika',
@@ -28,7 +28,7 @@ const therapyOptions = [
     title: "Sesli Görüşme",
     description:
       "Sesli iletişim ile terapi desteği. Ses tonunuzdan duygularınızı analiz edebilir.",
-    icon: "mic-outline",
+    icon: "mic-outline" as const,
     colors: ["#F4E6FF", "#E0ECFD"] as const,
     route: "/sessions/voice_session",
     duration: "30 dakika",
@@ -39,7 +39,7 @@ const therapyOptions = [
     title: "Yazılı Görüşme",
     description:
       "Mesajlaşma ile sürekli destek. Düşüncelerinizi yazıya dökerek daha iyi ifade edebilirsiniz.",
-    icon: "chatbubble-ellipses-outline",
+    icon: "chatbubble-ellipses-outline" as const,
     colors: ["#E0ECFD", "#F4E6FF"] as const,
     route: "/sessions/text_session",
     duration: "30 dakika",
@@ -98,7 +98,7 @@ export default function TherapyOptionsScreen() {
                 style={styles.iconContainer}
               >
                 <Ionicons
-                  name={option.icon as string}
+                  name={option.icon}
                   size={28}
                   color={Colors.light.tint}
                 />

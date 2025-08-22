@@ -23,8 +23,8 @@ import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useVoiceSession } from "../../../hooks/useVoice";
 import { incrementFeatureUsage } from "../../../services/api.service";
 import { EventPayload } from "../../../services/event.service";
-import { processUserMessage } from "../../../services/orchestration.service";
 import { supabase } from "../../../utils/supabase";
+import { therapists, TherapistID } from "../../../constants/therapists";
 
 // Markdown render fonksiyonu - Paragraf düzenlemeli (voice session için)
 const _renderMarkdownText = (text: string, accentColor: string) => {
@@ -217,7 +217,7 @@ export default function VoiceSessionScreen() {
 
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [selectedTherapist, setSelectedTherapist] = useState<
-        TherapistData | null
+        typeof therapists[keyof typeof therapists] | null
     >(null);
     const [isProcessingAI, setIsProcessingAI] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -231,10 +231,10 @@ export default function VoiceSessionScreen() {
 
     useEffect(() => {
         if (therapistId) {
-            const therapist = getTherapistById(therapistId);
-            setSelectedTherapist(therapist || ALL_THERAPISTS[0]);
+            const therapist = therapists[therapistId as TherapistID];
+            setSelectedTherapist(therapist || Object.values(therapists)[0]);
         } else {
-            setSelectedTherapist(ALL_THERAPISTS[0]);
+            setSelectedTherapist(Object.values(therapists)[0]);
         }
     }, [therapistId]);
 
@@ -243,7 +243,7 @@ export default function VoiceSessionScreen() {
         isProcessing,
         startRecording,
         stopRecording,
-        _cleanup,
+        cleanup,
         speakText,
     } = useVoiceSession({
         onSpeechPlaybackStatusUpdate: (status) => {
@@ -288,10 +288,13 @@ export default function VoiceSessionScreen() {
                 },
             };
 
-            const aiReplyText = await processUserMessage(
-                user.id,
-                eventToProcess,
-            );
+            const { data, error } = await supabase.functions.invoke("orchestrator", {
+                body: { eventPayload: eventToProcess },
+            });
+            
+            if (error) throw error;
+            
+            const aiReplyText = typeof data === "string" ? data : data?.aiResponse || "";
 
             console.log("🧠 [VOICE-SESSION] AI Processing END");
             setIsProcessingAI(false);
@@ -418,7 +421,9 @@ export default function VoiceSessionScreen() {
                         ).join("\n"),
                     },
                 };
-                await processUserMessage(user.id, sessionEndPayload);
+                await supabase.functions.invoke("orchestrator", {
+                    body: { eventPayload: sessionEndPayload },
+                });
                 // Kullanım sayısını artır
                 await incrementFeatureUsage("voice_sessions");
                 console.log(
@@ -519,8 +524,8 @@ export default function VoiceSessionScreen() {
                                     >
                                         <Image
                                             source={selectedTherapist
-                                                ?.thumbnail ||
-                                                ALL_THERAPISTS[0].thumbnail}
+                                                ?.photo ||
+                                                Object.values(therapists)[0].photo}
                                             style={styles.therapistAvatarXL}
                                         />
                                     </LinearGradient>

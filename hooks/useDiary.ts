@@ -10,13 +10,18 @@ import {
     getEventById,
     logEvent,
 } from "../services/event.service";
-import {
-    type ConversationResponse,
-    processUserEvent,
-} from "../services/orchestration.service"; // TEK BEYİN BAĞLANTISI
 import { incrementFeatureUsage } from "../services/api.service";
 import { getErrorMessage } from "../utils/errors";
 import type { JsonValue } from "../types/json";
+import { supabase } from "../utils/supabase";
+
+// ConversationResponse tipini burada tanımlayalım
+interface ConversationResponse {
+    aiResponse: string;
+    nextQuestions?: string[];
+    isFinal: boolean;
+    conversationId: string;
+}
 
 export interface Message {
     text: string;
@@ -51,7 +56,7 @@ export function useDiary() {
         queryFn: getDiaryEventsForUser,
     });
 
-    const { data: selectedDiary } = useQuery<DiaryAppEvent | null>({
+    const { data: selectedDiary } = useQuery<any>({
         queryKey: ["diary", selectedDiaryId],
         queryFn: () => getEventById(selectedDiaryId!),
         enabled: !!selectedDiaryId,
@@ -60,16 +65,28 @@ export function useDiary() {
     // --- BEYNE BAĞLANAN MUTASYONLAR ---
 
     const conversationMutation = useMutation({
-        mutationFn: (
+        mutationFn: async (
             payload: { text: string; convoId: string | null; turn: number },
-        ) => processUserEvent({
-            type: "diary_entry",
-            data: {
-                userInput: payload.text,
-                conversationId: payload.convoId,
-                turn: payload.turn,
-            },
-        }),
+        ) => {
+            const { data, error } = await supabase.functions.invoke(
+                "orchestrator",
+                {
+                    body: {
+                        eventPayload: {
+                            type: "diary_entry",
+                            data: {
+                                userInput: payload.text,
+                                conversationId: payload.convoId,
+                                turn: payload.turn,
+                            },
+                        },
+                    },
+                },
+            );
+
+            if (error) throw error;
+            return data as ConversationResponse;
+        },
         onSuccess: (response: ConversationResponse) => {
             if (response.aiResponse) {
                 addMessage(response.aiResponse, false);

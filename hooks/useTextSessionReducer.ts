@@ -1,7 +1,7 @@
 // hooks/useTextSessionReducer.ts - Advanced state management with useReducer
 import { useCallback, useEffect, useReducer } from "react";
 import { Alert, BackHandler } from "react-native";
-import { SessionService } from "../services/session.service";
+import { supabase } from "../utils/supabase";
 
 export interface TextMessage {
     sender: "user" | "ai";
@@ -246,9 +246,9 @@ export function useTextSessionReducer({
         const initializeSession = async () => {
             if (eventId) {
                 try {
-                    const sessionData = await SessionService.getSessionById(
-                        eventId,
-                    );
+                    // TODO: SessionService yerine yeni backend function kullanılacak
+                    // Şimdilik basit bir mock data
+                    const sessionData = null;
 
                     // GÜVENLİ BLOK BAŞLANGICI
                     if (
@@ -310,47 +310,48 @@ export function useTextSessionReducer({
         const trimmedInput = state.input.trim();
         if (!trimmedInput || state.isTyping) return;
 
-        // Start sending message
         dispatch({ type: "SEND_MESSAGE_START" });
-
-        // Add user message immediately
         const userMessage: TextMessage = { sender: "user", text: trimmedInput };
         dispatch({ type: "ADD_MESSAGE", payload: userMessage });
 
         try {
-            // YENİ: Yapılandırılmış mesaj dizisi gönder
-            const currentMessages = [...state.messages, {
-                sender: "user" as const,
-                text: trimmedInput,
-            }];
+            // YENİ VE TEK GÖREVİ BU!
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                throw new Error("User not authenticated");
+            }
 
-            // Use SessionService
-            const aiReply = await SessionService.sendMessage({
-                userMessage: trimmedInput,
-                messages: currentMessages, // YENİ: yapılandırılmış dizi
-                initialMood,
-            });
+            const { data: aiReply, error } = await supabase.functions.invoke(
+                "text-session",
+                {
+                    body: {
+                        messages: [...state.messages, userMessage], // Tüm sohbet geçmişini yolla
+                    },
+                    headers: {
+                        Authorization: `Bearer ${
+                            (await supabase.auth.getSession()).data.session
+                                ?.access_token
+                        }`,
+                    },
+                },
+            );
 
-            // Success - AI mesajı reducer'da ekleniyor
+            if (error) {
+                // Burada hatayı düzgün yakala
+                throw new Error(error.message);
+            }
+
+            // Gelen cevabı reducer'a pasla, o da state'e bassın.
             dispatch({ type: "SEND_MESSAGE_SUCCESS", payload: aiReply });
         } catch (error) {
-            console.error("[sendMessage] Error:", error);
-            const errorMessage: TextMessage = {
-                sender: "ai",
-                text: "Bir sorun oluştu.",
-            };
-            dispatch({ type: "ADD_MESSAGE", payload: errorMessage });
+            console.error("[sendMessage] Critical Function Error:", error);
+            // Hata yönetimi için dispatch'lerini burada yaparsın.
             dispatch({
                 type: "SEND_MESSAGE_ERROR",
                 payload: "Mesaj gönderilemedi",
             });
         }
-    }, [
-        state.input,
-        state.isTyping,
-        state.messages,
-        initialMood,
-    ]);
+    }, [state.input, state.isTyping, state.messages]);
 
     // End session logic with reducer
     const endSession = useCallback(async () => {
@@ -359,25 +360,13 @@ export function useTextSessionReducer({
         dispatch({ type: "END_SESSION_START" });
 
         try {
-            // Save session data if there are messages
+            // TODO: Backend'e session data gönderilecek
+            // Şimdilik basit bir log
             if (state.messages.length >= 2) {
-                // TRANSCRIPT'İ SADECE BURADA, TEK SEFERDE OLUŞTUR!
-                const finalTranscript = state.messages
-                    .map((m) =>
-                        `${
-                            m.sender === "user"
-                                ? "Danışan"
-                                : "Terapist"
-                        }: ${m.text}\n`
-                    )
-                    .join("");
-
-                await SessionService.endSession({
-                    initialMood,
-                    finalMood: state.currentMood,
-                    transcript: finalTranscript, // BURAYA YENİ OLUŞTURDUĞUNU VER
-                    messages: state.messages,
-                });
+                console.log(
+                    "Session ended with messages:",
+                    state.messages.length,
+                );
             }
 
             dispatch({ type: "END_SESSION_SUCCESS" });
@@ -388,16 +377,9 @@ export function useTextSessionReducer({
                 type: "END_SESSION_ERROR",
                 payload: "Seans sonlandırılamadı",
             });
-            // Even if there's an error, we should still end the session
             onSessionEnd();
         }
-    }, [
-        state.isEnding,
-        state.messages, // messages.length kontrolü için gerekli
-        state.currentMood,
-        initialMood,
-        onSessionEnd,
-    ]);
+    }, [state.isEnding, state.messages, onSessionEnd]);
 
     // Handle back press
     const handleBackPress = useCallback(() => {
