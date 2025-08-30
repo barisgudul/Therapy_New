@@ -1,5 +1,6 @@
 // hooks/index.ts
 export { useTextSessionReducer } from "./useTextSessionReducer";
+export { useVoiceSessionReducer } from "./useVoiceSessionReducer";
 export { useTranscripts } from "./useTranscripts";
 export { useDiary } from "./useDiary";
 export { useDailyReflection } from "./useDailyReflection";

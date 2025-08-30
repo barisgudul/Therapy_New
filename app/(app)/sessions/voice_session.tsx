@@ -3,14 +3,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router/";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Animated,
-    BackHandler,
     Easing,
-    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -20,314 +17,35 @@ import {
 import { PremiumGate } from "../../../components/PremiumGate";
 import { Colors } from "../../../constants/Colors";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
-import { useVoiceSession } from "../../../hooks/useVoice";
-import { incrementFeatureUsage } from "../../../services/api.service";
-import { EventPayload } from "../../../services/event.service";
-import { supabase } from "../../../utils/supabase";
-import { therapists, TherapistID } from "../../../constants/therapists";
-
-// Markdown render fonksiyonu - Paragraf düzenlemeli (voice session için)
-const _renderMarkdownText = (text: string, accentColor: string) => {
-    if (!text) return null;
-
-    // Metni paragraflar halinde işle
-    const paragraphs = text.split("\n\n").filter((p) => p.trim());
-
-    return (
-        <View>
-            {paragraphs.map((paragraph, index) => {
-                const trimmedParagraph = paragraph.trim();
-
-                // Başlıklar
-                if (trimmedParagraph.startsWith("###")) {
-                    return (
-                        <Text
-                            key={index}
-                            style={{
-                                fontSize: 18,
-                                color: "#1A202C",
-                                lineHeight: 24,
-                                fontWeight: "700",
-                                marginTop: 12,
-                                marginBottom: 6,
-                            }}
-                        >
-                            {trimmedParagraph.slice(4)}
-                        </Text>
-                    );
-                }
-
-                if (trimmedParagraph.startsWith("##")) {
-                    return (
-                        <Text
-                            key={index}
-                            style={{
-                                fontSize: 20,
-                                color: "#1A202C",
-                                lineHeight: 26,
-                                fontWeight: "700",
-                                marginTop: 15,
-                                marginBottom: 8,
-                            }}
-                        >
-                            {trimmedParagraph.slice(3)}
-                        </Text>
-                    );
-                }
-
-                // Madde işaretleri
-                if (trimmedParagraph.startsWith("- ")) {
-                    const lines = trimmedParagraph.split("\n");
-                    return (
-                        <View key={index} style={{ marginVertical: 4 }}>
-                            {lines.map((line, lineIndex) => {
-                                if (line.trim().startsWith("- ")) {
-                                    return (
-                                        <View
-                                            key={lineIndex}
-                                            style={{
-                                                flexDirection: "row",
-                                                marginBottom: 4,
-                                                paddingLeft: 8,
-                                            }}
-                                        >
-                                            <Text
-                                                style={{
-                                                    fontSize: 16,
-                                                    color: accentColor,
-                                                    marginRight: 6,
-                                                    marginTop: 1,
-                                                }}
-                                            >
-                                                •
-                                            </Text>
-                                            <Text
-                                                style={{
-                                                    fontSize: 16,
-                                                    color: "#2D3748",
-                                                    lineHeight: 22,
-                                                    flex: 1,
-                                                }}
-                                            >
-                                                {line.trim().slice(2)}
-                                            </Text>
-                                        </View>
-                                    );
-                                }
-                                return null;
-                            })}
-                        </View>
-                    );
-                }
-
-                // Özel hatırlatma metni
-                if (trimmedParagraph.includes("💭")) {
-                    return (
-                        <View
-                            key={index}
-                            style={{
-                                backgroundColor: "#F7FAFC",
-                                borderRadius: 8,
-                                padding: 10,
-                                marginVertical: 8,
-                                borderLeftWidth: 3,
-                                borderLeftColor: accentColor,
-                            }}
-                        >
-                            <Text
-                                style={{
-                                    fontSize: 14,
-                                    color: "#4A5568",
-                                    lineHeight: 20,
-                                    fontStyle: "italic",
-                                }}
-                            >
-                                {trimmedParagraph}
-                            </Text>
-                        </View>
-                    );
-                }
-
-                // Normal paragraf - inline markdown ile
-                const renderInlineFormats = (text: string) => {
-                    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-                    return (
-                        <Text
-                            key={index}
-                            style={{
-                                fontSize: 16,
-                                color: "#2D3748",
-                                lineHeight: 22,
-                                letterSpacing: -0.2,
-                                marginBottom: 8,
-                            }}
-                        >
-                            {parts.map((part, i) => {
-                                if (
-                                    part.startsWith("**") && part.endsWith("**")
-                                ) {
-                                    return (
-                                        <Text
-                                            key={i}
-                                            style={{
-                                                fontWeight: "700",
-                                                color: "#1A202C",
-                                            }}
-                                        >
-                                            {part.slice(2, -2)}
-                                        </Text>
-                                    );
-                                }
-                                if (
-                                    part.startsWith("*") &&
-                                    part.endsWith("*") && !part.startsWith("**")
-                                ) {
-                                    return (
-                                        <Text
-                                            key={i}
-                                            style={{
-                                                fontStyle: "italic",
-                                            }}
-                                        >
-                                            {part.slice(1, -1)}
-                                        </Text>
-                                    );
-                                }
-                                return part;
-                            })}
-                        </Text>
-                    );
-                };
-
-                return renderInlineFormats(trimmedParagraph);
-            })}
-        </View>
-    );
-};
-
-export type ChatMessage = { id: string; sender: "user" | "ai"; text: string };
+import { useVoiceSessionReducer } from "../../../hooks";
 
 export default function VoiceSessionScreen() {
-    const { therapistId, mood } = useLocalSearchParams<
+    const { therapistId, mood: _mood } = useLocalSearchParams<
         { therapistId: string; mood?: string }
     >();
     const router = useRouter();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
 
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [selectedTherapist, setSelectedTherapist] = useState<
-        typeof therapists[keyof typeof therapists] | null
-    >(null);
-    const [isProcessingAI, setIsProcessingAI] = useState(false);
-    const [isSpeaking, setIsSpeaking] = useState(false);
-
     // Feature Access Hook
     const { _can_use, loading, refresh } = useFeatureAccess("voice_sessions");
+
+    // YENİ: Yeni beyin hook'u - tüm state yönetimi burada
+    const { state, actions } = useVoiceSessionReducer({
+        onSessionEnd: () => router.replace('/feel/after_feeling'),
+        therapistId,
+    });
 
     // YENİ: Tek bir yerden yönetilen animasyon değerleri
     const circleScale = useRef(new Animated.Value(1)).current;
     const dotOpacity = useRef(new Animated.Value(1)).current;
-
-    useEffect(() => {
-        if (therapistId) {
-            const therapist = therapists[therapistId as TherapistID];
-            setSelectedTherapist(therapist || Object.values(therapists)[0]);
-        } else {
-            setSelectedTherapist(Object.values(therapists)[0]);
-        }
-    }, [therapistId]);
-
-    const {
-        isRecording,
-        isProcessing,
-        startRecording,
-        stopRecording,
-        cleanup,
-        speakText,
-    } = useVoiceSession({
-        onSpeechPlaybackStatusUpdate: (status) => {
-            console.log("🗣️ [VOICE-SESSION] Speaking status update received:", {
-                isPlaying: status.isPlaying,
-            });
-            setIsSpeaking(status.isPlaying);
-        },
-        onTranscriptReceived: async (userText) => {
-            if (!userText) return;
-
-            console.log("🧠 [VOICE-SESSION] AI Processing START");
-            setIsProcessingAI(true);
-
-            const userMessage: ChatMessage = {
-                id: `user-${Date.now()}`,
-                sender: "user",
-                text: userText,
-            };
-            setMessages((prev) => [...prev, userMessage]);
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setIsProcessingAI(false);
-                return;
-            }
-
-            const eventToProcess: EventPayload = {
-                type: "voice_session",
-                data: {
-                    userMessage: userMessage.text,
-                    therapistId,
-                    initialMood: mood,
-                    intraSessionChatHistory: [...messages, userMessage].map(
-                        (m) =>
-                            `${
-                                m.sender === "user"
-                                    ? "Danışan"
-                                    : "Terapist"
-                            }: ${m.text}`,
-                    ).join("\n"),
-                },
-            };
-
-            const { data, error } = await supabase.functions.invoke("orchestrator", {
-                body: { eventPayload: eventToProcess },
-            });
-            
-            if (error) throw error;
-            
-            const aiReplyText = typeof data === "string" ? data : data?.aiResponse || "";
-
-            console.log("🧠 [VOICE-SESSION] AI Processing END");
-            setIsProcessingAI(false);
-
-            if (!aiReplyText) {
-                const errorMessage = "Üzgünüm, şu an bir sorun yaşıyorum.";
-                setMessages(
-                    (prev) => [...prev, {
-                        id: `ai-error-${Date.now()}`,
-                        sender: "ai",
-                        text: errorMessage,
-                    }],
-                );
-                speakText(errorMessage, therapistId);
-            } else {
-                const aiMessage: ChatMessage = {
-                    id: `ai-${Date.now()}`,
-                    sender: "ai",
-                    text: aiReplyText,
-                };
-                setMessages((prev) => [...prev, aiMessage]);
-                speakText(aiReplyText, therapistId);
-            }
-        },
-        therapistId,
-    });
 
     // GÜNCELLENMİŞ ve KESİNTİSİZ: 3 aşamalı animasyon yöneticisi
     useEffect(() => {
         circleScale.stopAnimation();
         dotOpacity.stopAnimation();
 
-        if (isRecording) {
+        if (state.status === 'recording') {
             // --- DİNLİYOR ANİMASYONU (Beğenilen) ---
             Animated.loop(
                 Animated.sequence([
@@ -345,7 +63,7 @@ export default function VoiceSessionScreen() {
                     }),
                 ]),
             ).start();
-        } else if (isProcessing || isProcessingAI) {
+        } else if (state.status === 'processing' || state.status === 'thinking') {
             // --- DÜŞÜNÜYOR ANİMASYONU (Yeniden tasarlandı) ---
             Animated.loop(
                 Animated.sequence([
@@ -377,7 +95,7 @@ export default function VoiceSessionScreen() {
                     }),
                 ]),
             ).start();
-        } else if (isSpeaking) {
+        } else if (state.status === 'speaking') {
             // --- KONUŞUYOR ANİMASYONU (Yeniden tasarlandı) ---
             Animated.loop(
                 Animated.sequence([
@@ -402,74 +120,12 @@ export default function VoiceSessionScreen() {
             Animated.spring(dotOpacity, { toValue: 1, useNativeDriver: true })
                 .start();
         }
-    }, [isRecording, isProcessing, isProcessingAI, isSpeaking]);
-
-    const handleSessionEnd = useCallback(async () => {
-        await stopRecording?.();
-        if (messages.length > 1) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const sessionEndPayload: EventPayload = {
-                    type: "voice_session",
-                    data: {
-                        isSessionEnd: true,
-                        therapistId,
-                        initialMood: mood,
-                        messages,
-                        transcript: messages.map((m) =>
-                            `${m.sender}: ${m.text}`
-                        ).join("\n"),
-                    },
-                };
-                await supabase.functions.invoke("orchestrator", {
-                    body: { eventPayload: sessionEndPayload },
-                });
-                // Kullanım sayısını artır
-                await incrementFeatureUsage("voice_sessions");
-                console.log(
-                    "✅ [USAGE] voice_sessions kullanımı başarıyla artırıldı.",
-                );
-            }
-        }
-        router.replace("/feel/after_feeling");
-    }, [messages, therapistId, mood, router, stopRecording]);
-
-    const onBackPress = useCallback(() => {
-        Alert.alert(
-            "Seansı Sonlandır",
-            "Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.",
-            [
-                { text: "İptal", style: "cancel" },
-                {
-                    text: "Sonlandır",
-                    style: "destructive",
-                    onPress: handleSessionEnd,
-                },
-            ],
-        );
-        return true;
-    }, [handleSessionEnd]);
-
-    useEffect(() => {
-        const subscription = BackHandler.addEventListener(
-            "hardwareBackPress",
-            onBackPress,
-        );
-        return () => subscription.remove();
-    }, [onBackPress]);
+    }, [state.status, circleScale, dotOpacity]); // Dependency'leri ekledim
 
     // Sayfa yüklendiğinde ve odaklandığında erişimi yenile
     useEffect(() => {
         refresh();
-    }, []);
-
-    /* ---------------------------- HELPERS --------------------------------- */
-    const _formatDuration = (s: number) =>
-        `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-
-    /* ---------------------------------------------------------------------- */
-    /* RENDERERS                                                              */
-    /* ---------------------------------------------------------------------- */
+    }, [refresh]); // refresh dependency'sini ekledim
 
     return (
         <PremiumGate featureType="voice_sessions" premiumOnly>
@@ -500,7 +156,7 @@ export default function VoiceSessionScreen() {
                         <>
                             {/* Geri/Kapat butonu */}
                             <TouchableOpacity
-                                onPress={onBackPress}
+                                onPress={actions.handleBackPress}
                                 style={styles.back}
                             >
                                 <Ionicons
@@ -522,27 +178,11 @@ export default function VoiceSessionScreen() {
                                         end={{ x: 1, y: 1 }}
                                         style={styles.avatarGradient}
                                     >
-                                        <Image
-                                            source={selectedTherapist
-                                                ?.photo ||
-                                                Object.values(therapists)[0].photo}
-                                            style={styles.therapistAvatarXL}
-                                        />
+                                
                                     </LinearGradient>
                                 </View>
                                 <View style={styles.therapistInfoBoxRow}>
-                                    <Text
-                                        style={[styles.therapistNameRow, {
-                                            color: isDark
-                                                ? "#fff"
-                                                : Colors.light.tint,
-                                        }]}
-                                    >
-                                        {selectedTherapist?.name || "Terapist"}
-                                    </Text>
-                                    <Text style={styles.therapistTitleRow}>
-                                        {selectedTherapist?.title}
-                                    </Text>
+                                    
                                 </View>
                             </View>
 
@@ -565,29 +205,29 @@ export default function VoiceSessionScreen() {
                                     style={[
                                         styles.circle,
                                         {
-                                            backgroundColor: isRecording
+                                            backgroundColor: state.status === 'recording'
                                                 ? "#F8FAFF"
                                                 : "#fff",
-                                            borderColor: isProcessing
+                                            borderColor: state.status === 'processing' || state.status === 'thinking'
                                                 ? "#FFD700"
-                                                : (isRecording
+                                                : (state.status === 'recording'
                                                     ? Colors.light.tint
                                                     : "#E3E8F0"),
                                             borderWidth:
-                                                isRecording || isProcessing
+                                                state.status === 'recording' || state.status === 'processing' || state.status === 'thinking'
                                                     ? 2
                                                     : 1,
-                                            shadowColor: isRecording
+                                            shadowColor: state.status === 'recording'
                                                 ? Colors.light.tint
                                                 : "#B0B8C1",
-                                            shadowOpacity: isRecording
+                                            shadowOpacity: state.status === 'recording'
                                                 ? 0.13
                                                 : 0.07,
                                             transform: [{ scale: circleScale }], // İKİ ANİMASYONU BİRLEŞTİR
                                         },
                                     ]}
                                 >
-                                    {isProcessing
+                                    {state.status === 'processing' || state.status === 'thinking'
                                         ? (
                                             <ActivityIndicator
                                                 size="large"
@@ -601,12 +241,12 @@ export default function VoiceSessionScreen() {
                                                         styles.brandWave,
                                                         {
                                                             borderColor:
-                                                                isRecording
+                                                                state.status === 'recording'
                                                                     ? Colors
                                                                         .light
                                                                         .tint
                                                                     : "#E3E8F0",
-                                                            opacity: isRecording
+                                                            opacity: state.status === 'recording'
                                                                 ? 0.18
                                                                 : 0.10,
                                                             transform: [{
@@ -630,34 +270,34 @@ export default function VoiceSessionScreen() {
 
                                 <View style={styles.controls}>
                                     <TouchableOpacity
-                                        disabled={isProcessing || isRecording}
+                                        disabled={state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'}
                                         onPress={() => {
-                                            if (!isRecording && !isProcessing) {
-                                                startRecording();
+                                            if (state.status === 'idle' || state.status === 'speaking') {
+                                                actions.startRecording();
                                             }
                                         }}
                                         style={[
                                             styles.button,
-                                            isProcessing || isRecording
+                                            state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'
                                                 ? styles.btnMuted
                                                 : styles.btnActive,
                                         ]}
                                         activeOpacity={0.85}
                                     >
                                         <Ionicons
-                                            name={isRecording
+                                            name={state.status === 'recording'
                                                 ? "mic"
                                                 : "mic-outline"}
                                             size={32}
-                                            color={isProcessing || isRecording
+                                            color={state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'
                                                 ? "#aaa"
                                                 : Colors.light.tint}
                                         />
                                     </TouchableOpacity>
-                                    {isRecording && (
+                                    {state.status === 'recording' && (
                                         <TouchableOpacity
                                             onPress={() => {
-                                                stopRecording();
+                                                actions.stopRecording();
                                             }}
                                             style={[
                                                 styles.button,
@@ -673,7 +313,7 @@ export default function VoiceSessionScreen() {
                                         </TouchableOpacity>
                                     )}
                                     <TouchableOpacity
-                                        onPress={onBackPress}
+                                        onPress={actions.handleBackPress}
                                         style={[styles.button, styles.btnMuted]}
                                         activeOpacity={0.85}
                                     >

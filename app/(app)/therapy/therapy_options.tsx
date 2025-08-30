@@ -52,12 +52,12 @@ export default function TherapyOptionsScreen() {
   const { therapistId } = useLocalSearchParams<{ therapistId: string }>();
 
   const handleOptionPress = (route: string) => {
-    const sessionType = route.split("/").pop()?.replace("_session", "");
+    // Gelen 'route' neyse, direkt ONA git. Bu kadar basit.
     router.push({
-      pathname: "../sessions/text_session",
+      pathname: route, // Düzeltilen yer burası!
       params: {
-        sessionType: sessionType || "text",
         therapistId,
+        // sessionType'a falan gerek yok, hangi ekrana gittiğimiz zaten rotadan belli.
       },
     });
   };

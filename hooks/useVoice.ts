@@ -1,168 +1,70 @@
-// --------------------------- useVoice.ts ---------------------------
-import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system";
+// hooks/useVoice.ts
+import { Audio } from "expo-av"; // expo-audio ile aynı API
 import { useCallback, useRef, useState } from "react";
-import { PermissionsAndroid, Platform } from "react-native";
-import { textToSpeech, transcribeAudio } from "../utils/gcpServices";
+import { textToSpeech } from "../utils/gcpServices"; // Bu zaten vardı, dokunma
+import * as FileSystem from "expo-file-system";
+import { supabase } from "../utils/supabase";
 
 interface UseVoiceSessionProps {
   onTranscriptReceived?: (transcript: string) => void;
-  // YENİ: Seslendirme durumunu bildirmek için daha genel bir callback
   onSpeechPlaybackStatusUpdate?: (status: { isPlaying: boolean }) => void;
-  onSpeechStarted?: () => void;
-  onSpeechEnded?: () => void;
-  onSoundLevelChange?: (level: number) => void;
   therapistId?: string;
 }
 
 export const useVoiceSession = ({
   onTranscriptReceived,
-  onSpeechPlaybackStatusUpdate, // YENİ
-  onSpeechStarted,
-  onSpeechEnded,
-  onSoundLevelChange,
+  onSpeechPlaybackStatusUpdate,
   therapistId = "therapist1",
 }: UseVoiceSessionProps = {}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
   const recording = useRef<Audio.Recording | null>(null);
   const sound = useRef<Audio.Sound | null>(null);
-  const levelTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  /** Platforma göre izin diyaloğu */
-  const requestPermission = async () => {
-    if (Platform.OS === "android") {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: "Mikrofon İzni",
-          message: "Sesli terapi için mikrofona erişim gerekiyor",
-          buttonPositive: "Tamam",
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } else if (Platform.OS === "ios") {
-      const { status } = await Audio.requestPermissionsAsync();
-      return status === "granted";
-    }
-    return true;
-  };
 
   const startRecording = useCallback(async () => {
-    console.log("🎤 ATTEMPTING TO START RECORDING...");
-    if (isRecording) {
-      console.log("   -> Already recording, returning.");
-      return;
-    }
-    const ok = await requestPermission();
-    if (!ok) {
-      console.log("   -> Permission denied, returning.");
-      return;
-    }
-
     try {
-      // Genel ses modu ayarı - hem kayıt hem oynatım için optimize edilmiş
+      console.log("🎤 [expo-av] ATTEMPTING TO START RECORDING...");
+      const permission = await Audio.requestPermissionsAsync();
+      if (!permission.granted) {
+        console.error("Mikrofon izni verilmedi.");
+        return;
+      }
+
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false, // Android'de hoparlörden çalsın
       });
-      console.log("   -> Audio mode set.");
 
-      // ----> GÜNCEL KAYIT SEÇENEKLERİ <----
-      const customRecordingOptions = {
-        android: {
-          extension: ".wav",
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-        },
-        ios: {
-          extension: ".wav",
-          audioQuality: Audio.IOSAudioQuality.MAX,
-          sampleRate: 16000,
-          numberOfChannels: 1,
-          bitRate: 128000, // <-- EKSİK OLAN BUYDU. ZAFİYET GİDERİLDİ.
-          outputFormat: Audio.IOSOutputFormat.LINEARPCM,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
-        web: {},
-      };
-      const { recording: rec } = await Audio.Recording.createAsync(
-        customRecordingOptions,
+      // expo-av'nin modern ve basit API'si
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY_16000_MONO_WAV, // Google için mükemmel ön-ayar
       );
-      console.log("   -> Recording object created.");
 
-      recording.current = rec;
-      setIsRecording(true); // <-- Bu state'in güncellenmesi ÇOK ÖNEMLİ
-      onSpeechStarted?.();
-      console.log("✅ RECORDING STARTED SUCCESSFULLY.");
-
-      // Ses seviyesi ölçümü
-      levelTimer.current = setInterval(async () => {
-        if (!recording.current) return;
-        const status = await recording.current.getStatusAsync();
-        if (status.isRecording && status.metering) {
-          onSoundLevelChange?.(status.metering);
-        }
-      }, 120);
+      recording.current = newRecording;
+      setIsRecording(true);
+      console.log("✅ [expo-av] RECORDING STARTED SUCCESSFULLY.");
     } catch (err) {
       console.error("🔴 FAILED TO START RECORDING:", err);
     }
-  }, [isRecording, onSoundLevelChange, onSpeechStarted]);
+  }, []);
 
   const stopRecording = useCallback(async () => {
-    console.log("🛑 ATTEMPTING TO STOP RECORDING...");
-    if (!recording.current) {
-      console.log("   -> No recording object found, returning.");
-      return;
-    }
-    if (levelTimer.current) {
-      clearInterval(levelTimer.current);
-      levelTimer.current = null;
-    }
-    setIsRecording(false); // <-- Bu state'in güncellenmesi ÇOK ÖNEMLİ
+    if (!recording.current) return;
+
+    console.log("🛑 [expo-av] ATTEMPTING TO STOP RECORDING...");
+    setIsRecording(false);
     setIsProcessing(true);
 
     try {
       await recording.current.stopAndUnloadAsync();
       const uri = recording.current.getURI();
-      console.log("   -> Recording stopped and unloaded. URI:", uri);
-      if (uri) {
-        const info = await FileSystem.getInfoAsync(uri);
-        // info.size sadece exists:true ise vardır
-        const _fileSize = info.exists ? info.size : 0;
-        const _fileExt = uri.split(".").pop();
-        // console.log('[VOICE] Kayıt URI:', uri, 'Boyut:', _fileSize, 'Format:', _fileExt, 'exists:', info.exists);
-      }
-      recording.current = null;
-      onSpeechEnded?.();
+      console.log("   -> Recording stopped. URI:", uri);
 
       if (uri) {
-        try {
-          console.log("🎯 [VOICE-HOOK] Ses tanıma başlatılıyor...", {
-            uri,
-            fileExists: true,
-          });
-          const text = await transcribeAudio(uri);
-          console.log("📝 [VOICE-HOOK] Ses tanıma tamamlandı:", {
-            text,
-            length: text?.length,
-            isEmpty: !text || text.trim().length === 0,
-          });
-          onTranscriptReceived?.(text);
-        } catch (err) {
-          console.error("❌ [VOICE-HOOK] Ses tanıma hatası:", err);
-          onTranscriptReceived?.("");
-        }
-      } else {
-        console.log("⚠️ [VOICE-HOOK] Ses dosyası URI bulunamadı");
-        onTranscriptReceived?.("");
+        // transcribeAudio fonksiyonu zaten base64'e çeviriyor, o yüzden ona dokunma
+        const text = await transcribeAudio(uri);
+        onTranscriptReceived?.(text);
       }
     } catch (err) {
       console.error("🔴 FAILED TO STOP RECORDING:", err);
@@ -170,41 +72,36 @@ export const useVoiceSession = ({
       setIsProcessing(false);
       console.log("✅ PROCESSING FINISHED.");
     }
-  }, [onSpeechEnded, onTranscriptReceived]);
+  }, [onTranscriptReceived]);
 
-  // speakText fonksiyonundan yaş parametresini kaldır
   const speakText = useCallback(
     async (text: string, therapistIdArg?: string) => {
       try {
-        // Ses çalmadan önce hoparlör moduna geç
         await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false, // Sadece oynatım için
+          allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: false,
-          playThroughEarpieceAndroid: false, // Hoparlörden çalsın
         });
 
-        // therapistId'yi gcpServices'e iletiyoruz (artık userAge yok)
         const url = await textToSpeech(text, therapistIdArg || therapistId);
-        const { sound: s } = await Audio.Sound.createAsync(
+
+        // Önceki sound'u temizle
+        if (sound.current) {
+          await sound.current.unloadAsync();
+        }
+
+        const { sound: newSound } = await Audio.Sound.createAsync(
           { uri: url },
-          { shouldPlay: true, volume: 1.0, isMuted: false },
+          { shouldPlay: true },
           (status) => {
             if (status.isLoaded) {
-              console.log("🔊 [VOICE-HOOK] Playback status update:", {
-                isPlaying: status.isPlaying,
-                didJustFinish: status.didJustFinish,
-              });
               onSpeechPlaybackStatusUpdate?.({ isPlaying: status.isPlaying });
               if (status.didJustFinish) {
-                s.unloadAsync();
-                onSpeechPlaybackStatusUpdate?.({ isPlaying: false });
+                newSound.unloadAsync();
               }
             }
           },
         );
-        sound.current = s;
+        sound.current = newSound;
       } catch (err) {
         console.warn("Ses çalınamadı:", err);
         onSpeechPlaybackStatusUpdate?.({ isPlaying: false });
@@ -213,19 +110,40 @@ export const useVoiceSession = ({
     [therapistId, onSpeechPlaybackStatusUpdate],
   );
 
-  const cleanup = useCallback(async () => {
-    if (levelTimer.current) clearInterval(levelTimer.current);
-    levelTimer.current = null;
-    if (recording.current) await recording.current.stopAndUnloadAsync();
-    if (sound.current) await sound.current.unloadAsync();
-  }, []);
-
   return {
     isRecording,
     isProcessing,
     startRecording,
     stopRecording,
     speakText,
-    cleanup,
   };
 };
+
+// transcribeAudio Google'a gönderdiği için o dosyada bir değişiklik gerekmiyor
+async function transcribeAudio(audioUri: string): Promise<string> {
+  // ... utils/gcpServices.ts dosyasındaki mevcut transcribeAudio kodun...
+  // Bu kodun burada olmasına gerek yok, sadece bir hatırlatma.
+  // O dosyadaki kod base64'e çevirip Supabase'e yolluyor, o kısım doğru.
+  // Şimdilik buraya placeholder koyalım.
+
+  console.log(`[Placeholder] Transcribing audio at: ${audioUri}`);
+  try {
+    const { data, error } = await supabase.functions.invoke("api-gateway", {
+      body: {
+        type: "speech-to-text",
+        payload: {
+          audio: {
+            content: await FileSystem.readAsStringAsync(audioUri, {
+              encoding: FileSystem.EncodingType.Base64,
+            }),
+          },
+        },
+      },
+    });
+    if (error) throw error;
+    return data?.results?.[0]?.alternatives?.[0]?.transcript ?? "";
+  } catch (err) {
+    console.error("Transcribe hatası:", err);
+    return "";
+  }
+}

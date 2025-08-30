@@ -15,7 +15,7 @@ export default {
     // IOS ve ANDROID için özel ayarlar
     ios: {
       supportsTablet: true,
-      // --- BU SATIR EKLENDİ ---
+      infoPlist: {ITSAppUsesNonExemptEncryption: false},
       bundleIdentifier: "com.barisgudul.TherapyNew"
     },
     android: {
@@ -45,6 +45,7 @@ export default {
           backgroundColor: '#ffffff',
         },
       ],
+      'expo-audio',
       
     ],
 
