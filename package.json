@@ -104,5 +104,27 @@
     "supabase": "^2.31.8",
     "typescript": "~5.8.3"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-chart-kit",
+          "react-native-confetti-cannon",
+          "react-native-html-to-pdf",
+          "react-native-keyboard-aware-scroll-view",
+          "@anthropic-ai/sdk",
+          "@langchain/google-genai",
+          "ajv",
+          "ajv-keywords",
+          "d3-shape",
+          "groq-sdk",
+          "langchain",
+          "moment",
+          "react-native-vector-icons",
+          "uuid"
+        ]
+      }
+    }
+  }
 }
