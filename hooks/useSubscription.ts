@@ -1,42 +1,41 @@
 // hooks/useSubscription.ts - ADAM EDİLMİŞ HALİ
 
-import { useCallback } from 'react';
-import { SubscriptionPlan, UsageStats } from '../services/subscription.service';
-import { useSubscriptionStore } from '../store/subscriptionStore';
+import { useCallback } from "react";
+import { SubscriptionPlan, UsageStats } from "../services/subscription.service";
+import { useSubscriptionStore } from "../store/subscriptionStore";
 
 // =================================================================
 // === MOCK VERİLER (BUNLARA DOKUNMA) ===
 // =================================================================
 
 const MOCK_PLANS: SubscriptionPlan[] = [
-    {
-        id: 'prod_premium123',
-        name: 'Premium',
-        price: 99.99,
-        currency: '$',
-        description: 'Tüm özelliklere sınırsız erişim ve öncelikli destek.',
-        features: {
-            text_sessions: 'Sınırsız',
-            voice_sessions: 'Sınırsız',
-            dream_analysis: 'Sınırsız',
-            ai_reports: 'Sınırsız',
-            therapist_selection: 'Tüm Terapistler',
-            session_history: 'Sınırsız',
-            pdf_export: 'Evet',
-            priority_support: 'Evet',
-        }
+  {
+    id: "prod_premium123",
+    name: "Premium",
+    price: 99.99,
+    currency: "$",
+    description: "Tüm özelliklere sınırsız erişim ve öncelikli destek.",
+    features: {
+      text_sessions: "Sınırsız",
+      voice_sessions: "Sınırsız",
+      dream_analysis: "Sınırsız",
+      ai_reports: "Sınırsız",
+      session_history: "Sınırsız",
+      pdf_export: "Evet",
+      priority_support: "Evet",
     },
-    {
-        id: 'prod_free789',
-        name: 'Free',
-        price: 0,
-        currency: '₺',
-        description: 'Uygulamayı denemek için temel başlangıç.',
-        features: {}
-    }
+  },
+  {
+    id: "prod_free789",
+    name: "Free",
+    price: 0,
+    currency: "₺",
+    description: "Uygulamayı denemek için temel başlangıç.",
+    features: {},
+  },
 ];
 
-const MOCK_USAGE_STATS: Record<'Free' | 'Premium', UsageStats> = {
+const MOCK_USAGE_STATS: Record<"Free" | "Premium", UsageStats> = {
   Free: {
     dream_analysis: { can_use: true, used_count: 0, limit_count: 1 },
     ai_reports: { can_use: false, used_count: 1, limit_count: 1 },
@@ -59,7 +58,6 @@ const MOCK_USAGE_STATS: Record<'Free' | 'Premium', UsageStats> = {
   },
 };
 
-
 // =================================================================
 // === ADAM GİBİ HOOK'LAR ===
 // Bütün `refresh` fonksiyonları artık `useCallback` ile güvende.
@@ -69,13 +67,13 @@ export function useSubscription() {
   const planName = useSubscriptionStore((state) => state.planName);
   const setPlanName = useSubscriptionStore((state) => state.setPlanName);
 
-  const isPremium = planName === 'Premium';
+  const isPremium = planName === "Premium";
 
   // setPlanName zaten Zustand tarafından stabil hale getiriliyor, o yüzden useCallback'e gerek yok.
   // Bu hook zaten doğruymuş.
   return {
     subscription: null,
-    plan: MOCK_PLANS.find(p => p.name === planName),
+    plan: MOCK_PLANS.find((p) => p.name === planName),
     isPremium,
     planName,
     loading: false,
@@ -85,10 +83,10 @@ export function useSubscription() {
 
 export function useSubscriptionPlans() {
   const sortedPlans = [...MOCK_PLANS].sort((a, b) => b.price - a.price);
-  
+
   // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
   const refreshPlans = useCallback(() => {
-    console.log('[HAYALET MOD] Plan listesi yenilendi.');
+    console.log("[HAYALET MOD] Plan listesi yenilendi.");
   }, []);
 
   return {
@@ -105,8 +103,9 @@ export function useSubscriptionPlans() {
 export function useFeatureAccess(feature: keyof UsageStats) {
   const planName = useSubscriptionStore((state) => state.planName);
   const allUsage = MOCK_USAGE_STATS[planName];
-  const access = allUsage[feature] || { can_use: false, used_count: 0, limit_count: 0 };
-  
+  const access = allUsage[feature] ||
+    { can_use: false, used_count: 0, limit_count: 0 };
+
   // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
   const refreshAccess = useCallback(() => {
     console.log(`[HAYALET MOD] '${feature}' için erişim durumu yenilendi.`);
@@ -120,28 +119,29 @@ export function useFeatureAccess(feature: keyof UsageStats) {
   };
 }
 
-
 // =================================================================
 // === YARDIMCI FONKSİYONLAR (BUNLARA DOKUNMA) ===
 // =================================================================
 
 export const formatUsageText = (used: number, limit: number): string => {
-  if (limit === -1) return 'Sınırsız';
-  if (limit === 0) return 'Mevcut Değil';
+  if (limit === -1) return "Sınırsız";
+  if (limit === 0) return "Mevcut Değil";
   if (limit > 0 && limit < 1) {
     const weeklyLimit = Math.round(limit * 7);
     const usedWeekly = Math.ceil(used * 7);
     const remainingWeekly = weeklyLimit - usedWeekly;
-    return `${remainingWeekly > 0 ? remainingWeekly : 0} / ${weeklyLimit} haftalık hak`;
+    return `${
+      remainingWeekly > 0 ? remainingWeekly : 0
+    } / ${weeklyLimit} haftalık hak`;
   }
   const remaining = limit - used;
   return `${remaining > 0 ? remaining : 0} / ${limit} günlük hak`;
 };
 
 export const getUsageColor = (percentage: number): string => {
-  if (percentage >= 100) return '#EF4444';
-  if (percentage > 80) return '#F59E0B';
-  return '#10B981';
+  if (percentage >= 100) return "#EF4444";
+  if (percentage > 80) return "#F59E0B";
+  return "#10B981";
 };
 
 export const getUsagePercentage = (used: number, limit: number): number => {

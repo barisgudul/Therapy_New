@@ -24,6 +24,7 @@ interface VoiceSessionState {
     status: VoiceSessionStatus;
     messages: VoiceMessage[];
     error: string | null;
+    lastSpokenMessageId: string | null; // <-- YENİ BAYRAK
 }
 
 type VoiceSessionAction =
@@ -48,6 +49,7 @@ const initialState: VoiceSessionState = {
     status: "idle",
     messages: [],
     error: null,
+    lastSpokenMessageId: null, // <-- BAŞLANGIÇ DEĞERİ
 };
 
 function voiceSessionReducer(
@@ -82,6 +84,7 @@ function voiceSessionReducer(
                 ...state,
                 messages: [...state.messages, aiMessage],
                 status: "speaking",
+                lastSpokenMessageId: aiMessage.id, // <-- MESAJ SESLENDİRİLMEK ÜZERE İŞARETLENDİ
             };
         case "AI_RESPONSE_ERROR":
             return { ...state, status: "error", error: action.payload };
@@ -155,10 +158,26 @@ export function useVoiceSessionReducer(
     // AI cevabı geldiğinde onu seslendir
     useEffect(() => {
         const lastMessage = state.messages[state.messages.length - 1];
-        if (state.status === "speaking" && lastMessage?.sender === "ai") {
+
+        // ZIRH: Sadece durumu 'speaking' olan VE
+        // son mesaj AI'dan gelen VE
+        // bu mesaj DAHA ÖNCE seslendirilmemiş olan durumlarda çalış.
+        if (
+            state.status === "speaking" &&
+            lastMessage?.sender === "ai" &&
+            lastMessage.id !== state.lastSpokenMessageId // <-- EN KRİTİK KONTROL BU!
+        ) {
             speakText(lastMessage.text, therapistId);
+            // Bu useEffect'in yeniden tetiklenmesi için state'i güncellemeye GEREK YOK.
+            // `lastSpokenMessageId` zaten reducer'da set edildi.
         }
-    }, [state.messages, state.status, speakText, therapistId]);
+    }, [
+        state.status,
+        state.messages,
+        state.lastSpokenMessageId, // <-- dependency array'e ekle
+        speakText,
+        therapistId,
+    ]);
 
     // Dışarıya verilecek aksiyonlar
     const handleStartRecording = useCallback(() => {

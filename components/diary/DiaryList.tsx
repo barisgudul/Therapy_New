@@ -5,7 +5,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
 import type { DiaryAppEvent } from "../../services/event.service";
-import { DiaryCardSkeleton } from "./DiaryCardSkeleton";
 
 interface DiaryListProps {
   isLoading: boolean;
@@ -44,9 +43,18 @@ export const DiaryList: React.FC<DiaryListProps> = ({ isLoading, diaryEvents, on
         <View style={styles.diaryContainer}>
           {isLoading ? (
               <View>
-                <DiaryCardSkeleton />
-                <DiaryCardSkeleton />
-                <DiaryCardSkeleton />
+                <View style={styles.skeletonPlaceholder}>
+                  <View style={styles.skeletonHeader} />
+                  <View style={styles.skeletonContent} />
+                </View>
+                <View style={styles.skeletonPlaceholder}>
+                  <View style={styles.skeletonHeader} />
+                  <View style={styles.skeletonContent} />
+                </View>
+                <View style={styles.skeletonPlaceholder}>
+                  <View style={styles.skeletonHeader} />
+                  <View style={styles.skeletonContent} />
+                </View>
               </View>
             ) : diaryEvents.length === 0 ? (
               <View style={styles.emptyState}>
@@ -332,6 +340,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     letterSpacing: -0.3,
+  },
+  skeletonPlaceholder: {
+    height: 120,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 24,
+    marginBottom: 20,
+    padding: 24,
+  },
+  skeletonHeader: {
+    height: 20,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 4,
+    marginBottom: 20,
+    width: "60%",
+  },
+  skeletonContent: {
+    height: 16,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 4,
+    width: "100%",
   },
 });
 

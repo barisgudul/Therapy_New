@@ -242,20 +242,14 @@ export default function ProfileScreen() {
     };
 
     useEffect(() => {
-        if (
-            vault && typeof vault === "object" && "profile" in vault &&
-            vault.profile
-        ) {
-            const profileData = vault.profile as Record<string, unknown>;
+        // Sadece vault verisi varsa VE local state daha önce hiç doldurulmamışsa çalış.
+        if (vault?.profile && !localProfile.nickname) {
             setLocalProfile({
-                nickname: typeof profileData.nickname === "string"
-                    ? profileData.nickname
-                    : "",
-                relationshipStatus: (profileData.relationshipStatus ||
-                    "") as RelationshipStatus,
+                nickname: vault.profile.nickname || "",
+                relationshipStatus: vault.profile.relationshipStatus || "",
             });
         }
-    }, [vault]);
+    }, [vault, localProfile.nickname]); // Dependency'ye DİKKAT ET!
 
     const handleSave = useCallback(() => {
         if (!localProfile.nickname.trim()) {
