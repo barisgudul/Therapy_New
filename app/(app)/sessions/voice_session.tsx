@@ -2,12 +2,14 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router/";
 import React, { useEffect, useRef } from "react";
 import {
     ActivityIndicator,
     Animated,
     Easing,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -20,20 +22,19 @@ import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useVoiceSessionReducer } from "../../../hooks";
 
 export default function VoiceSessionScreen() {
-    const { therapistId, mood: _mood } = useLocalSearchParams<
-        { therapistId: string; mood?: string }
+    const { mood: _mood } = useLocalSearchParams<
+        { mood?: string }
     >();
     const router = useRouter();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
 
     // Feature Access Hook
-    const { _can_use, loading, refresh } = useFeatureAccess("voice_sessions");
+    const { loading, refresh } = useFeatureAccess("voice_sessions");
 
     // YENİ: Yeni beyin hook'u - tüm state yönetimi burada
     const { state, actions } = useVoiceSessionReducer({
         onSessionEnd: () => router.replace('/feel/after_feeling'),
-        therapistId,
     });
 
     // YENİ: Tek bir yerden yönetilen animasyon değerleri
@@ -137,196 +138,209 @@ export default function VoiceSessionScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.container}
             >
-                {loading
-                    ? (
-                        <View
-                            style={{
-                                flex: 1,
-                                justifyContent: "center",
-                                alignItems: "center",
-                            }}
-                        >
-                            <ActivityIndicator
-                                size="large"
-                                color={isDark ? "#fff" : Colors.light.tint}
-                            />
-                        </View>
-                    )
-                    : (
-                        <>
-                            {/* Geri/Kapat butonu */}
-                            <TouchableOpacity
-                                onPress={actions.handleBackPress}
-                                style={styles.back}
+                <SafeAreaView style={styles.flex}>
+                    {loading
+                        ? (
+                            <View
+                                style={{
+                                    flex: 1,
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                }}
                             >
-                                <Ionicons
-                                    name="chevron-back"
-                                    size={28}
+                                <ActivityIndicator
+                                    size="large"
                                     color={isDark ? "#fff" : Colors.light.tint}
                                 />
-                            </TouchableOpacity>
-
-                            {/* Terapist avatar ve adı */}
-                            <View style={styles.therapistHeaderRow}>
-                                <View style={styles.avatarGradientBox}>
-                                    <LinearGradient
-                                        colors={[
-                                            Colors.light.tint,
-                                            "rgba(255,255,255,0.9)",
-                                        ]}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={styles.avatarGradient}
-                                    >
-                                
-                                    </LinearGradient>
-                                </View>
-                                <View style={styles.therapistInfoBoxRow}>
-                                    
-                                </View>
                             </View>
-
-                            {/* Lüks ve premium, kart olmayan, markaya uygun alan */}
-                            <View style={styles.premiumSessionArea}>
-                                <Text style={styles.logo}>
-                                    therapy<Text style={styles.dot}>.</Text>
-                                </Text>
-                                <Text
-                                    style={[styles.title, {
-                                        color: isDark
-                                            ? "#222"
-                                            : Colors.light.text,
-                                    }]}
-                                >
-                                    Sesli Terapi
-                                </Text>
-
-                                <Animated.View
-                                    style={[
-                                        styles.circle,
-                                        {
-                                            backgroundColor: state.status === 'recording'
-                                                ? "#F8FAFF"
-                                                : "#fff",
-                                            borderColor: state.status === 'processing' || state.status === 'thinking'
-                                                ? "#FFD700"
-                                                : (state.status === 'recording'
-                                                    ? Colors.light.tint
-                                                    : "#E3E8F0"),
-                                            borderWidth:
-                                                state.status === 'recording' || state.status === 'processing' || state.status === 'thinking'
-                                                    ? 2
-                                                    : 1,
-                                            shadowColor: state.status === 'recording'
-                                                ? Colors.light.tint
-                                                : "#B0B8C1",
-                                            shadowOpacity: state.status === 'recording'
-                                                ? 0.13
-                                                : 0.07,
-                                            transform: [{ scale: circleScale }], // İKİ ANİMASYONU BİRLEŞTİR
-                                        },
-                                    ]}
-                                >
-                                    {state.status === 'processing' || state.status === 'thinking'
-                                        ? (
-                                            <ActivityIndicator
-                                                size="large"
-                                                color={Colors.light.tint}
-                                            />
-                                        )
-                                        : (
-                                            <>
-                                                <Animated.View
-                                                    style={[
-                                                        styles.brandWave,
-                                                        {
-                                                            borderColor:
-                                                                state.status === 'recording'
-                                                                    ? Colors
-                                                                        .light
-                                                                        .tint
-                                                                    : "#E3E8F0",
-                                                            opacity: state.status === 'recording'
-                                                                ? 0.18
-                                                                : 0.10,
-                                                            transform: [{
-                                                                scale:
-                                                                    circleScale,
-                                                            }],
-                                                        },
-                                                    ]}
-                                                />
-                                                <Animated.View
-                                                    style={[
-                                                        styles.brandDot,
-                                                        {
-                                                            opacity: dotOpacity,
-                                                        },
-                                                    ]}
-                                                />
-                                            </>
-                                        )}
-                                </Animated.View>
-
-                                <View style={styles.controls}>
-                                    <TouchableOpacity
-                                        disabled={state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'}
-                                        onPress={() => {
-                                            if (state.status === 'idle' || state.status === 'speaking') {
-                                                actions.startRecording();
-                                            }
-                                        }}
-                                        style={[
-                                            styles.button,
-                                            state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'
-                                                ? styles.btnMuted
-                                                : styles.btnActive,
-                                        ]}
-                                        activeOpacity={0.85}
-                                    >
-                                        <Ionicons
-                                            name={state.status === 'recording'
-                                                ? "mic"
-                                                : "mic-outline"}
-                                            size={32}
-                                            color={state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'
-                                                ? "#aaa"
-                                                : Colors.light.tint}
-                                        />
-                                    </TouchableOpacity>
-                                    {state.status === 'recording' && (
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                actions.stopRecording();
-                                            }}
-                                            style={[
-                                                styles.button,
-                                                styles.btnActive,
-                                            ]}
-                                            activeOpacity={0.85}
-                                        >
-                                            <Ionicons
-                                                name="stop-circle-outline"
-                                                size={32}
-                                                color={Colors.light.tint}
-                                            />
-                                        </TouchableOpacity>
-                                    )}
+                        )
+                        : (
+                            <>
+                                {/* YENİ VE SON KEZ DOĞRU HEADER YAPISI */}
+                                <View style={styles.header}>
                                     <TouchableOpacity
                                         onPress={actions.handleBackPress}
-                                        style={[styles.button, styles.btnMuted]}
-                                        activeOpacity={0.85}
+                                        style={styles.backButton}
                                     >
                                         <Ionicons
-                                            name="close"
-                                            size={22}
-                                            color={Colors.light.tint}
+                                            name="chevron-back"
+                                            size={28}
+                                            color={isDark ? "#fff" : Colors.light.tint}
                                         />
                                     </TouchableOpacity>
+                                    {/* Header'ın sağ tarafını boş bırakarak simetri sağla */}
+                                    <View style={{ width: 44 }} />
                                 </View>
-                            </View>
-                        </>
-                    )}
+
+                                {/* İÇERİĞİ SCROLLVIEW İLE SAR */}
+                                <ScrollView
+                                    style={styles.scrollView}
+                                    contentContainerStyle={styles.scrollContent}
+                                    showsVerticalScrollIndicator={false}
+                                >
+                                    {/* Terapist avatar ve adı */}
+                                    <View style={styles.therapistHeaderRow}>
+                                        <View style={styles.avatarGradientBox}>
+                                            <LinearGradient
+                                                colors={[
+                                                    Colors.light.tint,
+                                                    "rgba(255,255,255,0.9)",
+                                                ]}
+                                                start={{ x: 0, y: 0 }}
+                                                end={{ x: 1, y: 1 }}
+                                                style={styles.avatarGradient}
+                                            >
+
+                                            </LinearGradient>
+                                        </View>
+                                        <View style={styles.therapistInfoBoxRow}>
+
+                                        </View>
+                                    </View>
+
+                                    {/* Lüks ve premium, kart olmayan, markaya uygun alan */}
+                                    <View style={styles.premiumSessionArea}>
+                                        <Text style={styles.logo}>
+                                            therapy<Text style={styles.dot}>.</Text>
+                                        </Text>
+                                        <Text
+                                            style={[styles.title, {
+                                                color: isDark
+                                                    ? "#222"
+                                                    : Colors.light.text,
+                                            }]}
+                                        >
+                                            Sesli Terapi
+                                        </Text>
+
+                                        <Animated.View
+                                            style={[
+                                                styles.circle,
+                                                {
+                                                    backgroundColor: state.status === 'recording'
+                                                        ? "#F8FAFF"
+                                                        : "#fff",
+                                                    borderColor: state.status === 'processing' || state.status === 'thinking'
+                                                        ? "#FFD700"
+                                                        : (state.status === 'recording'
+                                                            ? Colors.light.tint
+                                                            : "#E3E8F0"),
+                                                    borderWidth:
+                                                        state.status === 'recording' || state.status === 'processing' || state.status === 'thinking'
+                                                            ? 2
+                                                            : 1,
+                                                    shadowColor: state.status === 'recording'
+                                                        ? Colors.light.tint
+                                                        : "#B0B8C1",
+                                                    shadowOpacity: state.status === 'recording'
+                                                        ? 0.13
+                                                        : 0.07,
+                                                    transform: [{ scale: circleScale }], // İKİ ANİMASYONU BİRLEŞTİR
+                                                },
+                                            ]}
+                                        >
+                                            {state.status === 'processing' || state.status === 'thinking'
+                                                ? (
+                                                    <ActivityIndicator
+                                                        size="large"
+                                                        color={Colors.light.tint}
+                                                    />
+                                                )
+                                                : (
+                                                    <>
+                                                        <Animated.View
+                                                            style={[
+                                                                styles.brandWave,
+                                                                {
+                                                                    borderColor:
+                                                                        state.status === 'recording'
+                                                                            ? Colors
+                                                                                .light
+                                                                                .tint
+                                                                            : "#E3E8F0",
+                                                                    opacity: state.status === 'recording'
+                                                                        ? 0.18
+                                                                        : 0.10,
+                                                                    transform: [{
+                                                                        scale:
+                                                                            circleScale,
+                                                                    }],
+                                                                },
+                                                            ]}
+                                                        />
+                                                        <Animated.View
+                                                            style={[
+                                                                styles.brandDot,
+                                                                {
+                                                                    opacity: dotOpacity,
+                                                                },
+                                                            ]}
+                                                        />
+                                                    </>
+                                                )}
+                                        </Animated.View>
+
+                                        <View style={styles.controls}>
+                                            <TouchableOpacity
+                                                disabled={state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'}
+                                                onPress={() => {
+                                                    if (state.status === 'idle' || state.status === 'speaking') {
+                                                        actions.startRecording();
+                                                    }
+                                                }}
+                                                style={[
+                                                    styles.button,
+                                                    state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'
+                                                        ? styles.btnMuted
+                                                        : styles.btnActive,
+                                                ]}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Ionicons
+                                                    name={state.status === 'recording'
+                                                        ? "mic"
+                                                        : "mic-outline"}
+                                                    size={32}
+                                                    color={state.status === 'processing' || state.status === 'thinking' || state.status === 'recording'
+                                                        ? "#aaa"
+                                                        : Colors.light.tint}
+                                                />
+                                            </TouchableOpacity>
+                                            {state.status === 'recording' && (
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        actions.stopRecording();
+                                                    }}
+                                                    style={[
+                                                        styles.button,
+                                                        styles.btnActive,
+                                                    ]}
+                                                    activeOpacity={0.85}
+                                                >
+                                                    <Ionicons
+                                                        name="stop-circle-outline"
+                                                        size={32}
+                                                        color={Colors.light.tint}
+                                                    />
+                                                </TouchableOpacity>
+                                            )}
+                                            <TouchableOpacity
+                                                onPress={actions.handleBackPress}
+                                                style={[styles.button, styles.btnMuted]}
+                                                activeOpacity={0.85}
+                                            >
+                                                <Ionicons
+                                                    name="close"
+                                                    size={22}
+                                                    color={Colors.light.tint}
+                                                />
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </ScrollView>
+                            </>
+                        )}
+                </SafeAreaView>
             </LinearGradient>
         </PremiumGate>
     );
@@ -339,16 +353,19 @@ export default function VoiceSessionScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        justifyContent: "flex-start",
-        alignItems: "center",
-        backgroundColor: "#FFFFFF",
-        minHeight: "100%",
     },
-    back: {
-        position: "absolute",
-        top: 60,
-        left: 24,
-        zIndex: 10,
+    flex: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingTop: 10,
+    },
+    backButton: {
+        // position, top, left, zIndex GİTTİ - Artık doğal akışta
         backgroundColor: "rgba(255,255,255,0.92)",
         borderRadius: 16,
         padding: 8,
@@ -359,11 +376,18 @@ const styles = StyleSheet.create({
         borderWidth: 0.5,
         borderColor: "rgba(227,232,240,0.4)",
     },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        alignItems: 'center', // ScrollView içeriğini ortala
+        paddingBottom: 40,
+    },
     therapistHeaderRow: {
         flexDirection: "column",
         alignItems: "center",
         alignSelf: "center",
-        marginTop: 120,
+        marginTop: 20, // marginTop: 120'yi SİL - artık header'ın altında
         marginBottom: 20,
         backgroundColor: "transparent",
     },

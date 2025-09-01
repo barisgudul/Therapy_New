@@ -13,40 +13,22 @@ import {
 import { incrementFeatureUsage } from "../services/api.service";
 import { getErrorMessage } from "../utils/errors";
 import type { JsonValue } from "../types/json";
-import { supabase } from "../utils/supabase";
-
-// ConversationResponse tipini burada tanımlayalım
-interface ConversationResponse {
-    aiResponse: string;
-    nextQuestions?: string[];
-    isFinal: boolean;
-    conversationId: string;
-}
-
-export interface Message {
-    text: string;
-    isUser: boolean;
-    timestamp: number;
-    isQuestionContext?: boolean;
-}
-export type DiaryMode = "list" | "view" | "write";
+import { useDiaryConversation } from "./useDiaryConversation";
+import type { DiaryMode } from "../types/diary.types";
+import { useAuth } from "../context/Auth";
 
 export function useDiary() {
     const queryClient = useQueryClient();
+    const { user } = useAuth();
 
     const [mode, setMode] = useState<DiaryMode>("list");
-    const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
     const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [currentQuestions, setCurrentQuestions] = useState<string[]>([]);
-    const [currentInput, setCurrentInput] = useState("");
-    const [isModalVisible, setIsModalVisible] = useState(false);
-    const [conversationState, setConversationState] = useState<
-        { id: string | null; turn: number }
-    >({ id: null, turn: 0 });
-    const [isConversationDone, setIsConversationDone] = useState<boolean>(
-        false,
-    );
+
+    // User name'i hesapla
+    const userName = user?.user_metadata?.nickname ?? "Sen";
+
+    // Konuşma mantığını ayrı hook'tan al
+    const conversation = useDiaryConversation();
 
     const {
         data: diaryEvents = [],
@@ -62,59 +44,12 @@ export function useDiary() {
         enabled: !!selectedDiaryId,
     });
 
-    // --- BEYNE BAĞLANAN MUTASYONLAR ---
-
-    const conversationMutation = useMutation({
-        mutationFn: async (
-            payload: { text: string; convoId: string | null; turn: number },
-        ) => {
-            const { data, error } = await supabase.functions.invoke(
-                "orchestrator",
-                {
-                    body: {
-                        eventPayload: {
-                            type: "diary_entry",
-                            data: {
-                                userInput: payload.text,
-                                conversationId: payload.convoId,
-                                turn: payload.turn,
-                            },
-                        },
-                    },
-                },
-            );
-
-            if (error) throw error;
-            return data as ConversationResponse;
-        },
-        onSuccess: (response: ConversationResponse) => {
-            if (response.aiResponse) {
-                addMessage(response.aiResponse, false);
-            }
-            setConversationState((prev) => ({
-                id: response.conversationId,
-                turn: prev.turn + 1,
-            }));
-            if (response.isFinal) {
-                setIsConversationDone(true);
-                setCurrentQuestions([]);
-            } else {
-                setCurrentQuestions(response.nextQuestions || []);
-            }
-        },
-        onError: (e: Error) =>
-            Toast.show({
-                type: "error",
-                text1: "AI Asistan Bağlanamadı",
-                text2: getErrorMessage(e),
-            }),
-    });
+    // --- SAVE VE DELETE MUTASYONLARI ---
 
     const saveDiaryMutation = useMutation({
-        mutationFn: (newDiaryData: { messages: Message[] }) =>
+        mutationFn: (newDiaryData: { messages: any[] }) =>
             logEvent({
                 type: "diary_entry",
-                // Message[]'ı JsonValue ile uyumlu hale getiriyoruz.
                 data: {
                     messages: newDiaryData.messages as unknown as JsonValue,
                 },
@@ -131,7 +66,7 @@ export function useDiary() {
                 type: "diary_entry",
                 timestamp: Date.now(),
                 created_at: new Date().toISOString(),
-                data: { messages },
+                data: { messages: conversation.messages },
                 mood: null,
             } as DiaryAppEvent;
 
@@ -141,7 +76,7 @@ export function useDiary() {
             );
 
             setMode("list");
-            resetWritingState();
+            conversation.resetConversation();
 
             return { previousDiaries } as { previousDiaries?: DiaryAppEvent[] };
         },
@@ -178,59 +113,30 @@ export function useDiary() {
             }),
     });
 
-    // --- KONTROL MERKEZİ (Handlers) ---
-    const resetWritingState = useCallback(() => {
-        setMessages([]);
-        setCurrentQuestions([]);
-        setCurrentInput("");
-        setSelectedDiaryId(null);
-        setConversationState({ id: null, turn: 0 });
-        setIsConversationDone(false);
-        setActiveQuestion(null);
-    }, []);
+    // --- HANDLERS ---
 
     const handleStartNewDiary = useCallback(() => {
-        resetWritingState();
+        conversation.resetConversation();
         setMode("write");
-    }, [resetWritingState]);
-    const addMessage = (
-        text: string,
-        isUser: boolean,
-        options?: { isQuestionContext?: boolean },
-    ) => setMessages(
-        (
-            prev,
-        ) => [...prev, { text, isUser, timestamp: Date.now(), ...options }],
-    );
+    }, [conversation]);
 
-    const handleSubmitAnswer = () => {
-        if (!currentInput.trim() || conversationMutation.isPending) return;
+    const handleViewDiary = useCallback((event: DiaryAppEvent) => {
+        setSelectedDiaryId(event.id);
+        setMode("view");
+    }, []);
 
-        const userInputText = currentInput.trim();
-        let combinedInput: string;
+    const handleExitView = useCallback(() => {
+        setMode("list");
+        setSelectedDiaryId(null);
+    }, []);
 
-        if (activeQuestion) {
-            // Önce seçilen soruyu doğru aktörle (AI) ve özel işaretle kaydet, sonra cevabı ekle
-            addMessage(activeQuestion, false, { isQuestionContext: true });
-            addMessage(userInputText, true);
-            combinedInput = `${activeQuestion}\n\n${userInputText}`;
-        } else {
-            addMessage(userInputText, true);
-            combinedInput = userInputText;
-        }
+    const handleSaveDiary = useCallback(() => {
+        saveDiaryMutation.mutate({ messages: conversation.messages });
+    }, [conversation.messages, saveDiaryMutation]);
 
-        conversationMutation.mutate({
-            text: combinedInput,
-            convoId: conversationState.id,
-            turn: conversationState.turn,
-        });
-
-        // Temizlik
-        setCurrentInput("");
-        setActiveQuestion(null);
-        setIsModalVisible(false);
-        setCurrentQuestions([]);
-    };
+    const handleDeleteDiary = useCallback((id: string) => {
+        deleteDiaryMutation.mutate(id);
+    }, [deleteDiaryMutation]);
 
     return {
         state: {
@@ -238,40 +144,33 @@ export function useDiary() {
             isLoadingDiaries,
             diaryEvents,
             selectedDiary,
-            messages,
-            isSubmitting: conversationMutation.isPending,
-
-            currentQuestions,
-            isModalVisible,
-            currentInput,
-            activeQuestion,
-            isConversationDone,
+            userName,
+            // Konuşma state'ini conversation hook'tan al
+            messages: conversation.messages,
+            isSubmitting: conversation.isSubmitting,
+            currentQuestions: conversation.currentQuestions,
+            isModalVisible: conversation.isModalVisible,
+            currentInput: conversation.currentInput,
+            activeQuestion: conversation.activeQuestion,
+            isConversationDone: conversation.isConversationDone,
         },
         handlers: {
             startNewDiary: handleStartNewDiary,
-            viewDiary: (event: DiaryAppEvent) => {
-                setSelectedDiaryId(event.id);
-                setMode("view");
-            },
-            exitView: () => {
-                setMode("list");
-                setSelectedDiaryId(null);
-            },
-            openModal: () => setIsModalVisible(true),
+            viewDiary: handleViewDiary,
+            exitView: handleExitView,
+            openModal: () => conversation.setIsModalVisible(true),
             closeModal: () => {
-                setIsModalVisible(false);
-                setActiveQuestion(null);
+                conversation.setIsModalVisible(false);
+                conversation.setActiveQuestion(null);
             },
-            changeInput: setCurrentInput,
+            changeInput: conversation.setCurrentInput,
             selectQuestion: (q: string) => {
-                setActiveQuestion(q);
-                setIsModalVisible(true);
+                conversation.setActiveQuestion(q);
+                conversation.setIsModalVisible(true);
             },
-            submitAnswer: handleSubmitAnswer,
-            saveDiary: () => {
-                saveDiaryMutation.mutate({ messages });
-            },
-            deleteDiary: (id: string) => deleteDiaryMutation.mutate(id),
+            submitAnswer: conversation.submitAnswer,
+            saveDiary: handleSaveDiary,
+            deleteDiary: handleDeleteDiary,
         },
     };
 }

@@ -1,62 +1,65 @@
 // components/diary/DiaryList.tsx
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, StatusBar } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
-import type { DiaryAppEvent } from "../../services/event.service";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDiaryContext } from "../../context/DiaryContext";
+import { useRouter } from "expo-router/";
 
-interface DiaryListProps {
-  isLoading: boolean;
-  diaryEvents: DiaryAppEvent[];
-  onViewDiary: (event: DiaryAppEvent) => void;
-  onNewDiary: () => void;
-  onBack?: () => void;
-}
-
-export const DiaryList: React.FC<DiaryListProps> = ({ isLoading, diaryEvents, onViewDiary, onNewDiary, onBack }) => {
+export const DiaryList: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const { state, handlers } = useDiaryContext();
+  const router = useRouter(); // Geri butonu için eklendi
 
   return (
     <LinearGradient
       colors={["#F4F6FF", "#FFFFFF"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={styles.container}
+      style={styles.container} // Arka plan artık tüm ekranı kaplıyor
     >
-      {onBack ? (
-        <TouchableOpacity onPress={onBack} style={styles.back}>
+      <StatusBar barStyle="dark-content" />
+
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
         </TouchableOpacity>
-      ) : null}
 
-      <View style={styles.header}>
-        <Text style={styles.logo}>
-          therapy<Text style={styles.dot}>.</Text>
-        </Text>
-        <Text style={styles.title}>Günlüklerim</Text>
-        <Text style={styles.subtitle}>
-          Duygularını ve düşüncelerini kaydet.
-        </Text>
+        <View style={styles.headerTitleContainer}>
+            <Text style={styles.logo}>
+                therapy<Text style={styles.dot}>.</Text>
+            </Text>
+            <Text style={styles.title}>Günlüklerim</Text>
+        </View>
+
+        {/* Bu boş view, başlığın tam ortada kalmasını sağlar */}
+        <View style={styles.headerPlaceholder} />
       </View>
+
+      <Text style={styles.subtitle}>
+        Duygularını ve düşüncelerini kaydet.
+      </Text>
 
       <View style={styles.content}>
         <View style={styles.diaryContainer}>
-          {isLoading ? (
-              <View>
-                <View style={styles.skeletonPlaceholder}>
-                  <View style={styles.skeletonHeader} />
-                  <View style={styles.skeletonContent} />
-                </View>
-                <View style={styles.skeletonPlaceholder}>
-                  <View style={styles.skeletonHeader} />
-                  <View style={styles.skeletonContent} />
-                </View>
-                <View style={styles.skeletonPlaceholder}>
-                  <View style={styles.skeletonHeader} />
-                  <View style={styles.skeletonContent} />
-                </View>
+          {state.isLoadingDiaries ? (
+            <View style={styles.loadingContainer}>
+              <View style={styles.skeletonPlaceholder}>
+                <View style={styles.skeletonHeader} />
+                <View style={styles.skeletonContent} />
               </View>
-            ) : diaryEvents.length === 0 ? (
+              <View style={styles.skeletonPlaceholder}>
+                <View style={styles.skeletonHeader} />
+                <View style={styles.skeletonContent} />
+              </View>
+              <View style={styles.skeletonPlaceholder}>
+                <View style={styles.skeletonHeader} />
+                <View style={styles.skeletonContent} />
+              </View>
+            </View>
+          ) : state.diaryEvents.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyStateIconContainer}>
                   <LinearGradient
@@ -77,10 +80,10 @@ export const DiaryList: React.FC<DiaryListProps> = ({ isLoading, diaryEvents, on
               </View>
             ) : (
               <FlatList
-                data={diaryEvents}
+                data={state.diaryEvents}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item: event }) => (
-                  <TouchableOpacity style={styles.diaryCard} onPress={() => onViewDiary(event)}>
+                  <TouchableOpacity style={styles.diaryCard} onPress={() => handlers.viewDiary(event)}>
                     <LinearGradient colors={["#FFFFFF", "#F8FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.diaryCardGradient}>
                       <View style={styles.diaryCardHeader}>
                         <View style={styles.diaryCardDateContainer}>
@@ -108,7 +111,10 @@ export const DiaryList: React.FC<DiaryListProps> = ({ isLoading, diaryEvents, on
         </View>
       </View>
 
-      <TouchableOpacity style={styles.newDiaryButton} onPress={onNewDiary}>
+      <TouchableOpacity
+        style={[styles.newDiaryButton, { bottom: insets.bottom > 0 ? insets.bottom : 20 }]}
+        onPress={handlers.startNewDiary}
+      >
         <LinearGradient
           colors={["#F8FAFF", "#FFFFFF"]}
           start={{ x: 0, y: 0 }}
@@ -132,31 +138,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
+  // YENİ VE GÜNCELLENMİŞ STİLLER
   header: {
-    alignItems: "center",
-    paddingTop: 120,
-    paddingBottom: 32,
-    paddingHorizontal: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderRadius: 12,
+    shadowColor: "rgba(0,0,0,0.1)",
+    shadowOpacity: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  headerTitleContainer: {
+    alignItems: 'center',
+  },
+  headerPlaceholder: {
+    width: 44, // Geri butonunun genişliği kadar boşluk
   },
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    marginTop: 30,
-  },
-  back: {
-    position: "absolute",
-    top: 60,
-    left: 24,
-    zIndex: 30,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    borderWidth: 0.5,
-    borderColor: "rgba(227,232,240,0.4)",
   },
   logo: {
     fontSize: 32,
@@ -185,15 +193,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#4A5568",
     textAlign: "center",
-    lineHeight: 22,
-    letterSpacing: -0.3,
-    paddingHorizontal: 20,
+    paddingHorizontal: 40,
+    marginBottom: 16, // Başlık sonrası boşluk
   },
   scrollView: {
     flex: 1,
   },
   diaryContainer: {
+    flex: 1,
     paddingVertical: 24,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
   },
   emptyState: {
     alignItems: "center",
@@ -293,7 +307,6 @@ const styles = StyleSheet.create({
   },
   newDiaryButton: {
     position: "absolute",
-    bottom: 80,
     right: 24,
     width: 180,
     height: 56,

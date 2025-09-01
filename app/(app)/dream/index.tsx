@@ -9,17 +9,16 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router/";
 import { MotiView } from "moti";
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from "react-native-toast-message";
-import UndoToast from "../../../components/dream/UndoToast.tsx";
 import SkeletonCard from "../../../components/dream/SkeletonCard.tsx";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { AppEvent, getDreamEvents } from "../../../services/event.service";
@@ -28,6 +27,7 @@ import { supabase } from "../../../utils/supabase";
 export default function DreamJournalScreen() {
   const router = useRouter();
   const queryClient = useQueryClient(); // Query client'a erişim için
+  const insets = useSafeAreaInsets();
 
   // YENİ: useInfiniteQuery ile sonsuz kaydırma
   const {
@@ -65,6 +65,9 @@ export default function DreamJournalScreen() {
       fetchNextPage();
     }
   };
+
+  // Tekrarlanan onUndo mantığını önlemek için ayrı fonksiyon
+  const handleUndo = useRef<((previousAnalyses: unknown) => void) | null>(null);
 
   // YENİ: useMutation ile silme işlemi - Artık akıllı Edge Function kullanıyor
   const deleteMutation = useMutation({
@@ -104,18 +107,7 @@ export default function DreamJournalScreen() {
         position: 'bottom',
         visibilityTime: 5000,
         props: {
-          onUndo: () => {
-            console.log("UNDO! Silme işlemi geri alınıyor...");
-            queryClient.setQueryData(["dreamEvents"], previousAnalyses);
-            deleteMutation.reset();
-            Toast.hide();
-          },
-          render: () => <UndoToast onUndo={() => {
-            console.log("UNDO! Silme işlemi geri alınıyor...");
-            queryClient.setQueryData(["dreamEvents"], previousAnalyses);
-            deleteMutation.reset();
-            Toast.hide();
-          }} />
+          onUndo: () => handleUndo.current?.(previousAnalyses),
         },
       });
 
@@ -138,6 +130,14 @@ export default function DreamJournalScreen() {
       queryClient.invalidateQueries({ queryKey: ["dreamEvents"] });
     },
   });
+
+  // handleUndo'yu deleteMutation'dan sonra ata
+  handleUndo.current = (previousAnalyses: unknown) => {
+    console.log("UNDO! Silme işlemi geri alınıyor...");
+    queryClient.setQueryData(["dreamEvents"], previousAnalyses);
+    deleteMutation.reset();
+    Toast.hide();
+  };
 
   const handleDelete = (eventId: string) => {
     // Artık handleDelete tek satır. Bütün mantık useMutation içinde.
@@ -202,53 +202,58 @@ export default function DreamJournalScreen() {
   // VARSAYILAN OLARAK BU KISIM GÖRÜNÜR (RÜYA LİSTESİ)
   return (
     <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <TouchableOpacity
-          onPress={() =>
-            router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons
-            name="chevron-back"
-            size={28}
-            color={COSMIC_COLORS.textPrimary}
-          />
-        </TouchableOpacity>
-
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        {/* Header bölümü - flexbox ile düzenlendi */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Rüya Günlüğü</Text>
-          <Text style={styles.headerSubtext}>
-            Bilinçaltınızı analizlerle keşfedin.
-          </Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons
+              name="chevron-back"
+              size={28}
+              color={COSMIC_COLORS.textPrimary}
+            />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Rüya Günlüğü</Text>
+            <Text style={styles.headerSubtext}>
+              Bilinçaltınızı analizlerle keşfedin.
+            </Text>
+          </View>
         </View>
 
-        {isLoading
-          ? ( // 'isLoading' doğrudan useQuery'den geliyor
-            <View style={styles.skeletonContainer}>
-              {Array.from({ length: 4 }).map((_, index) => (
-                <SkeletonCard key={`skeleton-${index}`} delay={index} />
-              ))}
-            </View>
-          )
-          : (
-            <FlashList
-              data={analyses} // Düzleştirilmiş veriyi kullan
-              renderItem={renderDreamCard}
-              keyExtractor={(item) => item.id.toString()}
-              estimatedItemSize={200} // Boş state yüksekliğine göre ayarla
-              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}
-              onRefresh={onRefresh}
-              refreshing={isRefetching} // 'isRefetching' kullanmak daha doğru.
-              onEndReached={loadMore} // Sayfa sonuna gelince çağrılacak fonksiyon
-              onEndReachedThreshold={0.5} // Ekranın yarısına gelince yüklemeye başla
-              // YENİ: Sayfa yüklenirken altta bir loading göstergesi
-              ListFooterComponent={isFetchingNextPage
-                ? <ActivityIndicator style={{ marginVertical: 20 }} />
-                : null}
-              ListEmptyComponent={memoizedEmptyComponent}
-            />
-          )}
+        {/* Ana içerik alanı - kalan tüm alanı kaplar */}
+        <View style={styles.contentContainer}>
+          {isLoading
+            ? ( // 'isLoading' doğrudan useQuery'den geliyor
+              <View style={styles.skeletonContainer}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <SkeletonCard key={`skeleton-${index}`} delay={index} />
+                ))}
+              </View>
+            )
+            : (
+              <FlashList
+                data={analyses} // Düzleştirilmiş veriyi kullan
+                renderItem={renderDreamCard}
+                keyExtractor={(item) => item.id.toString()}
+                estimatedItemSize={200} // Boş state yüksekliğine göre ayarla
+                contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}
+                onRefresh={onRefresh}
+                refreshing={isRefetching} // 'isRefetching' kullanmak daha doğru.
+                onEndReached={loadMore} // Sayfa sonuna gelince çağrılacak fonksiyon
+                onEndReachedThreshold={0.5} // Ekranın yarısına gelince yüklemeye başla
+                // YENİ: Sayfa yüklenirken altta bir loading göstergesi
+                ListFooterComponent={isFetchingNextPage
+                  ? <ActivityIndicator style={{ marginVertical: 20 }} />
+                  : null}
+                ListEmptyComponent={memoizedEmptyComponent}
+              />
+            )}
+        </View>
 
+        {/* Footer - sabit kalır */}
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.newDreamButton}
@@ -265,7 +270,7 @@ export default function DreamJournalScreen() {
             </View>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     </LinearGradient>
   );
 }
@@ -273,23 +278,34 @@ export default function DreamJournalScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   backButton: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    zIndex: 10,
     padding: 8,
   },
-  header: { paddingTop: 120, paddingBottom: 30, alignItems: "center" },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
+  },
+  headerContent: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
     color: COSMIC_COLORS.textPrimary,
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: "bold",
     letterSpacing: -1,
+    marginRight: 36, // back button'ı dengelemek için
   },
   headerSubtext: {
     color: COSMIC_COLORS.textSecondary,
     fontSize: 16,
     marginTop: 8,
+    marginRight: 36, // back button'ı dengelemek için
+  },
+  contentContainer: {
+    flex: 1, // En önemli kısım: Bu, listeye kalan tüm alanı verir
   },
   card: {
     backgroundColor: COSMIC_COLORS.card,
@@ -313,6 +329,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopColor: COSMIC_COLORS.cardBorder,
     borderTopWidth: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
   },
   newDreamButton: {
     height: 56,

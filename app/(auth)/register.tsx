@@ -5,13 +5,13 @@ import { useRouter } from "expo-router/";
 import React, { useState } from "react";
 import {
     LayoutAnimation,
-    Pressable,
     Text,
     TouchableOpacity,
     View,
 } from "react-native";
 import { AuthInput } from "../../components/AuthInput.tsx";
 import { AuthLayout } from "../../components/AuthLayout.tsx";
+import { LoadingButton } from "../../components/LoadingButton.tsx";
 import { useLoading } from "../../context/Loading.tsx";
 import { useOnboardingStore } from "../../store/onboardingStore";
 import { authScreenStyles as styles } from "../../styles/auth";
@@ -19,7 +19,7 @@ import { signUpWithEmail } from "../../utils/auth";
 
 export default function RegisterScreen() {
     const router = useRouter();
-    const { showLoading, hideLoading } = useLoading();
+    const { showLoading, hideLoading, isLoading } = useLoading();
     const setNickname = useOnboardingStore((s) => s.setNickname);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -130,30 +130,19 @@ export default function RegisterScreen() {
 
                 {step === 0
                     ? (
-                        <Pressable
+                        <LoadingButton
+                            isLoading={false}
+                            text="Devam Et"
                             onPress={goToNextStep}
-                            style={(
-                                { pressed },
-                            ) => [styles.button, {
-                                opacity: pressed ? 0.8 : 1,
-                            }]}
-                        >
-                            <Text style={styles.buttonText}>Devam Et</Text>
-                        </Pressable>
+                        />
                     )
                     : (
-                        <Pressable
+                        <LoadingButton
+                            isLoading={isLoading}
+                            text="Hesabı Oluştur"
                             onPress={handleRegister}
-                            style={(
-                                { pressed },
-                            ) => [styles.button, styles.greenButton, {
-                                opacity: pressed ? 0.8 : 1,
-                            }]}
-                        >
-                            <Text style={styles.buttonText}>
-                                Hesabı Oluştur
-                            </Text>
-                        </Pressable>
+                            style={styles.greenButton}
+                        />
                     )}
             </View>
         </AuthLayout>

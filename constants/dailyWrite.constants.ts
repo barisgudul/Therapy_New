@@ -1,12 +1,12 @@
 // constants/dailyWrite.constants.ts
 
-import { Colors } from './Colors';
+import { Colors } from "./Colors";
 
 export const tokens = {
   radiusLg: 28,
   radiusMd: 22,
-  tintMain: '#3B82F6', 
-  glassBg: 'rgba(246, 248, 250, 0.85)',
+  tintMain: "#3B82F6",
+  glassBg: "rgba(246, 248, 250, 0.85)",
   shadow: {
     shadowColor: Colors.light.tint,
     shadowOpacity: 0.15,
@@ -16,20 +16,20 @@ export const tokens = {
   },
 };
 
-// YENİ: İnterpolasyon için optimize edilmiş, daha yumuşak ve terapötik renk paleti
+// YENİ: İnterpolasyon için optimize edilmiş, en belirgin ve canlı renk paleti
 export const MOOD_LEVELS = [
-  // Derin düşünce, gece mavisi
-  { label: 'Melankolik',  color: '#6B7280' }, // Kurşun Kalem Grisi
-  // Durgunluk, sisli bir sabah
-  { label: 'Keyifsiz',     color: '#718096' }, // Fırtınalı Gri
-  // Nötr denge, bulutlu gökyüzü
-  { label: 'Normal',    color: '#A0AEC0' }, // Taş Grisi
-  // Hafif bir aydınlanma, gümüşi bir ışık
-  { label: 'Rahat',      color: '#A7BFDE' }, // Tozlu Mavi (Gri-Mavi geçişi)
-  // Huzur, açık ve berrak bir gökyüzü
-  { label: 'Mutlu',    color: '#90a4f5' }, // Yumuşak Lavanta (Marka rengine yumuşak geçiş)
-  // Nazik pozitiflik, ılık bir gün
-  { label: 'Neşeli',        color: '#7f9cf5' }, // Lavanta Mavisi (Ana marka rengi)
-  // Canlılık ve enerji, parlak gökyüzü
-  { label: 'Enerjik',   color: '#63B3ED' }, // Berrak Gök Mavisi
+  // Derin düşünce, koyu indigo
+  { label: "Melankolik", color: "#1e1b4b" }, // Derin Indigo
+  // Durgunluk, koyu slate
+  { label: "Keyifsiz", color: "#1e293b" }, // Koyu Slate
+  // Nötr denge, koyu gri
+  { label: "Normal", color: "#374151" }, // Koyu Gri
+  // Hafif bir aydınlanma, parlak mavi
+  { label: "Rahat", color: "#3b82f6" }, // Parlak Mavi
+  // Huzur, canlı royal mavi
+  { label: "Mutlu", color: "#1d4ed8" }, // Royal Mavi
+  // Nazik pozitiflik, parlak cyan
+  { label: "Neşeli", color: "#0891b2" }, // Parlak Cyan
+  // Canlılık ve enerji, parlak emerald
+  { label: "Enerjik", color: "#059669" }, // Parlak Emerald
 ];

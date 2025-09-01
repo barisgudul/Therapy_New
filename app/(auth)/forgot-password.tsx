@@ -6,13 +6,14 @@ import React, { useState } from "react";
 import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
 import { AuthInput } from "../../components/AuthInput";
 import { AuthLayout } from "../../components/AuthLayout";
+import { LoadingButton } from "../../components/LoadingButton";
 import { useLoading } from "../../context/Loading";
 import { authScreenStyles as styles } from "../../styles/auth";
 import { supabase } from "../../utils/supabase";
 
 export default function ForgotPasswordScreen() {
     const router = useRouter();
-    const { showLoading, hideLoading } = useLoading();
+    const { showLoading, hideLoading, isLoading } = useLoading();
     const [email, setEmail] = useState("");
     const [sent, setSent] = useState(false);
 
@@ -94,14 +95,11 @@ export default function ForgotPasswordScreen() {
                 />
             </View>
 
-            <Pressable
+            <LoadingButton
+                isLoading={isLoading}
+                text="Kurtarma Linki Gönder"
                 onPress={handlePasswordReset}
-                style={(
-                    { pressed },
-                ) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}
-            >
-                <Text style={styles.buttonText}>Kurtarma Linki Gönder</Text>
-            </Pressable>
+            />
         </AuthLayout>
     );
 }

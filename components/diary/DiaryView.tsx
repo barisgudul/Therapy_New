@@ -3,16 +3,14 @@ import React from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
-import type { DiaryAppEvent } from "../../services/event.service";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDiaryContext } from "../../context/DiaryContext";
 
-interface DiaryViewProps {
-  selectedDiary: DiaryAppEvent | null;
-  onBack: () => void;
-  onDelete: (eventId: string) => void;
-}
+export const DiaryView: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const { state, handlers } = useDiaryContext();
 
-export const DiaryView: React.FC<DiaryViewProps> = ({ selectedDiary, onBack, onDelete }) => {
-  if (!selectedDiary) {
+  if (!state.selectedDiary) {
     return (
       <View style={styles.diaryViewContainer}>
         <Text>Günlük yükleniyor...</Text>
@@ -21,18 +19,18 @@ export const DiaryView: React.FC<DiaryViewProps> = ({ selectedDiary, onBack, onD
   }
 
   return (
-    <View style={styles.diaryViewContainer}>
-      <TouchableOpacity onPress={onBack} style={styles.back}>
-        <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
-      </TouchableOpacity>
+    <View style={[styles.diaryViewContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.deleteButton} onPress={() => handlers.deleteDiary(state.selectedDiary!.id)}>
+          <Ionicons name="trash-outline" size={24} color="#E53E3E" />
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(selectedDiary.id)}>
-        <Ionicons name="trash-outline" size={24} color="#E53E3E" />
-      </TouchableOpacity>
+      <View style={styles.titleContainer}>
+        <Text style={styles.diaryViewTitle}>Günlük</Text>
+      </View>
 
-      <Text style={styles.diaryViewTitle}>Günlük</Text>
-
-      <ScrollView style={styles.diaryViewScrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.diaryViewScrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.diaryContainer}>
           <View style={styles.writingPageSection}>
             <View style={styles.writingPageHeader}>
@@ -41,12 +39,12 @@ export const DiaryView: React.FC<DiaryViewProps> = ({ selectedDiary, onBack, onD
                 <Text style={styles.writingPageTitle}>Günlük Sayfası</Text>
               </View>
               <Text style={styles.writingPageDate}>
-                {selectedDiary ? new Date(selectedDiary.timestamp).toLocaleDateString("tr-TR") : ""}
+                {state.selectedDiary ? new Date(state.selectedDiary.timestamp).toLocaleDateString("tr-TR") : ""}
               </Text>
             </View>
             <View style={styles.writingPageContent}>
-              {selectedDiary?.data?.messages && Array.isArray(selectedDiary.data.messages) && (
-                (selectedDiary.data.messages).map(
+              {state.selectedDiary?.data?.messages && Array.isArray(state.selectedDiary.data.messages) && (
+                (state.selectedDiary.data.messages).map(
                   (message, index) => (
                     <View key={index} style={styles.writingMessageBlock}>
                       <View style={styles.writingMessageHeader}>
@@ -90,26 +88,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  back: {
-    position: "absolute",
-    top: 60,
-    left: 24,
-    zIndex: 30,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: Colors.light.tint,
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 12,
-    borderWidth: 0.5,
-    borderColor: "rgba(227,232,240,0.4)",
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   deleteButton: {
-    position: "absolute",
-    top: 60,
-    right: 24,
-    zIndex: 30,
     backgroundColor: "rgba(255,255,255,0.92)",
     borderRadius: 16,
     padding: 8,
@@ -120,23 +106,20 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "rgba(227,232,240,0.4)",
   },
+  titleContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
   diaryViewTitle: {
-    position: "absolute",
-    top: 70,
-    left: 0,
-    right: 0,
-    textAlign: "center",
     fontSize: 24,
     fontWeight: "600",
     color: Colors.light.tint,
     letterSpacing: -0.5,
-    zIndex: 20,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    paddingVertical: 8,
   },
   diaryViewScrollView: {
     flex: 1,
-    marginTop: 70,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
     paddingTop: 20,
   },

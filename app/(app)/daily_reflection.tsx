@@ -88,7 +88,7 @@ export default function DailyReflectionScreen() {
           <BlurView intensity={50} tint="light" style={[styles.card, styles.moodCard, { borderColor: dynamicColor }]}>
             <Text style={styles.title}>Bugün nasıl hissediyorsun?</Text>
             <View style={styles.moodBlock}>
-              <GradientMoodImage colors={gradientColors} />
+              <GradientMoodImage colors={gradientColors} moodValue={state.moodValue} />
               <GradientMoodLabel text={currentMood.label} colors={gradientColors} />
             </View>
           </BlurView>
@@ -96,7 +96,7 @@ export default function DailyReflectionScreen() {
             <Slider
               style={styles.slider}
               minimumValue={0}
-              maximumValue={MOOD_LEVELS.length - 1}
+              maximumValue={6} // 7 seviye için (0-6 arası)
               step={0.01}
               value={state.moodValue}
               onValueChange={handlers.setMoodValue}

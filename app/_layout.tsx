@@ -43,15 +43,16 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
+  // HOOKS HER ZAMAN AYNI SIRADA ÇAĞIRILMALI!
   useGlobalLoading();
 
-  const [fontsLoaded, fontError] = useFonts({
+    const [fontsLoaded, fontError] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
   useEffect(() => {
     // Henüz hiçbir şey hazır değilse, bekle.
-    if (isAuthLoading || (!fontsLoaded && !fontError)) {
+    if (isAuthLoading === undefined || !fontsLoaded) {
       return;
     }
 
@@ -63,7 +64,7 @@ function RootLayoutNav() {
     // onu acımasızca login ekranına fırlat.
     if (!session && inAppGroup) {
       router.replace("/(auth)/login");
-    } 
+    }
     // KURAL 2: Eğer kullanıcı giriş yapmışsa VE login/register gibi auth ekranlarındaysa,
     // onu ait olduğu yere, anasayfaya (yani (app) grubuna) gönder.
     else if (session && inAuthGroup) {
@@ -71,8 +72,8 @@ function RootLayoutNav() {
     }
   }, [session, isAuthLoading, fontsLoaded, fontError, segments, router]);
 
-  // Yükleme ekranı
-  if (isAuthLoading || !fontsLoaded) {
+  // Yükleme ekranı - AuthProvider henüz hazır değilse
+  if (isAuthLoading === undefined || !fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0a7ea4" />

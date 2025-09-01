@@ -2,9 +2,10 @@
 
 import { useRouter } from 'expo-router/';
 import React, { useState } from 'react';
-import { Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { AuthInput } from '../../components/AuthInput';
 import { AuthLayout } from '../../components/AuthLayout';
+import { LoadingButton } from '../../components/LoadingButton';
 import { useLoading } from '../../context/Loading';
 import { authScreenStyles as styles } from '../../styles/auth';
 // AĞIR İŞİ YAPAN FONKSİYONU İÇERİ ALIYORUZ
@@ -12,7 +13,7 @@ import { signInAndVerifyUser } from '../../utils/auth';
 
 export default function LoginScreen() {
     const router = useRouter();
-    const { showLoading, hideLoading } = useLoading();
+    const { showLoading, hideLoading, isLoading } = useLoading();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -76,9 +77,11 @@ export default function LoginScreen() {
                     onSubmitEditing={handleSignIn} 
                 />
             </View>
-            <Pressable onPress={handleSignIn} style={({ pressed }) => [styles.button, { opacity: pressed ? 0.8 : 1 }]}>
-                <Text style={styles.buttonText}>Giriş Yap</Text>
-            </Pressable>
+            <LoadingButton
+                isLoading={isLoading}
+                text="Giriş Yap"
+                onPress={handleSignIn}
+            />
         </AuthLayout>
     );
 }

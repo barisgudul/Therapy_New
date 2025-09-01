@@ -151,6 +151,7 @@ export function useTranscripts() {
                         payload: eventsFromStorage,
                     });
                 } catch (error) {
+                    console.error("Events fetch error:", error);
                     dispatch({ type: "FETCH_ERROR" });
                 }
             };

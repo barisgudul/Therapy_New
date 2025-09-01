@@ -101,11 +101,10 @@ function voiceSessionReducer(
 // 3. Ana Hook Fonksiyonu
 interface UseVoiceSessionReducerProps {
     onSessionEnd: () => void;
-    therapistId?: string;
 }
 
 export function useVoiceSessionReducer(
-    { onSessionEnd, therapistId }: UseVoiceSessionReducerProps,
+    { onSessionEnd }: UseVoiceSessionReducerProps,
 ) {
     const [state, dispatch] = useReducer(voiceSessionReducer, initialState);
 
@@ -119,7 +118,6 @@ export function useVoiceSessionReducer(
                 payload: status.isPlaying,
             });
         },
-        therapistId,
     });
 
     // AI'a gönderme işlemi için useEffect
@@ -167,7 +165,7 @@ export function useVoiceSessionReducer(
             lastMessage?.sender === "ai" &&
             lastMessage.id !== state.lastSpokenMessageId // <-- EN KRİTİK KONTROL BU!
         ) {
-            speakText(lastMessage.text, therapistId);
+            speakText(lastMessage.text);
             // Bu useEffect'in yeniden tetiklenmesi için state'i güncellemeye GEREK YOK.
             // `lastSpokenMessageId` zaten reducer'da set edildi.
         }
@@ -176,7 +174,6 @@ export function useVoiceSessionReducer(
         state.messages,
         state.lastSpokenMessageId, // <-- dependency array'e ekle
         speakText,
-        therapistId,
     ]);
 
     // Dışarıya verilecek aksiyonlar
@@ -200,7 +197,6 @@ export function useVoiceSessionReducer(
                         type: "voice_session",
                         data: {
                             isSessionEnd: true,
-                            therapistId,
                             messages: state.messages.map((msg) => ({
                                 id: msg.id,
                                 sender: msg.sender,
@@ -222,7 +218,7 @@ export function useVoiceSessionReducer(
             }
         }
         onSessionEnd();
-    }, [state.messages, therapistId, onSessionEnd]);
+    }, [state.messages, onSessionEnd]);
 
     // Back press handler
     const handleBackPress = useCallback(() => {

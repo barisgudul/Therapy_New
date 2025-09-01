@@ -1,6 +1,7 @@
 // app/sessions/text_session.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router/";
 import React, { useEffect, useRef } from "react";
 import {
@@ -100,111 +101,120 @@ export default function TextSessionScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.container}
       >
-        {(loading || status === 'initializing') ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator
-              size="large"
-              color={isDark ? "#fff" : Colors.light.tint}
-            />
-          </View>
-        ) : (
-          <>
-            <TouchableOpacity onPress={handleBackPress} style={styles.back}>
-              <Ionicons
-                name="chevron-back"
-                size={28}
+        {/* EN DIŞTA SAFEAREA OLACAK */}
+        <SafeAreaView style={styles.flex}>
+          {(loading || status === 'initializing') ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="large"
                 color={isDark ? "#fff" : Colors.light.tint}
               />
-            </TouchableOpacity>
-
-            <Text style={styles.headerTitle}>Sohbet</Text>
-
-
-
-            <KeyboardAvoidingView
-              style={styles.keyboardAvoidingView}
-              behavior={Platform.OS === "ios" ? "padding" : undefined}
-              keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 0}
-            >
-              <View style={styles.content}>
-                {messages.length === 0 ? (
-                  // Hoş Geldin Ekranı
-                  <View style={styles.welcomeWrapper}>
-                    <WelcomeComponent />
-                  </View>
-                ) : (
-                  // Sohbet Ekranı
-                  <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    keyExtractor={(_, i) => i.toString()}
-                    renderItem={({ item }) => (
-                      <MessageBubble 
-                        message={item} 
-                        onMemoryPress={openMemoryModal}
-                      />
-                    )}
-                    contentContainerStyle={styles.messages}
-                    onContentSizeChange={() =>
-                      flatListRef.current?.scrollToEnd({ animated: true })
-                    }
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
+            </View>
+          ) : (
+            <>
+              {/* HEADER, NORMAL AKIŞTA VE SABİT */}
+              <View style={styles.header}>
+                <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                  <Ionicons
+                    name="chevron-back"
+                    size={28}
+                    color={isDark ? "#fff" : Colors.light.tint}
                   />
-                )}
-
-                {isTyping && <TypingIndicator isVisible={isTyping} />}
-
-                {/* Error display */}
-                {error && (
-                  <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
-                )}
-
-                <InputBar
-                  input={input}
-                  onInputChange={handleInputChange}
-                  onSend={sendMessage}
-                  isTyping={isTyping}
-                  inputRef={inputRef}
-                />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Sohbet</Text>
+                <View style={{ width: 44 }} /> {/* Başlığı ortalamak için boşluk */}
               </View>
-            </KeyboardAvoidingView>
-          </>
-        )}
-              </LinearGradient>
 
-        {/* YENİ: Hafıza Modal'ı */}
-        <MemoryModal
-          isVisible={isMemoryModalVisible}
-          memory={selectedMemory}
-          onClose={closeMemoryModal}
-        />
-      </PremiumGate>
-    );
+              {/* KEYBOARDVIEW, KALAN TÜM ALANI DOLDURACAK */}
+              <KeyboardAvoidingView
+                style={styles.keyboardAvoidingView}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+              >
+                <View style={styles.content}>
+                  {messages.length === 0 ? (
+                    // Hoş Geldin Ekranı
+                    <View style={styles.welcomeWrapper}>
+                      <WelcomeComponent />
+                    </View>
+                  ) : (
+                    // Sohbet Ekranı
+                    <FlatList
+                      ref={flatListRef}
+                      data={messages}
+                      keyExtractor={(_, i) => i.toString()}
+                      renderItem={({ item }) => (
+                        <MessageBubble
+                          message={item}
+                          onMemoryPress={openMemoryModal}
+                        />
+                      )}
+                      contentContainerStyle={styles.messages}
+                      onContentSizeChange={() =>
+                        flatListRef.current?.scrollToEnd({ animated: true })
+                      }
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    />
+                  )}
+
+                  {isTyping && <TypingIndicator isVisible={isTyping} />}
+
+                  {/* Error display */}
+                  {error && (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                  )}
+
+                  <InputBar
+                    input={input}
+                    onInputChange={handleInputChange}
+                    onSend={sendMessage}
+                    isTyping={isTyping}
+                    inputRef={inputRef}
+                  />
+                </View>
+              </KeyboardAvoidingView>
+            </>
+          )}
+        </SafeAreaView>
+      </LinearGradient>
+
+      {/* YENİ: Hafıza Modal'ı */}
+      <MemoryModal
+        isVisible={isMemoryModalVisible}
+        memory={selectedMemory}
+        onClose={closeMemoryModal}
+      />
+    </PremiumGate>
+  );
   }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    paddingTop: Platform.OS === "ios" ? 0 : 0,
   },
-  back: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 20,
-    left: 20,
-    zIndex: 10,
+  flex: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  backButton: {
+    // position, top, left, zIndex GİTTİ
+    padding: 8,
   },
   headerTitle: {
-    position: "absolute",
-    top: Platform.OS === "ios" ? 55 : 25,
-    left: 0,
-    right: 0,
-    textAlign: "center",
+    // position, top, left, right GİTTİ
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: '600',
     color: Colors.light.tint,
   },
   loadingContainer: {
@@ -213,12 +223,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   keyboardAvoidingView: {
-    flex: 1,
-    marginTop: Platform.OS === "ios" ? 80 : 50, // Header için alan bırak
+    flex: 1, // marginTop GİTTİ
   },
   content: {
     flex: 1,
-    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    justifyContent: 'space-between', // InputBar'ı altta tutar
   },
   welcomeWrapper: {
     flex: 1,

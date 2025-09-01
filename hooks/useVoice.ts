@@ -11,13 +11,11 @@ import { textToSpeech, transcribeAudio } from "../utils/gcpServices";
 interface UseVoiceSessionProps {
   onTranscriptReceived?: (transcript: string) => void;
   onSpeechPlaybackStatusUpdate?: (status: { isPlaying: boolean }) => void;
-  therapistId?: string;
 }
 
 export const useVoiceSession = ({
   onTranscriptReceived,
   onSpeechPlaybackStatusUpdate,
-  therapistId = "therapist1",
 }: UseVoiceSessionProps = {}) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -90,14 +88,14 @@ export const useVoiceSession = ({
   }, [recorder, onTranscriptReceived]);
 
   const speakText = useCallback(
-    async (text: string, therapistIdArg?: string) => {
+    async (text: string) => {
       try {
         await setAudioModeAsync({
           allowsRecording: false,
           playsInSilentMode: true,
         });
 
-        const url = await textToSpeech(text, therapistIdArg || therapistId);
+        const url = await textToSpeech(text);
 
         player.replace(url);
         player.play();
@@ -119,7 +117,7 @@ export const useVoiceSession = ({
         onSpeechPlaybackStatusUpdate?.({ isPlaying: false });
       }
     },
-    [therapistId, onSpeechPlaybackStatusUpdate, player],
+    [onSpeechPlaybackStatusUpdate, player],
   );
 
   return {

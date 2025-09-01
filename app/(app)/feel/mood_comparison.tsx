@@ -450,7 +450,7 @@ export default function MoodComparisonScreen() {
                             entering={FadeInDown.duration(1000)}
                         >
                             <Text style={styles.synthesisFinalText}>
-                                "{data.answer}"
+                                &ldquo;{data.answer}&rdquo;
                             </Text>
                             <Text
                                 style={[styles.synthesisAI, {

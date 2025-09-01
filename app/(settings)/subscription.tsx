@@ -3,6 +3,7 @@ import FeatureComparisonTable from "@/components/subscription/FeatureComparisonT
 import PlanCard from "@/components/subscription/PlanCard";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router/";
 import React, { useMemo, useState } from "react";
 import {
@@ -70,7 +71,7 @@ export default function SubscriptionScreen() {
         text1: "Simülasyon Başarılı!",
         text2: `Tebrikler, ${plan.name} planına geçtiniz.`,
       });
-      router.replace("/profile");
+      // Kullanıcı aynı ekranda kalıp yeni planının "Mevcut Plan" olarak işaretlendiğini görecek
     } catch (error) {
       console.error(error); // Hata varsa logla!
       Toast.show({ type: "error", text1: "Hata", text2: "Bir sorun oluştu." });
@@ -138,23 +139,22 @@ export default function SubscriptionScreen() {
 
   return (
     <LinearGradient colors={["#F4F6FF", "#FFFFFF"]} style={styles.container}>
-      <TouchableOpacity
-        onPress={() =>
-          router.back()}
-        style={styles.backButton}
-      >
-        <Ionicons name="close" size={28} color={Colors.light.tint} />
-      </TouchableOpacity>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 50 }}
-      >
+      <SafeAreaView style={styles.flex}>
+        {/* YENİ HEADER */}
         <View style={styles.header}>
+          <View style={styles.headerSpacer} />
           <Text style={styles.headerTitle}>Potansiyelini Ortaya Çıkar</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="close" size={28} color={Colors.light.tint} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 50 }}
+        >
           <Text style={styles.headerSubtitle}>
             Sınırsız erişim ile zihinsel sağlık yolculuğunda yeni bir sayfa aç.
           </Text>
-        </View>
 
         <View style={styles.plansContainer}>
           {sortedPlans.map((plan) => (
@@ -179,35 +179,39 @@ export default function SubscriptionScreen() {
             premiumColor: getThemeForPlan("Premium").textColor, // TEMADAN RENK
           }}
         />
-      </ScrollView>
+        </ScrollView>
+      </SafeAreaView>
     </LinearGradient>
   );
 }
 // STİL DOSYASI ARTIK DAHA KÜÇÜK VE SADECE BU SAYFAYA AİT STİLLERİ BARINDIRIYOR.
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flex: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   backButton: {
-    position: "absolute",
-    top: 60,
-    right: 24,
-    zIndex: 10,
+    // position, top, right, zIndex SİLİNDİ
     backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 30,
     padding: 8,
   },
   header: {
-    paddingHorizontal: 28,
-    paddingTop: 100,
-    paddingBottom: 32,
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 24, // Biraz küçült
     fontWeight: "800",
     color: "#1f2937",
-    marginBottom: 12,
-    textAlign: "center",
+    textAlign: 'center',
+    flex: 1, // Ortalanması için
+  },
+  headerSpacer: {
+    width: 44 // Kapatma butonunun genişliği kadar
   },
   headerSubtitle: {
     fontSize: 18,
@@ -215,6 +219,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 26,
     maxWidth: "90%",
+    paddingHorizontal: 28, // ScrollView içine girdiği için padding'i buraya taşı
+    paddingBottom: 32,
   },
   plansContainer: { paddingHorizontal: 20, gap: 24, marginBottom: 50 },
 });

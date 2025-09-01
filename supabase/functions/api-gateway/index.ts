@@ -336,7 +336,7 @@ export async function handleApiGateway(req: Request): Promise<Response> {
           name: string;
           ssmlGender?: string;
           audioConfig: Record<string, unknown>;
-        }>)[payload.therapistId] ||
+        }>)["therapist1"] ||
           GCP_SERVER_CONFIG.textToSpeech.therapist1;
         const ttsPayload = {
           input: { text: payload.text },

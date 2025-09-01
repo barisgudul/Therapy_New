@@ -31,7 +31,7 @@ export interface AppEvent {
   id: string;
   user_id: string;
   type: EventType;
-  timestamp: string; // Artık ISO string formatında
+  timestamp: number; // Schema'da string'den number'a çevriliyor
   created_at: string;
   mood?: string;
   data: { [key: string]: import("../types/json.ts").JsonValue };
@@ -353,7 +353,6 @@ export async function getEventById(eventId: string): Promise<AppEvent | null> {
 // Bir metin tabanlı terapi seansı sırasındaki olaylar
 export type TextSessionEventData = {
   userMessage: string;
-  therapistId: string;
   therapistPersona?: string; // AI kişiliğini doğrudan iletmek için eklendi
   initialMood?: string;
   finalMood?: string;

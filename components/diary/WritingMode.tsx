@@ -4,42 +4,10 @@ import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Tex
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
+import { useDiaryContext } from "../../context/DiaryContext";
 
-export interface Message { text: string; isUser: boolean; timestamp: number; isQuestionContext?: boolean }
-
-interface WritingModeProps {
-  messages: Message[];
-  isLoading: boolean;
-  currentQuestions: string[];
-  isConversationDone: boolean;
-  isModalVisible: boolean;
-  currentInput: string;
-  activeQuestion: string | null;
-  userName: string;
-  onSelectQuestion: (question: string) => void;
-  onSaveDiary: () => void;
-  onOpenModal: () => void;
-  onCloseModal: () => void;
-  onChangeInput: (v: string) => void;
-  onSubmit: () => void;
-}
-
-export const WritingMode: React.FC<WritingModeProps> = ({
-  messages,
-  isLoading,
-  currentQuestions,
-  isConversationDone,
-  isModalVisible,
-  currentInput,
-  activeQuestion,
-  userName,
-  onSelectQuestion,
-  onSaveDiary,
-  onOpenModal,
-  onCloseModal,
-  onChangeInput,
-  onSubmit,
-}) => {
+export const WritingMode: React.FC = () => {
+  const { state, handlers } = useDiaryContext();
   return (
     <LinearGradient colors={["#F4F6FF", "#FFFFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <View style={styles.topBar}></View>
@@ -58,11 +26,11 @@ export const WritingMode: React.FC<WritingModeProps> = ({
                 <Text style={styles.writingPageDate}>{new Date().toLocaleDateString("tr-TR")}</Text>
               </View>
               <View style={styles.writingPageContent}>
-                {messages.map((message, index) => (
+                {state.messages.map((message, index) => (
                   <View key={index} style={styles.writingMessageBlock}>
                     <View style={styles.writingMessageHeader}>
                       <Ionicons name={message.isUser ? "person-circle" : "sparkles"} size={20} color={Colors.light.tint} />
-                      <Text style={styles.writingMessageTitle}>{message.isUser ? userName : "AI Asistan"}</Text>
+                                              <Text style={styles.writingMessageTitle}>{message.isUser ? state.userName : "AI Asistan"}</Text>
                       <Text style={styles.writingMessageTime}>
                         {new Date(message.timestamp).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
                       </Text>
@@ -79,15 +47,15 @@ export const WritingMode: React.FC<WritingModeProps> = ({
                   </View>
                 ))}
 
-                {isLoading && (
+                {state.isSubmitting && (
                   <View style={styles.writingAnalyzingContainer}>
                     <ActivityIndicator color={Colors.light.tint} />
                     <Text style={styles.writingAnalyzingText}>Düşüncelerin analiz ediliyor...</Text>
                   </View>
                 )}
 
-                {messages.length === 0 && (
-                  <TouchableOpacity style={styles.writingDiaryInputPlaceholder} onPress={onOpenModal}>
+                {state.messages.length === 0 && (
+                  <TouchableOpacity style={styles.writingDiaryInputPlaceholder} onPress={handlers.openModal}>
                     <Text style={styles.writingDiaryInputPlaceholderText}>Düşüncelerini yazmaya başla...</Text>
                   </TouchableOpacity>
                 )}
@@ -95,9 +63,9 @@ export const WritingMode: React.FC<WritingModeProps> = ({
             </View>
           </View>
 
-          {messages.length > 0 && isConversationDone && (
+          {state.messages.length > 0 && state.isConversationDone && (
             <View style={styles.saveButtonContainer}>
-              <TouchableOpacity style={styles.saveButton} onPress={onSaveDiary} activeOpacity={0.85}>
+              <TouchableOpacity style={styles.saveButton} onPress={handlers.saveDiary} activeOpacity={0.85}>
                 <LinearGradient colors={["#F8FAFF", "#FFFFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.saveButtonGradient}>
                   <View style={styles.saveButtonContent}>
                     <Ionicons name="checkmark-circle-outline" size={24} color={Colors.light.tint} />
@@ -109,14 +77,14 @@ export const WritingMode: React.FC<WritingModeProps> = ({
           )}
 
           <View style={styles.diaryContainer}>
-            {currentQuestions.length > 0 && !isConversationDone && (
+            {state.currentQuestions.length > 0 && !state.isConversationDone && (
               <View style={styles.writingQuestionsContainer}>
                 <View style={styles.writingQuestionsHeader}>
                   <Ionicons name="sparkles-outline" size={20} color={Colors.light.tint} />
                   <Text style={styles.writingQuestionsTitle}>Nasıl devam edelim?</Text>
                 </View>
-                {currentQuestions.map((question, index) => (
-                  <TouchableOpacity key={index} style={styles.writingQuestionButton} onPress={() => onSelectQuestion(question)}>
+                {state.currentQuestions.map((question, index) => (
+                  <TouchableOpacity key={index} style={styles.writingQuestionButton} onPress={() => handlers.selectQuestion(question)}>
                     <Text style={styles.writingQuestionText}>{question}</Text>
                   </TouchableOpacity>
                 ))}
@@ -126,7 +94,7 @@ export const WritingMode: React.FC<WritingModeProps> = ({
         </ScrollView>
       </View>
 
-      <Modal visible={isModalVisible} animationType="fade" transparent onRequestClose={onCloseModal}>
+      <Modal visible={state.isModalVisible} animationType="fade" transparent onRequestClose={handlers.closeModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <LinearGradient colors={["#FFFFFF", "#F8FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.modalGradient}>
@@ -135,23 +103,23 @@ export const WritingMode: React.FC<WritingModeProps> = ({
                   <Ionicons name="document-text" size={24} color={Colors.light.tint} />
                   <Text style={styles.modalTitle}>Yeni Günlük</Text>
                 </View>
-                <TouchableOpacity style={styles.modalCloseButton} onPress={onCloseModal}>
+                <TouchableOpacity style={styles.modalCloseButton} onPress={handlers.closeModal}>
                   <Ionicons name="close" size={24} color={Colors.light.tint} />
                 </TouchableOpacity>
               </View>
 
-              {activeQuestion && (
+              {state.activeQuestion && (
                 <View style={styles.modalQuestionContainer}>
-                  <Text style={styles.modalQuestionText}>{activeQuestion}</Text>
+                  <Text style={styles.modalQuestionText}>{state.activeQuestion}</Text>
                 </View>
               )}
 
               <View style={styles.modalBody}>
                 <TextInput
                   style={[styles.modalInput]}
-                  placeholder={activeQuestion ? "Cevabını buraya yaz..." : "Düşüncelerini yazmaya başla..."}
-                  value={currentInput}
-                  onChangeText={onChangeInput}
+                  placeholder={state.activeQuestion ? "Cevabını buraya yaz..." : "Düşüncelerini yazmaya başla..."}
+                  value={state.currentInput}
+                  onChangeText={handlers.changeInput}
                   placeholderTextColor="#9CA3AF"
                   multiline
                   autoFocus
@@ -160,9 +128,9 @@ export const WritingMode: React.FC<WritingModeProps> = ({
               </View>
 
               <View style={styles.modalFooter}>
-                <TouchableOpacity style={[styles.modalButton, (!currentInput.trim() || isConversationDone) && styles.buttonDisabled]} onPress={onSubmit} disabled={!currentInput.trim() || isConversationDone} activeOpacity={0.85}>
+                <TouchableOpacity style={[styles.modalButton, (!state.currentInput.trim() || state.isConversationDone) && styles.buttonDisabled]} onPress={handlers.submitAnswer} disabled={!state.currentInput.trim() || state.isConversationDone} activeOpacity={0.85}>
                   <LinearGradient colors={["#FFFFFF", "#F8FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.modalButtonGradient}>
-                    <Text style={styles.modalButtonText}>{messages.length === 0 ? "Günlüğü Başlat" : "Cevabı Gönder"}</Text>
+                    <Text style={styles.modalButtonText}>{state.messages.length === 0 ? "Günlüğü Başlat" : "Cevabı Gönder"}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>

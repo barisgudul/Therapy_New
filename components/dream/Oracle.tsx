@@ -16,9 +16,7 @@ import { useSharedValue, withTiming } from "react-native-reanimated";
 
 import { COSMIC_COLORS } from "../../constants/Colors";
 import { generateSilentOracle } from "../../services/prompt.service";
-import type { AppEvent } from "../../services/event.service";
-import type { OracleOutput, OracleInputs } from "../../services/prompt.service";
-import type { AnalysisReportContent } from "../../types/analysis";
+import type { OracleOutput } from "../../services/prompt.service";
 import DreamSigil from "./Sigil";
 
 // State yönetimi aynı, dokunmuyoruz.
@@ -45,13 +43,15 @@ const oracleReducer = (state: OracleState, action: OracleAction): OracleState =>
 };
 
 interface OracleProps {
-    event: AppEvent;
-    report: AnalysisReportContent | null;
+    dreamTheme: string;
+    pastLink: string;
+    blindSpot: string;
+    goldenThread: string;
     initialData?: OracleOutput;
     onSaveResult?: (data: OracleOutput) => void;
 }
 
-export default function Oracle({ event, report, initialData, onSaveResult }: OracleProps) {
+export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, initialData, onSaveResult }: OracleProps) {
     const initialState: OracleState = initialData ? { status: "success", data: initialData } : { status: "idle" };
     const [state, dispatch] = useReducer(oracleReducer, initialState);
     const tapAnimation = useSharedValue(0);
@@ -61,7 +61,7 @@ export default function Oracle({ event, report, initialData, onSaveResult }: Ora
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         tapAnimation.value = withTiming(1, { duration: 600 });
         try {
-            const inputs = buildInputs(event, report);
+            const inputs = { dreamTheme, pastLink, blindSpot, goldenThread };
             const output = await generateSilentOracle(inputs);
             dispatch({ type: "RESOLVE", payload: output });
             onSaveResult?.(output);
@@ -100,7 +100,7 @@ export default function Oracle({ event, report, initialData, onSaveResult }: Ora
                             activeOpacity={0.8}
                         >
                             <LinearGradient
-                                colors={["#6AB1EC", "#4E98D9"]}
+                                colors={COSMIC_COLORS.accentGradient}
                                 start={{ x: 0, y: 0.5 }}
                                 end={{ x: 1, y: 0.5 }}
                                 style={styles.button}
@@ -122,7 +122,7 @@ export default function Oracle({ event, report, initialData, onSaveResult }: Ora
                     <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }} style={styles.centered}>
                         <Text style={styles.errorText}>{state.message}</Text>
                         <TouchableOpacity style={styles.buttonContainer} onPress={handleFetchOracle} activeOpacity={0.8}>
-                            <LinearGradient colors={["#6AB1EC", "#4E98D9"]} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.button}>
+                            <LinearGradient colors={COSMIC_COLORS.accentGradient} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.button}>
                                 <Text style={styles.buttonText}>Tekrar Dene</Text>
                             </LinearGradient>
                         </TouchableOpacity>
@@ -162,7 +162,7 @@ const InsightBubble = ({ icon, text, isAction = false, delay = 0 }: { icon: keyo
             {isAction ? (
                 <MaskedView style={{ flex: 1 }} maskElement={textElement}>
                     <LinearGradient
-                        colors={["#87C7FF", "#6AB1EC"]}
+                        colors={COSMIC_COLORS.actionGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
@@ -279,18 +279,3 @@ const styles = StyleSheet.create({
     },
 });
 
-function buildInputs(event: AppEvent, report: AnalysisReportContent | null): OracleInputs {
-    type DreamAnalysis = {
-        themes?: string[];
-        crossConnections?: { connection: string; evidence: string }[];
-        summary?: string;
-        interpretation?: string;
-    };
-    const data = event.data as Record<string, unknown>;
-    const a = (data?.analysis ?? {}) as DreamAnalysis;
-    const dreamTheme = a.themes?.[0] || "Kontrol Kaybı";
-    const pastLink = a.crossConnections?.[0] ? `${a.crossConnections[0].connection}: ${a.crossConnections[0].evidence}` : (report?.reportSections.goldenThread || a.summary || a.interpretation || "Geçmiş bir bağ");
-    const blindSpot = report?.reportSections.blindSpot || a.interpretation || "zor konuşmadan kaçınma";
-    const goldenThread = report?.reportSections.goldenThread || a.summary || a.interpretation || "tekrar eden yönelim";
-    return { dreamTheme, pastLink, blindSpot, goldenThread };
-}

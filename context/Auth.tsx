@@ -3,7 +3,7 @@
 import { Session, User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query"; // EKLE
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, ActivityIndicator, View } from "react-native";
 // import { useVaultStore } from '../store/vaultStore'; // SİL
 import { supabase } from "../utils/supabase";
 
@@ -25,20 +25,27 @@ const AuthContext = createContext<AuthContextType>({
   cancelDeletion: () => Promise.resolve(),
 });
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  // useContext güvenlidir. Provider dışında kullanılırsa default değeri döndürür.
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    // Bu bir programlama hatasıdır. Uygulamanın çökmesi daha iyidir.
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 // 2. AUTH PROVIDER'I BASTAN YAZIYORUZ
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPendingDeletion, setIsPendingDeletion] = useState(false); // State'i burada tut
+  const [isPendingDeletion, setIsPendingDeletion] = useState(false);
 
-  // Vault kullanılıyorsa, fonksiyonları al
-  // const fetchVault = useVaultStore((state) => state.fetchVault); // SİL
-  // const clearVault = useVaultStore((state) => state.clearVault); // SİL
+  const queryClient = useQueryClient();
 
-  const queryClient = useQueryClient(); // queryClient'ı al.
+  // Auth durumunun tamamen hazır olduğundan emin ol
+  const [authReady, setAuthReady] = useState(false);
 
   // 3. İŞİN BEYNİ: KULLANICI DURUMUNU KONTROL ETME FONKSİYONU
   const checkUserStatus = (currentUser: User | null) => {
@@ -89,33 +96,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   // 5. TEK VE GÜÇLÜ useEffect
   useEffect(() => {
+    let isMounted = true; // Component'in hala mount olup olmadığını takip et
+
     const handleAuthStateChange = async (
       _event: string,
       session: Session | null,
     ) => {
+      if (!isMounted) return; // Component unmount olduysa çık
+
       console.log(
         `[AUTH] onAuthStateChange tetiklendi. Oturum: ${
           session ? "VAR ✅" : "YOK ❌"
         }`,
       );
 
-      setIsLoading(true); // İşlemler başlarken yükleniyor durumuna al
-      setSession(session);
+      // State güncellemelerini güvenli bir şekilde yap
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
 
-      await checkUserStatus(currentUser); // ⬅️ İŞTE BÜTÜN OLAY BU SATIRDA
-
-      if (currentUser) {
-        // console.log("[AUTH] Kullanıcı oturumu aktif. Vault yükleniyor..."); // BU YORUM BİLE YALAN SÖYLÜYOR.
-        // await fetchVault(); // SİL. _layout zaten bu işi yapıyor.
-      } else {
-        console.log("[AUTH] Kullanıcı oturumu kapalı. Cache temizleniyor...");
-        // clearVault(); // SİL.
-        queryClient.clear(); // BÜTÜN cache'i temizle. En güvenlisi bu.
+      if (isMounted) {
+        setIsLoading(true);
+        setSession(session);
+        setUser(currentUser);
       }
 
-      setIsLoading(false); // Bütün işlemler bitince yükleniyor durumunu kapat
+      if (currentUser) {
+        await checkUserStatus(currentUser);
+      } else {
+        console.log("[AUTH] Kullanıcı oturumu kapalı. Cache temizleniyor...");
+        queryClient.clear();
+      }
+
+      if (isMounted) {
+        setIsLoading(false);
+        // Auth durumunun tamamen hazır olduğunu işaretle
+        setAuthReady(true);
+      }
     };
 
     // Uygulama ilk açıldığında mevcut oturumu al ve işle
@@ -128,8 +143,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       handleAuthStateChange,
     );
 
-    // Component kaldırıldığında dinleyiciyi kapat
+    // Component kaldırıldığında dinleyiciyi kapat ve cleanup yap
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [queryClient]); // Bağımlılıklar doğru.
@@ -139,8 +155,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     session,
     isLoading,
     isPendingDeletion,
-    cancelDeletion, // ⬅️ Context'e ver
+    cancelDeletion,
   };
+
+  // Auth durumunun tamamen hazır olduğundan emin ol!
+  // Sadece authReady true olduğunda children'ı render et
+  if (!authReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

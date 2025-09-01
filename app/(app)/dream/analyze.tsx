@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from "react-native-toast-message";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { useVault } from "../../../hooks/useVault";
@@ -28,6 +29,7 @@ export default function AnalyzeDreamScreen() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   // ADIM 2'DEKİ DÜZELTME: Vault verisini baştan alıyoruz.
   const { data: _vault, isLoading: isVaultLoading } = useVault();
@@ -114,21 +116,23 @@ export default function AnalyzeDreamScreen() {
 
   return (
     <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={COSMIC_COLORS.textPrimary} />
-        </TouchableOpacity>
-      </View>
-
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingContainer}
-        keyboardVerticalOffset={20}
+        style={styles.container}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          keyboardShouldPersistTaps="handled"
-        >
+        <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          {/* Header'ı ScrollView'ın DIŞINA al, sabit kalsın */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={28} color={COSMIC_COLORS.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* ScrollView içeriği sarmalasın ama tüm alanı kaplamasın */}
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+          >
           <MotiView from={{ opacity: 0, translateY: -10 }} animate={{ opacity: 1, translateY: 0 }}>
             <Ionicons name="moon-outline" size={36} color={COSMIC_COLORS.accent} style={styles.moonIcon} />
             <Text style={styles.headerTitle}>Yeni Rüya</Text>
@@ -157,9 +161,10 @@ export default function AnalyzeDreamScreen() {
           </MotiView>
 
           {error && <Text style={styles.errorText}>{error}</Text>}
-        </ScrollView>
+          </ScrollView>
 
-        <View style={styles.footer}>
+          {/* Footer klavyenin üstünde kalsın */}
+          <View style={styles.footer}>
           <MotiView
             from={{ opacity: 0, translateY: 20 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -173,7 +178,7 @@ export default function AnalyzeDreamScreen() {
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={!canSubmit ? ['#4A5568', '#2D3748'] : ['#6AB1EC', '#4E98D9']}
+                colors={!canSubmit ? COSMIC_COLORS.disabledGradient : COSMIC_COLORS.accentGradient}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
                 style={styles.analyzeButton}
@@ -186,6 +191,7 @@ export default function AnalyzeDreamScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </MotiView>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -195,15 +201,19 @@ export default function AnalyzeDreamScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   backButton: {
-    padding: 8 
+    padding: 8
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
   },
   scrollContainer: {
-    paddingTop: 120,
+    flexGrow: 1, // İçerik az olsa bile alanı doldurmaya çalışır
+    justifyContent: 'center', // içeriği ortalar
     paddingHorizontal: 24,
-    paddingBottom: 20,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "bold",
     color: COSMIC_COLORS.textPrimary,
     marginBottom: 8,
@@ -267,22 +277,12 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     letterSpacing: 0.3,
   },
-  keyboardAvoidingContainer: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  header: {
-    position: 'absolute',
-    top: 60,
-    left: 12,
-    zIndex: 10,
-  },
+
   footer: {
     padding: 20,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: COSMIC_COLORS.cardBorder,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
   },
   moonIcon: {
     alignSelf: 'center',

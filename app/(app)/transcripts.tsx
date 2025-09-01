@@ -16,7 +16,7 @@ import {
   View
 } from 'react-native';
 
-import { useTranscripts, ViewMode, SessionEvent } from '../../hooks/useTranscripts';
+import { useTranscripts, SessionEvent } from '../../hooks/useTranscripts';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -317,7 +317,10 @@ export default function PremiumHistoryScreen() {
           </>
         );
       case 'summaryList': {
-        const filteredEvents = allEvents.filter(e => e.type === selectedSessionType).sort((a,b) => b.timestamp - a.timestamp).map((e) => e as SessionEvent);
+        const filteredEvents = allEvents
+          .filter(e => e.type === selectedSessionType)
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .map((e) => e as SessionEvent);
         const sessionTitles = { 
             text_session: "Yazılarınız", 
             voice_session: "Ses Kayıtlarınız", 

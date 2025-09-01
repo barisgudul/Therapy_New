@@ -26,6 +26,22 @@ const MOCK_PLANS: SubscriptionPlan[] = [
     },
   },
   {
+    id: "prod_plus456",
+    name: "+Plus",
+    price: 19.99,
+    currency: "$",
+    description: "Temel özelliklere daha fazla erişim ve ekstralar.",
+    features: {
+      text_sessions: "Sınırsız",
+      voice_sessions: "5 hak/ay",
+      dream_analysis: "Sınırsız",
+      ai_reports: "Yok",
+      session_history: "Sınırlı (30 gün)",
+      pdf_export: "Yok",
+      priority_support: "Yok",
+    },
+  },
+  {
     id: "prod_free789",
     name: "Free",
     price: 0,
@@ -35,7 +51,7 @@ const MOCK_PLANS: SubscriptionPlan[] = [
   },
 ];
 
-const MOCK_USAGE_STATS: Record<"Free" | "Premium", UsageStats> = {
+const MOCK_USAGE_STATS: Record<"Free" | "+Plus" | "Premium", UsageStats> = {
   Free: {
     dream_analysis: { can_use: true, used_count: 0, limit_count: 1 },
     ai_reports: { can_use: false, used_count: 1, limit_count: 1 },
@@ -45,6 +61,16 @@ const MOCK_USAGE_STATS: Record<"Free" | "Premium", UsageStats> = {
     voice_sessions: { can_use: false, used_count: 0, limit_count: 0 },
     pdf_export: { can_use: false, used_count: 0, limit_count: 0 },
     dream_dialogue: { can_use: true, used_count: 0, limit_count: 3 },
+  },
+  "+Plus": {
+    dream_analysis: { can_use: true, used_count: 5, limit_count: -1 },
+    ai_reports: { can_use: false, used_count: 0, limit_count: 0 },
+    diary_write: { can_use: true, used_count: 15, limit_count: -1 },
+    daily_write: { can_use: true, used_count: 20, limit_count: -1 },
+    text_sessions: { can_use: true, used_count: 30, limit_count: -1 },
+    voice_sessions: { can_use: true, used_count: 2, limit_count: 5 },
+    pdf_export: { can_use: false, used_count: 0, limit_count: 0 },
+    dream_dialogue: { can_use: true, used_count: 10, limit_count: -1 },
   },
   Premium: {
     dream_analysis: { can_use: true, used_count: 15, limit_count: -1 },

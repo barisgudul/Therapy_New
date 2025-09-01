@@ -177,8 +177,7 @@ export default function DreamResultScreen() {
 
     const { event, report } = data;
 
-    // UUID doğrulayıcı (yazma işlemlerinde numeric ID'leri engelle)
-    const isUuid = (s: string) => /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(s);
+
 
     const analysis = event.data.analysis as {
         title?: string;
@@ -251,13 +250,15 @@ export default function DreamResultScreen() {
 
                     {/* YENİ YER: SESSİZ KÂHİN, GERİ BİLDİRİMDEN HEMEN ÖNCE */}
                     <Oracle
-                        event={event}
-                        report={report?.content ?? null}
+                        dreamTheme={analysis?.themes?.[0] || "Kontrol Kaybı"}
+                        pastLink={analysis?.crossConnections?.[0] ? `${analysis.crossConnections[0].connection}: ${analysis.crossConnections[0].evidence}` : (report?.content?.reportSections.goldenThread || analysis?.summary || analysis?.interpretation || "Geçmiş bir bağ")}
+                        blindSpot={report?.content?.reportSections.blindSpot || analysis?.interpretation || "zor konuşmadan kaçınma"}
+                        goldenThread={report?.content?.reportSections.goldenThread || analysis?.summary || analysis?.interpretation || "tekrar eden yönelim"}
                         initialData={oracleResult}
                         onSaveResult={(oracleData) => {
                             const writeId = event?.id;
-                            if (!writeId || !isUuid(writeId)) {
-                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Bu kayıt için geçerli bir UUID bulunamadı.' });
+                            if (!writeId) {
+                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Geçerli bir analiz ID bulunamadı.' });
                                 return;
                             }
                             oracleMutation.mutate({ eventId: writeId, oracleData });
@@ -270,8 +271,8 @@ export default function DreamResultScreen() {
                         feedbackSent={!!(event as AppEvent).data?.feedback}
                         onSubmitFeedback={(score) => {
                             const writeId = event?.id;
-                            if (!writeId || !isUuid(writeId)) {
-                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Bu kayıt için geçerli bir UUID bulunamadı.' });
+                            if (!writeId) {
+                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Geçerli bir analiz ID bulunamadı.' });
                                 return;
                             }
                             feedbackMutation.mutate({ eventId: writeId, score });
