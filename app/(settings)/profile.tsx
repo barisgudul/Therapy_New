@@ -1,8 +1,4 @@
-// app/(settings)/profile.tsx (YENİLENMİŞ - TASARIM ODAKLI VERSİYON)
-
-// =================================================================
-// === 1. ADIM: GEREKLİ İMPORTLAR (Tüm özellikler için) ===
-// =================================================================
+// app/(settings)/profile.tsx 
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router/";
@@ -27,23 +23,9 @@ import {
     View,
 } from "react-native";
 import Toast from "react-native-toast-message";
+import { Colors } from "../../constants/Colors";
 import { useSubscription } from "../../hooks/useSubscription";
 import { useUpdateVault, useVault } from "../../hooks/useVault";
-
-// Bu veriler artık merkezi /theme klasöründen gelmeli.
-// Şimdilik buraya fallback olarak ekliyoruz.
-const AppTheme = {
-    colors: {
-        background: "#F8F9FF",
-        text: "#1E293B",
-        textSecondary: "#64748B",
-        primary: "#5B21B6",
-        primaryLight: "#EDE9FE",
-        white: "#FFFFFF",
-        border: "#E2E8F0",
-        error: "#BE123C",
-    },
-};
 
 // =================================================================
 // === 2. ADIM: TİPLER ve YARDIMCILAR ===
@@ -130,13 +112,13 @@ const FeaturedCard: FC = memo(function FeaturedCard() {
         Free: {
             icon: "person-circle" as const,
             color: "#475569",
-            gradient: [AppTheme.colors.white, "#F1F5F9"] as const,
+            gradient: [Colors.light.card, "#F1F5F9"] as const,
         },
     }[planName] ||
         {
             icon: "person-circle" as const,
             color: "#475569",
-            gradient: [AppTheme.colors.white, "#F1F5F9"] as const,
+            gradient: [Colors.light.card, "#F1F5F9"] as const,
         }), [planName]);
 
     return (
@@ -187,7 +169,7 @@ const InputGroup: FC<InputGroupProps> = memo(
                 <Text style={styles.label}>{label}</Text>
                 <TextInput
                     style={styles.input}
-                    placeholderTextColor={AppTheme.colors.textSecondary}
+                    placeholderTextColor={Colors.light.softText}
                     {...props}
                 />
             </View>
@@ -213,7 +195,7 @@ const SaveButton: FC<{
             ]}
         >
             {isSaving
-                ? <ActivityIndicator color={AppTheme.colors.white} />
+                ? <ActivityIndicator color={Colors.light.card} />
                 : <Text style={styles.buttonText}>Değişiklikleri Kaydet</Text>}
         </Pressable>
     );
@@ -298,7 +280,7 @@ export default function ProfileScreen() {
                 <ActivityIndicator
                     style={{ marginTop: 40 }}
                     size="large"
-                    color={AppTheme.colors.primary}
+                    color={Colors.light.tint}
                 />
             );
         }
@@ -358,7 +340,7 @@ export default function ProfileScreen() {
                         <Ionicons
                             name="arrow-back"
                             size={28}
-                            color={AppTheme.colors.text}
+                            color={Colors.light.text}
                         />
                     </Pressable>
                     <View style={styles.pageHeader}>
@@ -389,11 +371,10 @@ export default function ProfileScreen() {
 }
 
 // =================================================================
-// === 5. ADIM: YENİ, DAHA ZARİF STİLLER ===
+// === 5. ADIM: YENİ, MARKA UYUMLU VE DAHA ŞIK STİLLER ===
 // =================================================================
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    // Header artık sabit ve scroll'dan bağımsız
     header: {
         paddingTop: 60,
         paddingHorizontal: 20,
@@ -401,46 +382,56 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
     },
-    contentContainer: { paddingHorizontal: 24, paddingBottom: 50 },
-    backButton: { padding: 8 },
-    pageHeader: { flex: 1, alignItems: "center" },
+    contentContainer: { 
+        paddingHorizontal: 24, 
+        paddingBottom: 50 
+    },
+    backButton: { 
+        padding: 8 
+    },
+    pageHeader: { 
+        flex: 1, 
+        alignItems: "center" 
+    },
     pageTitle: {
         fontSize: 24,
         fontWeight: "bold",
-        color: AppTheme.colors.text,
+        color: Colors.light.text,
     },
     pageSubtitle: {
         fontSize: 18,
-        color: AppTheme.colors.textSecondary,
+        color: Colors.light.softText,
         marginBottom: 40,
         textAlign: "center",
     },
     sectionTitle: {
         fontSize: 22,
         fontWeight: "bold",
-        color: AppTheme.colors.text,
+        color: Colors.light.text,
         marginBottom: 24,
         paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: AppTheme.colors.border,
+        borderBottomColor: Colors.light.accent,
     },
 
-    inputContainer: { marginBottom: 24 },
+    inputContainer: { 
+        marginBottom: 24 
+    },
     label: {
         fontSize: 16,
         fontWeight: "600",
-        color: AppTheme.colors.textSecondary,
+        color: Colors.light.softText,
         marginBottom: 12,
     },
     input: {
-        backgroundColor: AppTheme.colors.white,
+        backgroundColor: Colors.light.card,
         borderRadius: 16,
         padding: 20,
         fontSize: 18,
-        color: AppTheme.colors.text,
+        color: Colors.light.text,
         borderWidth: 1,
-        borderColor: AppTheme.colors.border,
-        shadowColor: "#A0AEC0",
+        borderColor: Colors.light.accent,
+        shadowColor: Colors.light.tint,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -448,28 +439,33 @@ const styles = StyleSheet.create({
     },
 
     button: {
-        backgroundColor: AppTheme.colors.primary,
+        backgroundColor: Colors.light.tint,
         borderRadius: 20,
         padding: 20,
         alignItems: "center",
         marginTop: 16,
-        shadowColor: AppTheme.colors.primary,
+        shadowColor: Colors.light.tint,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.3,
         shadowRadius: 16,
         elevation: 10,
     },
-    buttonDisabled: { backgroundColor: "#A5B4FC", shadowOpacity: 0.1 },
+    buttonDisabled: { 
+        backgroundColor: Colors.light.accent,
+        shadowOpacity: 0.1 
+    },
     buttonText: {
-        color: AppTheme.colors.white,
+        color: Colors.light.card,
         fontSize: 18,
         fontWeight: "bold",
     },
-    cardPressed: { transform: [{ scale: 0.98 }] },
+    cardPressed: { 
+        transform: [{ scale: 0.98 }] 
+    },
 
     divider: {
         height: 1,
-        backgroundColor: AppTheme.colors.border,
+        backgroundColor: Colors.light.accent,
         marginVertical: 40,
     },
 
@@ -481,7 +477,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         overflow: "hidden",
         marginBottom: 32,
-        shadowColor: "#A0AEC0",
+        shadowColor: Colors.light.tint,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.2,
         shadowRadius: 20,
@@ -491,41 +487,54 @@ const styles = StyleSheet.create({
         width: 52,
         height: 52,
         borderRadius: 26,
-        backgroundColor: AppTheme.colors.primaryLight,
+        backgroundColor: "rgba(255, 255, 255, 0.7)",
         justifyContent: "center",
         alignItems: "center",
         marginRight: 16,
     },
-    featuredTextContainer: { flex: 1 },
-    featuredLabel: { fontSize: 18, fontWeight: "bold" },
-    featuredSubtitle: { fontSize: 14, marginTop: 4, opacity: 0.8 },
+    featuredTextContainer: { 
+        flex: 1 
+    },
+    featuredLabel: { 
+        fontSize: 18, 
+        fontWeight: "bold" 
+    },
+    featuredSubtitle: { 
+        fontSize: 14, 
+        marginTop: 4, 
+        opacity: 0.8 
+    },
 
     errorText: {
         textAlign: "center",
-        color: AppTheme.colors.error,
+        color: Colors.light.softText,
         fontSize: 16,
     },
 
     // Selector (çip) stilleri
-    selectorContainer: { flexDirection: "row", flexWrap: "wrap" },
+    selectorContainer: { 
+        flexDirection: "row", 
+        flexWrap: "wrap",
+        gap: 12,
+    },
     chip: {
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 30,
-        backgroundColor: AppTheme.colors.white,
+        backgroundColor: Colors.light.card,
         borderWidth: 1,
-        borderColor: AppTheme.colors.border,
-        marginRight: 12,
-        marginBottom: 12,
+        borderColor: Colors.light.accent,
     },
     chipSelected: {
-        backgroundColor: AppTheme.colors.primaryLight,
-        borderColor: AppTheme.colors.primary,
+        backgroundColor: Colors.light.accent,
+        borderColor: Colors.light.tint,
     },
     chipText: {
         fontSize: 16,
         fontWeight: "600",
-        color: AppTheme.colors.textSecondary,
+        color: Colors.light.softText,
     },
-    chipTextSelected: { color: AppTheme.colors.primary },
+    chipTextSelected: { 
+        color: Colors.light.tint,
+    },
 });

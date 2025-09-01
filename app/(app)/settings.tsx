@@ -14,6 +14,7 @@ import {
     View,
 } from "react-native";
 import { useAuth } from "../../context/Auth.tsx";
+import { useSubscription } from "../../hooks/useSubscription";
 import { signOut } from "../../utils/auth";
 import { supabase } from "../../utils/supabase";
 
@@ -38,37 +39,58 @@ const SettingsCard = (
     </Pressable>
 );
 
-// Öne Çıkan, Tam Genişlikli Kart (Abonelik için)
-const FeaturedCard = (
-    { icon, label, subtitle, onPress }: {
-        icon: keyof typeof Ionicons.glyphMap;
-        label: string;
-        subtitle: string;
-        onPress: () => void;
-    },
-) => (
-    <Pressable
-        onPress={onPress}
-        style={(
-            { pressed },
-        ) => [styles.featuredCard, pressed && styles.cardPressed]}
-    >
-        <LinearGradient
-            colors={["#EDE9FE", "#F0F9FF"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFillObject}
-        />
-        <View style={styles.featuredIconContainer}>
-            <Ionicons name={icon} size={32} color="#5B21B6" />
-        </View>
-        <View style={styles.featuredTextContainer}>
-            <Text style={styles.featuredLabel}>{label}</Text>
-            <Text style={styles.featuredSubtitle}>{subtitle}</Text>
-        </View>
-        <Ionicons name="arrow-forward" size={24} color="#5B21B6" />
-    </Pressable>
-);
+// Öne Çıkan, Tam Genişlikli ve DİNAMİK Kart
+const FeaturedCard = () => {
+    // 1. ADIM: Kullanıcının güncel abonelik durumunu öğren.
+    const { isPremium, planName, loading } = useSubscription();
+    const router = useRouter();
+
+    // 2. ADIM: Abonelik durumuna göre metinleri, ikonları ve renkleri belirle.
+    const cardMeta = isPremium ? {
+        // Premium kullanıcı için olan kısım zaten MÜKEMMEL, DOKUNMA.
+        icon: 'diamond' as const,
+        label: `${planName} Planı Aktif`,
+        subtitle: 'Tüm ayrıcalıklardan yararlanıyorsun',
+        gradient: ["#EDE9FE", "#F0F9FF"] as const, // Mor tema
+        iconColor: "#5B21B6"
+    } : {
+        // STANDART KULLANICI İÇİN OLAN KISMI PREMIUM TEMASINA GÖRE YENİDEN YAPIYORUZ
+        icon: 'sparkles-outline' as const, // İkon: 'Pırıltılar' - sihirli ve özel bir deneyim vaadi
+        label: 'Potansiyelinin Kilidini Aç', // Başlık: Bu başlık güzel, kalsın
+        subtitle: 'Tüm özelliklere sınırsız erişimle tanış', // Vaat: Ufak bir değişiklik
+        // RENK: Premium kartının o zarif, lüks MOR gradyanını kullanıyoruz
+        gradient: ["#EDE9FE", "#F0F9FF"] as const, 
+        // İKON VE METİN RENGİ: Aynı şekilde, Premium'un ana rengi
+        iconColor: "#5B21B6"
+    };
+
+    // Yükleme durumunda basit bir iskelet göster
+    if (loading) {
+        return <View style={[styles.featuredCard, styles.skeletonCard]}><ActivityIndicator /></View>;
+    }
+    
+    // 3. ADIM: Bu meta verileri kullanarak component'i render et.
+    return (
+        <Pressable
+            onPress={() => router.push("/(settings)/subscription")}
+            style={({ pressed }) => [styles.featuredCard, pressed && styles.cardPressed]}
+        >
+            <LinearGradient
+                colors={cardMeta.gradient}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+            />
+            <View style={[styles.featuredIconContainer, { backgroundColor: 'rgba(255,255,255,0.8)' }]}>
+                <Ionicons name={cardMeta.icon} size={32} color={cardMeta.iconColor} />
+            </View>
+            <View style={styles.featuredTextContainer}>
+                <Text style={[styles.featuredLabel, { color: cardMeta.iconColor }]}>{cardMeta.label}</Text>
+                <Text style={[styles.featuredSubtitle, { color: cardMeta.iconColor, opacity: 0.8 }]}>{cardMeta.subtitle}</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={24} color={cardMeta.iconColor} />
+        </Pressable>
+    );
+};
 
 // --- BÖLÜM 2: ANA AYARLAR EKRANI ---
 
@@ -222,12 +244,7 @@ export default function SettingsScreen() {
                 </View>
 
                 {/* Öne Çıkan Abonelik Kartı */}
-                <FeaturedCard
-                    icon="diamond"
-                    label="Abonelik ve Ayrıcalıklar"
-                    subtitle="Premium özelliklere yükseltin"
-                    onPress={() => router.push("/(settings)/subscription")}
-                />
+                <FeaturedCard />
 
                 {/* Tehlikeli Bölge */}
                 <View style={styles.destructiveZone}>
@@ -432,4 +449,10 @@ const styles = StyleSheet.create({
     },
     footerText: { fontSize: 14, color: "#94A3B8" },
     loadingWrapper: { alignItems: "center", padding: 16 },
+    skeletonCard: {
+        height: 100, // Ortalama bir yükseklik
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F1F5F9',
+    },
 });

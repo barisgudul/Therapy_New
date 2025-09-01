@@ -1,4 +1,4 @@
-// app/components/daily_write/GradientHeader.tsx
+// app/components/daily_reflection/GradientHeader.tsx
 
 
 import MaskedView from '@react-native-masked-view/masked-view';

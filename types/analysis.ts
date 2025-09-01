@@ -1,5 +1,5 @@
 // types/analysis.ts
-// AnalysisReport.tsx için
+
 export interface AnalysisReportContent {
     reportSections: {
         mainTitle: string;

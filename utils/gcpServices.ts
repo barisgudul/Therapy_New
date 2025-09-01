@@ -1,8 +1,6 @@
 // --------------------------- gcpServices.ts ---------------------------
 // Google Cloud Speech‑to‑Text & Text‑to‑Speech REST yardımcıları
-// -------------------------------------------------------------
-// Tüm ayarlar doğrudan app.config.local.js (EXTRA.GCP_CONFIG) üzerinden alınır.
-// -------------------------------------------------------------
+
 import * as FileSystem from 'expo-file-system';
 import { supabase } from './supabase';
 

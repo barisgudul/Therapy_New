@@ -29,7 +29,8 @@ interface ReportCardProps {
   onDelete: () => void;
 }
 
-const createPreviewText = (content: AnalysisReport['content']): string => {
+const createPreviewText = (content?: AnalysisReport['content']): string => {
+  // Optional chaining (?.) ile güvenli erişim
   const analogyText = content?.reportAnalogy?.text;
   if (analogyText) return analogyText;
   const overview = content?.reportSections?.overview;
@@ -37,6 +38,8 @@ const createPreviewText = (content: AnalysisReport['content']): string => {
 };
 
 export default function ReportCard({ item, onPress, onDelete }: ReportCardProps) {
+  const mainTitle = item.content?.reportSections?.mainTitle || "Başlıksız Rapor";
+
   return (
     <TouchableOpacity style={styles.cardContainer} activeOpacity={0.9} onPress={onPress}>
       <LinearGradient
@@ -47,7 +50,7 @@ export default function ReportCard({ item, onPress, onDelete }: ReportCardProps)
       >
         <View style={styles.header}>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>{item.content.reportSections.mainTitle}</Text>
+            <Text style={styles.title}>{mainTitle}</Text>
             <Text style={styles.subtitle}>
               {new Date(item.created_at).toLocaleDateString('tr-TR', { month: 'long', day: 'numeric' })}
               {' • '}

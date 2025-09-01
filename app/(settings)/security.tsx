@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router/";
 import React, { useEffect, useState } from "react";
-// DOKUNUŞ #6: SafeAreaView'i ekledik, iPhone çentik belasından kurtulduk.
+
 import { UserIdentity } from "@supabase/supabase-js";
 import {
     ActivityIndicator,
@@ -135,10 +135,6 @@ export default function SecurityDashboardScreen() {
     const router = useRouter();
     const [identities, setIdentities] = useState<UserIdentity[]>([]);
     const [loading, setLoading] = useState(true);
-    // ADIM #3: Backend'e bağlanana kadar bu switch'in disabled kalması en doğrusu.
-    // setIsTwoFactorEnabled'ı siliyoruz çünkü kullanılmıyor.
-    // Gelecekte kullanacağımız zaman geri ekleriz.
-    const [isTwoFactorEnabled] = useState(false);
 
     useEffect(() => {
         const fetchUserSecurityInfo = async () => {
@@ -227,13 +223,7 @@ export default function SecurityDashboardScreen() {
                                 label="Giriş Yöntemleri"
                                 value={providerNames}
                             />
-                            <ActionRow
-                                icon="shield-checkmark-outline"
-                                label="İki Faktörlü Doğrulama"
-                                hasSwitch
-                                switchValue={isTwoFactorEnabled}
-                                disabled
-                            />
+                            {/* İKİ FAKTÖRLÜ DOĞRULAMA SATIRI ARTIK YOK */}
                         </View>
                     </View>
 
@@ -262,21 +252,12 @@ export default function SecurityDashboardScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Aktif Oturumlar</Text>
                         <View style={styles.card}>
-                            {
-                                /* Not: Gerçek oturum listesi için Supabase'de bir audit_logs tablosu kurmak gerekir.
-                               Şimdilik bu, UI'ın nasıl görüneceğinin bir temsilidir. */
-                            }
                             <SessionCard
-                                device="iPhone 14 Pro"
-                                location="Istanbul, TR"
+                                device={"Bu Cihaz"} // Cihaz modelini dinamik olarak al, alamazsa "Bu Cihaz" yaz.
+                                location="Mevcut Konum" // Konum bilgisi hassas ve karmaşık olduğu için genel bir ifade kullanıyoruz.
                                 lastSeen="Şimdi"
                                 isActive
                                 onSignOut={handleSignOutFromThisDevice}
-                            />
-                            <SessionCard
-                                device="Windows 11, Chrome"
-                                location="Ankara, TR"
-                                lastSeen="2 saat önce"
                             />
                         </View>
                     </View>

@@ -1,4 +1,4 @@
-// components/daily_write/GradientMoodImage.tsx
+// components/daily_reflection/GradientMoodImage.tsx
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
