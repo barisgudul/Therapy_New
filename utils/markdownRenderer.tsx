@@ -1,6 +1,6 @@
 // utils/markdownRenderer.tsx
 import React from "react";
-import { Text } from "react-native";
+import { View, Text } from "react-native";
 
 export const renderMarkdownText = (text: string, accentColor: string) => {
   if (!text?.trim()) return <Text />;
@@ -8,7 +8,7 @@ export const renderMarkdownText = (text: string, accentColor: string) => {
   const paragraphs = text.trim().split(/\n\s*\n/);
 
   return (
-    <Text style={{ fontSize: 16, color: "#2D3748", lineHeight: 26 }}>
+    <View>
       {paragraphs.map((paragraph, paragraphIndex) => {
         const trimmed = paragraph.trim();
         if (!trimmed) return <Text key={paragraphIndex} />;
@@ -91,6 +91,6 @@ export const renderMarkdownText = (text: string, accentColor: string) => {
           </Text>
         );
       })}
-    </Text>
+    </View>
   );
 };

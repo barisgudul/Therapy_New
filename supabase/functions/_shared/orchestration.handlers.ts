@@ -5,18 +5,19 @@ import type { InteractionContext, VaultData } from "./types/context.ts";
 import { ApiError, DatabaseError, ValidationError } from "./errors.ts";
 import { supabase as adminClient } from "./supabase-admin.ts";
 import * as AiService from "./ai.service.ts";
-import * as RagService from "./rag.service.ts";
-import { logRagInvocation } from "./utils/logging.service.ts";
-import { getDreamAnalysisV2Prompt } from "./prompts/dreamAnalysisV2.prompt.ts";
+
 import * as VaultService from "./vault.service.ts";
-import { getTemporalReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
-import {
-  getDiaryConclusionPrompt,
-  getDiaryNextQuestionsPrompt,
-  getDiaryStartPrompt,
-} from "./prompts/diary.prompt.ts";
-import { LoggingService as _LoggingService } from "./utils/LoggingService.ts";
+
 import { config } from "./config.ts";
+// CONTEXT SERVİSLERİ
+import { buildTextSessionContext } from "./contexts/session.context.service.ts";
+import { buildDailyReflectionContext } from "./contexts/dailyReflection.context.service.ts";
+import { buildDreamAnalysisContext } from "./contexts/dream.context.service.ts";
+
+// PROMPT SERVİSLERİ
+import { generateTextSessionPrompt } from "./prompts/session.prompt.ts";
+import { generateDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
+import { generateDreamAnalysisPrompt } from "./prompts/dreamAnalysis.prompt.ts";
 
 // ===============================================
 // ZOD ŞEMALARI VE DOĞRULAMA
@@ -83,184 +84,14 @@ function calculateConnectionConfidence(
   return Math.min(0.95, score);
 }
 
-// ===============================================
-// RÜYA ANALİZİ İÇİN YARDIMCI BEYİN FONKSİYONLARI
-// ===============================================
-
-async function prepareDreamContext(userId: string) {
-  const results = await Promise.allSettled([
-    adminClient.from("user_vaults").select("vault_data").eq("user_id", userId)
-      .single(),
-    adminClient.from("user_traits").select("trait_key, trait_value").eq(
-      "user_id",
-      userId,
-    ),
-    adminClient.from("events").select("type, created_at, data").eq(
-      "user_id",
-      userId,
-    ).order("created_at", { ascending: false }).limit(5),
-    adminClient.from("predicted_outcomes").select("title, description").eq(
-      "user_id",
-      userId,
-    ).gt("expires_at", new Date().toISOString()),
-    adminClient.from("journey_logs").select("log_text").eq("user_id", userId)
-      .order("created_at", { ascending: false }).limit(3),
-  ]);
-
-  // Her bir sonucun başarılı olup olmadığını kontrol et
-  const vaultResult = results[0].status === "fulfilled"
-    ? results[0].value
-    : { data: null, error: results[0].reason };
-  const traitsResult = results[1].status === "fulfilled"
-    ? results[1].value
-    : { data: [], error: results[1].reason };
-  const eventsResult = results[2].status === "fulfilled"
-    ? results[2].value
-    : { data: [], error: results[2].reason };
-  const predictionsResult = results[3].status === "fulfilled"
-    ? results[3].value
-    : { data: [], error: results[3].reason };
-  const journeyLogsResult = results[4].status === "fulfilled"
-    ? results[4].value
-    : { data: [], error: results[4].reason };
-
-  // Hataları logla ama sistemi durdurma
-  if (vaultResult.error) console.error("Vault çekilemedi:", vaultResult.error);
-  if (traitsResult.error) {
-    console.error("Traits çekilemedi:", traitsResult.error);
-  }
-  if (eventsResult.error) {
-    console.error("Events çekilemedi:", eventsResult.error);
-  }
-  if (predictionsResult.error) {
-    console.error("Predictions çekilemedi:", predictionsResult.error);
-  }
-  if (journeyLogsResult.error) {
-    console.error("Journey logs çekilemedi:", journeyLogsResult.error);
-  }
-
-  const vaultData: VaultData =
-    (vaultResult.data?.vault_data ?? {}) as VaultData;
-
-  // Traits'i user_traits tablosundan al
-  const traits = (traitsResult.data ?? []).reduce(
-    (
-      acc: Record<string, string>,
-      trait: { trait_key: string; trait_value: string },
-    ) => {
-      acc[trait.trait_key] = trait.trait_value;
-      return acc;
-    },
-    {} as Record<string, string>,
-  );
-
-  const context = `
-        ### KULLANICI DOSYASI ###
-        **Kişilik Özellikleri:** ${JSON.stringify(traits)}
-        **Temel Hedefleri:** ${
-    vaultData.profile?.therapyGoals || "Belirtilmemiş"
-  }
-        **Son Olaylar (48 Saat):** ${
-    (() => {
-      const rows = (eventsResult.data ?? []) as {
-        type: string;
-        data: Record<string, unknown>;
-      }[];
-      return rows.length > 0
-        ? rows.map((e) =>
-          `- ${e.type}: ${JSON.stringify(e.data).substring(0, 50)}...`
-        ).join("\n")
-        : "Kayıt yok.";
-    })()
-  }
-        **Aktif Öngörüler/Kaygılar:** ${
-    (() => {
-      const rows = (predictionsResult.data ?? []) as {
-        title: string;
-        description: string;
-      }[];
-      return rows.length > 0
-        ? rows.map((p) => `- ${p.title}: ${p.description}`).join("\n")
-        : "Aktif öngörü yok.";
-    })()
-  }
-        **Kendi Seyir Defterinden Notlar:** ${
-    (() => {
-      const rows = (journeyLogsResult.data ?? []) as { log_text: string }[];
-      return rows.length > 0
-        ? rows.map((j) => `- "${j.log_text}"`).join("\n")
-        : "Kayıt yok.";
-    })()
-  }
-    `;
-  return context;
-}
-
-async function getEnhancedRagContext(
-  userId: string,
-  dreamText: string,
-  transactionId?: string,
-) {
-  try {
-    const themePrompt =
-      `Şu rüyanın 1-3 anahtar kelimelik temasını çıkar: "${dreamText}". Sadece temaları virgülle ayırarak yaz.`;
-    const themes = await AiService.invokeGemini(
-      themePrompt,
-      config.AI_MODELS.FAST,
-    );
-    const enrichedQuery = `${dreamText} ${themes}`;
-    const retrievedMemories = await RagService.retrieveContext(
-      userId,
-      enrichedQuery,
-      {
-        threshold: config.RAG_PARAMS.DREAM_ANALYSIS.threshold,
-        count: config.RAG_PARAMS.DREAM_ANALYSIS.count,
-      }, // Rüya analizi için config'den değerler
-    );
-    // --- MİKROSKOP BURADA ---
-    await logRagInvocation(adminClient, {
-      transaction_id: transactionId,
-      user_id: userId,
-      source_function: "dream_analysis",
-      search_query: enrichedQuery,
-      retrieved_memories: retrievedMemories,
-    });
-    // --- KANIT KAYDEDİLDİ ---
-    return retrievedMemories.map((c) =>
-      `- (Kaynak: ${c.source_layer}) ${c.content}`
-    ).join("\n");
-  } catch (e) {
-    console.error(
-      "RAG Context zenginleştirme hatası, basit RAG'e dönülüyor.",
-      e,
-    );
-    // Fallback: Sadece rüya metni ile arama yap
-    const retrievedMemories = await RagService.retrieveContext(
-      userId,
-      dreamText,
-      {
-        threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
-        count: config.RAG_PARAMS.DEFAULT.COUNT,
-      }, // Fallback için config'den değerler
-    );
-    return retrievedMemories.map((c) => `- ${c.content}`).join("\n");
-  }
-}
-
-// ===============================================
-// ANA BEYİN LOBLARI (HANDLER'LAR)
-// ===============================================
-
 /**
- * Rüya Analizi Beyin Lobu - AMELİYAT EDİLMİŞ VERSİYON
+ * RÜYA ANALİZİ HANDLER
  */
 export async function handleDreamAnalysis(
   context: InteractionContext,
-): Promise<string> {
-  const { logger } = context;
-  logger.info("DreamAnalysis", "Gelişmiş rüya analizi başlatılıyor");
+): Promise<{ eventId: string }> {
+  const { logger, userId, transactionId } = context;
   const { dreamText } = context.initialEvent.data as { dreamText?: string };
-  const userId = context.userId;
 
   if (
     !dreamText || typeof dreamText !== "string" || dreamText.trim().length < 10
@@ -268,131 +99,107 @@ export async function handleDreamAnalysis(
     throw new ValidationError("Analiz için yetersiz rüya metni.");
   }
 
-  try {
-    // ADIM 1 & 2: Tüm bağlamı paralel olarak topla
-    const results = await Promise.allSettled([
-      prepareDreamContext(userId),
-      getEnhancedRagContext(userId, dreamText, context.transactionId),
-    ]);
+  logger.info("DreamAnalysis", "İşlem başlıyor.");
 
-    // Her bir sonucun başarılı olup olmadığını kontrol et
-    const userDossier = results[0].status === "fulfilled"
-      ? results[0].value
-      : "Kullanıcı dosyası yüklenemedi.";
-    const ragContextString = results[1].status === "fulfilled"
-      ? results[1].value
-      : "Hafıza bağlamı yüklenemedi.";
+  // 1. BAĞLAMI OLUŞTUR
+  const { userDossier, ragContext } = await buildDreamAnalysisContext(
+    userId,
+    dreamText,
+    transactionId,
+  );
+  logger.info("DreamAnalysis", "Bağlam oluşturuldu.");
 
-    // Hataları logla ama sistemi durdurma
-    if (results[0].status === "rejected") {
-      console.error("Dream context hazırlama hatası:", results[0].reason);
-    }
-    if (results[1].status === "rejected") {
-      console.error("RAG context hatası:", results[1].reason);
-    }
+  // 2. PROMPT'U OLUŞTUR
+  const masterPrompt = generateDreamAnalysisPrompt({
+    userDossier,
+    ragContext,
+    dreamText,
+  });
 
-    // ADIM 3: Master Prompt'u oluştur ve AI'ı çağır
-    const masterPrompt = getDreamAnalysisV2Prompt(
-      userDossier,
-      ragContextString,
-      dreamText,
-    );
-    const rawResponse = await AiService.invokeGemini(
-      masterPrompt,
-      config.AI_MODELS.ADVANCED,
-      {
-        responseMimeType: "application/json",
+  // 3. AI'YI ÇAĞIR
+  const rawResponse = await AiService.invokeGemini(
+    masterPrompt,
+    config.AI_MODELS.ADVANCED,
+    { responseMimeType: "application/json" },
+    transactionId,
+  );
+  logger.info("DreamAnalysis", "AI yanıtı alındı.");
+
+  // 4. SONUCU DOĞRULA VE KAYDET (ARTIK PLACEHOLDER DEĞİL)
+  const analysisData = parseAndValidateJson(rawResponse);
+  if (analysisData === null) {
+    throw new ValidationError("Yapay zeka tutarsız bir analiz üretti.");
+  }
+
+  const { data: inserted, error: insertError } = await adminClient
+    .from("events")
+    .insert({
+      user_id: userId,
+      type: "dream_analysis",
+      timestamp: new Date().toISOString(),
+      data: {
+        dreamText,
+        analysis: analysisData,
+        dialogue: [],
       },
+    })
+    .select("id")
+    .single();
+
+  if (insertError) {
+    throw new DatabaseError(`Event kaydedilemedi: ${insertError.message}`);
+  }
+
+  const newEventId = inserted.id;
+
+  // AI KARARINI LOGLA
+  try {
+    const confidence = calculateConnectionConfidence(
+      analysisData,
+      JSON.stringify(userDossier), // String'e çevir
     );
-
-    // ADIM 4: Sonucu doğrula, kaydet ve geri döndür
-    const analysisData = parseAndValidateJson(rawResponse);
-    if (analysisData === null) {
-      throw new ValidationError("Yapay zeka tutarsız bir analiz üretti.");
-    }
-
-    const { data: inserted, error: insertError } = await adminClient
-      .from("events")
-      .insert({
-        user_id: userId,
-        type: "dream_analysis",
-        timestamp: new Date().toISOString(),
-        data: {
-          dreamText,
-          analysis: analysisData,
-          dialogue: [],
-        },
-      })
-      .select("id")
-      .single();
-
-    if (insertError) throw insertError;
-
-    const newEventId = String(inserted?.id ?? "");
-
-    if (!newEventId) {
-      throw new Error("Analiz üretildi ama veritabanına kaydedilemedi.");
-    }
-
-    // 🔥 YENİ LOGLAMA ADIMI 🔥
-    try {
-      const confidence = calculateConnectionConfidence(
-        analysisData,
-        userDossier,
-      );
-      await adminClient.from("ai_decision_log").insert({
-        user_id: userId,
-        decision_context: `Rüya metni: "${
-          dreamText.substring(0, 200)
-        }..." | Dossier: ${userDossier.substring(0, 500)}...`,
-        decision_made:
-          `Başlık: ${analysisData.title}. Özet: ${analysisData.summary}`,
-        reasoning: JSON.stringify(analysisData.crossConnections),
-        execution_result: { success: true, eventId: newEventId },
-        confidence_level: confidence,
-        decision_category: "dream_analysis",
-        complexity_level: "complex",
-      });
-      logger.info(
-        "DreamAnalysis",
-        `AI kararı başarıyla loglandı. Güven: ${
-          (confidence * 100).toFixed(0)
-        }%`,
-      );
-    } catch (logError) {
-      logger.error("DreamAnalysis", "AI karar loglama hatası", logError);
-    }
-
+    await adminClient.from("ai_decision_log").insert({
+      user_id: userId,
+      decision_context: `Rüya metni: "${dreamText.substring(0, 200)}..."`,
+      decision_made:
+        `Başlık: ${analysisData.title}. Özet: ${analysisData.summary}`,
+      reasoning: JSON.stringify(analysisData.crossConnections),
+      execution_result: { success: true, eventId: newEventId },
+      confidence_level: confidence,
+      decision_category: "dream_analysis",
+      complexity_level: "complex",
+    });
     logger.info(
       "DreamAnalysis",
-      `Beyin ameliyatı başarılı. Yeni event ID: ${newEventId}`,
+      `AI kararı başarıyla loglandı. Güven: ${(confidence * 100).toFixed(0)}%`,
     );
-
-    // --- HAFIZA KAYDI: process-memory (artık await kullanıyoruz) ---
-    try {
-      await adminClient.functions.invoke("process-memory", {
-        body: {
-          source_event_id: newEventId,
-          user_id: userId,
-          content: dreamText,
-          event_time: new Date().toISOString(),
-          mood: null,
-          event_type: "dream_analysis",
-          transaction_id: context.transactionId,
-        },
-      });
-    } catch (err) {
-      logger.error("DreamAnalysis", "process-memory invoke hatası", err);
-    }
-    return newEventId;
-  } catch (error) {
-    logger.error("DreamAnalysis", "Rüya analizi sırasında kritik hata", error);
-    throw error;
+  } catch (logError) {
+    logger.error("DreamAnalysis", "AI karar loglama hatası", logError);
   }
+
+  // HAFIZA KAYDI YAP
+  try {
+    await adminClient.functions.invoke("process-memory", {
+      body: {
+        source_event_id: newEventId,
+        user_id: userId,
+        content: dreamText,
+        event_time: new Date().toISOString(),
+        mood: null,
+        event_type: "dream_analysis",
+        transaction_id: transactionId,
+      },
+    });
+  } catch (err) {
+    logger.error("DreamAnalysis", "process-memory invoke hatası", err);
+  }
+
+  logger.info("DreamAnalysis", `İşlem tamamlandı. Event ID: ${newEventId}`);
+  return { eventId: newEventId };
 }
 
 /**
- * Günlük Yansıma Beyin Lobu - ATOMİK VE GÜVENLİ SÜRÜM
+ * GÜNLÜK YANSIMA HANDLER
  */
 export async function handleDailyReflection(
   context: InteractionContext,
@@ -404,102 +211,64 @@ export async function handleDailyReflection(
     pendingSessionId: string;
   }
 > {
-  const { logger, userId, initialVault, transactionId } = context;
-  logger.info("DailyReflection", `İşlem ${transactionId} başlıyor`);
+  const { logger, userId } = context;
+  const { todayNote, todayMood } = context.initialEvent.data as {
+    todayNote?: string;
+    todayMood?: string;
+  };
 
-  // Bütün işlemi tek bir transaction gibi sarmalamak için değişkenleri en üste tanımla.
-  // Bu, hata durumunda hangi adımların tamamlandığını bilmemizi sağlar.
+  if (!todayNote || !todayMood) {
+    throw new ValidationError("Yansıma için not ve duygu durumu gereklidir.");
+  }
+
+  logger.info("DailyReflection", "İşlem başlıyor.");
+
+  const { dossier, retrievedMemories } = await buildDailyReflectionContext(
+    userId,
+    todayNote,
+  );
+  logger.info("DailyReflection", "Bağlam oluşturuldu.");
+
+  const prompt = generateDailyReflectionPrompt({
+    userName: dossier.userName,
+    todayMood,
+    todayNote,
+    retrievedMemories,
+  });
+
+  const aiJsonResponse = await AiService.invokeGemini(
+    prompt,
+    config.AI_MODELS.FAST,
+    { temperature: 0.7, responseMimeType: "application/json" },
+  );
+
+  const parsedResponse = JSON.parse(aiJsonResponse);
+  logger.info("DailyReflection", "AI yanıtı alındı.");
+
+  const { reflectionText, conversationTheme } = parsedResponse;
+
+  // =================================================================
+  // VERİTABANI YAZMA BLOĞU
+  // =================================================================
+
   let sourceEventId: string | null = null;
   let decisionLogIdFromDb: string | null = null;
   let pendingSessionId: string | null = null;
 
   try {
-    const { todayNote, todayMood } = context.initialEvent.data as {
-      todayNote?: string;
-      todayMood?: string;
-    };
-    if (!todayNote || !todayMood) {
-      throw new ValidationError("Yansıma için not ve duygu durumu gereklidir.");
-    }
-
-    // =================================================================
-    // ADIM 1: VERİ TOPLAMA VE AI İŞLEMİ (HENÜZ VERİTABANI YAZMASI YOK)
-    // =================================================================
-    const retrievedMemories = await RagService.retrieveContext(
-      userId,
-      todayNote, // Bugünün notuyla ilgili anıları ara
-      {
-        threshold: config.RAG_PARAMS.DAILY_REFLECTION.threshold,
-        count: config.RAG_PARAMS.DAILY_REFLECTION.count,
-      }, // Günlük yansıma için config'den değerler
-    );
-
-    // Dünün tarihini hesapla
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayISO = yesterday.toISOString().split("T")[0];
-
-    // SADECE dünün daily_reflection'ını bul. Başka hiçbir şeye bakma.
-    const { data: yesterdayEvent, error: yesterdayError } = await adminClient
-      .from("events")
-      .select("mood, data") // Sadece mood ve data'yı çek
-      .eq("user_id", userId)
-      .eq("type", "daily_reflection")
-      .like("created_at", `${yesterdayISO}%`)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (yesterdayError) {
-      logger.warn("DailyReflection", "Dünün verisi çekilirken hata", {
-        error: yesterdayError,
-      });
-    }
-
-    const userName = initialVault.profile?.nickname ?? null;
-
-    // PROMPT'A YENİ BİLGİLERİ GÖNDER
-    const prompt = getTemporalReflectionPrompt(
-      userName,
-      { mood: todayMood, note: todayNote },
-      retrievedMemories,
-    );
-
-    // AI'dan yanıtı al. Eğer bu patlarsa, zaten veritabanına bir şey yazmadığımız için sorun yok.
-    const aiJsonResponse = await AiService.invokeGemini(
-      prompt,
-      config.AI_MODELS.FAST,
-      { temperature: 0.7, responseMimeType: "application/json" },
-    );
-
-    // GELEN JSON'I AYRIŞTIR
-    let parsedResponse: { reflectionText: string; conversationTheme: string };
-    try {
-      parsedResponse = JSON.parse(aiJsonResponse);
-    } catch (_e) {
-      throw new ApiError("AI'dan geçersiz formatta yanıt alındı.");
-    }
-
-    const { reflectionText, conversationTheme } = parsedResponse;
-
-    // =================================================================
-    // ADIM 2: ATOMİK VERİTABANI YAZMA BLOĞU
-    // Bütün kritik yazma işlemleri şimdi başlıyor.
-    // =================================================================
-
-    // ADIM 2.1: Ana Olayı (Event) Kaydet.
+    // 1. Ana Olayı (Event) Kaydet
     const { data: insertedEvent, error: eventError } = await adminClient
       .from("events").insert({
         user_id: userId,
         type: "daily_reflection",
-        timestamp: new Date().toISOString(), // Bu alanı ekle, 'created_at' trigger ile dolsa bile explicit olmak iyidir.
+        timestamp: new Date().toISOString(),
         data: {
           todayNote,
           reflectionText,
           conversationTheme,
-          transactionId,
+          transactionId: context.transactionId,
           status: "processing",
-        }, // Hata takibi için transactionId ve status ekle!
+        },
         mood: todayMood,
       }).select("id, created_at").single();
 
@@ -508,10 +277,10 @@ export async function handleDailyReflection(
         `Event kaydı başarısız oldu: ${eventError.message}`,
       );
     }
-    sourceEventId = insertedEvent.id; // Hata durumunda referans için ID'yi al.
+    sourceEventId = insertedEvent.id;
     logger.info("DailyReflection", `Event ${sourceEventId} oluşturuldu.`);
 
-    // ADIM 2.2: AI Kararını Logla.
+    // 2. AI Kararını Logla
     const { data: logEntry, error: logError } = await adminClient
       .from("ai_decision_log")
       .insert({
@@ -525,13 +294,12 @@ export async function handleDailyReflection(
         reasoning: JSON.stringify({
           retrievedMemoriesCount: retrievedMemories.length,
           mood: todayMood,
-          yesterdayEvent: yesterdayEvent ? "found" : "not_found",
         }),
         execution_result: { success: true, eventId: sourceEventId },
         confidence_level: 0.8,
         decision_category: "daily_reflection",
         complexity_level: "medium",
-        user_satisfaction_score: null, // Henüz skorlanmadı
+        user_satisfaction_score: null,
       })
       .select("id")
       .single();
@@ -547,7 +315,7 @@ export async function handleDailyReflection(
       `Decision Log ${decisionLogIdFromDb} oluşturuldu.`,
     );
 
-    // ADIM 2.3: process-memory'i GÜVENLİ bir şekilde tetikle.
+    // 3. process-memory'i GÜVENLİ bir şekilde tetikle
     const { error: processMemoryError } = await adminClient.functions.invoke(
       "process-memory",
       {
@@ -558,7 +326,7 @@ export async function handleDailyReflection(
           event_time: insertedEvent.created_at,
           mood: todayMood,
           event_type: "daily_reflection",
-          transaction_id: transactionId,
+          transaction_id: context.transactionId,
         },
       },
     );
@@ -572,23 +340,23 @@ export async function handleDailyReflection(
       `process-memory ${sourceEventId} için tetiklendi.`,
     );
 
-    // ADIM 2.4: Vault'u güncelle.
+    // 4. Vault'u güncelle
     const todayString = new Date().toISOString().split("T")[0];
     const newVault: VaultData & {
       currentMood?: string;
       moodHistory?: { mood: string; timestamp: string; source?: string }[];
     } = {
-      ...(initialVault || {}),
+      ...(context.initialVault || {}),
       currentMood: todayMood,
       metadata: {
-        ...(initialVault?.metadata || {}),
+        ...(context.initialVault?.metadata || {}),
         lastDailyReflectionDate: todayString,
         dailyMessageContent: reflectionText,
-        dailyMessageTheme: conversationTheme, // <-- YENİ
-        dailyMessageDecisionLogId: decisionLogIdFromDb, // <-- YENİ
+        dailyMessageTheme: conversationTheme,
+        dailyMessageDecisionLogId: decisionLogIdFromDb,
       },
       moodHistory: [
-        ...(initialVault?.moodHistory || []),
+        ...(context.initialVault?.moodHistory || []),
         {
           mood: todayMood,
           timestamp: new Date().toISOString(),
@@ -599,7 +367,7 @@ export async function handleDailyReflection(
     await VaultService.updateUserVault(userId, newVault, adminClient);
     logger.info("DailyReflection", `Vault güncellendi.`);
 
-    // ADIM 2.5: Her şey tamamsa, Event'in durumunu "completed" yap. (Bu, en iyi pratiktir)
+    // 5. Her şey tamamsa, Event'in durumunu "completed" yap
     await adminClient.from("events").update({
       data: {
         ...context.initialEvent.data,
@@ -609,7 +377,7 @@ export async function handleDailyReflection(
       },
     }).eq("id", sourceEventId);
 
-    // ADIM 2.6: SOHBET İÇİN GEÇİCİ HAFIZAYI OLUŞTUR
+    // 6. SOHBET İÇİN GEÇİCİ HAFIZAYI OLUŞTUR
     const chatContext = {
       originalNote: todayNote,
       aiReflection: reflectionText,
@@ -619,12 +387,12 @@ export async function handleDailyReflection(
 
     const { data: pendingSession, error: pendingError } = await adminClient
       .from("pending_text_sessions")
-      .upsert({ // INSERT YERİNE UPSERT
+      .upsert({
         user_id: userId,
         context_data: chatContext,
         expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       }, {
-        onConflict: "user_id", // Eğer bu user_id'de kayıt varsa üstüne yaz
+        onConflict: "user_id",
       })
       .select("id")
       .single();
@@ -639,10 +407,7 @@ export async function handleDailyReflection(
       `Geçici sohbet hafızası ${pendingSessionId} oluşturuldu.`,
     );
 
-    logger.info(
-      "DailyReflection",
-      `İşlem ${transactionId} başarıyla tamamlandı.`,
-    );
+    logger.info("DailyReflection", `İşlem başarıyla tamamlandı.`);
     return {
       aiResponse: reflectionText,
       conversationTheme,
@@ -650,16 +415,12 @@ export async function handleDailyReflection(
       pendingSessionId: pendingSessionId!,
     };
   } catch (error) {
-    // =================================================================
     // KRİTİK HATA TELAFİ (COMPENSATION) BLOĞU
-    // =================================================================
     logger.error("DailyReflection", "İşlem zincirinde kritik hata", error, {
-      transactionId,
+      transactionId: context.transactionId,
     });
 
     if (sourceEventId) {
-      // Eğer işlem yarıda kesildiyse, ilgili event kaydını "failed" olarak işaretle.
-      // Bu, production'da neyin neden patladığını anlaman için hayat kurtarır.
       await adminClient
         .from("events")
         .update({
@@ -676,10 +437,10 @@ export async function handleDailyReflection(
       );
     }
 
-    // Hatayı yukarı fırlat ki orchestrator yakalasın ve client'a standart bir hata dönsün.
     throw error;
   }
 }
+
 // DİĞER HANDLER'LAR (şimdilik basit)
 export function handleDefault(
   context: InteractionContext,
@@ -695,95 +456,113 @@ export function handleDefault(
 }
 
 // =============================
-// TEXT SESSION HANDLER'I - RAG ile Kişiselleştirilmiş AI
+// TEXT SESSION HANDLER'I - TEMİZLENMİŞ VE MODÜLER
 // =============================
 
+// BU ESKİ, DAĞINIK handleTextSession'ın YERİNE GELECEK OLAN YENİ VERSİYON
 export async function handleTextSession(context: InteractionContext): Promise<{
   aiResponse: string;
   usedMemory: { content: string; source_layer: string } | null;
 }> {
-  const { logger } = context;
-  const { userMessage, messages } = context.initialEvent.data as {
-    userMessage?: string;
+  const { logger, userId } = context;
+  const { messages, pendingSessionId } = context.initialEvent.data as {
     messages?: { sender: "user" | "ai"; text: string }[];
+    pendingSessionId?: string | null;
   };
 
-  if (!userMessage) {
-    throw new ValidationError("Kullanıcı mesajı eksik.");
+  // 1. SICA BAŞLANGIÇ KONTROLÜ (WARM START)
+  const isWarmStartAttempt = messages && messages.length === 0 &&
+    pendingSessionId;
+
+  if (isWarmStartAttempt) {
+    // Sıcak başlangıç için bağlamı çek
+    const { warmStartContext } = await buildTextSessionContext(
+      userId,
+      "", // userMessage boş
+      pendingSessionId,
+    );
+
+    if (!warmStartContext) {
+      throw new ValidationError("Geçici oturum bulunamadı veya süresi doldu.");
+    }
+
+    logger.info("TextSession", "Sıcak başlangıç bağlamı çekildi.");
+
+    // Sıcak başlangıç için özel prompt oluştur
+    const warmStartPrompt = `
+      SENİN ROLÜN: Sen, az önce bir kullanıcıya günlük yansıması yapmış bir zihin aynasısın. Şimdi o yansıma üzerinden sohbete devam edeceksin.
+
+      BAĞLAM (KULLANICI BUNU BİLMİYOR, SEN BİLİYORSUN):
+      - Kullanıcının Günlüğü: "${warmStartContext.originalNote}"
+      - Senin Az Önceki Yansıtman: "${warmStartContext.aiReflection}"
+      - Ana Tema: "${warmStartContext.theme}"
+
+      GÖREVİN: Sohbete BAŞLAT. Kullanıcıya "Sohbet Et" butonuna bastığı için bir karşılama mesajı yaz. Mesajın, yukarıdaki bağlamı bildiğini hissettirsin ama "kayıtlara göre" gibi robotik olmasın. Doğal bir geçiş yap.
+
+      ÖRNEK CEVAPLAR:
+      - "Az önceki yansımamızda bahsettiğin o proje konusu nasıl gidiyor? Bu dinginlik hissini neye borçlusun sence?"
+      - "Yansımanı paylaştığın için teşekkürler. O 'sakinlik' anı üzerine biraz daha konuşmak istersen buradayım. Seni bu noktaya getiren neydi?"
+
+      Şimdi, bu kurallara göre sohbeti başlatan ilk cümleni kur:
+    `.trim();
+
+    const aiResponse = await AiService.invokeGemini(
+      warmStartPrompt,
+      config.AI_MODELS.RESPONSE,
+      { temperature: 0.7 },
+      context.transactionId,
+    );
+
+    return { aiResponse, usedMemory: null }; // Sıcak başlangıçta RAG hafızası yok
   }
 
-  // === YENİ AKILLI KONTROL BLOKU BAŞLANGICI ===
-  const STOP_WORDS = new Set([
-    "merhaba",
-    "selam",
-    "selamun aleyküm",
-    "naber",
-    "nasılsın",
-    "iyi akşamlar",
-    "günaydın",
-    "ok",
-    "tamam",
-    "evet",
-    "hayır",
-  ]);
-  const normalizedMessage = userMessage.trim().toLowerCase();
-
-  let retrievedMemories: { content: string; source_layer: string }[] = [];
-  // EĞER MESAJ ANLAMSIZ BİR KELİME DEĞİLSE RAG'İ ÇAĞIR
-  if (!STOP_WORDS.has(normalizedMessage)) {
-    retrievedMemories = await RagService.retrieveContext(
-      context.userId,
-      userMessage,
-      {
-        threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
-        count: config.RAG_PARAMS.DEFAULT.COUNT,
-      },
-    );
-  } else {
-    logger.info(
-      "TextSession",
-      "Anlamsız kelime algılandı, RAG sorgusu atlanıyor",
-    );
+  // 2. NORMAL SOHBET AKIŞI
+  if (!messages || messages.length === 0) {
+    throw new ValidationError("Sohbet için mesaj gerekli.");
   }
-  // === YENİ AKILLI KONTROL BLOKU SONU ===
+  const userMessage = messages[messages.length - 1].text;
+  logger.info("TextSession", `Yeni mesaj alındı: "${userMessage}"`);
+
+  // 3. BAĞLAMI OLUŞTUR (Yeni context.service'i çağır)
+  // Artık bütün veritabanı ve RAG mantığı burada, tek satırda.
+  const { userDossier, retrievedMemories } = await buildTextSessionContext(
+    userId,
+    userMessage,
+    pendingSessionId,
+  );
+  logger.info("TextSession", "Kullanıcı dosyası ve RAG hafızası çekildi.");
+
+  // 4. PROMPT'U OLUŞTUR (Yeni prompt.service'i çağır)
+  // Bütün o karmaşık metin birleştirme işi artık burada, tek satırda.
   const pastContext = retrievedMemories.length > 0
     ? retrievedMemories.map((m) => `- ${m.content}`).join("\n")
     : "Yok";
 
-  const shortTermMemory = (messages || []).slice(0, -1).map((m) =>
+  const shortTermMemory = messages.slice(0, -1).map((m) =>
     `${m.sender === "user" ? "Danışan" : "Sen"}: ${m.text}`
   ).join("\n");
 
-  // --- BEĞENDİĞİN PROMPT'UN GÜNCELLENMİŞ HALİ ---
-  const masterPrompt = `
-    SENİN KARAKTERİN: Sen doğal, akıcı ve hafızası olan bir sohbet arkadaşısın. Amacın terapi yapmak veya analiz sunmak DEĞİL, sadece iyi bir sohbet etmek. Bazen derin, bazen yüzeysel, tamamen sohbetin akışına göre...
+  const masterPrompt = generateTextSessionPrompt({
+    userDossier,
+    pastContext,
+    shortTermMemory,
+    userMessage,
+  });
 
-    ELİNDEKİ GİZLİ BİLGİLER (BUNLARI KULLANICIYA ASLA 'İŞTE BİLGİLER' DİYE SUNMA):
-    1.  GEÇMİŞTEN NOTLAR: ${pastContext}
-    2.  SON KONUŞULANLAR: ${shortTermMemory || "Bu sohbetin başlangıcı."}
-    3.  KULLANICININ SON SÖZÜ: "${userMessage}"
-
-    GÖREVİN:
-    1.  Kullanıcının son sözüne DOĞRUDAN ve DOĞAL bir cevap ver.
-    2.  Cevabını oluştururken, elindeki GİZLİ BİLGİLERİ bir ilham kaynağı olarak kullan.
-        -   **ÖNEMLİ KURAL:** Eğer GEÇMİŞTEN NOTLAR anlamsızsa (sadece bir selamlama gibi) veya kullanıcının son sözüyle tamamen alakasızsa, O NOTLARI **TAMAMEN GÖRMEZDEN GEL** ve sadece sohbete odaklan.
-        -   Eğer kullanıcı "projemle uğraşıyorum" derse ve GEÇMİŞ NOTLARDA "iş stresi" varsa, cevabın "Umarım projen iyi gidiyordur, stresli bir şeye benzemiyor" gibi, o bilgiyi hissettiren ama söylemeyen bir cevap olabilir.
-        -   Eğer kullanıcı "canım sıkkın" derse ve SON KONUŞULANLARDA "gözlükçü olayı" varsa, cevabın "Hala o gözlükçü olayına mı canın sıkkın yoksa başka bir şey mi var?" olabilir.
-    3.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
-    4.  Sohbeti her zaman canlı tut. Soru sor, merak et, konuyu değiştir ama asla "Kendine iyi bak" gibi sohbeti bitiren cümleler kurma.
-    5.  SOHBETİN RİTMİNİ KORU: Cevapların kullanıcıyı bunaltmamalı. Bir yorum yap, sonra sohbeti devam ettirmek için genellikle tek ve açık uçlu bir soru sor. Bazen, sadece bir gözlemde bulunup kullanıcının tepki vermesini beklemek de güçlü bir yöntemdir. Her mesajın bir sorgulama olmak zorunda değil. Kullanıcıya düşünmesi ve nefes alması için alan bırak.
-    Şimdi, bu kurallara göre, sanki her şeyi doğal olarak hatırlıyormuş gibi cevap ver:
-  `;
-
+  // 4. YAPAY ZEKAYI ÇAĞIR
+  logger.info("TextSession", "AI'dan cevap bekleniyor...");
   const aiResponse = await AiService.invokeGemini(
     masterPrompt,
-    "gemini-1.5-flash",
+    config.AI_MODELS.RESPONSE, // Hızlı modeli kullanmaya devam
     { temperature: 0.8 },
-    undefined,
+    context.transactionId,
     userMessage,
   );
 
+  // 5. SONUCU DÖNDÜR
   const usedMemory = retrievedMemories.length > 0 ? retrievedMemories[0] : null;
+  logger.info("TextSession", "Cevap başarıyla üretildi.");
+
   return { aiResponse, usedMemory };
 }
 
@@ -803,177 +582,6 @@ export const eventHandlers: Record<
   "voice_session": handleDefault,
   "video_session": handleDefault,
   "ai_analysis": handleDefault,
-  "diary_entry": handleDiaryEntry,
+
   "onboarding_completed": handleDefault,
 };
-
-// =============================
-// GÜNLÜK (DIARY) HANDLER'I
-// =============================
-const DiaryStartSchema = z.object({
-  mood: z.string(),
-  questions: z.array(z.string()).min(3),
-});
-
-const NextQuestionsSchema = z.object({
-  questions: z.array(z.string()).min(1),
-});
-
-export async function handleDiaryEntry(
-  context: InteractionContext,
-): Promise<
-  {
-    aiResponse: string;
-    nextQuestions: string[];
-    isFinal: boolean;
-    conversationId: string;
-  }
-> {
-  const { logger } = context;
-  logger.info("DiaryHandler", "İşlem başladı");
-
-  const { userInput, conversationId } = context.initialEvent.data as {
-    userInput?: string;
-    conversationId?: string | null;
-  };
-  const userName = context.initialVault.profile?.nickname ?? null;
-  const vaultContext = `
-    - Terapi Hedefleri: ${
-    context.initialVault.profile?.therapyGoals || "Belirtilmemiş"
-  }
-    - Temel İnançları: ${
-    JSON.stringify(context.initialVault.coreBeliefs || {}) || "Belirtilmemiş"
-  }
-  `;
-
-  if (!userInput) {
-    throw new ValidationError("Giriş metni ('userInput') eksik.");
-  }
-
-  const responsePayload: {
-    aiResponse: string;
-    nextQuestions: string[];
-    isFinal: boolean;
-    conversationId: string;
-  } = {
-    aiResponse: "",
-    nextQuestions: [],
-    isFinal: false,
-    conversationId: conversationId || context.transactionId,
-  };
-
-  if (!conversationId) {
-    // Yeni konuşma başlangıcı
-    logger.info("DiaryHandler", "Yeni bir günlük konuşması başlatılıyor");
-    const prompt = getDiaryStartPrompt(userInput, userName, vaultContext);
-    const rawAiResponse = await AiService.invokeGemini(
-      prompt,
-      config.AI_MODELS.FAST,
-      {
-        responseMimeType: "application/json",
-      },
-    );
-    const validation = DiaryStartSchema.safeParse(JSON.parse(rawAiResponse));
-    if (!validation.success) {
-      throw new ValidationError("AI'dan dönen başlangıç verisi geçersiz.");
-    }
-    responsePayload.aiResponse = userName
-      ? `Anlıyorum seni ${userName}. Daha derine inmek için şu konulardan biriyle devam edelim mi?`
-      : "Anlattıklarını anlıyorum. Daha derine inmek için şu konulardan biriyle devam edelim mi?";
-    responsePayload.nextQuestions = validation.data.questions;
-  } else {
-    // Devam eden konuşma
-    logger.info("DiaryHandler", `Konuşma devam ediyor: ${conversationId}`);
-    const prompt = getDiaryNextQuestionsPrompt(userInput, userName);
-    const rawAiResponse = await AiService.invokeGemini(
-      prompt,
-      config.AI_MODELS.FAST,
-      {
-        responseMimeType: "application/json",
-      },
-    );
-    const validation = NextQuestionsSchema.safeParse(JSON.parse(rawAiResponse));
-    if (!validation.success) {
-      throw new ValidationError("AI'dan dönen devam verisi geçersiz.");
-    }
-
-    const shouldEndConversation = Math.random() > 0.6;
-    if (shouldEndConversation) {
-      logger.info(
-        "DiaryHandler",
-        "Konuşma bitiriliyor. Kapanış analizi üretiliyor...",
-      );
-
-      // --- HAFIZA ENJEKSİYONU: Günün temasını çıkar ve RAG ile geçmişten bağlam getir ---
-      const themeExtractionPrompt =
-        `Bu konuşmanın ana temasını 3-5 kelimeyle özetle: "${userInput}"`;
-      const theme = await AiService.invokeGemini(
-        themeExtractionPrompt,
-        config.AI_MODELS.FAST,
-      );
-      const searchQuery =
-        `Bugünkü konuşmanın ana teması: ${theme}. Bu temayla ilgili geçmişteki en alakalı anılar, rüyalar veya farkındalık anları.`;
-      const retrievedMemories = await RagService.retrieveContext(
-        context.userId,
-        searchQuery,
-        {
-          threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
-          count: config.RAG_PARAMS.DEFAULT.COUNT,
-        }, // Günlük kapanış için config'den değerler
-      );
-
-      // --- MİKROSKOP BURADA ---
-      await logRagInvocation(adminClient, {
-        transaction_id: context.transactionId,
-        user_id: context.userId,
-        source_function: "diary_conclusion",
-        search_query: searchQuery,
-        retrieved_memories: retrievedMemories,
-      });
-      // --- KANIT KAYDEDİLDİ ---
-      const pastContext = (retrievedMemories || [])
-        .map((mem) => {
-          const text = typeof mem.content === "string"
-            ? mem.content
-            : String(mem.content ?? "");
-          const source_type = (mem as { source_layer?: string }).source_layer ||
-            "anı";
-          return `- Geçmişten bir ${source_type}: "${
-            text.substring(0, 150)
-          }..."`;
-        })
-        .join("\n");
-
-      // Zenginleştirilmiş bağlam ile kapanış prompt'u
-      const conclusionPrompt = getDiaryConclusionPrompt(
-        userInput,
-        userName,
-        pastContext,
-      );
-      const rawConclusion = await AiService.invokeGemini(
-        conclusionPrompt,
-        config.AI_MODELS.FAST,
-        { responseMimeType: "application/json" },
-      );
-      let summary = "";
-      try {
-        const parsed = JSON.parse(rawConclusion) as { summary?: string };
-        summary = parsed.summary ||
-          "Bugünkü konuşmanın ana fikrini güzelce toparladın.";
-      } catch (_e) {
-        summary = "Bugünkü konuşmanın ana fikrini güzelce toparladın.";
-      }
-      responsePayload.aiResponse =
-        `${summary}\n\nHarika gidiyorsun! Günlüğü kaydetmeye ne dersin?`;
-      responsePayload.isFinal = true;
-      responsePayload.nextQuestions = [];
-    } else {
-      responsePayload.aiResponse = userName
-        ? `Bu önemli bir nokta, ${userName}. Peki, bu düşünceni biraz daha açalım mı?`
-        : "Bu önemli bir nokta. Peki, bu düşünceni biraz daha açalım mı?";
-      responsePayload.nextQuestions = validation.data.questions;
-    }
-  }
-
-  return responsePayload;
-}

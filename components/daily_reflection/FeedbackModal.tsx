@@ -25,6 +25,7 @@ export default function FeedbackModal({
   isVisible,
   onClose,
   aiMessage,
+  gradientColors,
   dynamicColor,
   satisfactionScore,
   onSatisfaction,
@@ -125,7 +126,7 @@ export default function FeedbackModal({
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={["#F4E6FF", "#E0ECFD"]}
+                  colors={gradientColors}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.secondaryButtonGradient}
@@ -144,7 +145,7 @@ export default function FeedbackModal({
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={["#E0ECFD", "#F4E6FF"]}
+              colors={gradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryButtonGradient}

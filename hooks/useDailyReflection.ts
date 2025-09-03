@@ -284,6 +284,9 @@ export function useDailyReflection() {
             setSatisfactionScore(null);
             setConversationTheme(null);
             setPendingSessionId(null);
+
+            // Kullanıcıyı index.tsx'e yönlendir
+            router.push("/");
         } catch (err) {
             Toast.show({
                 type: "error",

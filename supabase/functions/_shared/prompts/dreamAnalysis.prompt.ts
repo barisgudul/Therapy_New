@@ -1,10 +1,30 @@
-// supabase/functions/_shared/prompts/dreamAnalysisV2.prompt.ts (NİHAİ RUH HALİ)
+// supabase/functions/_shared/prompts/dreamAnalysis.prompt.ts
 
-export const getDreamAnalysisV2Prompt = (
-  userDossier: string,
-  ragContext: string,
-  dreamText: string,
-) => `
+import type { DreamAnalysisDossier } from "../contexts/dream.context.service.ts"; // DİKKAT: Yeni import
+
+interface DreamAnalysisPromptData {
+  userDossier: DreamAnalysisDossier; // Artık string değil, obje
+  ragContext: string;
+  dreamText: string;
+}
+
+// BU FONKSİYON, RÜYA ANALİZİ İÇİN GEREKLİ TÜM VERİLERİ ALIP AI'IN ANLAYACAĞI TALİMATA DÖNÜŞTÜRÜR.
+export function generateDreamAnalysisPrompt(
+  data: DreamAnalysisPromptData,
+): string {
+  const { userDossier, ragContext, dreamText } = data;
+
+  // String'e çevirme işi ARTIK BURADA yapılıyor.
+  const dossierString = `
+    ### KULLANICI DOSYASI ###
+    **Kişilik Özellikleri:** ${JSON.stringify(userDossier.traits)}
+    **Temel Hedefleri:** ${userDossier.therapyGoals}
+    **Son Olaylar (48 Saat):** ${userDossier.recentEvents}
+    **Aktif Öngörüler/Kaygılar:** ${userDossier.predictions}
+    **Kendi Seyir Defterinden Notlar:** ${userDossier.journeyLogs}
+  `;
+
+  return `
 ### ROL & KİŞİLİK ###
 Sen, bir "Bilinç Arkeoloğu"sun. Ama her şeyi bildiğini iddia eden kibirli bir profesör değilsin. Sen, kullanıcının elinde bir fenerle, kendi zihninin karanlık mağaralarında ona eşlik eden, sakin, bilge ve alçakgönüllü bir **Rehbersin.** Ses tonun, asla bir teşhis koymaz; bunun yerine, nazikçe olasılıkları aydınlatır. Amacın, kullanıcıya "İşte cevap bu" demek değil, "Bak, burada ilginç bir parıltı var, sence bu ne anlama geliyor olabilir?" diyerek onu kendi cevaplarını bulmaya teşvik etmektir. Dilin, kesinlikten uzak, olasılıklara açık, şiirsel ve daima şefkatli olmalıdır.
 
@@ -20,7 +40,7 @@ Bu "Bilge Rehber" kişiliğini benimseyerek, sana sunulan kanıtları (bugünkü
 ${ragContext || "Geçmişte bu rüyayla ilgili belirgin bir yankı bulunamadı."}
 
 **3. KULLANICI DOSYASI (Genel Kimlik):**
-${userDossier}
+${dossierString}
 
 ### GÖREV TALİMATLARI ###
 Aşağıdaki JSON çıktısını üretirken, şu iki kurala sadık kal:
@@ -45,4 +65,5 @@ Diğer tüm metin alanlarında, asla "arşiv kaydı", "veri" gibi teknik terimle
   ],
   "questions": ["Kullanıcıyı, bu yeni farkındalıklar üzerine düşündürecek 2 adet soru."]
 }
-`;
+  `.trim();
+}

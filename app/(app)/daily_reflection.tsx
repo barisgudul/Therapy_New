@@ -76,12 +76,14 @@ export default function DailyReflectionScreen() {
   const gradientColors: [string, string] = ["#E0ECFD", "#F4E6FF"];
 
   const handleNavigateToTherapy = () => {
-   
+
     if (!state.pendingSessionId) {
       return; // Güvenlik kontrolü
     }
 
-   
+    // Modal'ı kapat
+    handlers.closeFeedback();
+
     handlers.router.push({
       pathname: '/sessions/text_session',
       params: { pendingSessionId: state.pendingSessionId }
@@ -165,7 +167,7 @@ export default function DailyReflectionScreen() {
       <FeedbackModal
         isVisible={state.feedbackVisible}
         onClose={handlers.closeFeedback}
-        aiMessage={state.aiMessage}
+        aiMessage={state.aiMessage ?? ""}
         gradientColors={gradientColors}
         dynamicColor={dynamicColor}
         satisfactionScore={state.satisfactionScore}

@@ -1,3 +1,5 @@
+// supabase/functions/_shared/prompts/diary.prompt.ts
+
 // Kullanıcının adını ve geçmiş bağlamını alacak şekilde fonksiyonu güncelliyoruz.
 export const getDiaryStartPrompt = (
   initialEntry: string,

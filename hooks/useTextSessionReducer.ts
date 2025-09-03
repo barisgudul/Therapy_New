@@ -4,8 +4,10 @@ import { Alert, BackHandler } from "react-native";
 import { supabase } from "../utils/supabase";
 
 export interface TextMessage {
+    id?: string; // YENİ: Mesaj ID'si (benzersiz)
     sender: "user" | "ai";
     text: string;
+    status?: "sending" | "sent" | "failed"; // YENİ: Mesaj durumu
     memory?: { content: string; source_layer: string }; // YENİ: AI mesajları için hafıza bilgisi
     isInsight?: boolean; // YENİ: İçgörü mesajı mı?
 }
@@ -66,7 +68,13 @@ type TextSessionAction =
     | { type: "OPEN_MEMORY_MODAL"; payload: TextMessage["memory"] }
     | { type: "CLOSE_MEMORY_MODAL" }
     // YENİ: Tema ile sohbet başlatma
-    | { type: "INITIALIZE_WITH_THEME"; payload: string };
+    | { type: "INITIALIZE_WITH_THEME"; payload: string }
+    // YENİ: Mesaj durumu için eylemler
+    | { type: "MESSAGE_SENT_SUCCESS"; payload: { messageId: string } }
+    | {
+        type: "MESSAGE_SENT_FAILURE";
+        payload: { messageId: string; error: string };
+    };
 
 // Initial state
 const initialState: TextSessionState = {
@@ -102,6 +110,41 @@ function textSessionReducer(
                     ? state.turnCount + 1
                     : state.turnCount, // Sadece kullanıcı mesajında artır
                 error: null,
+            };
+
+        case "MESSAGE_SENT_SUCCESS":
+            return {
+                ...state,
+                messages: state.messages.map((msg) =>
+                    msg.id === action.payload.messageId
+                        ? { ...msg, status: "sent" as const }
+                        : msg
+                ),
+            };
+
+        case "MESSAGE_SENT_FAILURE":
+            return {
+                ...state,
+                messages: state.messages.map((msg) =>
+                    msg.id === action.payload.messageId
+                        ? { ...msg, status: "failed" as const }
+                        : msg
+                ),
+                error: action.payload.error,
+            };
+
+        case "OPEN_MEMORY_MODAL":
+            return {
+                ...state,
+                isMemoryModalVisible: true,
+                selectedMemory: action.payload,
+            };
+
+        case "CLOSE_MEMORY_MODAL":
+            return {
+                ...state,
+                isMemoryModalVisible: false,
+                selectedMemory: null,
             };
 
         case "SET_TYPING":
@@ -177,6 +220,7 @@ function textSessionReducer(
                 isTyping: true,
                 status: "loading",
                 error: null,
+                input: "", // <-- INPUT'U BURADA TEMİZLE (BASİT ÇÖZÜM)
             };
 
         case "SEND_MESSAGE_SUCCESS":
@@ -321,13 +365,26 @@ export function useTextSessionReducer({
         // Gönderecek bir şey yoksa veya AI yazıyorsa çık
         if (!trimmedInput || state.isTyping) return;
 
-        dispatch({ type: "SEND_MESSAGE_START" });
-        const userMessage: TextMessage = { sender: "user", text: trimmedInput };
+        // --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
+        // 1. Gönderilecek mesajı ve ID'sini hazırla.
+        const messageId = `msg_${Date.now()}_${
+            Math.random().toString(36).substr(2, 9)
+        }`; // Benzersiz ID oluştur
+        const userMessage: TextMessage = {
+            id: messageId, // <-- YENİ
+            sender: "user",
+            text: trimmedInput,
+            status: "sending", // <-- YENİ
+        };
+
+        // 2. Mesajı state'e ekle VE INPUT'U HEMEN TEMİZLE.
+        dispatch({ type: "ADD_MESSAGE", payload: userMessage });
+        dispatch({ type: "SET_INPUT", payload: "" });
+        dispatch({ type: "SET_TYPING", payload: true });
+
         // ÖNEMLİ: dispatch'ten hemen sonra state güncellenmez.
         // Bu yüzden backend'e gönderirken en güncel halini elle oluşturmalıyız.
         const updatedMessages = [...state.messages, userMessage];
-
-        dispatch({ type: "ADD_MESSAGE", payload: userMessage });
 
         try {
             // ... auth ve user kontrolü aynı ...
@@ -349,15 +406,18 @@ export function useTextSessionReducer({
                 throw new Error(error.message);
             }
 
-            // Gelen cevabı reducer'a pasla, o da state'e bassın.
+            // 3. Başarılı olursa, AI'ın cevabını ekle ve gönderilen mesajın durumunu güncelle.
+            dispatch({ type: "MESSAGE_SENT_SUCCESS", payload: { messageId } }); // <-- YENİ ACTION
             dispatch({ type: "SEND_MESSAGE_SUCCESS", payload: aiReply });
         } catch (error) {
             console.error("[sendMessage] Critical Function Error:", error);
-            // Hata yönetimi için dispatch'lerini burada yaparsın.
+            // 4. BAŞARISIZ OLURSA, İLGİLİ MESAJI "FAILED" OLARAK İŞARETLE.
             dispatch({
-                type: "SEND_MESSAGE_ERROR",
-                payload: "Mesaj gönderilemedi",
-            });
+                type: "MESSAGE_SENT_FAILURE",
+                payload: { messageId, error: "Mesaj gönderilemedi" },
+            }); // <-- YENİ ACTION
+        } finally {
+            dispatch({ type: "SET_TYPING", payload: false });
         }
     }, [state.input, state.isTyping, state.messages]); // <-- DOĞRU DEPENDENCY'LER BUNLAR
 
