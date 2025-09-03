@@ -233,6 +233,7 @@ interface UseTextSessionReducerProps {
     initialMood?: string;
     eventId?: string; // eventId artık opsiyonel bir prop
     startConversationWith?: string; // Tema parametresi
+    pendingSessionId?: string; // Yeni parametre
     onSessionEnd: () => void;
 }
 
@@ -353,6 +354,8 @@ export function useTextSessionReducer({
                 {
                     body: {
                         messages: [...state.messages, userMessage], // Tüm sohbet geçmişini yolla
+                        // İlk mesaj için pendingSessionId'yi gönder
+                        ...(state.messages.length === 0 && pendingSessionId ? { pendingSessionId } : {}),
                     },
                     headers: {
                         Authorization: `Bearer ${

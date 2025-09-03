@@ -7,6 +7,7 @@ import { MotiView } from 'moti'; // <<< ZARİF ANİMASYONLAR İÇİN
 import React from 'react';
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -61,8 +62,8 @@ export function PremiumGate({
     featureType && !featureAccess.can_use && !isPremium;
 
   if (showPremiumPrompt || showUsageLimitPrompt) {
-    if (fallback) return <>{fallback}</>;
-    
+    if (fallback) return <View style={{ flex: 1 }}>{fallback}</View>;
+
     return (
       <ElegantBlocker
         isPremiumOnly={showPremiumPrompt}
@@ -71,7 +72,7 @@ export function PremiumGate({
     );
   }
 
-  // 3. Erişim Varsa: İçeriği göster
+  // 3. Erişim Varsa: Sarmalanan içeriği göster
   return <>{children}</>;
 }
 
@@ -114,11 +115,23 @@ function ElegantBlocker({ isPremiumOnly, onUpgrade }: ElegantBlockerProps) {
       </TouchableOpacity>
 
       <View style={styles.contentContainer}>
+        {/* Logo */}
+        <MotiView
+            from={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', delay: 100 }}
+        >
+            <Image
+              source={require('../assets/logo.png')} // Varsayılan logo yolu
+              style={styles.logo}
+            />
+        </MotiView>
+
         {/* Anismasyonlu İkon */}
         <MotiView
           from={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', duration: 500 }}
+          transition={{ type: 'spring', duration: 500, delay: 200 }}
         >
           <View style={[styles.iconContainer, { backgroundColor: theme.iconContainerBg }]}>
             <Ionicons name={iconName} size={60} color={theme.textColor} />
@@ -129,15 +142,15 @@ function ElegantBlocker({ isPremiumOnly, onUpgrade }: ElegantBlockerProps) {
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 700, delay: 200 }}
+          transition={{ type: 'timing', duration: 700, delay: 300 }}
         >
           <Text style={[styles.title, { color: theme.textColor }]}>{title}</Text>
         </MotiView>
-        
+
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 700, delay: 350 }}
+          transition={{ type: 'timing', duration: 700, delay: 450 }}
         >
           <Text style={[styles.description, { color: theme.textColor, opacity: 0.8 }]}>
               {description}
@@ -148,7 +161,7 @@ function ElegantBlocker({ isPremiumOnly, onUpgrade }: ElegantBlockerProps) {
         <MotiView
           from={{ opacity: 0, translateY: 20 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'timing', duration: 700, delay: 500 }}
+          transition={{ type: 'timing', duration: 700, delay: 600 }}
           style={styles.upgradeButtonWrapper}
         >
             <TouchableOpacity onPress={onUpgrade} activeOpacity={0.8}>
@@ -196,6 +209,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 28,
   },
+  logo: { // YENİ EKLENDİ
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
+    marginBottom: 30,
+    opacity: 0.9,
+  },
   iconContainer: {
     width: 120, // Daha büyük ve etkileyici
     height: 120,
@@ -234,14 +254,14 @@ const styles = StyleSheet.create({
   },
   upgradeButton: {
     borderRadius: 50,
-    paddingVertical: 23, // Daha dolgun buton
+    paddingVertical: 20, // Daha estetik bir görünüm için hafifçe ayarlandı
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
   },
   upgradeButtonText: {
-    fontSize: 23, // Daha okunaklı buton metni
+    fontSize: 20, // Daha estetik bir görünüm için hafifçe ayarlandı
     fontWeight: 'bold',
     color: 'white',
   },

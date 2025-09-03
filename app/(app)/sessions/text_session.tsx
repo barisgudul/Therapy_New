@@ -16,7 +16,7 @@ import {
   useColorScheme,
   View,
 } from "react-native";
-import { PremiumGate } from "../../../components/PremiumGate.tsx";
+import { PremiumGate } from "../../../components/PremiumGate";
 import { Colors } from "../../../constants/Colors";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useTextSessionReducer } from "../../../hooks";
@@ -30,8 +30,8 @@ export default function TextSessionScreen() {
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const { mood, eventId, startConversationWith } = useLocalSearchParams<
-    { mood?: string; eventId?: string; startConversationWith?: string }
+  const { mood, eventId, startConversationWith, pendingSessionId } = useLocalSearchParams<
+    { mood?: string; eventId?: string; startConversationWith?: string; pendingSessionId?: string }
   >();
 
   const colorScheme = useColorScheme();
@@ -55,6 +55,7 @@ export default function TextSessionScreen() {
     initialMood: mood,
     eventId: eventId, // eventId'yi hook'a geçir
     startConversationWith, // Tema parametresini geçir
+    pendingSessionId, // Yeni parametre
     onSessionEnd: () => {
       router.replace("/");
     },
@@ -95,98 +96,93 @@ export default function TextSessionScreen() {
   }, [refresh]);
 
   return (
-    <PremiumGate featureType="text_sessions" premiumOnly={false}>
-      <LinearGradient
-        colors={isDark ? ["#232526", "#414345"] : ["#F4F6FF", "#FFFFFF"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.container}
-      >
-        {/* EN DIŞTA SAFEAREA OLACAK */}
-        <SafeAreaView style={styles.flex}>
-          {(loading || status === 'initializing') ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator
-                size="large"
-                color={isDark ? "#fff" : Colors.light.tint}
-              />
-            </View>
-          ) : (
-            <>
-              {/* HEADER, NORMAL AKIŞTA VE SABİT */}
-              <View style={styles.header}>
-                <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-                  <Ionicons
-                    name="chevron-back"
-                    size={28}
-                    color={isDark ? "#fff" : Colors.light.tint}
-                  />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Sohbet</Text>
-                <View style={{ width: 44 }} /> {/* Başlığı ortalamak için boşluk */}
+    <PremiumGate featureType="text_sessions">
+      <View style={styles.flex}>
+        <LinearGradient
+          colors={isDark ? ["#232526", "#414345"] : ["#F4F6FF", "#FFFFFF"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.container}
+        >
+          <SafeAreaView style={styles.flex}>
+            {(loading || status === 'initializing') ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator
+                  size="large"
+                  color={isDark ? "#fff" : Colors.light.tint}
+                />
               </View>
-
-              {/* KEYBOARDVIEW, KALAN TÜM ALANI DOLDURACAK */}
-              <KeyboardAvoidingView
-                style={styles.keyboardAvoidingView}
-                behavior={Platform.OS === "ios" ? "padding" : "height"}
-              >
-                <View style={styles.content}>
-                  {messages.length === 0 ? (
-                    // Hoş Geldin Ekranı
-                    <View style={styles.welcomeWrapper}>
-                      <WelcomeComponent />
-                    </View>
-                  ) : (
-                    // Sohbet Ekranı
-                    <FlatList
-                      ref={flatListRef}
-                      data={messages}
-                      keyExtractor={(_, i) => i.toString()}
-                      renderItem={({ item }) => (
-                        <MessageBubble
-                          message={item}
-                          onMemoryPress={openMemoryModal}
-                        />
-                      )}
-                      contentContainerStyle={styles.messages}
-                      onContentSizeChange={() =>
-                        flatListRef.current?.scrollToEnd({ animated: true })
-                      }
-                      keyboardShouldPersistTaps="handled"
-                      showsVerticalScrollIndicator={false}
+            ) : (
+              <>
+                <View style={styles.header}>
+                  <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                    <Ionicons
+                      name="chevron-back"
+                      size={28}
+                      color={isDark ? "#fff" : Colors.light.tint}
                     />
-                  )}
-
-                  {isTyping && <TypingIndicator isVisible={isTyping} />}
-
-                  {/* Error display */}
-                  {error && (
-                    <View style={styles.errorContainer}>
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  )}
-
-                  <InputBar
-                    input={input}
-                    onInputChange={handleInputChange}
-                    onSend={sendMessage}
-                    isTyping={isTyping}
-                    inputRef={inputRef}
-                  />
+                  </TouchableOpacity>
+                  <Text style={styles.headerTitle}>Sohbet</Text>
+                  <View style={{ width: 44 }} />
                 </View>
-              </KeyboardAvoidingView>
-            </>
-          )}
-        </SafeAreaView>
-      </LinearGradient>
 
-      {/* YENİ: Hafıza Modal'ı */}
-      <MemoryModal
-        isVisible={isMemoryModalVisible}
-        memory={selectedMemory}
-        onClose={closeMemoryModal}
-      />
+                <KeyboardAvoidingView
+                  style={styles.keyboardAvoidingView}
+                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                >
+                  <View style={styles.content}>
+                    {messages.length === 0 ? (
+                      <View style={styles.welcomeWrapper}>
+                        <WelcomeComponent />
+                      </View>
+                    ) : (
+                      <FlatList
+                        ref={flatListRef}
+                        data={messages}
+                        keyExtractor={(_, i) => i.toString()}
+                        renderItem={({ item }) => (
+                          <MessageBubble
+                            message={item}
+                            onMemoryPress={openMemoryModal}
+                          />
+                        )}
+                        contentContainerStyle={styles.messages}
+                        onContentSizeChange={() =>
+                          flatListRef.current?.scrollToEnd({ animated: true })
+                        }
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                      />
+                    )}
+
+                    {isTyping && <TypingIndicator isVisible={isTyping} />}
+
+                    {error && (
+                      <View style={styles.errorContainer}>
+                        <Text style={styles.errorText}>{error}</Text>
+                      </View>
+                    )}
+
+                    <InputBar
+                      input={input}
+                      onInputChange={handleInputChange}
+                      onSend={sendMessage}
+                      isTyping={isTyping}
+                      inputRef={inputRef}
+                    />
+                  </View>
+                </KeyboardAvoidingView>
+              </>
+            )}
+          </SafeAreaView>
+        </LinearGradient>
+
+        <MemoryModal
+          isVisible={isMemoryModalVisible}
+          memory={selectedMemory}
+          onClose={closeMemoryModal}
+        />
+      </View>
     </PremiumGate>
   );
   }

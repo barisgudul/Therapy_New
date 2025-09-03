@@ -63,13 +63,66 @@ serve(async (req) => {
     const userId = user.id; // İŞTE GÜVENLİ userId BUDUR!
 
     // Client'tan gelen body'den userId'yi okumayı SİL.
-    const { messages } = await req.json();
+    const { messages, pendingSessionId } = await req.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new Error("Geçersiz mesaj formatı");
     }
 
     const userMessage = messages[messages.length - 1].text;
+
+    // === YENİ: SICAK BAŞLANGIÇ KONTROLÜ ===
+    const isNewConversation = messages.length === 1; // Sadece ilk mesaj varsa yeni conversation
+
+    if (pendingSessionId && isNewConversation) {
+      console.log(`[TextSession] Sıcak Başlangıç: ${pendingSessionId} ile hafıza enjeksiyonu.`);
+
+      // 1. Geçici hafızayı veritabanından çek ve SİL.
+      const { data: pendingData, error: fetchError } = await adminClient
+        .from('pending_text_sessions')
+        .delete() // Çektiğimiz anda siliyoruz ki tekrar kullanılmasın.
+        .match({ id: pendingSessionId, user_id: userId })
+        .select('context_data')
+        .single();
+
+      if (fetchError || !pendingData) {
+        throw new Error("Geçici oturum bulunamadı veya süresi doldu.");
+      }
+
+      const context = pendingData.context_data as { originalNote: string; aiReflection: string; theme: string };
+
+      // 2. "Sıcak Başlangıç" için ÖZEL bir prompt oluştur.
+      const warmStartPrompt = `
+        SENİN ROLÜN: Sen, az önce bir kullanıcıya günlük yansıması yapmış bir zihin aynasısın. Şimdi o yansıma üzerinden sohbete devam edeceksin.
+
+        BAĞLAM (KULLANICI BUNU BİLMİYOR, SEN BİLİYORSUN):
+        - Kullanıcının Günlüğü: "${context.originalNote}"
+        - Senin Az Önceki Yansıtman: "${context.aiReflection}"
+        - Ana Tema: "${context.theme}"
+
+        GÖREVİN: Sohbete BAŞLAT. Kullanıcıya "Sohbet Et" butonuna bastığı için bir karşılama mesajı yaz. Mesajın, yukarıdaki bağlamı bildiğini hissettirsin ama "kayıtlara göre" gibi robotik olmasın. Doğal bir geçiş yap.
+
+        ÖRNEK CEVAPLAR:
+        - "Az önceki yansımamızda bahsettiğin o proje ve başarı hissine biraz daha yakından bakalım mı? Bu dinginlik hissini neye borçlusun sence?"
+        - "Yansımanı paylaştığın için teşekkürler. O 'sakinlik' anı üzerine biraz daha konuşmak istersen buradayım. Seni bu noktaya getiren neydi?"
+
+        Şimdi, bu kurallara göre sohbeti başlatan ilk cümleni kur:
+      `;
+
+      // 3. AI'ı bu özel prompt ile çağır ve ilk mesajı al.
+      const firstAiMessage = await AiService.invokeGemini(
+        warmStartPrompt,
+        config.AI_MODELS.RESPONSE,
+        { temperature: 0.7 }
+      );
+
+      // 4. Bu ilk mesajı, sanki normal bir sohbetin ilk mesajıymış gibi ön yüze döndür.
+      return new Response(
+        JSON.stringify({ aiResponse: firstAiMessage, usedMemory: null }), // İlk mesajda RAG hafızası yok.
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // === SICAK BAŞLANGIÇ KONTROLÜ SONU ===
 
     // === ADIM 2.1: NİYET TESPİTİ ===
     const intentPrompt =

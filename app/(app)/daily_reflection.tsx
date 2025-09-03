@@ -76,9 +76,10 @@ export default function DailyReflectionScreen() {
   const gradientColors: [string, string] = ["#E0ECFD", "#F4E6FF"];
 
   const handleNavigateToTherapy = () => {
+    if (!state.pendingSessionId) return; // Güvenlik kontrolü
     handlers.router.push({
-      pathname: '/therapy/therapy_options',
-      params: { startConversationWith: state.conversationTheme }
+      pathname: '/sessions/text_session',
+      params: { pendingSessionId: state.pendingSessionId }
     });
   };
 

@@ -397,7 +397,7 @@ export async function handleDreamAnalysis(
 export async function handleDailyReflection(
   context: InteractionContext,
 ): Promise<
-  { aiResponse: string; conversationTheme: string; decisionLogId: string }
+  { aiResponse: string; conversationTheme: string; decisionLogId: string; pendingSessionId: string }
 > {
   const { logger, userId, initialVault, transactionId } = context;
   logger.info("DailyReflection", `İşlem ${transactionId} başlıyor`);
@@ -406,6 +406,7 @@ export async function handleDailyReflection(
   // Bu, hata durumunda hangi adımların tamamlandığını bilmemizi sağlar.
   let sourceEventId: string | null = null;
   let decisionLogIdFromDb: string | null = null;
+  let pendingSessionId: string | null = null;
 
   try {
     const { todayNote, todayMood } = context.initialEvent.data as {
@@ -603,6 +604,30 @@ export async function handleDailyReflection(
       },
     }).eq("id", sourceEventId);
 
+    // ADIM 2.6: SOHBET İÇİN GEÇİCİ HAFIZAYI OLUŞTUR
+    const chatContext = {
+      originalNote: todayNote,
+      aiReflection: reflectionText,
+      theme: conversationTheme,
+      source: 'daily_reflection'
+    };
+
+    const { data: pendingSession, error: pendingError } = await adminClient
+      .from('pending_text_sessions')
+      .insert({
+        user_id: userId,
+        context_data: chatContext,
+      })
+      .select('id')
+      .single();
+
+    if (pendingError) {
+      throw new DatabaseError("Sohbet için geçici hafıza oluşturulamadı.");
+    }
+
+    pendingSessionId = pendingSession.id;
+    logger.info("DailyReflection", `Geçici sohbet hafızası ${pendingSessionId} oluşturuldu.`);
+
     logger.info(
       "DailyReflection",
       `İşlem ${transactionId} başarıyla tamamlandı.`,
@@ -611,6 +636,7 @@ export async function handleDailyReflection(
       aiResponse: reflectionText,
       conversationTheme,
       decisionLogId: decisionLogIdFromDb!,
+      pendingSessionId: pendingSessionId!,
     };
   } catch (error) {
     // =================================================================

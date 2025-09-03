@@ -40,7 +40,8 @@ export function useDailyReflection() {
     );
     const [conversationTheme, setConversationTheme] = useState<string | null>(
         null,
-    ); // <-- YENİ STATE EKLE
+    );
+    const [pendingSessionId, setPendingSessionId] = useState<string | null>(null); // <-- YENİ STATE EKLE
 
     const entryAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -174,7 +175,11 @@ export function useDailyReflection() {
             }
 
             if (data?.conversationTheme) {
-                setConversationTheme(data.conversationTheme); // <-- GELEN TEMAYI STATE'E KAYDET
+                setConversationTheme(data.conversationTheme);
+            }
+
+            if (data?.pendingSessionId) {
+                setPendingSessionId(data.pendingSessionId); // <-- GELEN PENDING SESSION ID'Yİ STATE'E KAYDET
             }
         } catch (err) { // Bu catch artık HEM supabase hatasını HEM de ağ hatasını yakalar.
             // Hata mesajını ve UI'ı güncelle.
@@ -270,6 +275,7 @@ export function useDailyReflection() {
             setDecisionLogId("");
             setSatisfactionScore(null);
             setConversationTheme(null);
+            setPendingSessionId(null);
         } catch (err) {
             Toast.show({
                 type: "error",
@@ -302,6 +308,7 @@ export function useDailyReflection() {
             decisionLogId,
             satisfactionScore,
             conversationTheme,
+            pendingSessionId,
             freemium: { can_use, loading, used_count, limit_count },
             light1,
             light2,
