@@ -2,7 +2,10 @@
 
 // Hatalarımız için temel bir yapı.
 export class AppError extends Error {
-    constructor(message: string, public readonly code: string) {
+    constructor(
+        message: string,
+        public readonly code: string = "UNKNOWN_ERROR",
+    ) {
         super(message);
         this.name = this.constructor.name;
     }
@@ -10,8 +13,11 @@ export class AppError extends Error {
 
 // Belirli Hata Türleri
 export class ApiError extends AppError {
-    constructor(message: string = "Harici servise ulaşılamadı.") {
-        super(message, "API_UNAVAILABLE");
+    constructor(
+        message: string = "Harici servise ulaşılamadı.",
+        code?: string,
+    ) {
+        super(message, code ?? "API_UNAVAILABLE");
     }
 }
 
@@ -45,6 +51,12 @@ export class AuthorizationError extends AppError {
     }
 }
 
+export class DatabaseError extends AppError {
+    constructor(message: string = "Veritabanı işlemi başarısız oldu.") {
+        super(message, "DATABASE_ERROR");
+    }
+}
+
 export class NetworkError extends AppError {
     constructor(message: string = "Ağ bağlantısı sorunu yaşandı.") {
         super(message, "NETWORK_ERROR");
@@ -54,12 +66,6 @@ export class NetworkError extends AppError {
 export class TimeoutError extends AppError {
     constructor(message: string = "İşlem zaman aşımına uğradı.") {
         super(message, "TIMEOUT_ERROR");
-    }
-}
-
-export class DatabaseError extends AppError {
-    constructor(message: string = "Veritabanı işlemi başarısız.") {
-        super(message, "DATABASE_ERROR");
     }
 }
 

@@ -1,10 +1,11 @@
 // hooks/useHomeScreen.ts
 import { useEffect, useRef, useState } from "react";
 import { Animated } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter } from "expo-router/";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { useVault } from "./useVault";
+import { supabase } from "../utils/supabase";
 
 export type ActiveModal = null | "dailyMessage" | "report";
 
@@ -80,15 +81,51 @@ export const useHomeScreen = () => {
             ? String(vault.metadata.dailyMessageContent)
             : "Bugün için mesajın burada görünecek.";
 
+    const dailyTheme = vault?.metadata?.dailyMessageTheme as string | null;
+    const decisionLogId = vault?.metadata?.dailyMessageDecisionLogId as
+        | string
+        | null;
+
+    const handleNavigateToTherapy = () => {
+        if (!dailyTheme) return;
+        setActiveModal(null); // Modalı kapat
+        animateBg(false); // Arka plan animasyonunu geri al
+        router.push({
+            pathname: "/therapy/therapy_options",
+            params: { startConversationWith: dailyTheme },
+        });
+    };
+
+    const handleSatisfaction = async (score: number) => {
+        if (!decisionLogId) return;
+        // Supabase RPC yerine Edge Function kullan
+        const { error } = await supabase.functions.invoke(
+            "update-satisfaction-score",
+            {
+                body: { log_id: decisionLogId, score: score },
+            },
+        );
+
+        if (error) {
+            console.error("[Satisfaction] Skor güncelleme hatası:", error);
+        } else {
+            // Başarılı mesaj göster
+        }
+    };
+
     return {
         activeModal,
         scaleAnim,
         dailyMessage,
+        dailyTheme,
+        decisionLogId,
         isVaultLoading,
         handleDailyPress,
         handleReportPress,
         handleSettingsPress,
         handleModalClose,
+        handleNavigateToTherapy,
+        handleSatisfaction,
         invalidateLatestReport: () =>
             queryClient.invalidateQueries({ queryKey: ["latestReport"] }),
     };

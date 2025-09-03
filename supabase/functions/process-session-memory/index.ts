@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
 import * as AiService from "../_shared/ai.service.ts";
-import { AI_MODELS } from "../_shared/config.ts";
+import { config } from "../_shared/config.ts";
 
 const getSummaryPrompt = (transcript: string) =>
   `Bu sohbet transkriptini analiz et ve özetle. Ana temaları, duyguları ve önemli noktaları çıkar. Özet, hafıza sisteminde saklanacak ve gelecekteki sohbetlerde kullanılacak. Transkript:
@@ -35,7 +35,7 @@ serve(async (req) => {
 
     const summary = await AiService.invokeGemini(
       getSummaryPrompt(transcript),
-      AI_MODELS.INTENT,
+      config.AI_MODELS.INTENT,
     );
     if (!summary || summary.trim().length < 10) {
       throw new Error("AI'dan geçerli özet alınamadı.");

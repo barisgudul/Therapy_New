@@ -20,7 +20,7 @@ import { GradientMoodImage } from "../../components/daily_reflection/GradientMoo
 import { GradientMoodLabel } from "../../components/daily_reflection/GradientMoodLabel";
 import InputModal from "../../components/daily_reflection/InputModal";
 import FeedbackModal from "../../components/daily_reflection/FeedbackModal";
-import { MOOD_LEVELS, tokens } from "../../constants/dailyWrite.constants";
+import { MOOD_LEVELS} from "../../constants/dailyWrite.constants";
 import { useDailyReflection } from "../../hooks/useDailyReflection";
 import { styles } from "../../styles/dailyWrite.styles";
 import { interpolateColor } from "../../utils/color.utils";
@@ -73,7 +73,14 @@ export default function DailyReflectionScreen() {
     factor,
   );
   const currentMood = MOOD_LEVELS[Math.round(state.moodValue)];
-  const gradientColors: [string, string] = [dynamicColor, tokens.tintMain];
+  const gradientColors: [string, string] = ["#E0ECFD", "#F4E6FF"];
+
+  const handleNavigateToTherapy = () => {
+    handlers.router.push({
+      pathname: '/therapy/therapy_options',
+      params: { startConversationWith: state.conversationTheme }
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -145,8 +152,8 @@ export default function DailyReflectionScreen() {
         onSubmit={() => handlers.setInputVisible(false)} // Sadece kapat
         note={state.note}
         onNoteChange={handlers.setNote}
-        gradientColors={gradientColors}
         dynamicColor={dynamicColor}
+        gradientColors={gradientColors}
       />
 
       <FeedbackModal
@@ -155,6 +162,9 @@ export default function DailyReflectionScreen() {
         aiMessage={state.aiMessage}
         gradientColors={gradientColors}
         dynamicColor={dynamicColor}
+        satisfactionScore={state.satisfactionScore}
+        onSatisfaction={handlers.handleSatisfaction}
+        onNavigateToTherapy={handleNavigateToTherapy}
       />
     </SafeAreaView>
   );

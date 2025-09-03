@@ -21,7 +21,7 @@ export function extractContentFromEvent(
             return getStringField(data, "dreamText");
         }
         case "daily_reflection": {
-            return getStringField(data, "text");
+            return getStringField(data, "todayNote");
         }
         case "diary_entry":
         case "text_session":

@@ -64,7 +64,9 @@ type TextSessionAction =
     | { type: "INITIALIZATION_ERROR"; payload: string }
     // YENİ: Hafıza modal için eylemler
     | { type: "OPEN_MEMORY_MODAL"; payload: TextMessage["memory"] }
-    | { type: "CLOSE_MEMORY_MODAL" };
+    | { type: "CLOSE_MEMORY_MODAL" }
+    // YENİ: Tema ile sohbet başlatma
+    | { type: "INITIALIZE_WITH_THEME"; payload: string };
 
 // Initial state
 const initialState: TextSessionState = {
@@ -134,6 +136,20 @@ function textSessionReducer(
                 messages: [], // MESAJ LİSTESİ BOMBOŞ BAŞLAYACAK!
                 transcript: "", // Transcript de boş başlasın
                 status: "welcoming", // YENİ STATUS'U AYARLA!
+            };
+        case "INITIALIZE_WITH_THEME":
+            // Tema ile AI'ın ilk mesajını ekle
+            const aiWelcomeMessage: TextMessage = {
+                sender: "ai",
+                text:
+                    `${action.payload} hakkında biraz daha konuşalım mı? Bu konuda ne düşünüyorsun?`,
+                isInsight: false,
+            };
+            return {
+                ...state,
+                messages: [aiWelcomeMessage], // AI'ın ilk mesajıyla başla
+                transcript: `AI: ${aiWelcomeMessage.text}\n`,
+                status: "idle", // Direkt sohbet moduna geç
             };
         case "INITIALIZE_FROM_HISTORY":
             return {
@@ -216,6 +232,7 @@ function textSessionReducer(
 interface UseTextSessionReducerProps {
     initialMood?: string;
     eventId?: string; // eventId artık opsiyonel bir prop
+    startConversationWith?: string; // Tema parametresi
     onSessionEnd: () => void;
 }
 
@@ -236,6 +253,7 @@ interface UseTextSessionReducerReturn {
 export function useTextSessionReducer({
     initialMood,
     eventId,
+    startConversationWith,
     onSessionEnd,
 }: UseTextSessionReducerProps): UseTextSessionReducerReturn {
     // Use reducer for state management
@@ -289,7 +307,16 @@ export function useTextSessionReducer({
                 }
             } else {
                 // eventId yoksa, yeni seans başlat
-                dispatch({ type: "INITIALIZE_NEW_SESSION" });
+                if (startConversationWith) {
+                    // Tema ile sohbet başlat
+                    dispatch({
+                        type: "INITIALIZE_WITH_THEME",
+                        payload: startConversationWith,
+                    });
+                } else {
+                    // Normal boş sohbet başlat
+                    dispatch({ type: "INITIALIZE_NEW_SESSION" });
+                }
             }
 
             if (initialMood) {
@@ -298,7 +325,7 @@ export function useTextSessionReducer({
         };
 
         initializeSession();
-    }, [eventId, initialMood]); // Bu effect sadece bir kere çalışmalı
+    }, [eventId, initialMood, startConversationWith]); // startConversationWith'u da dependency'ye ekle
 
     // Handle input changes
     const handleInputChange = useCallback((text: string) => {

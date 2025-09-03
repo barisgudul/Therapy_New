@@ -88,7 +88,8 @@
     "tailwindcss": "^4.1.11",
     "uuid": "^11.1.0",
     "zod": "^3.25.76",
-    "zustand": "^5.0.6"
+    "zustand": "^5.0.6",
+    "expo-clipboard": "~7.1.5"
   },
   "devDependencies": {
     "@babel/core": "^7.28.3",

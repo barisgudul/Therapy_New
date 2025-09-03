@@ -6,6 +6,8 @@ import { getUserVault } from "../_shared/vault.service.ts";
 import { eventHandlers } from "../_shared/orchestration.handlers.ts";
 import type { EventPayload } from "../_shared/event.service.ts";
 import type { InteractionContext } from "../_shared/types/context.ts";
+import { isAppError } from "../_shared/errors.ts";
+import { LoggingService } from "../_shared/utils/LoggingService.ts";
 
 function generateId(): string {
   // Deno'da crypto.randomUUID() standarttır ve daha güvenlidir.
@@ -31,9 +33,17 @@ serve(async (req: Request) => {
     }
 
     // CONTEXT OLUŞTURMA
+    const transactionId = generateId();
+
+    // LOGGER'I OLUŞTUR
+    const logger = new LoggingService(transactionId, user.id);
+    logger.info("Orchestrator", "İşlem başlıyor", {
+      eventType: eventPayload.type,
+    });
+
     const initialVault = await getUserVault(user.id, adminClient) ?? {};
     const context: InteractionContext = {
-      transactionId: generateId(),
+      transactionId,
       userId: user.id,
       initialVault,
       initialEvent: {
@@ -43,6 +53,7 @@ serve(async (req: Request) => {
         timestamp: Date.now(),
         created_at: new Date().toISOString(),
       },
+      logger,
       derivedData: {},
     };
 
@@ -59,13 +70,8 @@ serve(async (req: Request) => {
     let responsePayload: unknown;
 
     if (typeof result === "string") {
-      // daily_reflection string döndürür: aiResponse olarak sarmala
-      if (eventPayload.type === "daily_reflection") {
-        responsePayload = { aiResponse: result };
-      } else {
-        // RÜYA ANALİZİ vb. için string ise eventId olarak sarmala
-        responsePayload = { eventId: result };
-      }
+      // RÜYA ANALİZİ vb. için string ise eventId olarak sarmala
+      responsePayload = { eventId: result };
     } else {
       // GÜNLÜK GİBİ KOMPLEKS OBJE DÖNEN DURUMLAR İÇİN: zaten obje olanı olduğu gibi kullan.
       responsePayload = result;
@@ -76,11 +82,36 @@ serve(async (req: Request) => {
       status: 200,
     });
   } catch (error) {
-    const message = (error as Error)?.message ?? String(error);
-    console.error("[Orchestrator] KRİTİK HATA:", message, error);
-    return new Response(JSON.stringify({ error: message }), {
+    console.error(
+      "[Orchestrator] KRİTİK HATA:",
+      (error as Error)?.message,
+      error,
+    );
+
+    let responseBody: { error: string; code: string };
+    let statusCode: number;
+
+    // Hatanın bizim tanımladığımız özel bir hata olup olmadığını kontrol ediyoruz
+    if (isAppError(error)) {
+      responseBody = {
+        error: error.message,
+        code: error.code, // Hatanın etiketini (örn: "VALIDATION_ERROR") ekliyoruz
+      };
+      // Genellikle kullanıcıdan kaynaklı hatalar 400'dür.
+      statusCode = 400;
+    } else {
+      // Eğer bizim tanımlamadığımız, beklenmedik bir sistem hatasıysa
+      responseBody = {
+        error: "Sistemde beklenmedik bir sorun oluştu.",
+        code: "INTERNAL_SERVER_ERROR", // Genel sistem hatası etiketi
+      };
+      // Bu bizim suçumuz, sunucu hatası olarak 500 dönmeliyiz.
+      statusCode = 500;
+    }
+
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      status: statusCode,
     });
   }
 });

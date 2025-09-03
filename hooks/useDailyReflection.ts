@@ -8,8 +8,12 @@ import Toast from "react-native-toast-message";
 import { MOOD_LEVELS } from "../constants/dailyWrite.constants";
 import { useAuth } from "../context/Auth";
 import { incrementFeatureUsage } from "../services/api.service";
-import { logEvent } from "../services/event.service";
-import { getErrorMessage } from "../utils/errors";
+import {
+    ApiError,
+    getErrorMessage,
+    isAppError,
+    ValidationError,
+} from "../utils/errors";
 import { useFeatureAccess } from "./useSubscription";
 import { useUpdateVault, useVault } from "./useVault";
 import { supabase } from "../utils/supabase";
@@ -30,6 +34,13 @@ export function useDailyReflection() {
 
     const [aiMessage, setAiMessage] = useState("");
     const [saving, setSaving] = useState(false);
+    const [decisionLogId, setDecisionLogId] = useState<string>("");
+    const [satisfactionScore, setSatisfactionScore] = useState<number | null>(
+        null,
+    );
+    const [conversationTheme, setConversationTheme] = useState<string | null>(
+        null,
+    ); // <-- YENİ STATE EKLE
 
     const entryAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -109,10 +120,11 @@ export function useDailyReflection() {
         setFeedbackVisible(true);
 
         try {
+            // ADIM 1: Freemium kullanımını artır. Bu ayrı bir işlem olduğu için kendi try-catch'i olabilir.
             await incrementFeatureUsage("daily_write");
 
+            // ADIM 2: Ana işlemi (orchestrator'ı çağırmak) yap.
             const todayMood = MOOD_LEVELS[Math.round(moodValue)].label;
-
             const { data, error } = await supabase.functions.invoke(
                 "orchestrator",
                 {
@@ -126,26 +138,112 @@ export function useDailyReflection() {
                 },
             );
 
-            if (error) throw error;
+            // Supabase'den gelen yapısal hatayı DÜZGÜN YÖNET
+            if (error) {
+                // error.message içinde JSON string'i olduğunu biliyoruz.
+                // AMA KIRILGAN OLMAYALIM. Ya değilse?
+                let parsedError;
+                try {
+                    parsedError = JSON.parse(error.message);
+                } catch (_e) {
+                    // JSON değilse, bu beklenmedik bir durum. Genel bir hata fırlat.
+                    throw new ApiError(
+                        "API'den anlaşılamayan bir hata formatı döndü.",
+                        "UNEXPECTED_FORMAT",
+                    );
+                }
 
-            const aiResponse = typeof data === "string"
-                ? data
-                : data?.aiResponse || "";
+                // Artık parsedError'ın bir nesne olduğunu biliyoruz.
+                if (parsedError.code === "VALIDATION_ERROR") {
+                    throw new ValidationError(parsedError.error);
+                } else {
+                    throw new ApiError(
+                        parsedError.error,
+                        parsedError.code || "API_ERROR",
+                    );
+                }
+            }
 
+            // Başarılı durum
+            const aiResponse = data?.aiResponse || "Yansımanız hazırlandı.";
             setAiMessage(aiResponse);
-        } catch (err) {
-            setAiMessage("Yansıma oluşturulamadı. Lütfen tekrar dene.");
-            Toast.show({
-                type: "error",
-                text1: "Hata",
-                text2: getErrorMessage(err),
-            });
-            logEvent({
-                type: "daily_write_error",
-                data: { msg: getErrorMessage(err) },
+
+            if (data?.decisionLogId) {
+                setDecisionLogId(data.decisionLogId);
+                setSatisfactionScore(null);
+            }
+
+            if (data?.conversationTheme) {
+                setConversationTheme(data.conversationTheme); // <-- GELEN TEMAYI STATE'E KAYDET
+            }
+        } catch (err) { // Bu catch artık HEM supabase hatasını HEM de ağ hatasını yakalar.
+            // Hata mesajını ve UI'ı güncelle.
+            setAiMessage("Yansıma oluşturulamadı. Lütfen tekrar deneyin.");
+
+            // Hata türüne göre kullanıcıya farklı mesajlar göster.
+            if (err instanceof ValidationError) {
+                Toast.show({
+                    type: "error",
+                    text1: "Eksik Bilgi",
+                    text2: err.message,
+                });
+            } else if (err instanceof ApiError) {
+                Toast.show({
+                    type: "error",
+                    text1: "Bir Sorun Oluştu",
+                    text2: err.message,
+                });
+            } else {
+                Toast.show({
+                    type: "error",
+                    text1: "Beklenmedik Hata",
+                    text2: "Lütfen internet bağlantınızı kontrol edin.",
+                });
+            }
+
+            // Hata sonrası modalı hemen kapatma, kullanıcının mesajı görmesine izin ver.
+            setTimeout(() => setFeedbackVisible(false), 2500);
+
+            // Gerçek hatayı Sentry gibi bir yere logla.
+            console.error("[LOG_TO_SENTRY]", {
+                message: getErrorMessage(err),
+                code: isAppError(err) ? err.code : "CLIENT_UNHANDLED",
+                originalError: err,
             });
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function handleSatisfaction(score: number) {
+        if (!decisionLogId || satisfactionScore !== null) return; // Zaten skorlanmış veya log yok
+
+        try {
+            // DOĞRUSU: Bu bir RPC değil, bir Edge Function çağrısı.
+            const { error } = await supabase.functions.invoke(
+                "update-satisfaction-score",
+                {
+                    body: { log_id: decisionLogId, score: score },
+                },
+            );
+
+            if (error) throw error; // Hatayı yakalamak için fırlat
+
+            setSatisfactionScore(score);
+            Toast.show({
+                type: "success",
+                text1: "Geri bildiriminiz için teşekkürler!",
+                text2: "Yanıtımız giderek iyileşiyor.",
+                position: "bottom",
+            });
+        } catch (error: any) {
+            console.error("[Satisfaction] Skor güncelleme hatası:", error);
+            Toast.show({
+                type: "error",
+                text1: "Geri Bildirim Gönderilemedi",
+                text2: getErrorMessage(error), // Kullanıcıya anlamlı hata göster
+                position: "bottom",
+            });
         }
     }
 
@@ -169,7 +267,9 @@ export function useDailyReflection() {
 
             setNote("");
             setAiMessage("");
-            router.back();
+            setDecisionLogId("");
+            setSatisfactionScore(null);
+            setConversationTheme(null);
         } catch (err) {
             Toast.show({
                 type: "error",
@@ -199,6 +299,9 @@ export function useDailyReflection() {
             feedbackVisible,
             aiMessage,
             saving,
+            decisionLogId,
+            satisfactionScore,
+            conversationTheme,
             freemium: { can_use, loading, used_count, limit_count },
             light1,
             light2,
@@ -214,6 +317,7 @@ export function useDailyReflection() {
             animatePress,
             saveSession,
             closeFeedback,
+            handleSatisfaction,
             router,
             onSlidingComplete: (v: number) => {
                 const roundedValue = Math.round(v);

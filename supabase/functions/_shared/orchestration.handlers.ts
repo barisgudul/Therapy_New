@@ -2,7 +2,7 @@
 
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import type { InteractionContext, VaultData } from "./types/context.ts";
-import { ValidationError } from "./errors.ts";
+import { ApiError, DatabaseError, ValidationError } from "./errors.ts";
 import { supabase as adminClient } from "./supabase-admin.ts";
 import * as AiService from "./ai.service.ts";
 import * as RagService from "./rag.service.ts";
@@ -15,6 +15,8 @@ import {
   getDiaryNextQuestionsPrompt,
   getDiaryStartPrompt,
 } from "./prompts/diary.prompt.ts";
+import { LoggingService as _LoggingService } from "./utils/LoggingService.ts";
+import { config } from "./config.ts";
 
 // ===============================================
 // ZOD ŞEMALARI VE DOĞRULAMA
@@ -204,13 +206,16 @@ async function getEnhancedRagContext(
       `Şu rüyanın 1-3 anahtar kelimelik temasını çıkar: "${dreamText}". Sadece temaları virgülle ayırarak yaz.`;
     const themes = await AiService.invokeGemini(
       themePrompt,
-      "gemini-1.5-flash",
+      config.AI_MODELS.FAST,
     );
     const enrichedQuery = `${dreamText} ${themes}`;
     const retrievedMemories = await RagService.retrieveContext(
       userId,
       enrichedQuery,
-      { threshold: 0.37, count: 9 }, // Rüya analizi için orta eşik, daha fazla sonuç
+      {
+        threshold: config.RAG_PARAMS.DREAM_ANALYSIS.threshold,
+        count: config.RAG_PARAMS.DREAM_ANALYSIS.count,
+      }, // Rüya analizi için config'den değerler
     );
     // --- MİKROSKOP BURADA ---
     await logRagInvocation(adminClient, {
@@ -233,7 +238,10 @@ async function getEnhancedRagContext(
     const retrievedMemories = await RagService.retrieveContext(
       userId,
       dreamText,
-      { threshold: 0.27, count: 7 }, // Fallback için düşük eşik, orta sayıda sonuç
+      {
+        threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
+        count: config.RAG_PARAMS.DEFAULT.COUNT,
+      }, // Fallback için config'den değerler
     );
     return retrievedMemories.map((c) => `- ${c.content}`).join("\n");
   }
@@ -249,9 +257,8 @@ async function getEnhancedRagContext(
 export async function handleDreamAnalysis(
   context: InteractionContext,
 ): Promise<string> {
-  console.log(
-    `[ORCHESTRATOR] Gelişmiş rüya analizi başlatılıyor: ${context.transactionId}`,
-  );
+  const { logger } = context;
+  logger.info("DreamAnalysis", "Gelişmiş rüya analizi başlatılıyor");
   const { dreamText } = context.initialEvent.data as { dreamText?: string };
   const userId = context.userId;
 
@@ -292,7 +299,7 @@ export async function handleDreamAnalysis(
     );
     const rawResponse = await AiService.invokeGemini(
       masterPrompt,
-      "gemini-1.5-pro",
+      config.AI_MODELS.ADVANCED,
       {
         responseMimeType: "application/json",
       },
@@ -346,17 +353,19 @@ export async function handleDreamAnalysis(
         decision_category: "dream_analysis",
         complexity_level: "complex",
       });
-      console.log(
-        `[ORCHESTRATOR] AI kararı başarıyla loglandı. Güven: %${
+      logger.info(
+        "DreamAnalysis",
+        `AI kararı başarıyla loglandı. Güven: ${
           (confidence * 100).toFixed(0)
-        }`,
+        }%`,
       );
     } catch (logError) {
-      console.error("AI karar loglama hatası:", logError);
+      logger.error("DreamAnalysis", "AI karar loglama hatası", logError);
     }
 
-    console.log(
-      `[ORCHESTRATOR] Beyin ameliyatı başarılı. Yeni event ID: ${newEventId}`,
+    logger.info(
+      "DreamAnalysis",
+      `Beyin ameliyatı başarılı. Yeni event ID: ${newEventId}`,
     );
 
     // --- HAFIZA KAYDI: process-memory (artık await kullanıyoruz) ---
@@ -373,40 +382,52 @@ export async function handleDreamAnalysis(
         },
       });
     } catch (err) {
-      console.error(
-        `[Orchestrator] process-memory invoke hatası (dream_analysis):`,
-        err,
-      );
+      logger.error("DreamAnalysis", "process-memory invoke hatası", err);
     }
     return newEventId;
   } catch (error) {
-    console.error(`[ORCHESTRATOR] Rüya analizi sırasında kritik hata:`, error);
+    logger.error("DreamAnalysis", "Rüya analizi sırasında kritik hata", error);
     throw error;
   }
 }
 
 /**
- * Günlük Yansıma Beyin Lobu
+ * Günlük Yansıma Beyin Lobu - ATOMİK VE GÜVENLİ SÜRÜM
  */
 export async function handleDailyReflection(
   context: InteractionContext,
-): Promise<string> {
-  console.log(
-    `[ORCHESTRATOR] Zamansal yansıma işleniyor: ${context.transactionId}`,
-  );
+): Promise<
+  { aiResponse: string; conversationTheme: string; decisionLogId: string }
+> {
+  const { logger, userId, initialVault, transactionId } = context;
+  logger.info("DailyReflection", `İşlem ${transactionId} başlıyor`);
 
-  const { todayNote, todayMood } = context.initialEvent.data as {
-    todayNote?: string;
-    todayMood?: string;
-  };
-  const { userId, initialVault } = context;
-
-  if (!todayNote || !todayMood) {
-    throw new ValidationError("Yansıma için not ve duygu durumu gereklidir.");
-  }
+  // Bütün işlemi tek bir transaction gibi sarmalamak için değişkenleri en üste tanımla.
+  // Bu, hata durumunda hangi adımların tamamlandığını bilmemizi sağlar.
+  let sourceEventId: string | null = null;
+  let decisionLogIdFromDb: string | null = null;
 
   try {
-    // --- YENİ, HAFİF VERİ TOPLAMA ---
+    const { todayNote, todayMood } = context.initialEvent.data as {
+      todayNote?: string;
+      todayMood?: string;
+    };
+    if (!todayNote || !todayMood) {
+      throw new ValidationError("Yansıma için not ve duygu durumu gereklidir.");
+    }
+
+    // =================================================================
+    // ADIM 1: VERİ TOPLAMA VE AI İŞLEMİ (HENÜZ VERİTABANI YAZMASI YOK)
+    // =================================================================
+    const retrievedMemories = await RagService.retrieveContext(
+      userId,
+      todayNote, // Bugünün notuyla ilgili anıları ara
+      {
+        threshold: config.RAG_PARAMS.DAILY_REFLECTION.threshold,
+        count: config.RAG_PARAMS.DAILY_REFLECTION.count,
+      }, // Günlük yansıma için config'den değerler
+    );
+
     // Dünün tarihini hesapla
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -424,71 +445,128 @@ export async function handleDailyReflection(
       .maybeSingle();
 
     if (yesterdayError) {
-      console.warn(
-        `[Reflection] Dünün verisi çekilirken hata:`,
-        yesterdayError,
-      );
+      logger.warn("DailyReflection", "Dünün verisi çekilirken hata", {
+        error: yesterdayError,
+      });
     }
-    // --- BİTTİ ---
 
     const userName = initialVault.profile?.nickname ?? null;
 
+    // PROMPT'A YENİ BİLGİLERİ GÖNDER
     const prompt = getTemporalReflectionPrompt(
       userName,
       { mood: todayMood, note: todayNote },
-      yesterdayEvent
-        ? { mood: yesterdayEvent.mood, note: yesterdayEvent.data?.text || "" }
-        : null,
+      retrievedMemories,
     );
 
-    // Hızlı ve ucuz model bu iş için mükemmel.
-    const aiResponse = await AiService.invokeGemini(
+    // AI'dan yanıtı al. Eğer bu patlarsa, zaten veritabanına bir şey yazmadığımız için sorun yok.
+    const aiJsonResponse = await AiService.invokeGemini(
       prompt,
-      "gemini-1.5-flash",
-      { temperature: 0.7 },
+      config.AI_MODELS.FAST,
+      { temperature: 0.7, responseMimeType: "application/json" },
     );
 
-    // Olayı kaydet
-    const { data: insertedDaily, error: eventInsertError } = await adminClient
+    // GELEN JSON'I AYRIŞTIR
+    let parsedResponse: { reflectionText: string; conversationTheme: string };
+    try {
+      parsedResponse = JSON.parse(aiJsonResponse);
+    } catch (_e) {
+      throw new ApiError("AI'dan geçersiz formatta yanıt alındı.");
+    }
+
+    const { reflectionText, conversationTheme } = parsedResponse;
+
+    // =================================================================
+    // ADIM 2: ATOMİK VERİTABANI YAZMA BLOĞU
+    // Bütün kritik yazma işlemleri şimdi başlıyor.
+    // =================================================================
+
+    // ADIM 2.1: Ana Olayı (Event) Kaydet.
+    const { data: insertedEvent, error: eventError } = await adminClient
       .from("events").insert({
         user_id: userId,
         type: "daily_reflection",
-        timestamp: new Date().toISOString(),
-        data: { text: todayNote, aiResponse },
+        timestamp: new Date().toISOString(), // Bu alanı ekle, 'created_at' trigger ile dolsa bile explicit olmak iyidir.
+        data: {
+          todayNote,
+          reflectionText,
+          conversationTheme,
+          transactionId,
+          status: "processing",
+        }, // Hata takibi için transactionId ve status ekle!
         mood: todayMood,
-      })
-      .select("id, created_at")
-      .single();
-    if (eventInsertError) {
-      console.error("[EventInsert] Hata:", eventInsertError);
-    }
+      }).select("id, created_at").single();
 
-    // --- HAFIZA KAYDI: process-memory (artık await kullanıyoruz) ---
-    try {
-      const sourceId = String(insertedDaily?.id ?? "");
-      if (sourceId) {
-        await adminClient.functions.invoke("process-memory", {
-          body: {
-            source_event_id: sourceId,
-            user_id: userId,
-            content: todayNote,
-            event_time:
-              (insertedDaily as { created_at?: string })?.created_at ??
-                new Date().toISOString(),
-            mood: todayMood,
-            event_type: "daily_reflection",
-            transaction_id: context.transactionId,
-          },
-        });
-      }
-    } catch (err) {
-      console.error(
-        `[Orchestrator] process-memory invoke hatası (daily_reflection):`,
-        err,
+    if (eventError) {
+      throw new DatabaseError(
+        `Event kaydı başarısız oldu: ${eventError.message}`,
       );
     }
+    sourceEventId = insertedEvent.id; // Hata durumunda referans için ID'yi al.
+    logger.info("DailyReflection", `Event ${sourceEventId} oluşturuldu.`);
 
-    // Vault güncelle (beklemeden başlat)
+    // ADIM 2.2: AI Kararını Logla.
+    const { data: logEntry, error: logError } = await adminClient
+      .from("ai_decision_log")
+      .insert({
+        user_id: userId,
+        decision_context: `Duygu: ${todayMood}. Not: "${
+          todayNote.substring(0, 200)
+        }..."`,
+        decision_made: `AI yanıtı üretildi: "${
+          reflectionText.substring(0, 300)
+        }..."`,
+        reasoning: JSON.stringify({
+          retrievedMemoriesCount: retrievedMemories.length,
+          mood: todayMood,
+          yesterdayEvent: yesterdayEvent ? "found" : "not_found",
+        }),
+        execution_result: { success: true, eventId: sourceEventId },
+        confidence_level: 0.8,
+        decision_category: "daily_reflection",
+        complexity_level: "medium",
+        user_satisfaction_score: null, // Henüz skorlanmadı
+      })
+      .select("id")
+      .single();
+
+    if (logError) {
+      throw new DatabaseError(
+        `AI Karar logu başarısız oldu: ${logError.message}`,
+      );
+    }
+    decisionLogIdFromDb = logEntry.id;
+    logger.info(
+      "DailyReflection",
+      `Decision Log ${decisionLogIdFromDb} oluşturuldu.`,
+    );
+
+    // ADIM 2.3: process-memory'i GÜVENLİ bir şekilde tetikle.
+    const { error: processMemoryError } = await adminClient.functions.invoke(
+      "process-memory",
+      {
+        body: {
+          source_event_id: sourceEventId,
+          user_id: userId,
+          content: todayNote,
+          event_time: insertedEvent.created_at,
+          mood: todayMood,
+          event_type: "daily_reflection",
+          transaction_id: transactionId,
+        },
+      },
+    );
+    if (processMemoryError) {
+      throw new ApiError(
+        `'process-memory' invoke hatası: ${processMemoryError.message}`,
+      );
+    }
+    logger.info(
+      "DailyReflection",
+      `process-memory ${sourceEventId} için tetiklendi.`,
+    );
+
+    // ADIM 2.4: Vault'u güncelle.
     const todayString = new Date().toISOString().split("T")[0];
     const newVault: VaultData & {
       currentMood?: string;
@@ -499,7 +577,9 @@ export async function handleDailyReflection(
       metadata: {
         ...(initialVault?.metadata || {}),
         lastDailyReflectionDate: todayString,
-        dailyMessageContent: aiResponse,
+        dailyMessageContent: reflectionText,
+        dailyMessageTheme: conversationTheme, // <-- YENİ
+        dailyMessageDecisionLogId: decisionLogIdFromDb, // <-- YENİ
       },
       moodHistory: [
         ...(initialVault?.moodHistory || []),
@@ -510,34 +590,56 @@ export async function handleDailyReflection(
         },
       ].slice(-30),
     };
-    try {
-      await VaultService.updateUserVault(userId, newVault, adminClient);
-    } catch (e) {
-      console.error("[VaultUpdate] Hata:", e);
-    }
+    await VaultService.updateUserVault(userId, newVault, adminClient);
+    logger.info("DailyReflection", `Vault güncellendi.`);
 
-    // Journey log (opsiyonel; mevcut olmayabilir) - try/catch ile güvenli
-    try {
-      const { error: journeyError } = await adminClient.from("journey_logs")
-        .insert({
-          user_id: userId,
-          log_text:
-            `Günlük yansıma tamamlandı: ${todayMood} ruh hali kaydedildi.`,
-        });
-      if (journeyError) {
-        // tablo olmayabilir; sessizce geç
-      }
-    } catch (_e) {
-      // tablo olmayabilir; sessizce geç
-    }
+    // ADIM 2.5: Her şey tamamsa, Event'in durumunu "completed" yap. (Bu, en iyi pratiktir)
+    await adminClient.from("events").update({
+      data: {
+        ...context.initialEvent.data,
+        status: "completed",
+        reflectionText,
+        conversationTheme,
+      },
+    }).eq("id", sourceEventId);
 
-    console.log(`[ORCHESTRATOR] RAG destekli günlük yansıma yanıtı üretildi.`);
-    return aiResponse;
-  } catch (error) {
-    console.error(
-      "[ORCHESTRATOR] Günlük yansıma sırasında kritik hata:",
-      error,
+    logger.info(
+      "DailyReflection",
+      `İşlem ${transactionId} başarıyla tamamlandı.`,
     );
+    return {
+      aiResponse: reflectionText,
+      conversationTheme,
+      decisionLogId: decisionLogIdFromDb!,
+    };
+  } catch (error) {
+    // =================================================================
+    // KRİTİK HATA TELAFİ (COMPENSATION) BLOĞU
+    // =================================================================
+    logger.error("DailyReflection", "İşlem zincirinde kritik hata", error, {
+      transactionId,
+    });
+
+    if (sourceEventId) {
+      // Eğer işlem yarıda kesildiyse, ilgili event kaydını "failed" olarak işaretle.
+      // Bu, production'da neyin neden patladığını anlaman için hayat kurtarır.
+      await adminClient
+        .from("events")
+        .update({
+          data: {
+            ...context.initialEvent.data,
+            status: "failed",
+            error: error instanceof Error ? error.message : String(error),
+          },
+        })
+        .eq("id", sourceEventId);
+      logger.warn(
+        "DailyReflection",
+        `Event ${sourceEventId} 'failed' olarak işaretlendi.`,
+      );
+    }
+
+    // Hatayı yukarı fırlat ki orchestrator yakalasın ve client'a standart bir hata dönsün.
     throw error;
   }
 }
@@ -545,8 +647,10 @@ export async function handleDailyReflection(
 export function handleDefault(
   context: InteractionContext,
 ): Promise<string> {
-  console.log(
-    `[ORCHESTRATOR] Varsayılan handler çalıştı: ${context.initialEvent.type}`,
+  const { logger } = context;
+  logger.info(
+    "DefaultHandler",
+    `Varsayılan handler çalıştı: ${context.initialEvent.type}`,
   );
   return Promise.resolve(
     `"${context.initialEvent.type}" tipi için işlem başarıyla alındı ancak henüz özel bir beyin lobu atanmadı.`,
@@ -561,6 +665,7 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   aiResponse: string;
   usedMemory: { content: string; source_layer: string } | null;
 }> {
+  const { logger } = context;
   const { userMessage, messages } = context.initialEvent.data as {
     userMessage?: string;
     messages?: { sender: "user" | "ai"; text: string }[];
@@ -592,10 +697,16 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     retrievedMemories = await RagService.retrieveContext(
       context.userId,
       userMessage,
-      { threshold: 0.45, count: 3 },
+      {
+        threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
+        count: config.RAG_PARAMS.DEFAULT.COUNT,
+      },
     );
   } else {
-    console.log("[RAG] Anlamsız kelime algılandı, RAG sorgusu atlanıyor.");
+    logger.info(
+      "TextSession",
+      "Anlamsız kelime algılandı, RAG sorgusu atlanıyor",
+    );
   }
   // === YENİ AKILLI KONTROL BLOKU SONU ===
   const pastContext = retrievedMemories.length > 0
@@ -681,7 +792,8 @@ export async function handleDiaryEntry(
     conversationId: string;
   }
 > {
-  console.log(`[DiaryHandler] İşlem başladı: ${context.transactionId}`);
+  const { logger } = context;
+  logger.info("DiaryHandler", "İşlem başladı");
 
   const { userInput, conversationId } = context.initialEvent.data as {
     userInput?: string;
@@ -715,11 +827,11 @@ export async function handleDiaryEntry(
 
   if (!conversationId) {
     // Yeni konuşma başlangıcı
-    console.log("[DiaryHandler] Yeni bir günlük konuşması başlatılıyor.");
+    logger.info("DiaryHandler", "Yeni bir günlük konuşması başlatılıyor");
     const prompt = getDiaryStartPrompt(userInput, userName, vaultContext);
     const rawAiResponse = await AiService.invokeGemini(
       prompt,
-      "gemini-1.5-flash",
+      config.AI_MODELS.FAST,
       {
         responseMimeType: "application/json",
       },
@@ -734,11 +846,11 @@ export async function handleDiaryEntry(
     responsePayload.nextQuestions = validation.data.questions;
   } else {
     // Devam eden konuşma
-    console.log(`[DiaryHandler] Konuşma devam ediyor: ${conversationId}`);
+    logger.info("DiaryHandler", `Konuşma devam ediyor: ${conversationId}`);
     const prompt = getDiaryNextQuestionsPrompt(userInput, userName);
     const rawAiResponse = await AiService.invokeGemini(
       prompt,
-      "gemini-1.5-flash",
+      config.AI_MODELS.FAST,
       {
         responseMimeType: "application/json",
       },
@@ -750,8 +862,9 @@ export async function handleDiaryEntry(
 
     const shouldEndConversation = Math.random() > 0.6;
     if (shouldEndConversation) {
-      console.log(
-        "[DiaryHandler] Konuşma bitiriliyor. Kapanış analizi üretiliyor...",
+      logger.info(
+        "DiaryHandler",
+        "Konuşma bitiriliyor. Kapanış analizi üretiliyor...",
       );
 
       // --- HAFIZA ENJEKSİYONU: Günün temasını çıkar ve RAG ile geçmişten bağlam getir ---
@@ -759,14 +872,17 @@ export async function handleDiaryEntry(
         `Bu konuşmanın ana temasını 3-5 kelimeyle özetle: "${userInput}"`;
       const theme = await AiService.invokeGemini(
         themeExtractionPrompt,
-        "gemini-1.5-flash",
+        config.AI_MODELS.FAST,
       );
       const searchQuery =
         `Bugünkü konuşmanın ana teması: ${theme}. Bu temayla ilgili geçmişteki en alakalı anılar, rüyalar veya farkındalık anları.`;
       const retrievedMemories = await RagService.retrieveContext(
         context.userId,
         searchQuery,
-        { threshold: 0.37, count: 7 }, // Günlük kapanış için düşük eşik, az sayıda sonuç
+        {
+          threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
+          count: config.RAG_PARAMS.DEFAULT.COUNT,
+        }, // Günlük kapanış için config'den değerler
       );
 
       // --- MİKROSKOP BURADA ---
@@ -799,7 +915,7 @@ export async function handleDiaryEntry(
       );
       const rawConclusion = await AiService.invokeGemini(
         conclusionPrompt,
-        "gemini-1.5-flash",
+        config.AI_MODELS.FAST,
         { responseMimeType: "application/json" },
       );
       let summary = "";

@@ -14,11 +14,8 @@ import { invokeGemini } from "./ai.service.ts";
 // 🚀 FAZ 2: BEHAVIORAL PATTERN ANALYZER
 // "Unconscious Detection" yerine veri-temelli davranış analizi
 
-// AI_MODELS sabitini environment variable'dan al
-const AI_MODELS = {
-  FAST: Deno.env.get("AI_MODEL_FAST") || "gemini-1.5-flash",
-  ADVANCED: Deno.env.get("AI_MODEL_ADVANCED") || "gemini-1.5-pro",
-};
+// AI_MODELS artık config.ts'den geliyor
+import { config } from "./config.ts";
 
 // ANALİZ SABİTLERİ
 const ANALYSIS_CONSTANTS = {
@@ -659,7 +656,7 @@ Maksimum 300 kelime.
     `.trim();
 
     try {
-      return await invokeGemini(prompt, AI_MODELS.FAST, {
+      return await invokeGemini(prompt, config.AI_MODELS.FAST, {
         temperature: 0.6,
         maxOutputTokens: 400,
       });

@@ -1,15 +1,72 @@
 // supabase/functions/_shared/config.ts
-export const AI_MODELS = {
-  INTENT: "gemini-1.5-flash",
-  RESPONSE: "gemini-1.5-flash",
+
+/**
+ * Çevre değişkenini (environment variable) okuyan yardımcı fonksiyon.
+ * Değişken bulunamazsa, sağlanan varsayılan değeri kullanır.
+ * Bu, hem local geliştirmeyi (varsayılan değerlerle) hem de production'ı
+ * (Supabase Dashboard'dan ayarlanan değerlerle) destekler.
+ */
+const getEnv = (key: string, defaultValue: string): string =>
+  Deno.env.get(key) ?? defaultValue;
+const getEnvAsNumber = (key: string, defaultValue: number): number => {
+  const value = Deno.env.get(key);
+  return value ? parseFloat(value) : defaultValue;
 };
 
-export const RAG_CONFIG = {
-  THRESHOLD: 0.75,
-  COUNT: 3,
-};
+/**
+ * UYGULAMA GENELİ KONFİGÜRASYON MERKEZİ
+ * Tüm "sihirli sayılar" ve "sihirli metinler" burada toplanmalıdır.
+ * 'as const' ifadesi, bu objenin ve içindeki tüm değerlerin
+ * çalışma zamanında değiştirilemez (readonly) olmasını sağlar, bu da hataları önler.
+ */
+export const config = {
+  /**
+   * Yapay zeka modelleri için merkezi ayarlar.
+   * Yarın Gemini 2.0 çıktığında, sadece burayı değiştirmen yeterli olacak.
+   */
+  AI_MODELS: {
+    // Hızlı ve ucuz işler için (niyet analizi, basit cevaplar)
+    FAST: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
 
-export const PROMPT_LIMITS = {
-  MAX_PROMPT_LENGTH: 1000,
-  MAX_RESPONSE_LENGTH: 500,
-};
+    // Derin analiz ve karmaşık görevler için (rüya analizi, raporlama)
+    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-1.5-pro-latest"),
+
+    // Eskiden kullandığın "INTENT" ve "RESPONSE" anahtarlarını koruyoruz
+    // ama artık daha genel olan "FAST" modelini kullanıyorlar.
+    // Bu, eski kodun kırılmasını engeller ama yeni kodda "FAST" kullanmalısın.
+    INTENT: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
+    RESPONSE: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
+  },
+
+  /**
+   * Retrieval-Augmented Generation (RAG) için parametreler.
+   * Farklı kullanım senaryoları için farklı hassasiyet ayarları.
+   */
+  RAG_PARAMS: {
+    // Günlük yansıma gibi daha genel, kişisel konular için
+    DAILY_REFLECTION: {
+      threshold: getEnvAsNumber("RAG_THRESHOLD_DAILY", 0.4),
+      count: getEnvAsNumber("RAG_COUNT_DAILY", 3),
+    },
+    // Rüya analizi gibi daha spesifik ve derin konular için
+    DREAM_ANALYSIS: {
+      threshold: getEnvAsNumber("RAG_THRESHOLD_DREAM", 0.37),
+      count: getEnvAsNumber("RAG_COUNT_DREAM", 9),
+    },
+    // Eskiden kullandığın genel RAG_CONFIG'i koruyoruz ama
+    // artık daha spesifik olan üsttekileri kullanmalısın.
+    DEFAULT: {
+      THRESHOLD: getEnvAsNumber("RAG_THRESHOLD_DEFAULT", 0.75),
+      COUNT: getEnvAsNumber("RAG_COUNT_DEFAULT", 3),
+    },
+  },
+
+  /**
+   * Prompt ve yanıtlar için genel limitler.
+   * Sistemi kötüye kullanımdan ve aşırı maliyetlerden korur.
+   */
+  PROMPT_LIMITS: {
+    MAX_PROMPT_LENGTH: getEnvAsNumber("MAX_PROMPT_LENGTH", 1000),
+    MAX_RESPONSE_LENGTH: getEnvAsNumber("MAX_RESPONSE_LENGTH", 500),
+  },
+} as const;

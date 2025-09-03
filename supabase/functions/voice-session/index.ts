@@ -4,7 +4,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 import * as AiService from "../_shared/ai.service.ts";
 import * as RagService from "../_shared/rag.service.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
-import { AI_MODELS, PROMPT_LIMITS, RAG_CONFIG } from "../_shared/config.ts";
+import { config } from "../_shared/config.ts";
+// RAG_CONFIG için geriye uyumluluk - artık config.RAG_PARAMS.DEFAULT kullanıyoruz
 
 // Loglama fonksiyonu
 async function logAiDecision(logData: {
@@ -76,7 +77,7 @@ serve(async (req) => {
 
     const rawIntent = await AiService.invokeGemini(
       intentPrompt,
-      AI_MODELS.INTENT,
+      config.AI_MODELS.INTENT,
       { responseMimeType: "application/json" },
     );
 
@@ -130,7 +131,7 @@ serve(async (req) => {
       // 2. Hızlı ve ucuz bir modelle bu varsayımsal metni (gelişmiş sorguyu) üret.
       const enhancedQuery = await AiService.invokeGemini(
         hydePrompt,
-        AI_MODELS.INTENT, // Yine hızlı olanı kullan
+        config.AI_MODELS.INTENT, // Yine hızlı olanı kullan
         { temperature: 0.3 }, // Yaratıcılık değil, tutarlılık lazım
       );
 
@@ -145,7 +146,10 @@ serve(async (req) => {
       retrievedMemories = await RagService.retrieveContext(
         userId,
         enhancedQuery, // BURASI DEĞİŞTİ!
-        { threshold: RAG_CONFIG.THRESHOLD, count: RAG_CONFIG.COUNT },
+        {
+          threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
+          count: config.RAG_PARAMS.DEFAULT.COUNT,
+        },
       );
     }
     // Greeting ve Trivial için de RAG'e gitmiyoruz, bu mantık zaten doğru.
@@ -193,7 +197,7 @@ ${
 
     const aiResponseText = await AiService.invokeGemini(
       masterPrompt,
-      AI_MODELS.RESPONSE,
+      config.AI_MODELS.RESPONSE,
       { temperature: 0.8 },
     );
     const usedMemory = retrievedMemories.length > 0
@@ -209,10 +213,13 @@ ${
         intent,
         ragQuery: userMessage,
         ragResults: retrievedMemories,
-        finalPrompt: masterPrompt.substring(0, PROMPT_LIMITS.MAX_PROMPT_LENGTH),
+        finalPrompt: masterPrompt.substring(
+          0,
+          config.PROMPT_LIMITS.MAX_PROMPT_LENGTH,
+        ),
         finalResponse: aiResponseText.substring(
           0,
-          PROMPT_LIMITS.MAX_RESPONSE_LENGTH,
+          config.PROMPT_LIMITS.MAX_RESPONSE_LENGTH,
         ),
         executionTimeMs: executionTime,
         success: true,

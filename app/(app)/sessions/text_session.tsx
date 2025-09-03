@@ -29,9 +29,9 @@ export default function TextSessionScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
-  
-  const { mood, eventId } = useLocalSearchParams<
-    { mood?: string; eventId?: string }
+
+  const { mood, eventId, startConversationWith } = useLocalSearchParams<
+    { mood?: string; eventId?: string; startConversationWith?: string }
   >();
 
   const colorScheme = useColorScheme();
@@ -54,6 +54,7 @@ export default function TextSessionScreen() {
   } = useTextSessionReducer({
     initialMood: mood,
     eventId: eventId, // eventId'yi hook'a geçir
+    startConversationWith, // Tema parametresini geçir
     onSessionEnd: () => {
       router.replace("/");
     },

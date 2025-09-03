@@ -5,6 +5,7 @@ import { ApiError } from "./errors.ts";
 import type { EventPayload } from "./event.service.ts";
 import { SystemHealthMonitor } from "./system-health-monitor.service.ts";
 import type { InteractionContext } from "./types/context.ts";
+import { LoggingService } from "./utils/LoggingService.ts";
 
 // React Native uyumlu UUID generator
 function generateId(): string {
@@ -26,9 +27,13 @@ export async function processUserMessage(
 
   // Basit vault objesi - gerçek vault verisi create-analysis-report'ta alınacak
   const initialVault = {};
+  const transactionId = generateId();
+
+  // Logger oluştur
+  const logger = new LoggingService(transactionId, userId);
 
   const context: InteractionContext = {
-    transactionId: generateId(),
+    transactionId,
     userId,
     initialVault,
     initialEvent: {
@@ -38,6 +43,7 @@ export async function processUserMessage(
       timestamp: Date.now(),
       created_at: new Date().toISOString(),
     },
+    logger,
     derivedData: {},
   };
 

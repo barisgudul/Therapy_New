@@ -5,6 +5,18 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | {
   [key: string]: JsonValue;
 };
 
+// Forward declaration for LoggingService
+export interface LoggingService {
+  info(functionName: string, message: string, payload?: object): void;
+  warn(functionName: string, message: string, payload?: object): void;
+  error(
+    functionName: string,
+    message: string,
+    error: unknown,
+    payload?: object,
+  ): void;
+}
+
 export interface VaultData {
   traits?: Partial<Record<string, number | string>>;
   memories?: Record<string, JsonValue>[];
@@ -51,6 +63,7 @@ export interface InteractionContext {
   // İşlem başında bir kere çekilen, değişmez veriler.
   readonly initialVault: VaultData;
   readonly initialEvent: AppEvent;
+  readonly logger: LoggingService; // Yapısal loglama servisi
 
   // İşlem sırasında ortaya çıkan ve diğer fonksiyonların kullanabileceği dinamik veriler.
   // Bu, zincirin halkalarının birbiriyle konuşmasını sağlar.

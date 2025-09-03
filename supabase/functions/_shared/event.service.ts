@@ -14,7 +14,7 @@ export const EVENT_TYPES = [
   "ai_analysis",
   "onboarding_completed",
   "diary_analysis_background",
-  "daily_write_error",
+  "daily_reflection_error",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];

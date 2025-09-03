@@ -2,7 +2,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router/";
+import { useRouter, useLocalSearchParams } from "expo-router/";
 import React from "react";
 import {
   FlatList,
@@ -20,12 +20,16 @@ const FALLBACK_TINT = "#3E6B89";
 
 export default function TherapyOptionsScreen() {
   const router = useRouter();
+  const { startConversationWith } = useLocalSearchParams<{ startConversationWith?: string }>();
   
   // Güvenli renk değeri
   const tintColor = Colors?.light?.tint || FALLBACK_TINT;
 
   const handleOptionPress = (route: string) => {
-    router.push(route);
+    router.push({
+      pathname: route,
+      params: { startConversationWith } // Gelen parametreyi hedefe gönder
+    });
   };
 
   const renderHeader = () => (

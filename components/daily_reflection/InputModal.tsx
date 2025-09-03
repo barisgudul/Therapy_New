@@ -1,10 +1,10 @@
 // components/daily_reflection/InputModal.tsx
 
 import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, TouchableWithoutFeedback, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, StyleSheet, TouchableWithoutFeedback, Keyboard, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import Modal from 'react-native-modal';
 
 interface InputModalProps {
@@ -13,8 +13,8 @@ interface InputModalProps {
   onSubmit: () => void;
   note: string;
   onNoteChange: (text: string) => void;
-  gradientColors: [string, string];
   dynamicColor: string;
+  gradientColors: [string, string];
 }
 
 export default function InputModal({
@@ -23,7 +23,6 @@ export default function InputModal({
   onSubmit,
   note,
   onNoteChange,
-  gradientColors,
   dynamicColor,
 }: InputModalProps) {
 
@@ -56,9 +55,10 @@ export default function InputModal({
             <View style={styles.contentContainer}>
               <View style={styles.header}>
                   <View style={styles.iconContainer}>
-                    <LinearGradient colors={gradientColors} style={styles.iconGradient}>
-                        <Ionicons name="create-outline" size={24} color="white" />
-                    </LinearGradient>
+                    <Image
+                        source={require('../../assets/logo.png')}
+                        style={styles.logoImage}
+                    />
                   </View>
               </View>
 
@@ -86,20 +86,20 @@ export default function InputModal({
                   <Text style={styles.charCounter}>
                     {note.length} / 1000
                   </Text>
-                  <TouchableOpacity 
-                    onPress={onSubmit} 
-                    activeOpacity={0.8} 
+                  <TouchableOpacity
+                    onPress={onSubmit}
+                    activeOpacity={0.8}
                     style={[styles.button, !note.trim() && styles.buttonDisabled]}
                     disabled={!note.trim()}
                   >
-                    <LinearGradient 
-                      colors={gradientColors} 
-                      start={{ x: 0, y: 0 }} 
-                      end={{ x: 1, y: 1 }} 
-                      style={styles.buttonGradient}
+                    <LinearGradient
+                      colors={["#E0ECFD", "#F4E6FF"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.primaryButtonGradient}
                     >
-                      <Ionicons name="checkmark" size={20} color="white" style={{ marginRight: 8 }} />
-                      <Text style={styles.buttonText}>Tamam</Text>
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#6B46C1" />
+                      <Text style={[styles.buttonText, styles.primaryButtonText]}>Tamam</Text>
                     </LinearGradient>
                   </TouchableOpacity>
               </View>
@@ -140,16 +140,20 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+    backgroundColor: '#FFFFFF', // Arka plan ekle
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 10,
     shadowOffset: {width: 0, height: 4},
-  },
-  iconGradient: {
-    flex: 1,
-    borderRadius: 24,
-    alignItems: 'center',
+    elevation: 8, // Android için gölge
     justifyContent: 'center',
+    alignItems: 'center',
+    padding: 6,
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 24,
@@ -186,22 +190,27 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginBottom: 12,
   },
+
+  // === YENİ BUTON STİLLERİ ===
   button: {
-    borderRadius: 18,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   buttonDisabled: {
-    opacity: 0.5,
+      opacity: 0.5,
   },
-  buttonGradient: {
-    borderRadius: 18,
-    padding: 18,
+  primaryButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 16,
+    gap: 8,
   },
   buttonText: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: "white",
+      fontSize: 16,
+      fontWeight: '600',
+  },
+  primaryButtonText: {
+      color: '#6B46C1',
   },
 });

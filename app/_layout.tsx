@@ -43,7 +43,6 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
-  // HOOKS HER ZAMAN AYNI SIRADA ÇAĞIRILMALI!
   useGlobalLoading();
 
     const [fontsLoaded, fontError] = useFonts({
