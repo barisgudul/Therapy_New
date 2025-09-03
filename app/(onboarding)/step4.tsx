@@ -28,7 +28,7 @@ export default function Step4Screen() {
 
             // 2. AI analizi için orchestrator function'a gönder
             if (user?.id) {
-                console.log("🧠 [ONBOARDING] AI analizi başlatılıyor...");
+                
                 await supabase.functions.invoke("orchestrator", {
                     body: {
                         eventPayload: {
@@ -37,7 +37,7 @@ export default function Step4Screen() {
                         },
                     },
                 });
-                console.log("✅ [ONBOARDING] AI analizi tamamlandı");
+                
             }
 
             router.push("/(onboarding)/summary");

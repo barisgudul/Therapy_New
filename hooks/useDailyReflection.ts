@@ -7,7 +7,6 @@ import { Animated, Dimensions, Easing } from "react-native";
 import Toast from "react-native-toast-message";
 import { MOOD_LEVELS } from "../constants/dailyWrite.constants";
 import { useAuth } from "../context/Auth";
-import { incrementFeatureUsage } from "../services/api.service";
 import {
     ApiError,
     getErrorMessage,
@@ -41,7 +40,9 @@ export function useDailyReflection() {
     const [conversationTheme, setConversationTheme] = useState<string | null>(
         null,
     );
-    const [pendingSessionId, setPendingSessionId] = useState<string | null>(null); // <-- YENİ STATE EKLE
+    const [pendingSessionId, setPendingSessionId] = useState<string | null>(
+        null,
+    ); // <-- YENİ STATE EKLE
 
     const entryAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -121,9 +122,6 @@ export function useDailyReflection() {
         setFeedbackVisible(true);
 
         try {
-            // ADIM 1: Freemium kullanımını artır. Bu ayrı bir işlem olduğu için kendi try-catch'i olabilir.
-            await incrementFeatureUsage("daily_write");
-
             // ADIM 2: Ana işlemi (orchestrator'ı çağırmak) yap.
             const todayMood = MOOD_LEVELS[Math.round(moodValue)].label;
             const { data, error } = await supabase.functions.invoke(
@@ -141,17 +139,27 @@ export function useDailyReflection() {
 
             // Supabase'den gelen yapısal hatayı DÜZGÜN YÖNET
             if (error) {
-                // error.message içinde JSON string'i olduğunu biliyoruz.
-                // AMA KIRILGAN OLMAYALIM. Ya değilse?
+                // error.message içinde JSON string'i olabilir ama garanti değil
                 let parsedError;
                 try {
-                    parsedError = JSON.parse(error.message);
-                } catch (_e) {
-                    // JSON değilse, bu beklenmedik bir durum. Genel bir hata fırlat.
-                    throw new ApiError(
-                        "API'den anlaşılamayan bir hata formatı döndü.",
-                        "UNEXPECTED_FORMAT",
-                    );
+                    // Önce message'ın string olup olmadığını kontrol et
+                    if (typeof error.message === "string") {
+                        parsedError = JSON.parse(error.message);
+                    } else {
+                        // Message string değilse, error objesinin kendisinden al
+                        parsedError = {
+                            error: error.message || "Bilinmeyen hata",
+                            code: "UNKNOWN_ERROR",
+                        };
+                    }
+                } catch (_parseError) {
+                    // JSON parse başarısız olursa, alternatif format kullan
+                    parsedError = {
+                        error: typeof error.message === "string"
+                            ? error.message
+                            : "API hatası",
+                        code: "API_ERROR",
+                    };
                 }
 
                 // Artık parsedError'ın bir nesne olduğunu biliyoruz.
@@ -209,8 +217,8 @@ export function useDailyReflection() {
             // Hata sonrası modalı hemen kapatma, kullanıcının mesajı görmesine izin ver.
             setTimeout(() => setFeedbackVisible(false), 2500);
 
-            // Gerçek hatayı Sentry gibi bir yere logla.
-            console.error("[LOG_TO_SENTRY]", {
+            // Hata loglama
+            console.error("Günlük kaydetme hatası:", {
                 message: getErrorMessage(err),
                 code: isAppError(err) ? err.code : "CLIENT_UNHANDLED",
                 originalError: err,

@@ -65,31 +65,41 @@ serve(async (req) => {
     // Client'tan gelen body'den userId'yi okumayı SİL.
     const { messages, pendingSessionId } = await req.json();
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    if (!messages || !Array.isArray(messages)) {
       throw new Error("Geçersiz mesaj formatı");
     }
 
-    const userMessage = messages[messages.length - 1].text;
-
     // === YENİ: SICAK BAŞLANGIÇ KONTROLÜ ===
-    const isNewConversation = messages.length === 1; // Sadece ilk mesaj varsa yeni conversation
+    // Frontend'den messages: [] (boş dizi) gelirse, bu sıcak başlangıçtır
+    const isWarmStartAttempt = Array.isArray(messages) && messages.length === 0;
 
-    if (pendingSessionId && isNewConversation) {
-      console.log(`[TextSession] Sıcak Başlangıç: ${pendingSessionId} ile hafıza enjeksiyonu.`);
+    // userMessage'ı sadece sıcak başlangıç değilse tanımla
+    let userMessage: string;
+    if (!isWarmStartAttempt) {
+      if (messages.length === 0) {
+        throw new Error("Devam eden sohbet için mesaj gerekli");
+      }
+      userMessage = messages[messages.length - 1].text;
+    }
 
+    if (pendingSessionId && isWarmStartAttempt) {
       // 1. Geçici hafızayı veritabanından çek ve SİL.
       const { data: pendingData, error: fetchError } = await adminClient
-        .from('pending_text_sessions')
+        .from("pending_text_sessions")
         .delete() // Çektiğimiz anda siliyoruz ki tekrar kullanılmasın.
         .match({ id: pendingSessionId, user_id: userId })
-        .select('context_data')
+        .select("context_data")
         .single();
 
       if (fetchError || !pendingData) {
         throw new Error("Geçici oturum bulunamadı veya süresi doldu.");
       }
 
-      const context = pendingData.context_data as { originalNote: string; aiReflection: string; theme: string };
+      const context = pendingData.context_data as {
+        originalNote: string;
+        aiReflection: string;
+        theme: string;
+      };
 
       // 2. "Sıcak Başlangıç" için ÖZEL bir prompt oluştur.
       const warmStartPrompt = `
@@ -110,23 +120,24 @@ serve(async (req) => {
       `;
 
       // 3. AI'ı bu özel prompt ile çağır ve ilk mesajı al.
+
       const firstAiMessage = await AiService.invokeGemini(
         warmStartPrompt,
         config.AI_MODELS.RESPONSE,
-        { temperature: 0.7 }
+        { temperature: 0.7 },
       );
 
       // 4. Bu ilk mesajı, sanki normal bir sohbetin ilk mesajıymış gibi ön yüze döndür.
       return new Response(
         JSON.stringify({ aiResponse: firstAiMessage, usedMemory: null }), // İlk mesajda RAG hafızası yok.
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
     // === SICAK BAŞLANGIÇ KONTROLÜ SONU ===
 
     // === ADIM 2.1: NİYET TESPİTİ ===
     const intentPrompt =
-      `Bu mesajın niyetini şu kategorilerden biriyle etiketle: [Greeting, Question, DeepThought, Farewell, Trivial]. Cevabın SADECE JSON formatında olsun. Örnek: {"intent": "Question"}. Mesaj: "${userMessage}"`;
+      `Bu mesajın niyetini şu kategorilerden biriyle etiketle: [Greeting, Question, DeepThought, Farewell, Trivial]. Cevabın SADECE JSON formatında olsun. Örnek: {"intent": "Question"}. Mesaj: "${userMessage!}"`;
 
     const rawIntent = await AiService.invokeGemini(
       intentPrompt,
@@ -171,14 +182,10 @@ serve(async (req) => {
       isFarewell = true;
       // Veda mesajı için RAG'e gitmeye gerek yok.
     } else if (intent === "DeepThought" || intent === "Question") {
-      console.log(
-        `[RAG] Niyet "${intent}" olarak tespit edildi, HyDE sorgusu üretiliyor...`,
-      );
-
       // --- HİPOTEZ ÜRETEN SORGULAMA (HyDE) ADIMI ---
       // 1. Varsayımsal bir doküman üretmesi için AI'ı görevlendir.
       const hydePrompt =
-        `Kullanıcının şu cümlesini oku: "${userMessage}". Bu cümlenin detaylı bir cevabı olabilecek, hafıza veritabanında arama yapmak için kullanılabilecek, ideal bir anı metni oluştur. Bu metin, cümlenin arkasındaki ana temayı, duyguyu ve konuyu içersin. Cevabın SADECE bu üretilen metin olsun.`;
+        `Kullanıcının şu cümlesini oku: "${userMessage!}". Bu cümlenin detaylı bir cevabı olabilecek, hafıza veritabanında arama yapmak için kullanılabilecek, ideal bir anı metni oluştur. Bu metin, cümlenin arkasındaki ana temayı, duyguyu ve konuyu içersin. Cevabın SADECE bu üretilen metin olsun.`;
 
       // 2. Hızlı ve ucuz bir modelle bu varsayımsal metni (gelişmiş sorguyu) üret.
       const enhancedQuery = await AiService.invokeGemini(
@@ -187,11 +194,6 @@ serve(async (req) => {
         { temperature: 0.3 }, // Yaratıcılık değil, tutarlılık lazım
       );
 
-      console.log(
-        `[HyDE] Orijinal: "${userMessage}" -> Gelişmiş Sorgu: "${
-          enhancedQuery.substring(0, 100)
-        }..."`,
-      );
       // --- HyDE ADIMI BİTTİ ---
 
       // 3. RAG servisini, kullanıcının ham mesajıyla değil, bu yeni ürettiğimiz zeki sorguyla çağır!
@@ -225,7 +227,7 @@ SENİN KARAKTERİN: Sen doğal, akıcı ve hafızası olan bir sohbet arkadaşı
 ELİNDEKİ GİZLİ BİLGİLER (BUNLARI KULLANICIYA ASLA 'İŞTE BİLGİLER' DİYE SUNMA):
 ${hasRelevantMemory ? `1.  GEÇMİŞTEN ALAKALI BİR NOT: ${pastContext}` : ""}
 2.  SON KONUŞULANLAR: ${shortTermMemory || "Bu sohbetin başlangıcı."}
-3.  KULLANICININ SON SÖZÜ: "${userMessage}"
+3.  KULLANICININ SON SÖZÜ: "${userMessage!}"
 
 GÖREVİN:
 1.  Kullanıcının son sözüne DOĞRUDAN ve DOĞAL bir cevap ver.
@@ -237,6 +239,8 @@ GÖREVİN:
 4.  ASLA YAPMA: "Geçmiş kayıtlarına baktığımda...", "Hatırlanan Anı:", "Analizime göre..." gibi robotik ifadeler kullanma. Bildiklerini, normal bir insanın arkadaşını hatırlaması gibi, sohbetin içine doğal bir şekilde doku.
 5.  Sohbeti her zaman canlı tut. Soru sor, merak et, konuyu değiştir ama asla "Kendine iyi bak" gibi sohbeti bitiren cümleler kurma.
 6.  SOHBETİN RİTMİNİ KORU: Cevapların kullanıcıyı bunaltmamalı. Bir yorum yap, sonra sohbeti devam ettirmek için genellikle tek ve açık uçlu bir soru sor. Bazen, sadece bir gözlemde bulunup kullanıcının tepki vermesini beklemek de güçlü bir yöntemdir. Her mesajın bir sorgulama olmak zorunda değil. Kullanıcıya düşünmesi ve nefes alması için alan bırak.
+
+7.  **PAPAĞAN OLMA (KESİNLİKLE UYULMASI GEREKEN KURAL):** Kullanıcının son cümlesini alıp basitçe tekrar etme. "Canım sıkkın dediğini anlıyorum, neden canın sıkkın?" gibi tembel cevaplar VERME. Elindeki GİZLİ BİLGİLERİ ve sohbetin genel akışını kullanarak DAHA DERİN bir soru sor veya bir BAĞLANTI kur. Kullanıcı "işteki hatalardan" bahsediyorsa, "Bu hatalar sana yetersiz mi hissettiriyor?" gibi bir soru sor. Yüzeysel kalma, bir katman derine in.
 
 Şimdi, bu kurallara göre, sanki her şeyi doğal olarak hatırlıyormuş gibi cevap ver:
 
@@ -262,7 +266,7 @@ ${
         transactionId,
         userId,
         intent,
-        ragQuery: userMessage,
+        ragQuery: userMessage!,
         ragResults: retrievedMemories,
         finalPrompt: masterPrompt.substring(
           0,

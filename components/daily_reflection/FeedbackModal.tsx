@@ -101,7 +101,15 @@ export default function FeedbackModal({
           style={styles.contentScrollView}
           showsVerticalScrollIndicator={false}
         >
-          {renderMarkdownText(aiMessage || "Yansımanız hazırlanıyor...", dynamicColor)}
+          {/* DEĞİŞİKLİK BURADA BAŞLIYOR */}
+          {typeof aiMessage === 'string' && aiMessage.trim() !== '' ? (
+            renderMarkdownText(aiMessage, dynamicColor)
+          ) : (
+            <Text style={{ fontSize: 16, color: "#718096", textAlign: 'center' }}>
+              Yansımanız hazırlanıyor...
+            </Text>
+          )}
+          {/* DEĞİŞİKLİK BURADA BİTİYOR */}
         </ScrollView>
 
         {/* Action Buttons */}

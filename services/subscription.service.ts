@@ -38,7 +38,6 @@ export interface FeatureUsageResult {
  * @returns {Promise<SubscriptionPlan[]>} Planların bir listesi.
  */
 export async function getAllPlans(): Promise<SubscriptionPlan[]> {
-    console.log("[API] Gerçek planlar Supabase'den getiriliyor...");
     const { data, error } = await supabase.from("subscription_plans").select(
         "*",
     );
@@ -54,7 +53,6 @@ export async function getAllPlans(): Promise<SubscriptionPlan[]> {
 export async function getPlanById(
     planId: string,
 ): Promise<SubscriptionPlan | null> {
-    console.log(`[API] Gerçek plan getiriliyor: ${planId}`);
     const { data, error } = await supabase.from("subscription_plans").select(
         "*",
     ).eq("id", planId).single();
@@ -84,7 +82,6 @@ export interface UsageStats {
 export async function getSubscriptionForUser(
     userId: string,
 ): Promise<UserSubscription | null> {
-    console.log(`[API] Kullanıcı aboneliği getiriliyor: ${userId}`);
     const { data, error } = await supabase.rpc(
         "get_user_current_subscription",
         { user_uuid: userId },
@@ -114,9 +111,6 @@ export async function getUsageStatsForUser(
     userId: string,
     feature: keyof UsageStats,
 ): Promise<FeatureUsageResult> {
-    console.log(
-        `[API] ${userId} için ${feature} kullanım istatistiği getiriliyor.`,
-    );
     const { data, error } = await supabase.rpc("check_feature_usage", {
         user_uuid: userId,
         feature_name_base: feature,
@@ -145,10 +139,6 @@ export async function getUsageStatsForUser(
 export async function getInitialUsageStats(
     userId: string,
 ): Promise<UsageStats> {
-    console.log(
-        `[API] ${userId} için başlangıç kullanım istatistikleri oluşturuluyor.`,
-    );
-
     const features: (keyof UsageStats)[] = [
         "diary_write",
         "daily_write",
@@ -223,6 +213,5 @@ export const upgradeUserPlanForTesting = async (
 
     if (error) throw new Error(`Test planı atama hatası: ${error.message}`);
 
-    console.log(`Kullanıcı ${userId}, ${newPlanName} planına geçirildi.`);
     return { success: true, response: data };
 };

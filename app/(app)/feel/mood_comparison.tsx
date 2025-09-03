@@ -337,7 +337,7 @@ export default function MoodComparisonScreen() {
                     note: data.answer,
                 },
             });
-            console.log("Karşılaştırma ve not kaydedildi.");
+    
         } catch (e) {
             console.error("Not kaydedilirken hata oluştu: ", e);
         }

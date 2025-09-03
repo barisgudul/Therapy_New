@@ -37,10 +37,6 @@ export async function handleWeeklyPredictionTrigger(
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     ) as unknown as SupabaseClientLike;
 
-    console.log(
-      `📅 [WEEKLY_TRIGGER] Haftalık tahmin tetikleyicisi başlıyor...`,
-    );
-
     // 1) Aktif kullanıcıları bul (son 7 günde event'i olan kullanıcılar)
     const sevenDaysAgo = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000))
       .toISOString();
@@ -59,7 +55,6 @@ export async function handleWeeklyPredictionTrigger(
     }
 
     if (!allEvents || allEvents.length === 0) {
-      console.log("📭 [WEEKLY_TRIGGER] Aktif kullanıcı bulunamadı");
       return new Response(
         JSON.stringify({ message: "Aktif kullanıcı bulunamadı" }),
         {
@@ -79,10 +74,6 @@ export async function handleWeeklyPredictionTrigger(
         ) => e.user_id),
       ),
     ];
-
-    console.log(
-      `👥 [WEEKLY_TRIGGER] ${activeUserIds.length} aktif kullanıcı bulundu`,
-    );
 
     // 2) Her aktif kullanıcı için tahmin motorunu tetikle
     const results = [];
@@ -111,9 +102,6 @@ export async function handleWeeklyPredictionTrigger(
             user_id: userId, // userRecord değil, userId kullan
             status: "success",
           });
-          console.log(
-            `✅ [WEEKLY_TRIGGER] ${userId} için tahminler üretildi`,
-          );
         } else {
           results.push({
             user_id: userId, // userRecord değil, userId kullan
@@ -142,10 +130,6 @@ export async function handleWeeklyPredictionTrigger(
 
     const successCount = results.filter((r) => r.status === "success").length;
     const failCount = results.filter((r) => r.status === "failed").length;
-
-    console.log(
-      `📊 [WEEKLY_TRIGGER] Tamamlandı: ${successCount} başarılı, ${failCount} hatalı`,
-    );
 
     return new Response(
       JSON.stringify({

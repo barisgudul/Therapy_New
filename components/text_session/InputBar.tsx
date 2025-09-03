@@ -1,5 +1,5 @@
 // components/text_session/InputBar.tsx
-import React, { forwardRef } from "react";
+import React, { forwardRef, memo } from "react";
 import { View, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,7 +13,7 @@ interface InputBarProps {
   inputRef?: React.RefObject<TextInput>;
 }
 
-export const InputBar = forwardRef<TextInput, InputBarProps>(({
+export const InputBar = memo(forwardRef<TextInput, InputBarProps>(({
   input,
   onInputChange,
   onSend,
@@ -63,7 +63,7 @@ export const InputBar = forwardRef<TextInput, InputBarProps>(({
       </TouchableOpacity>
     </View>
   );
-});
+}));
 
 InputBar.displayName = "InputBar";
 
@@ -106,3 +106,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+
+InputBar.displayName = "InputBar";

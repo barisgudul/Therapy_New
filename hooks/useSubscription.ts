@@ -112,7 +112,6 @@ export function useSubscriptionPlans() {
 
   // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
   const refreshPlans = useCallback(() => {
-    console.log("[HAYALET MOD] Plan listesi yenilendi.");
   }, []);
 
   return {
@@ -134,7 +133,6 @@ export function useFeatureAccess(feature: keyof UsageStats) {
 
   // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
   const refreshAccess = useCallback(() => {
-    console.log(`[HAYALET MOD] '${feature}' için erişim durumu yenilendi.`);
     // Gerçek bir uygulamada burada API çağrısı ve state güncellemesi olurdu.
   }, [feature]); // 'feature' değişirse fonksiyonun yeniden yaratılması normaldir.
 

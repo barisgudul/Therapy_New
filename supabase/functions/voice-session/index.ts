@@ -118,10 +118,6 @@ serve(async (req) => {
       isFarewell = true;
       // Veda mesajı için RAG'e gitmeye gerek yok.
     } else if (intent === "DeepThought" || intent === "Question") {
-      console.log(
-        `[RAG] Niyet "${intent}" olarak tespit edildi, HyDE sorgusu üretiliyor...`,
-      );
-
       // --- HİPOTEZ ÜRETEN SORGULAMA (HyDE) ADIMI - SESLİ KONUŞMA İÇİN OPTİMİZE EDİLDİ ---
       // 1. Varsayımsal bir doküman üretmesi için AI'ı görevlendir.
       // SESLİ KONUŞMA İÇİN: Konuşma dili, yazı dilinden daha anlık ve bazen daha dağınıktır
@@ -134,13 +130,6 @@ serve(async (req) => {
         config.AI_MODELS.INTENT, // Yine hızlı olanı kullan
         { temperature: 0.3 }, // Yaratıcılık değil, tutarlılık lazım
       );
-
-      console.log(
-        `[HyDE] Orijinal: "${userMessage}" -> Gelişmiş Sorgu: "${
-          enhancedQuery.substring(0, 100)
-        }..."`,
-      );
-      // --- HyDE ADIMI BİTTİ ---
 
       // 3. RAG servisini, kullanıcının ham mesajıyla değil, bu yeni ürettiğimiz zeki sorguyla çağır!
       retrievedMemories = await RagService.retrieveContext(

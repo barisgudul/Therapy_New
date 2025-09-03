@@ -2,7 +2,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { renderMarkdownText } from "../../utils/markdownRenderer";
-import { MemoryBubble } from "./MemoryBubble";
 
 interface MessageBubbleProps {
   message: {
@@ -12,29 +11,16 @@ interface MessageBubbleProps {
     isInsight?: boolean; // YENİ: İçgörü mesajı mı?
   };
   accentColor?: string;
-  onMemoryPress?: (memory: { content: string; source_layer: string }) => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ 
-  message, 
-  accentColor = "#5DA1D9",
-  onMemoryPress
+export const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  accentColor = "#5DA1D9"
 }) => {
   const isAI = message.sender === "ai";
 
   return (
     <View style={styles.messageContainer}>
-      {/* YENİ: AI mesajları için hafıza baloncuğu */}
-      {isAI && message.memory && (
-        <MemoryBubble
-          content={message.memory.content}
-          sourceLayer={message.memory.source_layer}
-          onPress={() => {
-            onMemoryPress?.(message.memory!);
-          }}
-        />
-      )}
-      
       <View
         style={[
           styles.bubble,

@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router/";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, memo } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -25,44 +25,29 @@ import { MessageBubble } from "../../../components/text_session/MessageBubble";
 import { InputBar } from "../../../components/text_session/InputBar";
 import { MemoryModal } from "../../../components/text_session/MemoryModal";
 
-export default function TextSessionScreen() {
-  const router = useRouter();
-  const flatListRef = useRef<FlatList>(null);
-  const inputRef = useRef<TextInput>(null);
+// YENİ COMPONENT: SessionUI - Memo ile optimize edilmiş
+interface SessionUIProps {
+  state: any;
+  isDark: boolean;
+  handleBackPress: () => boolean;
+  closeMemoryModal: () => void;
+  handleInputChange: (text: string) => void;
+  sendMessage: () => Promise<void>;
+  inputRef: React.RefObject<TextInput>;
+  flatListRef: React.RefObject<FlatList>;
+}
 
-  const { mood, eventId, startConversationWith, pendingSessionId } = useLocalSearchParams<
-    { mood?: string; eventId?: string; startConversationWith?: string; pendingSessionId?: string }
-  >();
-
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-
-  // Feature Access Hook
-  const {
-    loading,
-    refresh,
-  } = useFeatureAccess("text_sessions");
-
-  // Main session logic hook - using useReducer for better state management
-  const {
-    state,
-    handleInputChange,
-    sendMessage,
-    handleBackPress,
-    openMemoryModal,
-    closeMemoryModal,
-  } = useTextSessionReducer({
-    initialMood: mood,
-    eventId: eventId, // eventId'yi hook'a geçir
-    startConversationWith, // Tema parametresini geçir
-    pendingSessionId, // Yeni parametre
-    onSessionEnd: () => {
-      router.replace("/");
-    },
-  });
-
-  // Destructure state for easier access
-  const { messages, input, isTyping, error, status, isMemoryModalVisible, selectedMemory } = state;
+const SessionUI = memo<SessionUIProps>(({
+  state,
+  isDark,
+  handleBackPress,
+  closeMemoryModal,
+  handleInputChange,
+  sendMessage,
+  inputRef,
+  flatListRef
+}) => {
+  const { messages, input, isTyping, error, isMemoryModalVisible, selectedMemory } = state;
 
   // Hoş Geldin Component'i
   const WelcomeComponent = () => (
@@ -88,7 +73,121 @@ export default function TextSessionScreen() {
     </View>
   );
 
+  return (
+    <View style={styles.flex}>
+      <LinearGradient
+        colors={isDark ? ["#232526", "#414345"] : ["#F4F6FF", "#FFFFFF"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.container}
+      >
+        <SafeAreaView style={styles.flex}>
+          <>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+                <Ionicons
+                  name="chevron-back"
+                  size={28}
+                  color={isDark ? "#fff" : Colors.light.tint}
+                />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Sohbet</Text>
+              <View style={{ width: 44 }} />
+            </View>
 
+            <KeyboardAvoidingView
+              style={styles.keyboardAvoidingView}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <View style={styles.content}>
+                {messages.length === 0 ? (
+                  <View style={styles.welcomeWrapper}>
+                    <WelcomeComponent />
+                  </View>
+                ) : (
+                  <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={(_, i) => i.toString()}
+                    renderItem={({ item }) => (
+                      <MessageBubble
+                        message={item}
+                      />
+                    )}
+                    contentContainerStyle={styles.messages}
+                    onContentSizeChange={() =>
+                      flatListRef.current?.scrollToEnd({ animated: true })
+                    }
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  />
+                )}
+
+                {isTyping && <TypingIndicator isVisible={isTyping} />}
+
+                {error && (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                  </View>
+                )}
+
+                <InputBar
+                  input={input}
+                  onInputChange={handleInputChange}
+                  onSend={sendMessage}
+                  isTyping={isTyping}
+                  inputRef={inputRef}
+                />
+              </View>
+            </KeyboardAvoidingView>
+          </>
+        </SafeAreaView>
+      </LinearGradient>
+
+      <MemoryModal
+        isVisible={isMemoryModalVisible}
+        memory={selectedMemory}
+        onClose={closeMemoryModal}
+      />
+    </View>
+  );
+});
+
+SessionUI.displayName = "SessionUI";
+
+export default function TextSessionScreen() {
+  const router = useRouter();
+  const flatListRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
+
+  const { mood, eventId, pendingSessionId } = useLocalSearchParams<
+    { mood?: string; eventId?: string; pendingSessionId?: string }
+  >();
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+
+  // Feature Access Hook
+  const {
+    loading,
+    refresh,
+  } = useFeatureAccess("text_sessions");
+
+  // Main session logic hook - using useReducer for better state management
+  const {
+    state,
+    handleInputChange,
+    sendMessage,
+    handleBackPress,
+    closeMemoryModal,
+  } = useTextSessionReducer({
+    initialMood: mood,
+    eventId: eventId,
+    pendingSessionId,
+    onSessionEnd: () => {
+      router.replace("/");
+    },
+  });
 
   // Refresh feature access on mount
   useEffect(() => {
@@ -97,92 +196,25 @@ export default function TextSessionScreen() {
 
   return (
     <PremiumGate featureType="text_sessions">
-      <View style={styles.flex}>
-        <LinearGradient
-          colors={isDark ? ["#232526", "#414345"] : ["#F4F6FF", "#FFFFFF"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.container}
-        >
-          <SafeAreaView style={styles.flex}>
-            {(loading || status === 'initializing') ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator
-                  size="large"
-                  color={isDark ? "#fff" : Colors.light.tint}
-                />
-              </View>
-            ) : (
-              <>
-                <View style={styles.header}>
-                  <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-                    <Ionicons
-                      name="chevron-back"
-                      size={28}
-                      color={isDark ? "#fff" : Colors.light.tint}
-                    />
-                  </TouchableOpacity>
-                  <Text style={styles.headerTitle}>Sohbet</Text>
-                  <View style={{ width: 44 }} />
-                </View>
-
-                <KeyboardAvoidingView
-                  style={styles.keyboardAvoidingView}
-                  behavior={Platform.OS === "ios" ? "padding" : "height"}
-                >
-                  <View style={styles.content}>
-                    {messages.length === 0 ? (
-                      <View style={styles.welcomeWrapper}>
-                        <WelcomeComponent />
-                      </View>
-                    ) : (
-                      <FlatList
-                        ref={flatListRef}
-                        data={messages}
-                        keyExtractor={(_, i) => i.toString()}
-                        renderItem={({ item }) => (
-                          <MessageBubble
-                            message={item}
-                            onMemoryPress={openMemoryModal}
-                          />
-                        )}
-                        contentContainerStyle={styles.messages}
-                        onContentSizeChange={() =>
-                          flatListRef.current?.scrollToEnd({ animated: true })
-                        }
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator={false}
-                      />
-                    )}
-
-                    {isTyping && <TypingIndicator isVisible={isTyping} />}
-
-                    {error && (
-                      <View style={styles.errorContainer}>
-                        <Text style={styles.errorText}>{error}</Text>
-                      </View>
-                    )}
-
-                    <InputBar
-                      input={input}
-                      onInputChange={handleInputChange}
-                      onSend={sendMessage}
-                      isTyping={isTyping}
-                      inputRef={inputRef}
-                    />
-                  </View>
-                </KeyboardAvoidingView>
-              </>
-            )}
-          </SafeAreaView>
-        </LinearGradient>
-
-        <MemoryModal
-          isVisible={isMemoryModalVisible}
-          memory={selectedMemory}
-          onClose={closeMemoryModal}
+      {(loading || state.status === "initializing") ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator
+            size="large"
+            color={isDark ? "#fff" : Colors.light.tint}
+          />
+        </View>
+      ) : (
+        <SessionUI
+          state={state}
+          isDark={isDark}
+          handleBackPress={handleBackPress}
+          closeMemoryModal={closeMemoryModal}
+          handleInputChange={handleInputChange}
+          sendMessage={sendMessage}
+          inputRef={inputRef}
+          flatListRef={flatListRef}
         />
-      </View>
+      )}
     </PremiumGate>
   );
   }

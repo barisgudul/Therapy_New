@@ -232,7 +232,6 @@ function textSessionReducer(
 interface UseTextSessionReducerProps {
     initialMood?: string;
     eventId?: string; // eventId artık opsiyonel bir prop
-    startConversationWith?: string; // Tema parametresi
     pendingSessionId?: string; // Yeni parametre
     onSessionEnd: () => void;
 }
@@ -254,7 +253,7 @@ interface UseTextSessionReducerReturn {
 export function useTextSessionReducer({
     initialMood,
     eventId,
-    startConversationWith,
+    pendingSessionId,
     onSessionEnd,
 }: UseTextSessionReducerProps): UseTextSessionReducerReturn {
     // Use reducer for state management
@@ -263,61 +262,43 @@ export function useTextSessionReducer({
     // Ana Başlatma Mantığı
     useEffect(() => {
         const initializeSession = async () => {
-            if (eventId) {
-                try {
-                    // TODO: SessionService yerine yeni backend function kullanılacak
-                    // Şimdilik basit bir mock data
-                    const sessionData = null;
+            dispatch({ type: "SET_STATUS", payload: "initializing" });
 
-                    // GÜVENLİ BLOK BAŞLANGICI
-                    if (
-                        sessionData &&
-                        typeof sessionData.data === "object" &&
-                        sessionData.data !== null &&
-                        "messages" in sessionData.data &&
-                        Array.isArray(sessionData.data.messages)
-                    ) {
-                        // Artık 'messages'ın bir dizi olduğundan eminiz.
-                        const messages = sessionData.data
-                            .messages as unknown as TextMessage[];
-                        const transcript = messages
-                            .map((m) =>
-                                `${
-                                    m.sender === "user"
-                                        ? "Danışan"
-                                        : "Terapist"
-                                }: ${m.text}\n`
-                            )
-                            .join("");
-                        dispatch({
-                            type: "INITIALIZE_FROM_HISTORY",
-                            payload: { messages, transcript },
-                        });
-                    } else {
-                        // Veri beklediğimiz gibi değilse, hatayı fırlat.
-                        throw new Error(
-                            "Geçmiş seans verisi bulunamadı veya bozuk.",
+            if (pendingSessionId) {
+                try {
+                    dispatch({ type: "SET_TYPING", payload: true }); // AI yazıyor...
+
+                    const { data: aiReply, error } = await supabase.functions
+                        .invoke(
+                            "text-session",
+                            {
+                                // BODY'YE DİKKAT ET: messages BOŞ!
+                                body: {
+                                    messages: [],
+                                    pendingSessionId: pendingSessionId,
+                                },
+                            },
                         );
-                    }
-                    // GÜVENLİ BLOK SONU
+
+                    if (error) throw new Error(error.message);
+
+                    dispatch({
+                        type: "ADD_MESSAGE",
+                        payload: { sender: "ai", text: aiReply.aiResponse },
+                    });
+                    dispatch({ type: "SET_STATUS", payload: "idle" });
                 } catch (_e) {
                     dispatch({
                         type: "INITIALIZATION_ERROR",
-                        payload: "Geçmiş seans yüklenemedi.",
+                        payload: "Sohbet başlatılamadı.",
                     });
+                } finally {
+                    dispatch({ type: "SET_TYPING", payload: false });
                 }
             } else {
-                // eventId yoksa, yeni seans başlat
-                if (startConversationWith) {
-                    // Tema ile sohbet başlat
-                    dispatch({
-                        type: "INITIALIZE_WITH_THEME",
-                        payload: startConversationWith,
-                    });
-                } else {
-                    // Normal boş sohbet başlat
-                    dispatch({ type: "INITIALIZE_NEW_SESSION" });
-                }
+                // NORMAL, SOĞUK BAŞLANGIÇ
+                dispatch({ type: "INITIALIZE_NEW_SESSION" });
+                dispatch({ type: "SET_STATUS", payload: "idle" });
             }
 
             if (initialMood) {
@@ -326,7 +307,7 @@ export function useTextSessionReducer({
         };
 
         initializeSession();
-    }, [eventId, initialMood, startConversationWith]); // startConversationWith'u da dependency'ye ekle
+    }, [pendingSessionId, eventId, initialMood]); // Dependency'leri güncelle
 
     // Handle input changes
     const handleInputChange = useCallback((text: string) => {
@@ -336,33 +317,30 @@ export function useTextSessionReducer({
     // Send message logic with reducer
     const sendMessage = useCallback(async () => {
         const trimmedInput = state.input.trim();
+
+        // Gönderecek bir şey yoksa veya AI yazıyorsa çık
         if (!trimmedInput || state.isTyping) return;
 
         dispatch({ type: "SEND_MESSAGE_START" });
         const userMessage: TextMessage = { sender: "user", text: trimmedInput };
+        // ÖNEMLİ: dispatch'ten hemen sonra state güncellenmez.
+        // Bu yüzden backend'e gönderirken en güncel halini elle oluşturmalıyız.
+        const updatedMessages = [...state.messages, userMessage];
+
         dispatch({ type: "ADD_MESSAGE", payload: userMessage });
 
         try {
-            // YENİ VE TEK GÖREVİ BU!
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                throw new Error("User not authenticated");
-            }
+            // ... auth ve user kontrolü aynı ...
+
+            const requestBody = {
+                messages: updatedMessages, // State'in eski hali yerine güncel diziyi yolla
+            };
 
             const { data: aiReply, error } = await supabase.functions.invoke(
                 "text-session",
                 {
-                    body: {
-                        messages: [...state.messages, userMessage], // Tüm sohbet geçmişini yolla
-                        // İlk mesaj için pendingSessionId'yi gönder
-                        ...(state.messages.length === 0 && pendingSessionId ? { pendingSessionId } : {}),
-                    },
-                    headers: {
-                        Authorization: `Bearer ${
-                            (await supabase.auth.getSession()).data.session
-                                ?.access_token
-                        }`,
-                    },
+                    body: requestBody, // Güncellenmiş body'yi kullan
+                    // ... headers aynı ...
                 },
             );
 
@@ -381,7 +359,7 @@ export function useTextSessionReducer({
                 payload: "Mesaj gönderilemedi",
             });
         }
-    }, [state.input, state.isTyping, state.messages]);
+    }, [state.input, state.isTyping, state.messages]); // <-- DOĞRU DEPENDENCY'LER BUNLAR
 
     // End session logic with reducer
     const endSession = useCallback(async () => {
@@ -436,7 +414,7 @@ export function useTextSessionReducer({
             });
             onSessionEnd();
         }
-    }, [state.isEnding, state.messages, onSessionEnd]);
+    }, [state.isEnding, state.messages, onSessionEnd]); // <-- DOĞRU DEPENDENCY'LER
 
     // Handle back press
     const handleBackPress = useCallback(() => {
@@ -455,7 +433,7 @@ export function useTextSessionReducer({
             ],
         );
         return true;
-    }, [state.isEnding, endSession]);
+    }, [state.isEnding, endSession]); // <-- DOĞRU DEPENDENCY'LER
 
     // YENİ: Hafıza modal fonksiyonları
     const openMemoryModal = useCallback((memory: TextMessage["memory"]) => {

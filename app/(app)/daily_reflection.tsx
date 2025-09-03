@@ -76,7 +76,12 @@ export default function DailyReflectionScreen() {
   const gradientColors: [string, string] = ["#E0ECFD", "#F4E6FF"];
 
   const handleNavigateToTherapy = () => {
-    if (!state.pendingSessionId) return; // Güvenlik kontrolü
+   
+    if (!state.pendingSessionId) {
+      return; // Güvenlik kontrolü
+    }
+
+   
     handlers.router.push({
       pathname: '/sessions/text_session',
       params: { pendingSessionId: state.pendingSessionId }

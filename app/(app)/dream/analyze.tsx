@@ -76,9 +76,7 @@ export default function AnalyzeDreamScreen() {
       // Önce cache'i temizle ki liste güncellensin.
       queryClient.invalidateQueries({ queryKey: ["dreamEvents"] });
 
-      console.log(
-        `✅ Analiz tamamlandı. Kullanıcı ${eventId} ID'li sonuç sayfasına yönlendiriliyor.`,
-      );
+     
       router.replace({ pathname: "/dream/result", params: { id: eventId } });
 
       Toast.show({

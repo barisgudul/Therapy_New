@@ -38,12 +38,6 @@ Deno.serve(async (req) => {
       transaction_id,
     } = body;
 
-    console.log(
-      `[Process-Memory][${
-        transaction_id ?? "no-tx"
-      }] Event ${source_event_id} için işlem başlıyor.`,
-    );
-
     // 1. ZİHİNSEL DNA ANALİZİ (Duygu ve Stil)
     const analysisPrompt = `### GÖREV: METİN DNA ANALİZİ ###
     Sana verilen metni analiz et ve cevabını SADECE tek bir JSON objesi olarak ver.
@@ -126,12 +120,6 @@ Deno.serve(async (req) => {
         throw dbError;
       }
     }
-
-    console.log(
-      `✅ [Process-Memory][${
-        transaction_id ?? "no-tx"
-      }] Event ${source_event_id} başarıyla hafızaya işlendi.`,
-    );
 
     // TODO: FAZ 1.5 - Buradan user_vault ve user_traits de güncellenecek. Şimdilik bu kadar yeter.
 

@@ -164,7 +164,6 @@ export function useTranscripts() {
     };
 
     const handleNavigateToPremium = () => {
-        console.log("Navigating to Therapy Options...");
         router.replace("/therapy/therapy_options");
     };
 

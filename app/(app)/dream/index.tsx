@@ -133,7 +133,6 @@ export default function DreamJournalScreen() {
 
   // handleUndo'yu deleteMutation'dan sonra ata
   handleUndo.current = (previousAnalyses: unknown) => {
-    console.log("UNDO! Silme işlemi geri alınıyor...");
     queryClient.setQueryData(["dreamEvents"], previousAnalyses);
     deleteMutation.reset();
     Toast.hide();

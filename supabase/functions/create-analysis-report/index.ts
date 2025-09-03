@@ -58,8 +58,6 @@ Deno.serve(async (req) => {
     }
     if (!user) throw new Error("Kullanıcı bulunamadı.");
 
-    console.log(`[Report-API] ${user.id} için analiz isteği alındı.`);
-
     // 2. DOĞRULAMA: Gelen paketin içini kontrol et.
     const body = await req.json();
     const validation = RequestBodySchema.safeParse(body);
@@ -68,18 +66,13 @@ Deno.serve(async (req) => {
       throw new Error(`Geçersiz istek: ${validation.error.message}`);
     }
     const { days } = validation.data;
-    console.log(`[Report-API] Analiz süresi: ${days} gün.`);
     // ADAPTİF PARAMETRELERİ HESAPLA
     const retrievalParams = getAdaptiveRetrievalParams(days);
-    console.log(
-      `[Report-API] Adaptif parametreler hesaplandı (days: ${days}): threshold=${retrievalParams.threshold}, count=${retrievalParams.count}`,
-    );
 
     // 3. HAZIRLIK: Beyni çalıştırmadan önce gerekli malzemeleri topla.
     // Artık sadece olayları çekip AI'a gönderiyoruz.
 
     // 4. BEYNİ ÇALIŞTIR!
-    console.log(`[Report-API] Gelişmiş beyin çalıştırılıyor...`);
 
     // --- CASUS 1: VERİ ÇEKİLİYOR MU? ---
     const vault = await getUserVault(user.id, supabaseAdmin);
@@ -90,7 +83,6 @@ Deno.serve(async (req) => {
         "Kullanıcı profili (vault) bulunamadı. Analiz için yeterli veri yok.",
       );
     }
-    console.log(`[Report-API] Kullanıcı kasası (vault) başarıyla çekildi.`);
 
     // 2. EN ALAKALI ANILARI ÇEK (GERÇEK RAG)
     // Önce arama sorgusu oluştur ve embed et
@@ -100,15 +92,9 @@ Deno.serve(async (req) => {
     if (days <= 10) {
       search_query =
         `Kullanıcının son ${days} gün içindeki en belirgin olayları, günlük aktiviteleri, anlık duygu değişimleri ve karşılaştığı somut zorluklar. Odak noktası, 'bu hafta ne oldu?' sorusudur.`;
-      console.log(
-        `[Report-API] Kısa dönem (olay odaklı) RAG sorgusu oluşturuldu.`,
-      );
     } else {
       search_query =
         `Kullanıcının ana hedefi: ${therapyGoals}. Son ${days} gün boyunca bu hedefe giden yolda tekrar eden duygusal desenler, davranış kalıpları, ana temalar ve bu temaların nasıl evrildiği. Odak noktası, 'bu ayın büyük resmi ne?' sorusudur.`;
-      console.log(
-        `[Report-API] Uzun dönem (desen odaklı) RAG sorgusu oluşturuldu.`,
-      );
     }
 
     const { data: embedData, error: embedError } = await supabaseAdmin.functions
@@ -144,9 +130,6 @@ Deno.serve(async (req) => {
       retrieved_memories: memories || [],
     });
     // --- KANIT KAYDEDİLDİ ---
-    console.log(
-      `[Report-API] RAG ile hafızadan ${memories.length} adet alakalı anı çekildi.`,
-    );
 
     // Tahminler: dönem içindeki predicted_outcomes kayıtları
     const sinceIso = new Date(Date.now() - (days * 24 * 60 * 60 * 1000))
@@ -176,17 +159,6 @@ Deno.serve(async (req) => {
       expires_at: p.expires_at,
     }));
 
-    console.log(
-      `[Report-API] Veritabanından ${memories.length} anı (RAG), ${predictions.length} tahmin ve kullanıcı kasası çekildi.`,
-    );
-
-    // EĞER HİÇ OLAY YOKSA, KONSOLA BİR ÖRNEK BASALIM Kİ GÖRELİM
-    if (memories.length > 0) {
-      console.log(
-        "[Report-API] Çekilen ilk anın örneği:",
-        JSON.stringify(memories[0], null, 2),
-      );
-    }
     // --- CASUS 1 BİTTİ ---
 
     // ŞİMDİ O VERİYLE GERÇEK RAPORU OLUŞTUR (JSON paket)
@@ -197,15 +169,6 @@ Deno.serve(async (req) => {
       predictions,
     );
 
-    console.log(
-      `[Report-API] AI'dan dönen paket:`,
-      JSON.stringify(reportPayload).substring(0, 200) + "...",
-    );
-
-    // Veritabanına kaydet
-    console.log(
-      `[Report-API] AI'dan dönen paket alındı. Veritabanına kaydediliyor...`,
-    );
     const { error: insertError } = await supabaseAdmin
       .from("analysis_reports")
       .insert({
@@ -223,10 +186,6 @@ Deno.serve(async (req) => {
         `Rapor üretildi ancak kaydedilemedi: ${insertError.message}`,
       );
     }
-
-    console.log(
-      `[Report-API] Rapor ${user.id} için başarıyla veritabanına kaydedildi.`,
-    );
 
     // 5. BAŞARILI SONUÇ: JSON veriyi gönder.
     return new Response(JSON.stringify(reportPayload), {

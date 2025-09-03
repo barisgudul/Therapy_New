@@ -111,27 +111,14 @@ export async function updateTrait<K extends TraitKey>(
         confidenceScore = Math.min(0.95, existingTrait.confidence_score + 0.05); // Güven skorunu artır
 
         if (isDev()) {
-          console.log(
-            `[TRAIT-EMA] '${key}' güncellendi. Eski: ${
-              currentValue.toFixed(3)
-            }, Gelen: ${value.toFixed(3)}, Yeni: ${
-              finalValue.toFixed(3)
-            }, α=${alpha}`,
-          );
         }
       } else {
         finalValue = Math.max(0, Math.min(1, value));
         if (isDev()) {
-          console.log(
-            `[TRAIT-INIT] '${key}' ilk kez set edildi: ${
-              finalValue.toFixed(3)
-            }`,
-          );
         }
       }
     } else {
       if (isDev()) {
-        console.log(`[TRAIT-OVR] '${key}' üzerine yazıldı: ${value}`);
       }
     }
 
@@ -166,7 +153,6 @@ export async function updateTrait<K extends TraitKey>(
     }
 
     if (isDev()) {
-      console.log(`✅ [TRAIT] '${key}' başarıyla güncellendi: ${finalValue}`);
     }
   } catch (error) {
     console.error(
@@ -192,7 +178,6 @@ export async function clearAllTraits(userId: string): Promise<void> {
     }
 
     if (isDev()) {
-      console.log(`🗑️ [TRAIT] ${userId} için tüm traits silindi`);
     }
   } catch (error) {
     console.error("Traits silinirken hata:", error);

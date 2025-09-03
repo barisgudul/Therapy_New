@@ -43,8 +43,6 @@ export const useUpdateVault = () => {
       // Cache'i, DAKİKASINDA, HİÇ BEKLEMEDEN, yeni veriyle GÜNCELLE.
       queryClient.setQueryData(VAULT_QUERY_KEY, newVaultData);
 
-      console.log("⚡️ Vault anında güncellendi (Optimistic Update).");
-
       // Yedeği geri döndür ki, hata olursa geri yükleyebilelim.
       return { previousVault };
     },
@@ -64,7 +62,6 @@ export const useUpdateVault = () => {
     // Bu, bizim iyimser güncellememiz ile sunucudaki gerçeklik arasında fark varsa onu düzeltir.
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: VAULT_QUERY_KEY });
-      console.log("🔄 Vault verisi sunucu ile senkronize ediliyor...");
     },
   });
 };

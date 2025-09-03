@@ -397,7 +397,12 @@ export async function handleDreamAnalysis(
 export async function handleDailyReflection(
   context: InteractionContext,
 ): Promise<
-  { aiResponse: string; conversationTheme: string; decisionLogId: string; pendingSessionId: string }
+  {
+    aiResponse: string;
+    conversationTheme: string;
+    decisionLogId: string;
+    pendingSessionId: string;
+  }
 > {
   const { logger, userId, initialVault, transactionId } = context;
   logger.info("DailyReflection", `İşlem ${transactionId} başlıyor`);
@@ -609,16 +614,19 @@ export async function handleDailyReflection(
       originalNote: todayNote,
       aiReflection: reflectionText,
       theme: conversationTheme,
-      source: 'daily_reflection'
+      source: "daily_reflection",
     };
 
     const { data: pendingSession, error: pendingError } = await adminClient
-      .from('pending_text_sessions')
-      .insert({
+      .from("pending_text_sessions")
+      .upsert({ // INSERT YERİNE UPSERT
         user_id: userId,
         context_data: chatContext,
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      }, {
+        onConflict: "user_id", // Eğer bu user_id'de kayıt varsa üstüne yaz
       })
-      .select('id')
+      .select("id")
       .single();
 
     if (pendingError) {
@@ -626,7 +634,10 @@ export async function handleDailyReflection(
     }
 
     pendingSessionId = pendingSession.id;
-    logger.info("DailyReflection", `Geçici sohbet hafızası ${pendingSessionId} oluşturuldu.`);
+    logger.info(
+      "DailyReflection",
+      `Geçici sohbet hafızası ${pendingSessionId} oluşturuldu.`,
+    );
 
     logger.info(
       "DailyReflection",

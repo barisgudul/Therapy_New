@@ -144,7 +144,6 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       await result.current.endSession();
     });
 
-    // Verify endSession was called - artık SessionService yok, sadece console.log yapılıyor
     expect(mockOnSessionEnd).toHaveBeenCalled();
   });
 });
