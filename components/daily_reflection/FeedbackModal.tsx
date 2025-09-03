@@ -14,38 +14,36 @@ interface FeedbackModalProps {
   isVisible: boolean;
   onClose: () => void;
   aiMessage: string;
-  gradientColors: [string, string];
+  gradientColors: [string, string]; // Bunu artık butonlarda kullanmayacağız ama prop olarak kalabilir
   dynamicColor: string;
   satisfactionScore: number | null;
   onSatisfaction: (score: number) => void;
   onNavigateToTherapy: () => void;
 }
 
+// === DEĞİŞİKLİK BURADA BAŞLIYOR ===
+// Modal'ın butonları için sabit, markaya uygun degrade renkleri tanımlıyoruz.
+const MODAL_GRADIENT_COLORS: [string, string] = ["#E0ECFD", "#F4E6FF"];
+// === DEĞİŞİKLİK BURADA BİTİYOR ===
+
 export default function FeedbackModal({
   isVisible,
   onClose,
   aiMessage,
-  gradientColors,
+  gradientColors: _gradientColors,
   dynamicColor,
   satisfactionScore,
   onSatisfaction,
   onNavigateToTherapy,
 }: FeedbackModalProps) {
 
-    const shakeAnimation = useRef(new Animated.Value(0)).current; // Titreme animasyonu için
+    const shakeAnimation = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         if (isVisible) {
-            // "Titreme" (sallanma) animasyonu
             Animated.loop(
                 Animated.sequence([
-                    // Bekle
-                    Animated.timing(shakeAnimation, {
-                        toValue: 0,
-                        duration: 2000, // 2 saniye bekle
-                        useNativeDriver: true,
-                    }),
-                    // Hızlıca salla
+                    Animated.timing(shakeAnimation, { toValue: 0, duration: 2000, useNativeDriver: true }),
                     Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
                     Animated.timing(shakeAnimation, { toValue: -10, duration: 100, useNativeDriver: true }),
                     Animated.timing(shakeAnimation, { toValue: 10, duration: 100, useNativeDriver: true }),
@@ -58,12 +56,11 @@ export default function FeedbackModal({
         }
     }, [isVisible, shakeAnimation]);
 
-    // Sallanma efektini translateX'e çevir
     const animatedStyle = {
         transform: [{
             translateX: shakeAnimation.interpolate({
                 inputRange: [-10, 10],
-                outputRange: [-2, 2], // Sadece 2 piksel sola sağa oynasın, zarif olsun
+                outputRange: [-2, 2],
             })
         }]
     };
@@ -102,7 +99,6 @@ export default function FeedbackModal({
           style={styles.contentScrollView}
           showsVerticalScrollIndicator={false}
         >
-          {/* DEĞİŞİKLİK BURADA BAŞLIYOR */}
           {typeof aiMessage === 'string' && aiMessage.trim() !== '' ? (
             renderMarkdownText(aiMessage, dynamicColor)
           ) : (
@@ -110,23 +106,22 @@ export default function FeedbackModal({
               Yansımanız hazırlanıyor...
             </Text>
           )}
-          {/* DEĞİŞİKLİK BURADA BİTİYOR */}
         </ScrollView>
 
         {/* Action Buttons */}
         <View style={styles.buttonContainer}>
-          <Animated.View style={[{flex: 1}, animatedStyle]}> {/* <-- YENİ ANİMASYON STİLİNİ UYGULA */}
+          <Animated.View style={[{flex: 1}, animatedStyle]}>
               <TouchableOpacity
                 style={[styles.button]}
                 onPress={() => {
-                    // Tıklayınca hafif bir titreşim ver
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     onNavigateToTherapy();
                 }}
                 activeOpacity={0.8}
               >
+                {/* === DEĞİŞİKLİK: SABİT RENKLERİ KULLAN === */}
                 <LinearGradient
-                  colors={gradientColors}
+                  colors={MODAL_GRADIENT_COLORS}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.secondaryButtonGradient}
@@ -144,8 +139,9 @@ export default function FeedbackModal({
             onPress={onClose}
             activeOpacity={0.8}
           >
+            {/* === DEĞİŞİKLİK: SABİT RENKLERİ KULLAN === */}
             <LinearGradient
-              colors={gradientColors}
+              colors={MODAL_GRADIENT_COLORS}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryButtonGradient}
@@ -232,8 +228,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    // YENİ STİLLER
-    backgroundColor: '#FFFFFF', // logonun arkası temiz dursun
+    backgroundColor: '#FFFFFF',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -241,7 +236,7 @@ const styles = StyleSheet.create({
     elevation: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 4, // Logoya biraz nefes aldır
+    padding: 4,
   },
   logoImage: {
     width: '100%',

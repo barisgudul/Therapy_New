@@ -16,20 +16,20 @@ export const tokens = {
   },
 };
 
-// YENİ: İnterpolasyon için optimize edilmiş, en belirgin ve canlı renk paleti
+// YENİ VE DOĞRU PALET: Marka kimliğine uygun, yumuşak ve geçişli renkler.
 export const MOOD_LEVELS = [
-  // Derin düşünce, koyu indigo
-  { label: "Melankolik", color: "#1e1b4b" }, // Derin Indigo
-  // Durgunluk, koyu slate
-  { label: "Keyifsiz", color: "#1e293b" }, // Koyu Slate
-  // Nötr denge, koyu gri
-  { label: "Normal", color: "#374151" }, // Koyu Gri
-  // Hafif bir aydınlanma, parlak mavi
-  { label: "Rahat", color: "#3b82f6" }, // Parlak Mavi
-  // Huzur, canlı royal mavi
-  { label: "Mutlu", color: "#1d4ed8" }, // Royal Mavi
-  // Nazik pozitiflik, parlak cyan
-  { label: "Neşeli", color: "#0891b2" }, // Parlak Cyan
-  // Canlılık ve enerji, parlak emerald
-  { label: "Enerjik", color: "#059669" }, // Parlak Emerald
+  // En düşük duygu durumu: Soğuk ve sakin bir mor
+  { label: "Çok Kötü", startColor: "#A8A29E", endColor: "#D1D5DB" },
+  // Biraz daha iyi: Soğuk mavi tonları
+  { label: "Kötü", startColor: "#93C5FD", endColor: "#A5B4FC" },
+  // Nötre yakın: Daha nötr, sakin bir mavi
+  { label: "İdare Eder", startColor: "#A5B4FC", endColor: "#C4B5FD" },
+  // Tam orta nokta: Nötr ve dengeli bir lavanta
+  { label: "Normal", startColor: "#C4B5FD", endColor: "#D8B4FE" },
+  // Pozitif tarafa geçiş: Daha sıcak bir eflatun
+  { label: "İyi", startColor: "#F472B6", endColor: "#FBCFE8" },
+  // Mutluluk: Canlı ve sıcak bir pembe/mor
+  { label: "Harika", startColor: "#F9A8D4", endColor: "#FECDD3" },
+  // En yüksek enerji: Enerjik ve parlak bir gül kurusu
+  { label: "Muhteşem", startColor: "#FB7185", endColor: "#FDA4AF" },
 ];
