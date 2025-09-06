@@ -15,7 +15,7 @@ export const HomeIllustration: React.FC = () => {
       <View style={styles.textContainer}>
         <Text style={styles.title}>Zihnine İyi Bak</Text>
         <Text style={styles.subtitle}>
-          Yapay zekâ destekli terapiyi deneyimle
+          Yapay zekâ destekli kör noktalarını keşfetmeyi deneyimle
         </Text>
       </View>
     </View>

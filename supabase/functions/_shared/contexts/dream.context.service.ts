@@ -22,10 +22,11 @@ async function prepareDreamAnalysisDossier(
   const results = await Promise.allSettled([
     adminClient.from("user_vaults").select("vault_data").eq("user_id", userId)
       .single(),
-    adminClient.from("user_traits").select("trait_key, trait_value").eq(
-      "user_id",
-      userId,
-    ),
+    adminClient
+      .from("user_traits")
+      .select("confidence, anxiety_level, motivation, openness, neuroticism")
+      .eq("user_id", userId)
+      .maybeSingle(),
     adminClient.from("events").select("type, created_at, data").eq(
       "user_id",
       userId,
@@ -46,7 +47,7 @@ async function prepareDreamAnalysisDossier(
     : { data: null, error: results[0].reason };
   const traitsResult = results[1].status === "fulfilled"
     ? results[1].value
-    : { data: [], error: results[1].reason };
+    : { data: null, error: results[1].reason };
   const eventsResult = results[2].status === "fulfilled"
     ? results[2].value
     : { data: [], error: results[2].reason };
@@ -77,16 +78,11 @@ async function prepareDreamAnalysisDossier(
   } || {};
 
   // Traits'i user_traits tablosundan al
-  const traits = (traitsResult.data ?? []).reduce(
-    (
-      acc: Record<string, string>,
-      trait: { trait_key: string; trait_value: string },
-    ) => {
-      acc[trait.trait_key] = trait.trait_value;
-      return acc;
-    },
-    {} as Record<string, string>,
-  );
+  const traits = traitsResult.data
+    ? Object.fromEntries(
+      Object.entries(traitsResult.data).map(([k, v]) => [k, String(v)]),
+    )
+    : {};
 
   return {
     traits,

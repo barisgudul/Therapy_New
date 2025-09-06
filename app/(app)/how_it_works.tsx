@@ -56,7 +56,7 @@ export default function HowItWorksScreen() {
                   Kişisel Gelişim Yolculuğunuz
                 </Text>
                 <Text style={styles.introText}>
-                  therapy., duygusal farkındalığınızı geliştirmek ve kişisel gelişiminizi
+                  Lumen., duygusal farkındalığınızı geliştirmek ve kişisel gelişiminizi
                   desteklemek için tasarlandı. Yapay zeka teknolojisiyle günlük rutininizi
                   zenginleştirin, düşüncelerinizi keşfedin ve kendinizi daha iyi tanıyın.
                 </Text>

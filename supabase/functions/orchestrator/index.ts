@@ -1,6 +1,6 @@
 // supabase/functions/orchestrator/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { cors, corsHeaders as _corsHeaders } from "../_shared/cors.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
 import { getUserVault } from "../_shared/vault.service.ts";
 import { eventHandlers } from "../_shared/orchestration.handlers.ts";
@@ -16,8 +16,10 @@ function generateId(): string {
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: { ...cors(req) } });
   }
+
+  const cid = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
 
   try {
     const body = await req.json();
@@ -78,7 +80,11 @@ serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify(responsePayload), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...cors(req),
+        "x-correlation-id": cid,
+        "Content-Type": "application/json",
+      },
       status: 200,
     });
   } catch (error) {
@@ -110,7 +116,11 @@ serve(async (req: Request) => {
     }
 
     return new Response(JSON.stringify(responseBody), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...cors(req),
+        "x-correlation-id": cid,
+        "Content-Type": "application/json",
+      },
       status: statusCode,
     });
   }

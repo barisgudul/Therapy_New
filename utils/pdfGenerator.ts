@@ -52,7 +52,7 @@ export const generatePdf = async (activeSummary: AnalysisReportContent) => {
         </head>
         <body>
           <div class="container">
-            <h2>therapy<span style="color:#5DA1D9;">.</span> - Kişisel Rapor</h2>
+            <h2>Lumen<span style="color:#5DA1D9;">.</span> - Kişisel Rapor</h2>
             <div class="divider"></div>
             <div class="content">
               ${
@@ -63,7 +63,7 @@ export const generatePdf = async (activeSummary: AnalysisReportContent) => {
         }
             </div>
             <div class="footer">
-              Bu PDF, therapy. uygulamasının Kişisel Rapor özelliği ile otomatik oluşturulmuştur.
+              Bu PDF, Lumen. uygulamasının Kişisel Rapor özelliği ile otomatik oluşturulmuştur.
             </div>
           </div>
         </body>

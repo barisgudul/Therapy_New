@@ -26,7 +26,7 @@ export const AuthLayout = ({ title, subtitle, children, footer }: AuthLayoutProp
         >
           <View style={styles.headerContainer}>
             <Text style={styles.brand}>
-              therapy<Text style={styles.dot}>.</Text>
+              Lumen<Text style={styles.dot}>.</Text>
             </Text>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>

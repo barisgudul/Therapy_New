@@ -201,7 +201,7 @@ export default function VoiceSessionScreen() {
                                     {/* Lüks ve premium, kart olmayan, markaya uygun alan */}
                                     <View style={styles.premiumSessionArea}>
                                         <Text style={styles.logo}>
-                                            therapy<Text style={styles.dot}>.</Text>
+                                            Lumen<Text style={styles.dot}>.</Text>
                                         </Text>
                                         <Text
                                             style={[styles.title, {

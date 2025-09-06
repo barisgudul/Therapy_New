@@ -1,6 +1,6 @@
 // supabase/functions/_shared/prompts/session.prompt.ts
 
-import type { UserDossier } from "../context.service.ts";
+import type { UserDossier } from "../contexts/session.context.service.ts";
 
 interface PromptData {
   userDossier: UserDossier;
@@ -32,8 +32,6 @@ Kullanıcının şu son cümlesine cevap ver: "${userMessage}"
 3.  **SOHBETİ AÇ:** Cevabının sonuna genellikle açık uçlu bir soru ekleyerek sohbetin devam etmesini sağla.
 4.  **KISA VE ÖZ:** Cevapların 1-3 cümleyi geçmesin.
 
-Şimdi, bu kurallara göre arkadaşın ${
-    userDossier.nickname || "Barış"
-  }'a cevap ver:
+Şimdi, bu kurallara göre arkadaşın ${userDossier.nickname}'a cevap ver:
   `.trim();
 }

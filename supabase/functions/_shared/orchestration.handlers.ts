@@ -1,7 +1,7 @@
 // supabase/functions/_shared/orchestration.handlers.ts
 
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
-import type { InteractionContext, VaultData } from "./types/context.ts";
+import type { InteractionContext } from "./types/context.ts";
 import { ApiError, DatabaseError, ValidationError } from "./errors.ts";
 import { supabase as adminClient } from "./supabase-admin.ts";
 import * as AiService from "./ai.service.ts";
@@ -9,6 +9,7 @@ import * as AiService from "./ai.service.ts";
 import * as VaultService from "./vault.service.ts";
 
 import { config } from "./config.ts";
+import { deepMerge } from "./utils/deepMerge.ts";
 // CONTEXT SERVİSLERİ
 import { buildTextSessionContext } from "./contexts/session.context.service.ts";
 import { buildDailyReflectionContext } from "./contexts/dailyReflection.context.service.ts";
@@ -242,8 +243,14 @@ export async function handleDailyReflection(
     { temperature: 0.7, responseMimeType: "application/json" },
   );
 
-  const parsedResponse = JSON.parse(aiJsonResponse);
-  logger.info("DailyReflection", "AI yanıtı alındı.");
+  let parsedResponse;
+  try {
+    parsedResponse = JSON.parse(aiJsonResponse);
+    logger.info("DailyReflection", "AI yanıtı alındı.");
+  } catch (e) {
+    logger.error("DailyReflection", "Invalid AI JSON", { err: String(e) });
+    throw new ValidationError("AI cevabı geçersiz formatta.");
+  }
 
   const { reflectionText, conversationTheme } = parsedResponse;
 
@@ -341,29 +348,26 @@ export async function handleDailyReflection(
     );
 
     // 4. Vault'u güncelle
+    const currentVault = await VaultService.getUserVault(userId, adminClient) ??
+      {};
     const todayString = new Date().toISOString().split("T")[0];
-    const newVault: VaultData & {
-      currentMood?: string;
-      moodHistory?: { mood: string; timestamp: string; source?: string }[];
-    } = {
-      ...(context.initialVault || {}),
+    const newVault = deepMerge(currentVault as Record<string, unknown>, {
       currentMood: todayMood,
       metadata: {
-        ...(context.initialVault?.metadata || {}),
         lastDailyReflectionDate: todayString,
         dailyMessageContent: reflectionText,
         dailyMessageTheme: conversationTheme,
         dailyMessageDecisionLogId: decisionLogIdFromDb,
       },
       moodHistory: [
-        ...(context.initialVault?.moodHistory || []),
+        ...(currentVault.moodHistory ?? []),
         {
           mood: todayMood,
           timestamp: new Date().toISOString(),
           source: "daily_reflection",
         },
       ].slice(-30),
-    };
+    });
     await VaultService.updateUserVault(userId, newVault, adminClient);
     logger.info("DailyReflection", `Vault güncellendi.`);
 
@@ -584,4 +588,5 @@ export const eventHandlers: Record<
   "ai_analysis": handleDefault,
 
   "onboarding_completed": handleDefault,
+  "default": handleDefault, // <-- EKLE
 };

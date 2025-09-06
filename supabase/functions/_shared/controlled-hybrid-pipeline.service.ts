@@ -2,8 +2,8 @@
 
 import {
   handleDailyReflection,
-  handleDiaryEntry,
   handleDreamAnalysis,
+  handleTextSession,
 } from "./orchestration.handlers.ts";
 import type { InteractionContext } from "./types/context.ts";
 
@@ -27,7 +27,6 @@ export class ControlledHybridPipeline {
       const responses: Record<string, string> = {
         "pattern_discovery": "Örüntü keşfi şu an geliştiriliyor.",
         "insight_synthesis": "İçgörü sentezi şu an geliştiriliyor.",
-        "therapy_session": "Terapi seansı şu an geliştiriliyor.",
         "diary_management": "Günlük yönetimi şu an geliştiriliyor.",
         "daily_reflection": "Günlük yansıma şu an geliştiriliyor.",
       };
@@ -40,8 +39,12 @@ export class ControlledHybridPipeline {
         return await handleDailyReflection(context);
       }
 
+      if (pipelineType === "therapy_session") {
+        return await handleTextSession(context);
+      }
+
       if (pipelineType === "diary_management") {
-        return await handleDiaryEntry(context);
+        return await handleTextSession(context);
       }
 
       return responses[pipelineType] || "Bu özellik şu an geliştiriliyor.";

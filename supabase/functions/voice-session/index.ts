@@ -1,6 +1,7 @@
 // supabase/functions/voice-session/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { cors, corsHeaders as _corsHeaders } from "../_shared/cors.ts";
+import { assertRateLimit } from "../_shared/rate-limit.ts";
 import * as AiService from "../_shared/ai.service.ts";
 import * as RagService from "../_shared/rag.service.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
@@ -39,11 +40,12 @@ async function logAiDecision(logData: {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: { ...cors(req) } });
   }
 
   const startTime = Date.now();
   const transactionId = crypto.randomUUID();
+  const cid = req.headers.get("x-correlation-id") ?? crypto.randomUUID();
 
   try {
     // === GÜVENLİK DUVARLARI ===
@@ -61,6 +63,22 @@ serve(async (req) => {
       throw new Error("Kullanıcı doğrulanamadı veya JWT geçersiz.");
     }
     const userId = user.id; // İŞTE GÜVENLİ userId BUDUR!
+
+    // Basit rate limit (5 dk / 200 istek örneği)
+    try {
+      // @ts-ignore (tip uyarısı varsa)
+      await assertRateLimit(adminClient, userId, "voice_session", 200, 300);
+    } catch (e) {
+      const status = (e as Error & { status?: number }).status ?? 429;
+      return new Response(JSON.stringify({ error: "rate_limited" }), {
+        headers: {
+          ...cors(req),
+          "x-correlation-id": cid,
+          "Content-Type": "application/json",
+        },
+        status,
+      });
+    }
 
     // Client'tan gelen body'den userId'yi okumayı SİL.
     const { messages } = await req.json();
@@ -221,7 +239,13 @@ ${
     // Son olarak, bu sonucu client'a geri döndür.
     return new Response(
       JSON.stringify({ aiResponse: aiResponseText, usedMemory }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      {
+        headers: {
+          ...cors(req),
+          "x-correlation-id": cid,
+          "Content-Type": "application/json",
+        },
+      },
     );
   } catch (error) {
     const errorMessage = error instanceof Error
@@ -247,7 +271,11 @@ ${
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...cors(req),
+        "x-correlation-id": cid,
+        "Content-Type": "application/json",
+      },
       status: 500,
     });
   }

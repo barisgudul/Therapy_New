@@ -155,7 +155,7 @@ export class BehavioralPatternAnalyzer {
         .order("created_at", { ascending: true }),
 
       adminClient
-        .from("user_vault")
+        .from("user_vaults")
         .select("vault_data")
         .eq("user_id", userId)
         .single(),

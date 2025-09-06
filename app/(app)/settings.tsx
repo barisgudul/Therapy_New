@@ -124,7 +124,7 @@ export default function SettingsScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Therapy. v1.0.0</Text>
+                        <Text style={styles.footerText}>Lumen. v1.0.0</Text>
                     </View>
                 </ScrollView>
             </SafeAreaView>
