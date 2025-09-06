@@ -21,13 +21,13 @@ export const DiaryView: React.FC = () => {
   return (
     <View style={[styles.diaryViewContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => handlers.exitView()} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
+        </TouchableOpacity>
+        <Text style={styles.diaryViewTitle}>Günlük</Text>
         <TouchableOpacity style={styles.deleteButton} onPress={() => handlers.deleteDiary(state.selectedDiary!.id)}>
           <Ionicons name="trash-outline" size={24} color="#E53E3E" />
         </TouchableOpacity>
-      </View>
-
-      <View style={styles.titleContainer}>
-        <Text style={styles.diaryViewTitle}>Günlük</Text>
       </View>
 
       <ScrollView style={styles.diaryViewScrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -90,10 +90,21 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingVertical: 8,
+  },
+  backButton: {
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "rgba(227,232,240,0.4)",
   },
   deleteButton: {
     backgroundColor: "rgba(255,255,255,0.92)",
@@ -106,12 +117,8 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderColor: "rgba(227,232,240,0.4)",
   },
-  titleContainer: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
   diaryViewTitle: {
-    fontSize: 24,
+    fontSize: 27,
     fontWeight: "600",
     color: Colors.light.tint,
     letterSpacing: -0.5,

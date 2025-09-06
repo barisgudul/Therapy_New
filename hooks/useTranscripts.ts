@@ -8,6 +8,7 @@ import {
     deleteEventById,
     EventType,
     getEventsForLast,
+    getSessionSummariesForEventIds,
 } from "../services/event.service";
 
 export type ViewMode = "menu" | "summaryList";
@@ -19,6 +20,7 @@ export interface SessionSpecificData {
 export interface SessionEvent extends Omit<AppEvent, "data"> {
     mood?: "happy" | "neutral" | "sad";
     data: AppEvent["data"] & SessionSpecificData;
+    summary?: string | null; // YENİ: Session özeti
 }
 
 // State interface
@@ -146,9 +148,25 @@ export function useTranscripts() {
                 dispatch({ type: "FETCH_START" });
                 try {
                     const eventsFromStorage = await getEventsForLast(365);
+
+                    // Sadece session_end (veya metin seansı) kaynaklarını topla
+                    const ids = eventsFromStorage
+                        .filter((e) => e.type === "session_end")
+                        .map((e) => e.id);
+
+                    const summariesById = await getSessionSummariesForEventIds(
+                        ids,
+                    );
+
+                    // Event'lere summary alanını ekle
+                    const withSummaries = eventsFromStorage.map((e) => ({
+                        ...e,
+                        summary: summariesById[e.id] || null,
+                    }));
+
                     dispatch({
                         type: "FETCH_SUCCESS",
-                        payload: eventsFromStorage,
+                        payload: withSummaries,
                     });
                 } catch (error) {
                     console.error("Events fetch error:", error);

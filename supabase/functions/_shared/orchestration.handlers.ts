@@ -1,7 +1,7 @@
 // supabase/functions/_shared/orchestration.handlers.ts
 
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
-import type { InteractionContext } from "./types/context.ts";
+import type { InteractionContext, VaultData } from "./types/context.ts";
 import { ApiError, DatabaseError, ValidationError } from "./errors.ts";
 import { supabase as adminClient } from "./supabase-admin.ts";
 import * as AiService from "./ai.service.ts";
@@ -10,6 +10,11 @@ import * as VaultService from "./vault.service.ts";
 
 import { config } from "./config.ts";
 import { deepMerge } from "./utils/deepMerge.ts";
+import {
+  ensureNonParrotReply,
+  hasCliches,
+  looksParroty,
+} from "./utils/antiParrot.ts";
 // CONTEXT SERVİSLERİ
 import { buildTextSessionContext } from "./contexts/session.context.service.ts";
 import { buildDailyReflectionContext } from "./contexts/dailyReflection.context.service.ts";
@@ -19,6 +24,11 @@ import { buildDreamAnalysisContext } from "./contexts/dream.context.service.ts";
 import { generateTextSessionPrompt } from "./prompts/session.prompt.ts";
 import { generateDailyReflectionPrompt } from "./prompts/dailyReflection.prompt.ts";
 import { generateDreamAnalysisPrompt } from "./prompts/dreamAnalysis.prompt.ts";
+import {
+  getDiaryConclusionPrompt,
+  getDiaryNextQuestionsPrompt,
+  getDiaryStartPrompt,
+} from "./prompts/diary.prompt.ts";
 
 // ===============================================
 // ZOD ŞEMALARI VE DOĞRULAMA
@@ -445,6 +455,123 @@ export async function handleDailyReflection(
   }
 }
 
+// yardımcı: vault'ı kısa bağlama çevir
+function vaultToContextString(v: VaultData): string {
+  const name = v?.profile?.nickname ? `İsim: ${v.profile.nickname}` : "";
+  const goals = v?.profile?.therapyGoals
+    ? `Hedef: ${v.profile.therapyGoals}`
+    : "";
+  const themes = (v?.themes && v.themes.length)
+    ? `Temalar: ${v.themes.slice(0, 5).join(", ")}`
+    : "";
+  const notes = v?.keyInsights && v.keyInsights.length
+    ? `Önemli Notlar: ${v.keyInsights.slice(0, 3).join(" • ")}`
+    : "";
+  return [name, goals, themes, notes].filter(Boolean).join("\n") ||
+    "Kayıt sınırlı.";
+}
+
+// UI'nin beklediği tip
+type DiaryResponse = {
+  aiResponse: string;
+  nextQuestions?: string[];
+  isFinal: boolean;
+  conversationId: string;
+};
+
+export async function handleDiaryEntry(
+  context: InteractionContext,
+): Promise<DiaryResponse> {
+  const { initialEvent, initialVault } = context;
+  const { userInput, conversationId, turn } = (initialEvent.data ?? {}) as {
+    userInput?: string;
+    conversationId?: string | null;
+    turn?: number;
+  };
+
+  if (!userInput || typeof userInput !== "string") {
+    throw new ValidationError("Günlük için metin gerekli.");
+  }
+
+  const userName = initialVault?.profile?.nickname ?? null;
+  const vaultContext = vaultToContextString(initialVault as VaultData);
+
+  // 1) İlk tur: duygu + 3 soru üret
+  if (!conversationId || !turn || turn === 0) {
+    const prompt = getDiaryStartPrompt(userInput, userName, vaultContext);
+    const raw = await AiService.invokeGemini(
+      prompt,
+      config.AI_MODELS.FAST,
+      { responseMimeType: "application/json", temperature: 0.7 },
+      context.transactionId,
+    );
+
+    let parsed: { mood?: string; questions?: string[] } = {};
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = {};
+    }
+
+    const qs = Array.isArray(parsed.questions)
+      ? parsed.questions.filter(Boolean)
+      : [];
+    // kısa karşılama cümlesi; sorular UI'da ayrı listelenecek
+    const aiResponse = qs.length
+      ? "Hazırım. Şunlardan biriyle devam edelim:"
+      : "Devam edelim mi? Kısa bir noktadan başlayabiliriz.";
+
+    return {
+      aiResponse,
+      nextQuestions: qs.slice(0, 3),
+      isFinal: false,
+      conversationId: context.transactionId, // hafif ID; client geri yollar
+    };
+  }
+
+  // 2) Sonraki turlar: yeni sorular üret, gerekiyorsa bitir
+  const nextPrompt = getDiaryNextQuestionsPrompt(userInput, userName); // userInput'u conversationHistory olarak kullanıyoruz
+  const rawNext = await AiService.invokeGemini(
+    nextPrompt,
+    config.AI_MODELS.FAST,
+    { responseMimeType: "application/json", temperature: 0.7 },
+    context.transactionId,
+  );
+
+  let nextQs: string[] = [];
+  try {
+    nextQs = (JSON.parse(rawNext)?.questions ?? []).slice(0, 3);
+  } catch {
+    nextQs = [];
+  }
+
+  // basit bitiş kriteri: 3. turdan sonra ya da soru üretemediyse finalize et
+  const shouldFinish = (turn ?? 0) >= 2 || nextQs.length === 0;
+
+  let aiResponse = "Devam edelim; sana iyi gelen bir yerden anlatabilirsin.";
+  if (shouldFinish) {
+    // kısa kapanış
+    const conclPrompt = getDiaryConclusionPrompt(userInput, userName, "");
+    try {
+      const rawC = await AiService.invokeGemini(
+        conclPrompt,
+        config.AI_MODELS.FAST,
+        { responseMimeType: "application/json", temperature: 0.6 },
+        context.transactionId,
+      );
+      const summary = JSON.parse(rawC)?.summary;
+      if (summary) aiResponse = summary;
+    } catch { /* sessizce geç */ }
+  }
+
+  return {
+    aiResponse,
+    nextQuestions: shouldFinish ? [] : nextQs,
+    isFinal: shouldFinish,
+    conversationId: conversationId || context.transactionId,
+  };
+}
+
 // DİĞER HANDLER'LAR (şimdilik basit)
 export function handleDefault(
   context: InteractionContext,
@@ -473,6 +600,12 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     messages?: { sender: "user" | "ai"; text: string }[];
     pendingSessionId?: string | null;
   };
+
+  // TEŞHİS LOGU: AntiParrot-v2 çalışıyor mu kontrolü
+  logger.info(
+    "AntiParrot-v2",
+    `build: 2025-09-06, rules: lcs5 trig0.42 cliche unicode-fix`,
+  );
 
   // 1. SICA BAŞLANGIÇ KONTROLÜ (WARM START)
   const isWarmStartAttempt = messages && messages.length === 0 &&
@@ -510,14 +643,23 @@ export async function handleTextSession(context: InteractionContext): Promise<{
       Şimdi, bu kurallara göre sohbeti başlatan ilk cümleni kur:
     `.trim();
 
-    const aiResponse = await AiService.invokeGemini(
+    const rawWarm = await AiService.invokeGemini(
       warmStartPrompt,
       config.AI_MODELS.RESPONSE,
       { temperature: 0.7 },
       context.transactionId,
     );
 
-    return { aiResponse, usedMemory: null }; // Sıcak başlangıçta RAG hafızası yok
+    // Sıcak başlangıçta da papağanlık kontrolü
+    const aiResponse = await ensureNonParrotReply(
+      warmStartContext.aiReflection?.slice(0, 80) ?? "",
+      rawWarm,
+      { forbidPersonal: true },
+      context.transactionId,
+    );
+
+    // İSTEMCİ DOĞRULAMA: Orchestrator cevabını gösteriyor mu kontrolü
+    return { aiResponse: "· " + aiResponse, usedMemory: null }; // Sıcak başlangıçta RAG hafızası yok
   }
 
   // 2. NORMAL SOHBET AKIŞI
@@ -537,25 +679,79 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   logger.info("TextSession", "Kullanıcı dosyası ve RAG hafızası çekildi.");
 
   // 4. PROMPT'U OLUŞTUR (Yeni prompt.service'i çağır)
-  // Bütün o karmaşık metin birleştirme işi artık burada, tek satırda.
-  const pastContext = retrievedMemories.length > 0
-    ? retrievedMemories.map((m) => `- ${m.content}`).join("\n")
+  // --- küçük yardımcılar ---
+  function lexicalOverlap(a: string, b: string) {
+    const toSet = (s: string) =>
+      new Set(
+        s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ")
+          .split(/\s+/).filter((w) => w.length > 2),
+      );
+    const A = toSet(a), B = toSet(b);
+    let inter = 0;
+    A.forEach((w) => {
+      if (B.has(w)) inter++;
+    });
+    return inter / Math.max(1, A.size);
+  }
+  const isGreeting = /\b(merhaba|selam|hey|günaydın|iyi akşamlar|naber)\b/i
+    .test(userMessage);
+
+  // 1) vektör sonuçları üstünde hafif filtre
+  const filteredMemories = retrievedMemories.filter((m) =>
+    lexicalOverlap(userMessage, String(m.content)) >= 0.10
+  );
+
+  // 2) Kullanım kararı: selam değilse ve mesaj ≥2 kelimeyse
+  const canUse = !isGreeting && userMessage.trim().split(/\s+/).length >= 2;
+
+  // 3) Fallback: filtre boşsa top-1'i yine de kullan
+  const kept = canUse
+    ? (filteredMemories.length > 0
+      ? filteredMemories
+      : retrievedMemories.slice(0, 1))
+    : [];
+
+  const pastContext = kept.length > 0
+    ? kept.map((m) => `- ${m.content}`).join("\n")
     : "Yok";
+
+  logger.info(
+    "RAG-guard",
+    `retrieved=${retrievedMemories.length}, kept=${kept.length}, filtered=${filteredMemories.length}, canUse=${canUse}, reason=${
+      filteredMemories.length > 0 ? "lexical" : "fallback_top1"
+    }`,
+  );
 
   const shortTermMemory = messages.slice(0, -1).map((m) =>
     `${m.sender === "user" ? "Danışan" : "Sen"}: ${m.text}`
   ).join("\n");
+
+  const lastAiMsg = messages.slice(0, -1).reverse().find((m) =>
+    m.sender === "ai"
+  );
+  const lastAiEndedWithQuestion = !!lastAiMsg &&
+    /[?؟]$/.test(lastAiMsg.text.trim());
+  const userLooksBored = /\b(sıkıldım|boşver|aman|off+|yeter|ne alaka)\b/i.test(
+    userMessage,
+  );
+
+  // Stil rotasyonu: transactionId ile deterministik stil modu
+  const styleMode =
+    (context.transactionId.charCodeAt(0) + (messages?.length || 0)) % 3;
 
   const masterPrompt = generateTextSessionPrompt({
     userDossier,
     pastContext,
     shortTermMemory,
     userMessage,
+    lastAiEndedWithQuestion,
+    userLooksBored,
+    styleMode,
   });
 
   // 4. YAPAY ZEKAYI ÇAĞIR
   logger.info("TextSession", "AI'dan cevap bekleniyor...");
-  const aiResponse = await AiService.invokeGemini(
+  const rawAi = await AiService.invokeGemini(
     masterPrompt,
     config.AI_MODELS.RESPONSE, // Hızlı modeli kullanmaya devam
     { temperature: 0.8 },
@@ -563,11 +759,36 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     userMessage,
   );
 
+  // Emniyet katmanı: papağanlık varsa yeniden yazdır
+  // TEŞHİS: AntiParrot gerçekten çalışıyor mu?
+  const parrotCheck = looksParroty(userMessage, rawAi);
+  const clicheCheck = hasCliches(rawAi);
+  const needRewrite = parrotCheck || clicheCheck;
+  logger.info(
+    "AntiParrot-check",
+    `need: ${needRewrite}, parrot: ${parrotCheck}, cliche: ${clicheCheck}, preview: ${
+      rawAi.slice(0, 140)
+    }`,
+  );
+
+  const aiResponse = await ensureNonParrotReply(
+    userMessage,
+    rawAi,
+    { noQuestionTurn: lastAiEndedWithQuestion, forbidPersonal: true },
+    context.transactionId,
+  );
+
+  logger.info(
+    "AntiParrot-result",
+    `rewritten: ${aiResponse !== rawAi}, preview: ${aiResponse.slice(0, 140)}`,
+  );
+
   // 5. SONUCU DÖNDÜR
-  const usedMemory = retrievedMemories.length > 0 ? retrievedMemories[0] : null;
+  const usedMemory = kept.length > 0 ? kept[0] : null;
   logger.info("TextSession", "Cevap başarıyla üretildi.");
 
-  return { aiResponse, usedMemory };
+  // İSTEMCİ DOĞRULAMA: Orchestrator cevabını gösteriyor mu kontrolü
+  return { aiResponse: "· " + aiResponse, usedMemory };
 }
 
 // ===============================================
@@ -586,7 +807,7 @@ export const eventHandlers: Record<
   "voice_session": handleDefault,
   "video_session": handleDefault,
   "ai_analysis": handleDefault,
-
+  "diary_entry": handleDiaryEntry, // <-- EKLENDİ
   "onboarding_completed": handleDefault,
   "default": handleDefault, // <-- EKLE
 };

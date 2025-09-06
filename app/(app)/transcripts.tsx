@@ -132,10 +132,10 @@ const FlowCard: React.FC<{
 const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete: () => void; }> = ({ event, onPress, onDelete }) => {
   const date = new Date(event.timestamp);
   const formattedDate = date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "Bu seans dökümü bekliyor...";
-  const summaryTitle = firstUserMessage.length > 25 
-      ? firstUserMessage.substring(0, 25) + '...'
-      : firstUserMessage;
+  const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "";
+  const summaryText = event.summary || firstUserMessage || "Bu seansın özeti hazırlanıyor…";
+
+  const summaryTitle = summaryText.length > 25 ? summaryText.substring(0, 25) + '…' : summaryText;
   
   
 
@@ -149,8 +149,8 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
 
 
             <Text style={styles.summaryTitle}>{summaryTitle}</Text>
-            <Text style={styles.summaryText} numberOfLines={2}>
-                {firstUserMessage}
+            <Text style={styles.summaryText} numberOfLines={3}>
+                {summaryText}
             </Text>
             {/* YENİ: Silme butonu eklendi */}
             <Pressable onPress={onDelete} style={({ pressed }) => [styles.deleteButton, { transform: [{ scale: pressed ? 0.95 : 1 }] }] }>

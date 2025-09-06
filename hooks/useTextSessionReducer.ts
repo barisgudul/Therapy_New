@@ -314,12 +314,16 @@ export function useTextSessionReducer({
 
                     const { data: aiReply, error } = await supabase.functions
                         .invoke(
-                            "text-session",
+                            "orchestrator",
                             {
-                                // BODY'YE DİKKAT ET: messages BOŞ!
                                 body: {
-                                    messages: [],
-                                    pendingSessionId: pendingSessionId,
+                                    eventPayload: {
+                                        type: "text_session",
+                                        data: {
+                                            messages: [],
+                                            pendingSessionId: pendingSessionId,
+                                        },
+                                    },
                                 },
                             },
                         );
@@ -391,12 +395,18 @@ export function useTextSessionReducer({
 
             const requestBody = {
                 messages: updatedMessages, // State'in eski hali yerine güncel diziyi yolla
+                pendingSessionId: null, // Yeni serbest sohbetlerde temiz başlat
             };
 
             const { data: aiReply, error } = await supabase.functions.invoke(
-                "text-session",
+                "orchestrator",
                 {
-                    body: requestBody, // Güncellenmiş body'yi kullan
+                    body: {
+                        eventPayload: {
+                            type: "text_session",
+                            data: requestBody, // Güncellenmiş body'yi kullan
+                        },
+                    },
                     // ... headers aynı ...
                 },
             );

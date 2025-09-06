@@ -368,3 +368,26 @@ export async function getEventsForLast(days: number): Promise<AppEvent[]> {
 
   return (data as AppEvent[]) || [];
 }
+
+// YENİ: Session özetleri için yardımcı fonksiyon
+export async function getSessionSummariesForEventIds(
+  eventIds: string[],
+): Promise<Record<string, string>> {
+  if (eventIds.length === 0) return {};
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Kullanıcı bulunamadı.");
+
+  const { data, error } = await supabase
+    .from("memories")
+    .select("source_event_id, content, event_type")
+    .in("source_event_id", eventIds)
+    .eq("event_type", "text_session_summary");
+
+  if (error || !data) return {};
+
+  const map: Record<string, string> = {};
+  for (const row of data) {
+    map[row.source_event_id] = String(row.content);
+  }
+  return map;
+}
