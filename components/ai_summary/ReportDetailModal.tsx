@@ -2,7 +2,7 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -15,6 +15,7 @@ import {
 import Markdown from "react-native-markdown-display";
 import { Colors } from "../../constants/Colors";
 import { generatePdf } from "../../utils/pdfGenerator";
+import { supabase } from "../../utils/supabase";
 import { AnalysisReport } from "../../types/analysis";
 
 interface ReportDetailModalProps {
@@ -24,24 +25,123 @@ interface ReportDetailModalProps {
   selectedDays: number;
 }
 
+type Trends = "improving" | "stable" | "concerning";
+type Stability = "high" | "medium" | "low";
+type Engagement = "high" | "medium" | "low";
+
+type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+
+type BehavioralAnalysisResultLite = {
+  overall_trends: {
+    communication_trend: Trends;
+    mood_stability: Stability;
+    engagement_level: Engagement;
+  };
+  analysis_confidence: number;       // 0..1
+  total_patterns_found: number;
+};
+
+type InsightCard = {
+  key: "trend" | "balance" | "awareness" | "energy";
+  label: string;
+  value: string;
+  icon: IoniconName;
+  gradient: [string, string];
+  color: string;
+};
+
+const mapTrend = (t: Trends) =>
+  t === "improving" ? "Yükseliş"
+  : t === "stable"   ? "Durağan"
+  : "Dikkat";
+
+const mapStability = (s: Stability) =>
+  s === "high" ? "Dengeli" : s === "medium" ? "Dalgalı" : "Değişken";
+
+const mapEngagement = (e: Engagement) =>
+  e === "high" ? "Optimal" : e === "medium" ? "Orta" : "Düşük";
+
+// "Farkındalık" için pratik bir sezgisel metrik: analiz güveni
+const mapAwareness = (conf: number) =>
+  conf >= 0.66 ? "Yüksek" : conf >= 0.33 ? "Orta" : "Düşük";
+
 export default function ReportDetailModal({
   isVisible,
   onClose,
   activeSummary,
   selectedDays,
 }: ReportDetailModalProps) {
-  
+  const [insights, setInsights] = useState<InsightCard[] | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
+
   const handleExportPDF = async () => {
     if (!activeSummary) return;
     // Artık tüm pis işi bu fonksiyon yapacak
-    await generatePdf(activeSummary); 
+    await generatePdf(activeSummary);
   };
 
   // YENİ KONTROL MEKANİZMASI
-  const isAnalysisMeaningful = activeSummary && 
+  const isAnalysisMeaningful = activeSummary &&
     !activeSummary.reportSections.overview.toLowerCase().includes("yeterli veri") &&
     !activeSummary.reportSections.overview.toLowerCase().includes("kayda değer bir an");
-  
+
+  // İçgörüleri server'dan çek
+  useEffect(() => {
+    if (!isVisible || !activeSummary || !isAnalysisMeaningful) return; // ⬅️ erken çık
+    let cancelled = false;
+
+    const run = async () => {
+      setInsights(null);               // ⬅️ eski içgörüyü hemen temizle
+      setInsightsError(null);
+      setInsightsLoading(true);
+      try {
+        const { data, error } = await supabase.functions
+          .invoke<BehavioralAnalysisResultLite>("analyze-behavioral-patterns", {
+            body: { periodDays: selectedDays, nonce: Date.now() + Math.random() }, // ⬅️ güçlü cache-bust
+          });
+        if (error) throw error;
+        if (!data || data.total_patterns_found === 0) {
+          if (!cancelled) setInsights(null);
+          return;
+        }
+        if (!cancelled) setInsights([
+          { key:"trend",    label:"Gelişim Trendi",  value:mapTrend(data.overall_trends.communication_trend), icon:"trending-up", gradient:["rgba(147,51,234,0.12)","rgba(147,51,234,0.04)"], color:"#9333EA" },
+          { key:"balance",  label:"Duygusal Denge", value:mapStability(data.overall_trends.mood_stability),   icon:"heart",       gradient:["rgba(236,72,153,0.12)","rgba(236,72,153,0.04)"], color:"#EC4899" },
+          { key:"awareness",label:"Farkındalık",    value:mapAwareness(data.analysis_confidence),            icon:"bulb",        gradient:["rgba(34,197,94,0.12)","rgba(34,197,94,0.04)"], color:"#22C55E" },
+          { key:"energy",   label:"Enerji Seviyesi",value:mapEngagement(data.overall_trends.engagement_level),icon:"flame",      gradient:["rgba(251,146,60,0.12)","rgba(251,146,60,0.04)"], color:"#FB923C" },
+        ]);
+      } catch (e) {
+        if (!cancelled) {
+          setInsightsError(e instanceof Error ? e.message : "İçgörüler yüklenemedi.");
+          setInsights(null);
+        }
+      } finally {
+        if (!cancelled) setInsightsLoading(false);
+      }
+    };
+
+    run();
+    return () => { cancelled = true; };
+  }, [isVisible, selectedDays, isAnalysisMeaningful, activeSummary, lastRefresh]); // ⬅️ bağımlılıklara ekle
+
+  // Modal kapanınca state'i temizle
+  useEffect(() => {
+    if (!isVisible) {            // modal kapandığında temizle
+      setInsights(null);
+      setInsightsError(null);
+      setInsightsLoading(false);
+    }
+  }, [isVisible]);
+
+  // Modal props değiştiğinde refresh flag'ini güncelle
+  useEffect(() => {
+    if (activeSummary && selectedDays) {
+      setLastRefresh(Date.now());
+    }
+  }, [activeSummary, selectedDays]);
+
   return (
     <Modal
         visible={isVisible}
@@ -136,48 +236,32 @@ export default function ReportDetailModal({
                   <Markdown style={modalMarkdownStyles}>{activeSummary.reportSections.blindSpot}</Markdown>
                 </View>
 
-                {/* İstatistik Kartları - İŞTE DEĞİŞİKLİK BURADA! */}
+                {/* İstatistik / İçgörü Kartları */}
                 {isAnalysisMeaningful && (
-                  <View style={styles.modalInsightSection}>
+                  <View key={`${selectedDays}-${activeSummary?.reportSections.mainTitle}`} style={styles.modalInsightSection}>
                     <Text style={styles.modalSectionTitle}>Öne Çıkan İçgörüler</Text>
-                    
-                    <View style={styles.modalInsightGrid}>
-                      <LinearGradient
-                        colors={["rgba(147,51,234,0.12)", "rgba(147,51,234,0.04)"]}
-                        style={styles.modalInsightCard}
-                      >
-                        <Ionicons name="trending-up" size={24} color="#9333EA" />
-                        <Text style={styles.modalInsightLabel}>Gelişim Trendi</Text>
-                        <Text style={styles.modalInsightValue}>Yükseliş</Text>
-                      </LinearGradient>
-                      
-                      <LinearGradient
-                        colors={["rgba(236,72,153,0.12)", "rgba(236,72,153,0.04)"]}
-                        style={styles.modalInsightCard}
-                      >
-                        <Ionicons name="heart" size={24} color="#EC4899" />
-                        <Text style={styles.modalInsightLabel}>Duygusal Denge</Text>
-                        <Text style={styles.modalInsightValue}>Dengeli</Text>
-                      </LinearGradient>
-                      
-                      <LinearGradient
-                        colors={["rgba(34,197,94,0.12)", "rgba(34,197,94,0.04)"]}
-                        style={styles.modalInsightCard}
-                      >
-                        <Ionicons name="bulb" size={24} color="#22C55E" />
-                        <Text style={styles.modalInsightLabel}>Farkındalık</Text>
-                        <Text style={styles.modalInsightValue}>Yüksek</Text>
-                      </LinearGradient>
-                      
-                      <LinearGradient
-                        colors={["rgba(251,146,60,0.12)", "rgba(251,146,60,0.04)"]}
-                        style={styles.modalInsightCard}
-                      >
-                        <Ionicons name="flame" size={24} color="#FB923C" />
-                        <Text style={styles.modalInsightLabel}>Enerji Seviyesi</Text>
-                        <Text style={styles.modalInsightValue}>Optimal</Text>
-                      </LinearGradient>
-                    </View>
+
+                    {insightsLoading && (
+                      <View style={{ paddingVertical: 8 }}>
+                        <ActivityIndicator color={Colors.light.tint} />
+                      </View>
+                    )}
+
+                    {!insightsLoading && insightsError && (
+                      <Text style={{ color: "#9CA3AF" }}>{insightsError}</Text>
+                    )}
+
+                    {!insightsLoading && !insightsError && insights && insights.length > 0 && (
+                      <View style={styles.modalInsightGrid}>
+                        {insights.map((c) => (
+                          <LinearGradient key={c.key} colors={c.gradient} style={styles.modalInsightCard}>
+                            <Ionicons name={c.icon} size={24} color={c.color} />
+                            <Text style={styles.modalInsightLabel}>{c.label}</Text>
+                            <Text style={styles.modalInsightValue}>{c.value}</Text>
+                          </LinearGradient>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 )}
 

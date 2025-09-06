@@ -12,31 +12,49 @@ serve(async (req: Request) => {
 
   try {
     // Güvenlik: Kullanıcıyı doğrula
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
     const jwt = authHeader.replace("Bearer ", "");
     const { data: { user } } = await adminClient.auth.getUser(jwt);
     if (!user) throw new Error("Kullanıcı doğrulanamadı.");
 
-    const { periodDays } = await req.json();
-    if (!periodDays || typeof periodDays !== "number") {
-      throw new Error("Geçerli bir 'periodDays' parametresi gerekli.");
+    const body = await req.json().catch(() => ({}));
+    const days = body.periodDays ?? body.days ?? 7; // her iki adı da destekle
+    if (!days || typeof days !== "number") {
+      throw new Error(
+        "Geçerli bir 'periodDays' veya 'days' parametresi gerekli.",
+      );
     }
 
     // Analiz servisini çağır
     const analysisResult = await BehavioralPatternAnalyzer.analyzePatterns(
       user.id,
-      periodDays,
+      days,
     );
 
     return new Response(JSON.stringify(analysisResult), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
       status: 200,
     });
   } catch (error) {
     const message = (error as Error)?.message ?? String(error);
     console.error("[analyze-behavioral-patterns] KRİTİK HATA:", message, error);
     return new Response(JSON.stringify({ error: message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+      },
       status: 400,
     });
   }

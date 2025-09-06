@@ -516,17 +516,52 @@ export class BehavioralPatternAnalyzer {
   private static analyzeTrends(userData: { events: AppEvent[] }) {
     const events = userData.events;
 
-    // Basit trend analizi
+    // Gerçek veri analizi ile trend belirleme
+    const recentEvents = events.slice(
+      -Math.max(10, Math.floor(events.length * 0.3)),
+    ); // Son %30 veya en az 10 event
+    const olderEvents = events.slice(0, events.length - recentEvents.length);
+
+    // İletişim trendi analizi
+    const recentTextEvents =
+      recentEvents.filter((e) =>
+        e.data?.userMessage || e.data?.dreamText || e.data?.todayNote
+      ).length;
+    const olderTextEvents =
+      olderEvents.filter((e) =>
+        e.data?.userMessage || e.data?.dreamText || e.data?.todayNote
+      ).length;
+
+    let communication_trend: "improving" | "stable" | "concerning" = "stable";
+    if (recentEvents.length > 0 && olderEvents.length > 0) {
+      const recentRatio = recentTextEvents / recentEvents.length;
+      const olderRatio = olderTextEvents / olderEvents.length;
+      const change = recentRatio - olderRatio;
+
+      if (change > 0.1) communication_trend = "improving";
+      else if (change < -0.1) communication_trend = "concerning";
+    }
+
+    // Mood stability analizi
+    const moodEvents = events.filter((e) => e.mood);
+
+    let mood_stability: "high" | "medium" | "low" = "low";
+    if (moodEvents.length > 10) {
+      const moodRatio = moodEvents.length / events.length;
+      if (moodRatio > 0.3) mood_stability = "high";
+      else if (moodRatio > 0.15) mood_stability = "medium";
+    }
+
+    // Engagement level analizi
+    let engagement_level: "high" | "medium" | "low" = "low";
+    if (events.length > 50) engagement_level = "high";
+    else if (events.length > 20) engagement_level = "medium";
+    else if (events.length > 5) engagement_level = "low";
+
     return {
-      communication_trend: "stable" as const,
-      mood_stability: events.filter((e) => e.mood).length > 5
-        ? "medium" as const
-        : "low" as const,
-      engagement_level: events.length > 20
-        ? "high" as const
-        : events.length > 10
-        ? "medium" as const
-        : "low" as const,
+      communication_trend,
+      mood_stability,
+      engagement_level,
     };
   }
 

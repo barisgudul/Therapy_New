@@ -38,6 +38,10 @@ export default function AISummaryScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [activeSummary, setActiveSummary] = useState<AnalysisReport['content'] | null>(null);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [modalDays, setModalDays] = useState<number>(selectedDays);
+
+  // Kısa debounce için ref
+  const debounceTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Fonksiyonlar burada kalabilir, çünkü direkt bu ekranın mantığı ile ilgili
   const loadSavedReports = useCallback(async () => {
@@ -97,6 +101,11 @@ export default function AISummaryScreen() {
       // Yeni oluşturulan raporu mevcut listenin en başına ekle.
       setAnalysisReports(prevReports => [newReportForState, ...prevReports]);
 
+      // Opsiyonel: Yeni rapor oluşturulduğunda modalı otomatik aç
+      setActiveSummary(newReportPayload);
+      setModalDays(selectedDays);   // ⬅️ o raporun gün sayısı
+      setModalVisible(true);
+
     } catch (e: unknown) {
       const errorMessage = e instanceof Error ? e.message : 'Rapor oluşturulamadı.';
       console.error('[fetchSummary Error]', errorMessage);
@@ -124,6 +133,10 @@ export default function AISummaryScreen() {
             const reportsBeforeDelete = [...analysisReports];
             setAnalysisReports(prev => prev.filter(r => r.id !== reportId));
             try {
+              if (reportId.startsWith("temp-")) { // ⬅️ sadece lokalde
+                Toast.show({ type: "info", text1: "Rapor Silindi" });
+                return;
+              }
               const { error } = await supabase
                 .from('analysis_reports')
                 .delete()
@@ -173,7 +186,16 @@ export default function AISummaryScreen() {
           maximumValue={maxDays}
           step={1}
           value={selectedDays}
-          onValueChange={(v) => setSelectedDays(Array.isArray(v) ? v[0] : v)}
+          onValueChange={(v) => {
+            const newValue = Array.isArray(v) ? v[0] : v;
+            // Kısa debounce (200ms) - modal çağrılarını azalt
+            if (debounceTimeout.current) {
+              clearTimeout(debounceTimeout.current);
+            }
+            debounceTimeout.current = setTimeout(() => {
+              setSelectedDays(newValue);
+            }, 200);
+          }}
           containerStyle={styles.sliderContainer}
           trackStyle={styles.sliderTrack}
           thumbStyle={styles.sliderThumb}
@@ -222,6 +244,7 @@ export default function AISummaryScreen() {
                   item={item}
                   onPress={() => {
                     setActiveSummary(item.content);
+                    setModalDays(item.days_analyzed);   // ⬅️ kaydedilmiş raporun kendi günü
                     setModalVisible(true);
                   }}
                   onDelete={() => deleteSummary(item.id)}
@@ -258,11 +281,11 @@ export default function AISummaryScreen() {
       </View>
 
       {/* ARTIK TEK BİR SATIR! NE KADAR TEMİZ. */}
-      <ReportDetailModal 
+      <ReportDetailModal
         isVisible={modalVisible}
         onClose={() => setModalVisible(false)}
         activeSummary={activeSummary}
-        selectedDays={selectedDays}
+        selectedDays={modalDays}
       />
     </LinearGradient>
   );

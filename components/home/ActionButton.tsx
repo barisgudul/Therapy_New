@@ -13,7 +13,7 @@ interface ActionButtonProps {
 }
 
 export const ActionButton: React.FC<ActionButtonProps> = ({ onPress, icon, text, isSpecial = false }) => {
-  const gradientColors = isSpecial ? ["#4F46E5", "#6D28D9"] : ["#FFFFFF", "#F8FAFF"];
+  const gradientColors = isSpecial ? ["#4F46E5", "#6D28D9"] as const : ["#FFFFFF", "#F8FAFF"] as const;
   const textColor = isSpecial ? "#FFFFFF" : Colors.light.tint;
 
   return (

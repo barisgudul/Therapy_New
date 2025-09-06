@@ -183,25 +183,12 @@ export async function updateEventData(
 export async function canUserAnalyzeDream(): Promise<
   { canAnalyze: boolean; daysRemaining: number }
 > {
-  // 🔥 TEST MODU SİLİNDİ 🔥
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Kullanıcı bulunamadı.");
-
-    const usage = await getUsageStatsForUser(user.id, "dream_analysis");
-    // 'daysRemaining' mantığı SQL tarafında daha karmaşık hale geleceği için şimdilik basitleştiriyoruz.
-    // Sadece kullanıp kullanamayacağına odaklan.
-    return { canAnalyze: usage.can_use, daysRemaining: 0 };
-  } catch (e) {
-    console.error("⛔️ Rüya analizi hakkı kontrol hatası:", e);
-    return { canAnalyze: false, daysRemaining: 1 };
-  }
+  return { canAnalyze: true, daysRemaining: 0 };
 }
 
 export async function canUserWriteNewDiary(): Promise<
   { canWrite: boolean; message: string }
 > {
-  // 🔥 TEST MODU SİLİNDİ 🔥
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Kullanıcı bulunamadı.");
