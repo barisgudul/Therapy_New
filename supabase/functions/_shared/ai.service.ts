@@ -169,7 +169,7 @@ export async function generateElegantReport(
 
   KURALLAR:
   - **EN ÖNEMLİ KURAL: Tüm metni doğrudan ikinci tekil şahıs ('sen') kullanarak yaz. Ona kendisinden üçüncü bir şahıs gibi ASLA bahsetme.**
-  - Eğer ismini biliyorsan ('Ahmet'), cümlenin başına bir kere ismiyle hitap et, sonra 'sen' diye devam et.
+  - Eğer ismini biliyorsan ('sen'), cümlenin başına bir kere ismiyle hitap et, sonra 'sen' diye devam et.
   - Cevabın SADECE yukarıdaki JSON formatında olsun. Başka hiçbir şey ekleme.
   - Markdown kullanMA. Vurgu için **kelime** formatını KULLANABİLİRSİN.
   - Emoji YOK. Liste YOK.

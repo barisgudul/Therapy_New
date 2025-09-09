@@ -15,6 +15,7 @@ import {
   hasCliches,
   looksParroty,
 } from "./utils/antiParrot.ts";
+import { safeParseJsonBlock } from "./utils/json.ts";
 // CONTEXT SERVİSLERİ
 import { buildTextSessionContext } from "./contexts/session.context.service.ts";
 import { buildDailyReflectionContext } from "./contexts/dailyReflection.context.service.ts";
@@ -251,17 +252,24 @@ export async function handleDailyReflection(
     prompt,
     config.AI_MODELS.FAST,
     { temperature: 0.7, responseMimeType: "application/json" },
+    context.transactionId,
+    todayNote, // ← KRİTİK FIX 3: userMessage parametresi
   );
 
-  let parsedResponse;
-  try {
-    parsedResponse = JSON.parse(aiJsonResponse);
-    logger.info("DailyReflection", "AI yanıtı alındı.");
-  } catch (e) {
-    logger.error("DailyReflection", "Invalid AI JSON", { err: String(e) });
+  // Güvenli JSON ayrıştırma - fazladan metin varsa bile çalışır
+  const parsedResponse = safeParseJsonBlock<{
+    reflectionText: string;
+    conversationTheme: string;
+  }>(aiJsonResponse);
+
+  if (!parsedResponse) {
+    logger.error("DailyReflection", "Invalid AI JSON", {
+      preview: aiJsonResponse?.slice?.(0, 200),
+    });
     throw new ValidationError("AI cevabı geçersiz formatta.");
   }
 
+  logger.info("DailyReflection", "AI yanıtı alındı.");
   const { reflectionText, conversationTheme } = parsedResponse;
 
   // =================================================================
@@ -479,6 +487,13 @@ type DiaryResponse = {
   conversationId: string;
 };
 
+// Default sorular - AI başarısız olursa kullanılır
+const DEFAULT_DIARY_QUESTIONS = [
+  "Şu an içinden geçen baskın duygu ne?",
+  "Bu hikâyedeki en zor an hangisiydi, neden?",
+  "Şu anda sana iyi gelecek küçük bir adım ne olurdu?",
+];
+
 export async function handleDiaryEntry(
   context: InteractionContext,
 ): Promise<DiaryResponse> {
@@ -504,53 +519,52 @@ export async function handleDiaryEntry(
       config.AI_MODELS.FAST,
       { responseMimeType: "application/json", temperature: 0.7 },
       context.transactionId,
+      userInput, // ← KRİTİK FIX 3: userMessage parametresi
     );
 
-    let parsed: { mood?: string; questions?: string[] } = {};
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      parsed = {};
-    }
+    // Güvenli JSON ayrıştırma
+    const parsed =
+      safeParseJsonBlock<{ mood?: string; questions?: string[] }>(raw) ?? {};
 
-    const qs = Array.isArray(parsed.questions)
-      ? parsed.questions.filter(Boolean)
-      : [];
-    // kısa karşılama cümlesi; sorular UI'da ayrı listelenecek
-    const aiResponse = qs.length
-      ? "Hazırım. Şunlardan biriyle devam edelim:"
-      : "Devam edelim mi? Kısa bir noktadan başlayabiliriz.";
+    // Soruları al, yoksa default kullan
+    const qs = (Array.isArray(parsed.questions) && parsed.questions.length > 0)
+      ? parsed.questions.slice(0, 3)
+      : DEFAULT_DIARY_QUESTIONS;
 
     return {
-      aiResponse,
-      nextQuestions: qs.slice(0, 3),
+      aiResponse: "Hazırım. Şunlardan biriyle devam edelim:",
+      nextQuestions: qs,
       isFinal: false,
-      conversationId: context.transactionId, // hafif ID; client geri yollar
+      conversationId: context.transactionId,
     };
   }
 
   // 2) Sonraki turlar: yeni sorular üret, gerekiyorsa bitir
-  const nextPrompt = getDiaryNextQuestionsPrompt(userInput, userName); // userInput'u conversationHistory olarak kullanıyoruz
+  const nextPrompt = getDiaryNextQuestionsPrompt(userInput, userName);
   const rawNext = await AiService.invokeGemini(
     nextPrompt,
     config.AI_MODELS.FAST,
     { responseMimeType: "application/json", temperature: 0.7 },
     context.transactionId,
+    userInput, // ← KRİTİK FIX 3: userMessage parametresi
   );
 
-  let nextQs: string[] = [];
-  try {
-    nextQs = (JSON.parse(rawNext)?.questions ?? []).slice(0, 3);
-  } catch {
-    nextQs = [];
-  }
+  // Önce gerçek sonucu kontrol et
+  const parsedObj = safeParseJsonBlock<{ questions?: string[] }>(rawNext);
+  const parsedQs = parsedObj?.questions ?? [];
+  const aiCouldNotGenerateQuestions = parsedQs.length === 0; // ← gerçek boşluk kontrolü
 
-  // basit bitiş kriteri: 3. turdan sonra ya da soru üretemediyse finalize et
-  const shouldFinish = (turn ?? 0) >= 2 || nextQs.length === 0;
+  // Fallback uygula
+  const nextQs = aiCouldNotGenerateQuestions
+    ? DEFAULT_DIARY_QUESTIONS
+    : parsedQs.slice(0, 3);
+
+  // Bitiş kriteri: 3. turdan sonra YA DA AI soru üretemediyse finalize et
+  const shouldFinish = (turn ?? 0) >= 2 || aiCouldNotGenerateQuestions;
 
   let aiResponse = "Devam edelim; sana iyi gelen bir yerden anlatabilirsin.";
   if (shouldFinish) {
-    // kısa kapanış
+    // Kısa kapanış
     const conclPrompt = getDiaryConclusionPrompt(userInput, userName, "");
     try {
       const rawC = await AiService.invokeGemini(
@@ -558,8 +572,9 @@ export async function handleDiaryEntry(
         config.AI_MODELS.FAST,
         { responseMimeType: "application/json", temperature: 0.6 },
         context.transactionId,
+        userInput, // ← KRİTİK FIX 3: userMessage parametresi
       );
-      const summary = JSON.parse(rawC)?.summary;
+      const summary = safeParseJsonBlock<{ summary?: string }>(rawC)?.summary;
       if (summary) aiResponse = summary;
     } catch { /* sessizce geç */ }
   }

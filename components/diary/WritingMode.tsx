@@ -59,6 +59,13 @@ export const WritingMode: React.FC = () => {
                     <Text style={styles.writingDiaryInputPlaceholderText}>Düşüncelerini yazmaya başla...</Text>
                   </TouchableOpacity>
                 )}
+
+                {/* Fallback placeholder for when questions are empty but conversation is ongoing */}
+                {state.messages.length > 0 && state.currentQuestions.length === 0 && !state.isConversationDone && !state.isSubmitting && (
+                  <TouchableOpacity style={styles.writingDiaryInputPlaceholder} onPress={handlers.openModal}>
+                    <Text style={styles.writingDiaryInputPlaceholderText}>Devam etmek için dokun...</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>
@@ -76,21 +83,32 @@ export const WritingMode: React.FC = () => {
             </View>
           )}
 
-          <View style={styles.diaryContainer}>
-            {state.currentQuestions.length > 0 && !state.isConversationDone && (
+          {/* SADECE mesaj başladıysa veya soru geldiyse göster */}
+          {(state.messages.length > 0 || state.currentQuestions.length > 0) && !state.isConversationDone && (
+            <View style={styles.diaryContainer}>
               <View style={styles.writingQuestionsContainer}>
                 <View style={styles.writingQuestionsHeader}>
                   <Ionicons name="sparkles-outline" size={20} color={Colors.light.tint} />
-                  <Text style={styles.writingQuestionsTitle}>Nasıl devam edelim?</Text>
+                  <Text style={styles.writingQuestionsTitle}>
+                    {state.currentQuestions.length > 0 ? "Nasıl devam edelim?" : "Devam etmek ister misin?"}
+                  </Text>
                 </View>
-                {state.currentQuestions.map((question, index) => (
+
+                {state.currentQuestions.length > 0 && state.currentQuestions.map((question, index) => (
                   <TouchableOpacity key={index} style={styles.writingQuestionButton} onPress={() => handlers.selectQuestion(question)}>
                     <Text style={styles.writingQuestionText}>{question}</Text>
                   </TouchableOpacity>
                 ))}
+
+                {/* Fallback butonunu sadece konuşma başladıysa göster */}
+                {state.currentQuestions.length === 0 && state.messages.length > 0 && (
+                  <TouchableOpacity style={styles.writingQuestionButton} onPress={() => handlers.openModal()}>
+                    <Text style={styles.writingQuestionText}>Kendi cümlemle yazmak istiyorum</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            )}
-          </View>
+            </View>
+          )}
         </ScrollView>
       </View>
 

@@ -11,6 +11,18 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
+// 🔥 KRİTİK FIX 1: Gemini REST API için generationConfig normalizasyonu
+function normalizeGenConfig(cfg: Record<string, unknown> | undefined) {
+  if (!cfg) return undefined;
+  const copy: Record<string, unknown> = { ...cfg };
+  // responseMimeType -> response_mime_type (snake_case)
+  if (copy.responseMimeType && !copy.response_mime_type) {
+    copy.response_mime_type = copy.responseMimeType;
+    delete copy.responseMimeType;
+  }
+  return copy;
+}
+
 async function classifyTextForSafety(text: string): Promise<string> {
   if (!GEMINI_API_KEY_FOR_GATEWAY) {
     console.error(
@@ -44,9 +56,9 @@ async function classifyTextForSafety(text: string): Promise<string> {
     }
 
     const data = await res.json();
-    const classification =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text.trim()?.toLowerCase() ||
-      "level_2_moderate_risk";
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    // 🔥 KRİTİK FIX 2: Güvenlik sınıflandırmasını sağlamlaştır
+    const classification = raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
     const validClassifications = [
       "level_0_safe",
       "level_1_mild_concern",
@@ -275,6 +287,9 @@ export async function handleApiGateway(req: Request): Promise<Response> {
         console.log(
           `[API-Gateway][${transactionId}] Gemini generateContent start: ${payload.model}`,
         );
+
+        const generationConfig = normalizeGenConfig(payload.config);
+
         const geminiRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${payload.model}:generateContent?key=${geminiApiKey}`,
           {
@@ -282,7 +297,7 @@ export async function handleApiGateway(req: Request): Promise<Response> {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               contents: [{ parts: [{ text: payload.prompt }] }],
-              ...(payload.config && { generationConfig: payload.config }),
+              ...(generationConfig && { generationConfig }),
             }),
           },
         );
