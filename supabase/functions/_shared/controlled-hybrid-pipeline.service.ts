@@ -1,28 +1,38 @@
 // supabase/functions/_shared/controlled-hybrid-pipeline.service.ts
 
-import {
-  handleDailyReflection,
-  handleDreamAnalysis,
-  handleTextSession,
-} from "./orchestration.handlers.ts";
 import type { InteractionContext } from "./types/context.ts";
+import { config, LLM_LIMITS } from "./config.ts";
+import * as AiService from "./ai.service.ts";
+
+// AI analizi için basit LLM çağrısı
+export async function executeDeepAnalysis(context: InteractionContext) {
+  const prompt =
+    `Kullanıcının son dönemdeki etkileşimleri için kısa bir analiz özeti üret.
+Sadece JSON döndür: { "insight": "1-2 cümlelik içgörü" }`;
+
+  return await AiService.invokeGemini(
+    prompt,
+    config.AI_MODELS.ADVANCED,
+    {
+      responseMimeType: "application/json",
+      temperature: 0.5,
+      maxOutputTokens: LLM_LIMITS.AI_ANALYSIS, // 🔒 1024 tavan
+    },
+    context.transactionId,
+  );
+}
 
 export class ControlledHybridPipeline {
   /**
    * 🧠 KARMAŞIK SORU İŞLEYİCİ
    */
-  static async executeComplexQuery(
-    context: InteractionContext,
+  static executeComplexQuery(
+    _context: InteractionContext,
     pipelineType: string,
-  ): Promise<unknown> {
+  ): unknown {
     console.log(`[PIPELINE] 🎯 Pipeline başlatılıyor: ${pipelineType}`);
 
     try {
-      // AI analizi için basit pipeline (şimdilik placeholder)
-      if (pipelineType === "deep_analysis") {
-        return "AI analizi şu an geliştiriliyor.";
-      }
-
       // Diğer pipeline tipleri için yönlendirme / basit yanıt
       const responses: Record<string, string> = {
         "pattern_discovery": "Örüntü keşfi şu an geliştiriliyor.",
@@ -30,22 +40,6 @@ export class ControlledHybridPipeline {
         "diary_management": "Günlük yönetimi şu an geliştiriliyor.",
         "daily_reflection": "Günlük yansıma şu an geliştiriliyor.",
       };
-
-      if (pipelineType === "dream_analysis") {
-        return await handleDreamAnalysis(context);
-      }
-
-      if (pipelineType === "daily_reflection") {
-        return await handleDailyReflection(context);
-      }
-
-      if (pipelineType === "therapy_session") {
-        return await handleTextSession(context);
-      }
-
-      if (pipelineType === "diary_management") {
-        return await handleTextSession(context);
-      }
 
       return responses[pipelineType] || "Bu özellik şu an geliştiriliyor.";
     } catch (error) {

@@ -8,7 +8,7 @@ import * as AiService from "./ai.service.ts";
 
 import * as VaultService from "./vault.service.ts";
 
-import { config } from "./config.ts";
+import { config, LLM_LIMITS } from "./config.ts";
 import { deepMerge } from "./utils/deepMerge.ts";
 import {
   ensureNonParrotReply,
@@ -20,6 +20,7 @@ import { safeParseJsonBlock } from "./utils/json.ts";
 import { buildTextSessionContext } from "./contexts/session.context.service.ts";
 import { buildDailyReflectionContext } from "./contexts/dailyReflection.context.service.ts";
 import { buildDreamAnalysisContext } from "./contexts/dream.context.service.ts";
+import { executeDeepAnalysis } from "./controlled-hybrid-pipeline.service.ts";
 
 // PROMPT SERVİSLERİ
 import { generateTextSessionPrompt } from "./prompts/session.prompt.ts";
@@ -48,28 +49,6 @@ const DreamAnalysisResultSchema = z.object({
   crossConnections: z.array(DreamConnectionSchema),
   questions: z.array(z.string()),
 });
-
-function parseAndValidateJson(
-  raw: string,
-): z.infer<typeof DreamAnalysisResultSchema> | null {
-  try {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) {
-      console.error("Doğrulama Hatası: Metinde JSON bloğu bulunamadı.");
-      return null;
-    }
-    const parsed = JSON.parse(match[0]);
-    const result = DreamAnalysisResultSchema.safeParse(parsed);
-    if (!result.success) {
-      console.error("Zod Doğrulama Hatası:", result.error.flatten());
-      return null;
-    }
-    return result.data;
-  } catch (e) {
-    console.error("JSON Ayrıştırma Hatası:", e);
-    return null;
-  }
-}
 
 function calculateConnectionConfidence(
   analysis: z.infer<typeof DreamAnalysisResultSchema>,
@@ -103,6 +82,15 @@ export async function handleDreamAnalysis(
   context: InteractionContext,
 ): Promise<{ eventId: string }> {
   const { logger, userId, transactionId } = context;
+
+  // Idempotency kontrolü - transactionId olmadan upsert faydasız
+  if (!context.transactionId) {
+    logger.warn(
+      "Idempotency",
+      "Missing transactionId; upsert will not dedupe.",
+    );
+  }
+
   const { dreamText } = context.initialEvent.data as { dreamText?: string };
 
   if (
@@ -132,21 +120,29 @@ export async function handleDreamAnalysis(
   const rawResponse = await AiService.invokeGemini(
     masterPrompt,
     config.AI_MODELS.ADVANCED,
-    { responseMimeType: "application/json" },
+    {
+      responseMimeType: "application/json",
+      maxOutputTokens: LLM_LIMITS.DREAM_ANALYSIS,
+    },
     transactionId,
   );
   logger.info("DreamAnalysis", "AI yanıtı alındı.");
 
   // 4. SONUCU DOĞRULA VE KAYDET (ARTIK PLACEHOLDER DEĞİL)
-  const analysisData = parseAndValidateJson(rawResponse);
-  if (analysisData === null) {
+  const analysisData = safeParseJsonBlock<
+    z.infer<typeof DreamAnalysisResultSchema>
+  >(rawResponse);
+  if (
+    !analysisData || !DreamAnalysisResultSchema.safeParse(analysisData).success
+  ) {
     throw new ValidationError("Yapay zeka tutarsız bir analiz üretti.");
   }
 
   const { data: inserted, error: insertError } = await adminClient
     .from("events")
-    .insert({
+    .upsert({
       user_id: userId,
+      transaction_id: context.transactionId, // 🔒 idempotent anahtar
       type: "dream_analysis",
       timestamp: new Date().toISOString(),
       data: {
@@ -154,7 +150,7 @@ export async function handleDreamAnalysis(
         analysis: analysisData,
         dialogue: [],
       },
-    })
+    }, { onConflict: "user_id,transaction_id" })
     .select("id")
     .single();
 
@@ -189,9 +185,10 @@ export async function handleDreamAnalysis(
     logger.error("DreamAnalysis", "AI karar loglama hatası", logError);
   }
 
-  // HAFIZA KAYDI YAP
-  try {
-    await adminClient.functions.invoke("process-memory", {
+  // HAFIZA KAYDI YAP - simetrik error kontrolü
+  const { error: pmError } = await adminClient.functions.invoke(
+    "process-memory",
+    {
       body: {
         source_event_id: newEventId,
         user_id: userId,
@@ -201,9 +198,12 @@ export async function handleDreamAnalysis(
         event_type: "dream_analysis",
         transaction_id: transactionId,
       },
-    });
-  } catch (err) {
-    logger.error("DreamAnalysis", "process-memory invoke hatası", err);
+    },
+  );
+
+  if (pmError) {
+    logger.error("DreamAnalysis", "process-memory invoke hatası", pmError);
+    // Akışı bozma; logla ve devam et.
   }
 
   logger.info("DreamAnalysis", `İşlem tamamlandı. Event ID: ${newEventId}`);
@@ -224,6 +224,14 @@ export async function handleDailyReflection(
   }
 > {
   const { logger, userId } = context;
+
+  // Idempotency kontrolü - transactionId olmadan upsert faydasız
+  if (!context.transactionId) {
+    logger.warn(
+      "Idempotency",
+      "Missing transactionId; upsert will not dedupe.",
+    );
+  }
   const { todayNote, todayMood } = context.initialEvent.data as {
     todayNote?: string;
     todayMood?: string;
@@ -251,9 +259,13 @@ export async function handleDailyReflection(
   const aiJsonResponse = await AiService.invokeGemini(
     prompt,
     config.AI_MODELS.FAST,
-    { temperature: 0.7, responseMimeType: "application/json" },
+    {
+      temperature: 0.7,
+      responseMimeType: "application/json",
+      maxOutputTokens: LLM_LIMITS.DAILY_REFLECTION,
+    },
     context.transactionId,
-    todayNote, // ← KRİTİK FIX 3: userMessage parametresi
+    todayNote,
   );
 
   // Güvenli JSON ayrıştırma - fazladan metin varsa bile çalışır
@@ -281,10 +293,12 @@ export async function handleDailyReflection(
   let pendingSessionId: string | null = null;
 
   try {
-    // 1. Ana Olayı (Event) Kaydet
+    // 1. Ana Olayı (Event) Kaydet - Idempotent upsert
     const { data: insertedEvent, error: eventError } = await adminClient
-      .from("events").insert({
+      .from("events")
+      .upsert({
         user_id: userId,
+        transaction_id: context.transactionId, // 🔒 idempotent anahtar
         type: "daily_reflection",
         timestamp: new Date().toISOString(),
         data: {
@@ -295,7 +309,9 @@ export async function handleDailyReflection(
           status: "processing",
         },
         mood: todayMood,
-      }).select("id, created_at").single();
+      }, { onConflict: "user_id,transaction_id" })
+      .select("id, created_at")
+      .single();
 
     if (eventError) {
       throw new DatabaseError(
@@ -390,14 +406,26 @@ export async function handleDailyReflection(
     logger.info("DailyReflection", `Vault güncellendi.`);
 
     // 5. Her şey tamamsa, Event'in durumunu "completed" yap
-    await adminClient.from("events").update({
-      data: {
-        ...context.initialEvent.data,
-        status: "completed",
-        reflectionText,
-        conversationTheme,
-      },
-    }).eq("id", sourceEventId);
+    const { error: completeErr } = await adminClient
+      .from("events")
+      .update({
+        data: {
+          ...context.initialEvent.data,
+          status: "completed",
+          reflectionText,
+          conversationTheme,
+        },
+      })
+      .eq("id", sourceEventId);
+
+    if (completeErr) {
+      logger.error(
+        "DailyReflection",
+        "Event completion update failed",
+        completeErr,
+      );
+      // Prod'da akışı bozmasın diye sadece loglamak yeterli
+    }
 
     // 6. SOHBET İÇİN GEÇİCİ HAFIZAYI OLUŞTUR
     const chatContext = {
@@ -517,9 +545,13 @@ export async function handleDiaryEntry(
     const raw = await AiService.invokeGemini(
       prompt,
       config.AI_MODELS.FAST,
-      { responseMimeType: "application/json", temperature: 0.7 },
+      {
+        responseMimeType: "application/json",
+        temperature: 0.7,
+        maxOutputTokens: LLM_LIMITS.DIARY_START,
+      },
       context.transactionId,
-      userInput, // ← KRİTİK FIX 3: userMessage parametresi
+      userInput,
     );
 
     // Güvenli JSON ayrıştırma
@@ -544,9 +576,13 @@ export async function handleDiaryEntry(
   const rawNext = await AiService.invokeGemini(
     nextPrompt,
     config.AI_MODELS.FAST,
-    { responseMimeType: "application/json", temperature: 0.7 },
+    {
+      responseMimeType: "application/json",
+      temperature: 0.7,
+      maxOutputTokens: LLM_LIMITS.DIARY_NEXT,
+    },
     context.transactionId,
-    userInput, // ← KRİTİK FIX 3: userMessage parametresi
+    userInput,
   );
 
   // Önce gerçek sonucu kontrol et
@@ -570,9 +606,13 @@ export async function handleDiaryEntry(
       const rawC = await AiService.invokeGemini(
         conclPrompt,
         config.AI_MODELS.FAST,
-        { responseMimeType: "application/json", temperature: 0.6 },
+        {
+          responseMimeType: "application/json",
+          temperature: 0.6,
+          maxOutputTokens: LLM_LIMITS.DIARY_CONCLUSION,
+        },
         context.transactionId,
-        userInput, // ← KRİTİK FIX 3: userMessage parametresi
+        userInput,
       );
       const summary = safeParseJsonBlock<{ summary?: string }>(rawC)?.summary;
       if (summary) aiResponse = summary;
@@ -619,7 +659,7 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   // TEŞHİS LOGU: AntiParrot-v2 çalışıyor mu kontrolü
   logger.info(
     "AntiParrot-v2",
-    `build: 2025-09-06, rules: lcs5 trig0.42 cliche unicode-fix`,
+    `build: 2025-09-06, rules: lcs5 trig0.55 cliche unicode-fix`,
   );
 
   // 1. SICA BAŞLANGIÇ KONTROLÜ (WARM START)
@@ -661,20 +701,32 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     const rawWarm = await AiService.invokeGemini(
       warmStartPrompt,
       config.AI_MODELS.RESPONSE,
-      { temperature: 0.7 },
+      { temperature: 0.7, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
       context.transactionId,
     );
 
-    // Sıcak başlangıçta da papağanlık kontrolü
-    const aiResponse = await ensureNonParrotReply(
-      warmStartContext.aiReflection?.slice(0, 80) ?? "",
-      rawWarm,
-      { forbidPersonal: true },
-      context.transactionId,
-    );
+    // Sıcak başlangıçta da papağanlık kontrolü (güvenli try/catch)
+    let aiResponse = rawWarm;
+    try {
+      if (config.FEATURE_FLAGS.ANTIPARROT_ENABLED) {
+        aiResponse = await ensureNonParrotReply(
+          warmStartContext.aiReflection?.slice(0, 80) ?? "",
+          rawWarm,
+          { forbidPersonal: true },
+          context.transactionId,
+        );
+      }
+    } catch (_e) {
+      // AntiParrot hatasında fallback - raw yanıtla devam et
+      aiResponse = rawWarm || "Hazırım. Söylemek istediğin bir şey var mı?";
+      logger.warn(
+        "AntiParrot",
+        "Warm start AntiParrot hatası - fallback kullanılıyor",
+      );
+    }
 
     // İSTEMCİ DOĞRULAMA: Orchestrator cevabını gösteriyor mu kontrolü
-    return { aiResponse: "· " + aiResponse, usedMemory: null }; // Sıcak başlangıçta RAG hafızası yok
+    return { aiResponse, usedMemory: null }; // Sıcak başlangıçta RAG hafızası yok
   }
 
   // 2. NORMAL SOHBET AKIŞI
@@ -682,15 +734,21 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     throw new ValidationError("Sohbet için mesaj gerekli.");
   }
   const userMessage = messages[messages.length - 1].text;
-  logger.info("TextSession", `Yeni mesaj alındı: "${userMessage}"`);
+  // PII koruması için mesajı maskeleyelim
+  const maskMessage = (s: string) => s.replace(/\S/g, "•").slice(0, 80);
+  logger.info(
+    "TextSession",
+    `Yeni mesaj alındı (mask): ${maskMessage(userMessage)}`,
+  );
 
   // 3. BAĞLAMI OLUŞTUR (Yeni context.service'i çağır)
   // Artık bütün veritabanı ve RAG mantığı burada, tek satırda.
-  const { userDossier, retrievedMemories } = await buildTextSessionContext(
-    userId,
-    userMessage,
-    pendingSessionId,
-  );
+  const { userDossier, retrievedMemories = [], ragForPrompt = "" } =
+    await buildTextSessionContext(
+      userId,
+      userMessage,
+      pendingSessionId,
+    );
   logger.info("TextSession", "Kullanıcı dosyası ve RAG hafızası çekildi.");
 
   // 4. PROMPT'U OLUŞTUR (Yeni prompt.service'i çağır)
@@ -726,9 +784,8 @@ export async function handleTextSession(context: InteractionContext): Promise<{
       : retrievedMemories.slice(0, 1))
     : [];
 
-  const pastContext = kept.length > 0
-    ? kept.map((m) => `- ${m.content}`).join("\n")
-    : "Yok";
+  const pastContext = ragForPrompt ||
+    (kept.length > 0 ? kept.map((m) => `- ${m.content}`).join("\n") : "Yok");
 
   logger.info(
     "RAG-guard",
@@ -751,8 +808,11 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   );
 
   // Stil rotasyonu: transactionId ile deterministik stil modu
-  const styleMode =
-    (context.transactionId.charCodeAt(0) + (messages?.length || 0)) % 3;
+  const tx = context.transactionId && context.transactionId.length > 0
+    ? context.transactionId
+    : "0";
+  const seed = tx.charCodeAt(0);
+  const styleMode = (seed + (messages?.length || 0)) % 3;
 
   const masterPrompt = generateTextSessionPrompt({
     userDossier,
@@ -769,7 +829,7 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   const rawAi = await AiService.invokeGemini(
     masterPrompt,
     config.AI_MODELS.RESPONSE, // Hızlı modeli kullanmaya devam
-    { temperature: 0.8 },
+    { temperature: 0.8, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
     context.transactionId,
     userMessage,
   );
@@ -782,28 +842,44 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   logger.info(
     "AntiParrot-check",
     `need: ${needRewrite}, parrot: ${parrotCheck}, cliche: ${clicheCheck}, preview: ${
-      rawAi.slice(0, 140)
+      maskMessage(rawAi)
     }`,
   );
 
-  const aiResponse = await ensureNonParrotReply(
-    userMessage,
-    rawAi,
-    { noQuestionTurn: lastAiEndedWithQuestion, forbidPersonal: true },
-    context.transactionId,
-  );
+  // AntiParrot için güvenli try/catch (bloklayıcı güvenlik)
+  let aiResponse = rawAi;
+  try {
+    if (config.FEATURE_FLAGS.ANTIPARROT_ENABLED) {
+      aiResponse = await ensureNonParrotReply(
+        userMessage,
+        rawAi,
+        { noQuestionTurn: lastAiEndedWithQuestion, forbidPersonal: true },
+        context.transactionId,
+      );
+    }
+  } catch (_e) {
+    // AntiParrot hatasında fallback - raw yanıtla devam et
+    aiResponse = rawAi || "Not aldım. Buradan devam edelim mi?";
+    logger.warn("AntiParrot", "AntiParrot hatası - fallback kullanılıyor");
+  }
 
   logger.info(
     "AntiParrot-result",
-    `rewritten: ${aiResponse !== rawAi}, preview: ${aiResponse.slice(0, 140)}`,
+    `rewritten: ${aiResponse !== rawAi}, preview: ${maskMessage(aiResponse)}`,
   );
 
   // 5. SONUCU DÖNDÜR
-  const usedMemory = kept.length > 0 ? kept[0] : null;
+  const used = kept.length > 0 ? kept[0] : null;
+  const usedMemory = used
+    ? {
+      content: String(used.content ?? ""),
+      source_layer: String(used.source_layer ?? "unknown"),
+    }
+    : null;
   logger.info("TextSession", "Cevap başarıyla üretildi.");
 
   // İSTEMCİ DOĞRULAMA: Orchestrator cevabını gösteriyor mu kontrolü
-  return { aiResponse: "· " + aiResponse, usedMemory };
+  return { aiResponse, usedMemory };
 }
 
 // ===============================================
@@ -821,7 +897,8 @@ export const eventHandlers: Record<
   "session_end": handleDefault, // YENİ: session_end handler'ı
   "voice_session": handleDefault,
   "video_session": handleDefault,
-  "ai_analysis": handleDefault,
+  // 🔽 ai_analysis artık doğrudan executeDeepAnalysis'a yönleniyor
+  "ai_analysis": executeDeepAnalysis,
   "diary_entry": handleDiaryEntry, // <-- EKLENDİ
   "onboarding_completed": handleDefault,
   "default": handleDefault, // <-- EKLE

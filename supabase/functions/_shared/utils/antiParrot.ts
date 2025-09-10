@@ -1,20 +1,26 @@
 // supabase/functions/_shared/utils/antiParrot.ts
 import { invokeGemini } from "../ai.service.ts";
-import { config } from "../config.ts";
+import { config, LLM_LIMITS } from "../config.ts";
 
 // ---- Yardımcılar ----
 function norm(s: string) {
   return (s || "")
     .toLowerCase()
+    .replace(/[’‘]/g, "'") // tek tırnak çeşitleri
+    .replace(/[“”„«»‹›]/g, '"') // çift tırnak çeşitleri
     .replace(/\s+/g, " ")
-    .replace(/[“”„„"']/g, '"')
     .trim();
 }
 
 // En uzun ortak KELİME dizisi (Longest Common Substring by words)
 function longestCommonWordRun(a: string, b: string): number {
-  const A = norm(a).split(" ");
-  const B = norm(b).split(" ");
+  // Performans için çok uzun metinleri 150 kelime ile sınırla
+  const capWords = (s: string, n = 150) => s.split(/\s+/).slice(0, n).join(" ");
+  const aCapped = capWords(norm(a));
+  const bCapped = capWords(norm(b));
+
+  const A = aCapped.split(" ");
+  const B = bCapped.split(" ");
   const dp: number[][] = Array(A.length + 1).fill(0).map(() =>
     Array(B.length + 1).fill(0)
   );
@@ -23,7 +29,11 @@ function longestCommonWordRun(a: string, b: string): number {
     for (let j = 1; j <= B.length; j++) {
       if (A[i - 1] === B[j - 1]) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
-        if (dp[i][j] > best) best = dp[i][j];
+        if (dp[i][j] > best) {
+          best = dp[i][j];
+          // Erken çıkış optimizasyonu - eşik 5'ten büyükse yeterli
+          if (best >= 5) return best;
+        }
       }
     }
   }
@@ -72,7 +82,7 @@ const BORING_PATTERNS = [
 
 function isBoring(text: string) {
   if (!text) return false;
-  const onlyQuestion = text.trim().split(/\s+/).length <= 10 &&
+  const onlyQuestion = text.trim().split(/\s+/).length <= 4 &&
     /[?؟]$/.test(text.trim());
   return BORING_PATTERNS.some((re) => re.test(text)) || onlyQuestion;
 }
@@ -96,8 +106,8 @@ export function looksParroty(userMsg: string, aiReply: string): boolean {
   // 3) 5+ kelimelik ortak dizi
   if (longestCommonWordRun(u, r) >= 5) return true;
 
-  // 4) Trigram benzerliği (biraz daha agresif eşik)
-  if (jaccardTrigram(u, r) >= 0.42) return true;
+  // 4) Trigram benzerliği (daha az agresif eşik)
+  if (jaccardTrigram(u, r) >= 0.55) return true;
 
   return false;
 }
@@ -124,6 +134,14 @@ export async function ensureNonParrotReply(
 
   let out = aiReply;
 
+  // Boş/çöken yeniden-yazım için temel fallback
+  out = (out || "").trim();
+  if (!out) {
+    const cleanUser = (userMsg || "").replace(/["'“”‘’]/g, "").slice(0, 160);
+    return (cleanUser ? `Not aldım: ${cleanUser}.` : "Not aldım.") +
+      " Buradan devam edelim mi, yoksa odağı daraltıp tek bir küçük adım seçelim?";
+  }
+
   if (needRewrite) {
     const prompt = `
 Cevabı daha doğal ve kısa yaz.
@@ -140,8 +158,9 @@ ${aiReply}
     out = await invokeGemini(
       prompt,
       config.AI_MODELS.RESPONSE,
-      { temperature: 0.6, maxOutputTokens: 120 },
+      { temperature: 0.6, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
       transactionId,
+      userMsg,
     );
   }
 
@@ -163,11 +182,15 @@ ${aiReply}
     looksParroty(userMsg, out) || hasCliches(out) || isBoring(out) || askedAgain
   ) {
     const cleanUser = (userMsg || "").replace(/["'“”‘’]/g, "").slice(0, 160);
-    return `Kısa tutalım. Devam mı yoksa konuyu değişip biraz kafa dağıtalım mı? ${
-      cleanUser
-        ? "İstersen az önceki noktadan tek bir küçük adım seçebiliriz."
-        : ""
-    }`;
+    // Daha bağlamsal ve yönlendirici güvenli cevap
+    const base = cleanUser ? `Not aldım: ${cleanUser}.` : "Not aldım.";
+    if (opts?.noQuestionTurn) {
+      // Önceki tur soru ile bitti; bu tur soru yok.
+      return base +
+        " Buradan tek bir küçük adımı seçiyorum: önceki mesajındaki en belirgin duyguya bir ad ver.";
+    }
+    return base +
+      " Buradan devam edelim mi, yoksa odağı daraltıp tek bir küçük adım seçelim?";
   }
 
   return out.trim();

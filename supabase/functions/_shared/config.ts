@@ -69,4 +69,32 @@ export const config = {
     MAX_PROMPT_LENGTH: getEnvAsNumber("MAX_PROMPT_LENGTH", 1000),
     MAX_RESPONSE_LENGTH: getEnvAsNumber("MAX_RESPONSE_LENGTH", 500),
   },
+
+  /**
+   * LLM token limitleri - maliyet kontrolü için kesin tavanlar
+   * Her özellik için ayrı limit tanımlanır, env ile override edilebilir
+   */
+  LLM_LIMITS: {
+    DAILY_REFLECTION: getEnvAsNumber("LLM_MAX_OUT_DAILY_REFLECTION", 200),
+    DREAM_ANALYSIS: getEnvAsNumber("LLM_MAX_OUT_DREAM_ANALYSIS", 600),
+    DIARY_START: getEnvAsNumber("LLM_MAX_OUT_DIARY_START", 150),
+    DIARY_NEXT: getEnvAsNumber("LLM_MAX_OUT_DIARY_NEXT", 150),
+    DIARY_CONCLUSION: getEnvAsNumber("LLM_MAX_OUT_DIARY_CONCLUSION", 250),
+
+    // AI analiz ve raporlar için tavan
+    AI_ANALYSIS: getEnvAsNumber("LLM_MAX_OUT_AI_ANALYSIS", 1024),
+    // Text session yanıtları için tavan (warm start dahil)
+    TEXT_SESSION_RESPONSE: getEnvAsNumber("LLM_MAX_OUT_TEXT_SESSION", 128),
+  } as const,
+
+  /**
+   * Özellik bayrakları - dinamik özellik kontrolü için
+   * Environment variable'larla açılıp kapatılabilir
+   */
+  FEATURE_FLAGS: {
+    ANTIPARROT_ENABLED: getEnv("ANTIPARROT_ENABLED", "1") === "1",
+  } as const,
 } as const;
+
+// LLM limitleri ayrı export - kolay import için
+export const LLM_LIMITS = config.LLM_LIMITS;

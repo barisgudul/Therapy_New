@@ -3,6 +3,7 @@
 import { supabase } from "./supabase-admin.ts"; // Admin client'ı buradan alacağız
 import { ApiError } from "./errors.ts";
 import { VaultData } from "./types/context.ts"; // VaultData tipini import et
+import { LLM_LIMITS } from "./config.ts";
 
 // Bu fonksiyonu bu dosyanın içine taşıdık.
 export async function invokeGemini(
@@ -17,6 +18,14 @@ export async function invokeGemini(
   userMessage?: string, // YENİ PARAMETRE: Kullanıcının orijinal mesajı
 ): Promise<string> {
   try {
+    // Güvenlik tavanı: hiçbir çağrı 1024 token'ı aşamasın
+    const safeConfig = config
+      ? {
+        ...config,
+        maxOutputTokens: Math.min(config.maxOutputTokens ?? 256, 1024),
+      }
+      : { maxOutputTokens: 256 };
+
     const start = Date.now();
     const { data, error } = await supabase.functions.invoke("api-gateway", {
       body: {
@@ -24,7 +33,7 @@ export async function invokeGemini(
         payload: {
           model,
           prompt,
-          config,
+          config: safeConfig,
           transaction_id: transactionId,
           userMessage: userMessage, // YENİ ALAN: Güvenlik kontrolü için
         },
@@ -178,6 +187,7 @@ export async function generateElegantReport(
   const responseText = await invokeGemini(prompt, "gemini-1.5-pro", {
     responseMimeType: "application/json",
     temperature: 0.7,
+    maxOutputTokens: LLM_LIMITS.AI_ANALYSIS, // 🔒 1024 tavan
   });
 
   try {
