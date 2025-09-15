@@ -2,15 +2,16 @@
 import React, { createContext, useContext } from 'react';
 import { useDiary } from '../hooks/useDiary';
 import type { DiaryAppEvent } from '../services/event.service';
+import type { Message } from '../types/diary.types';
 
 interface DiaryContextType {
   state: {
     mode: 'list' | 'view' | 'write';
     isLoadingDiaries: boolean;
     diaryEvents: DiaryAppEvent[];
-    selectedDiary: any;
+    selectedDiary: DiaryAppEvent | null;
     userName: string;
-    messages: any[];
+    messages: Message[];
     isSubmitting: boolean;
     currentQuestions: string[];
     isModalVisible: boolean;

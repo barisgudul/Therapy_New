@@ -3,6 +3,7 @@ import React from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useDiary } from '../useDiary';
+import type { DiaryAppEvent } from '../../services/event.service';
 
 // Mocks
 jest.mock('../../services/event.service', () => ({
@@ -142,7 +143,7 @@ describe('useDiary Hook', () => {
     };
 
     act(() => {
-      result.current.handlers.viewDiary(mockDiary as any);
+      result.current.handlers.viewDiary(mockDiary as DiaryAppEvent);
     });
     expect(result.current.state.mode).toBe('view');
 

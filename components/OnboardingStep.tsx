@@ -29,6 +29,7 @@ interface OnboardingStepProps {
   icon: keyof typeof Ionicons.glyphMap;
   onNextPress: (answer: string) => void;
   isLastStep?: boolean;
+  minChars?: number; // yeni
 }
 
 export default function OnboardingStep({
@@ -39,6 +40,7 @@ export default function OnboardingStep({
   icon,
   onNextPress,
   isLastStep = false,
+  minChars = 8,
 }: OnboardingStepProps) {
   const [answer, setAnswer] = useState("");
   const progress = step / totalSteps;
@@ -131,10 +133,10 @@ export default function OnboardingStep({
                 onPress={() => onNextPress(answer)}
                 style={({ pressed }) => [
                   styles.button,
-                  answer.trim().length < 13 && styles.buttonDisabled,
+                  answer.trim().length < minChars && styles.buttonDisabled,
                   { transform: [{ scale: pressed ? 0.98 : 1 }] },
                 ]}
-                disabled={answer.trim().length < 13}
+                disabled={answer.trim().length < minChars}
               >
                 <LinearGradient
                   colors={["#FFFFFF", "#F8FAFF"]}
@@ -145,7 +147,7 @@ export default function OnboardingStep({
                   <Text
                     style={[
                       styles.buttonText,
-                      answer.trim().length < 13 && { color: "#A9B4C8" },
+                      answer.trim().length < minChars && { color: "#A9B4C8" },
                     ]}
                   >
                     {isLastStep ? "Tamamla ve Başla" : "Devam"}
@@ -153,7 +155,7 @@ export default function OnboardingStep({
                   <Ionicons
                     name="arrow-forward"
                     size={20}
-                    color={answer.trim().length < 13
+                    color={answer.trim().length < minChars
                       ? "#A9B4C8"
                       : Colors.light.tint}
                   />

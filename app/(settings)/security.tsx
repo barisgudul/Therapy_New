@@ -253,7 +253,7 @@ export default function SecurityDashboardScreen() {
                         <Text style={styles.sectionTitle}>Aktif Oturumlar</Text>
                         <View style={styles.card}>
                             <SessionCard
-                                device={"Bu Cihaz"} // Cihaz modelini dinamik olarak al, alamazsa "Bu Cihaz" yaz.
+                                device="Bu Cihaz" // Cihaz modelini dinamik olarak al, alamazsa "Bu Cihaz" yaz.
                                 location="Mevcut Konum" // Konum bilgisi hassas ve karmaşık olduğu için genel bir ifade kullanıyoruz.
                                 lastSeen="Şimdi"
                                 isActive

@@ -9,6 +9,8 @@ interface MemoryBubbleProps {
   onPress?: () => void;
 }
 
+type IoniconName = "document-text-outline" | "heart-outline" | "analytics-outline" | "bulb-outline";
+
 export const MemoryBubble: React.FC<MemoryBubbleProps> = ({ 
   content, 
   sourceLayer, 
@@ -21,7 +23,7 @@ export const MemoryBubble: React.FC<MemoryBubbleProps> = ({
       : firstLine;
 
   // Source layer'a göre ikon seç
-  const getSourceIcon = (layer: string) => {
+  const getSourceIcon = (layer: string): IoniconName => {
     switch (layer) {
       case 'content':
         return 'document-text-outline';
@@ -42,7 +44,7 @@ export const MemoryBubble: React.FC<MemoryBubbleProps> = ({
     >
       <View style={styles.iconContainer}>
         <Ionicons 
-          name={getSourceIcon(sourceLayer) as any} 
+          name={getSourceIcon(sourceLayer)} 
           size={16} 
           color="#5DA1D9" 
         />

@@ -2,7 +2,7 @@
 
 import { Platform } from "react-native";
 import * as Sharing from "expo-sharing";
-// @ts-ignore
+// @ts-ignore: react-native-html-to-pdf kütüphanesinin tip tanımları eksik
 import RNHTMLtoPDF from "react-native-html-to-pdf";
 import Toast from "react-native-toast-message";
 import { AnalysisReportContent } from "../types/analysis";

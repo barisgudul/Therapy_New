@@ -13,7 +13,7 @@ export interface TextMessage {
 }
 
 // State interface
-interface TextSessionState {
+export interface TextSessionState {
     messages: TextMessage[];
     transcript: string; // YENİ: Performans için transcript string'i
     input: string;
@@ -101,7 +101,7 @@ function textSessionReducer(
         case "SET_INPUT":
             return { ...state, input: action.payload };
 
-        case "ADD_MESSAGE":
+        case "ADD_MESSAGE": {
             const isUserMessage = action.payload.sender === "user";
             return {
                 ...state,
@@ -111,6 +111,7 @@ function textSessionReducer(
                     : state.turnCount, // Sadece kullanıcı mesajında artır
                 error: null,
             };
+        }
 
         case "MESSAGE_SENT_SUCCESS":
             return {
@@ -180,7 +181,7 @@ function textSessionReducer(
                 transcript: "", // Transcript de boş başlasın
                 status: "welcoming", // YENİ STATUS'U AYARLA!
             };
-        case "INITIALIZE_WITH_THEME":
+        case "INITIALIZE_WITH_THEME": {
             // Tema ile AI'ın ilk mesajını ekle
             const aiWelcomeMessage: TextMessage = {
                 sender: "ai",
@@ -194,6 +195,7 @@ function textSessionReducer(
                 transcript: `AI: ${aiWelcomeMessage.text}\n`,
                 status: "idle", // Direkt sohbet moduna geç
             };
+        }
         case "INITIALIZE_FROM_HISTORY":
             return {
                 ...state,

@@ -111,14 +111,17 @@ export async function updateTrait<K extends TraitKey>(
         confidenceScore = Math.min(0.95, existingTrait.confidence_score + 0.05); // Güven skorunu artır
 
         if (isDev()) {
+          // TODO: Geliştirme ortamında ek işlemler (örneğin loglama) eklenebilir
         }
       } else {
         finalValue = Math.max(0, Math.min(1, value));
         if (isDev()) {
+          // TODO: Geliştirme ortamında ek işlemler (örneğin loglama) eklenebilir
         }
       }
     } else {
       if (isDev()) {
+        // TODO: Geliştirme ortamında ek işlemler (örneğin loglama) eklenebilir
       }
     }
 
@@ -153,6 +156,7 @@ export async function updateTrait<K extends TraitKey>(
     }
 
     if (isDev()) {
+      // TODO: Geliştirme ortamında ek işlemler (örneğin loglama) eklenebilir
     }
   } catch (error) {
     console.error(
@@ -178,6 +182,7 @@ export async function clearAllTraits(userId: string): Promise<void> {
     }
 
     if (isDev()) {
+      // TODO: Geliştirme ortamında ek işlemler (örneğin loglama) eklenebilir
     }
   } catch (error) {
     console.error("Traits silinirken hata:", error);

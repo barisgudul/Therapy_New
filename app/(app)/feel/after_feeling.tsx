@@ -16,6 +16,7 @@ export default function AfterFeelingScreen() {
       pathname: '/feel/mood_comparison',
       params: { afterMood: moodLabel }
     });
+    await Promise.resolve(); // Async signature için gerekli
   };
 
   return (

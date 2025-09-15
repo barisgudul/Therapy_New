@@ -1,8 +1,6 @@
 // services/api.service.ts
 import { getErrorMessage } from "../utils/errors";
 import { supabase } from "../utils/supabase";
-
-// Event Service API calls
 import { AppEvent, logEvent as _logEvent } from "./event.service";
 
 // Vault Service API calls

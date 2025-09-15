@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Toast from "react-native-toast-message";
 import type { DiaryAppEvent } from "../services/event.service";
+import type { TextMessage } from "./useTextSessionReducer";
 import {
     deleteEventById,
     getDiaryEventsForUser,
@@ -38,7 +39,7 @@ export function useDiary() {
         queryFn: getDiaryEventsForUser,
     });
 
-    const { data: selectedDiary } = useQuery<any>({
+    const { data: selectedDiary } = useQuery<DiaryAppEvent | null>({
         queryKey: ["diary", selectedDiaryId],
         queryFn: () => getEventById(selectedDiaryId!),
         enabled: !!selectedDiaryId,
@@ -47,7 +48,7 @@ export function useDiary() {
     // --- SAVE VE DELETE MUTASYONLARI ---
 
     const saveDiaryMutation = useMutation({
-        mutationFn: (newDiaryData: { messages: any[] }) =>
+        mutationFn: (newDiaryData: { messages: TextMessage[] }) =>
             logEvent({
                 type: "diary_entry",
                 data: {
@@ -131,7 +132,9 @@ export function useDiary() {
     }, []);
 
     const handleSaveDiary = useCallback(() => {
-        saveDiaryMutation.mutate({ messages: conversation.messages });
+        saveDiaryMutation.mutate({
+            messages: conversation.messages as unknown as TextMessage[],
+        });
     }, [conversation.messages, saveDiaryMutation]);
 
     const handleDeleteDiary = useCallback((id: string) => {

@@ -13,14 +13,17 @@ import { AuthInput } from "../../components/AuthInput.tsx";
 import { AuthLayout } from "../../components/AuthLayout.tsx";
 import { LoadingButton } from "../../components/LoadingButton.tsx";
 import { useLoading } from "../../context/Loading.tsx";
-import { useOnboardingStore } from "../../store/onboardingStore";
+import { useOnboardingStore, AppMode } from "../../store/onboardingStore";
 import { authScreenStyles as styles } from "../../styles/auth";
 import { signUpWithEmail } from "../../utils/auth";
+import { logEvent } from "../../services/api.service";
 
 export default function RegisterScreen() {
     const router = useRouter();
     const { showLoading, hideLoading, isLoading } = useLoading();
     const setNickname = useOnboardingStore((s) => s.setNickname);
+    const setGuest = useOnboardingStore((s) => s.setGuest);
+    const setMode = useOnboardingStore((s) => s.setMode);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [nickname, setNicknameLocal] = useState("");
@@ -47,16 +50,19 @@ export default function RegisterScreen() {
         setError("");
         if (!nickname.trim()) {
             setError("Size nasıl hitap etmemizi istersiniz?");
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             return;
         }
         showLoading("Hesap oluşturuluyor...");
         try {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             const user = await signUpWithEmail(email, password);
             if (!user) throw new Error("Kullanıcı oluşturulamadı.");
             setNickname(nickname.trim());
-            router.replace("/(onboarding)/step1");
+            setGuest(false);
+            setMode(AppMode.Summary);
+            await logEvent({ type: "register_success", data: { source: "softwall" } }).catch(()=>{});
+            router.replace("/analysis/instant-analysis");
         } catch (error: unknown) {
             const errorMessage = error instanceof Error
                 ? error.message

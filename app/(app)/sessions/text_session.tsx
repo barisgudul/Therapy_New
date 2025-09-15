@@ -20,6 +20,7 @@ import { PremiumGate } from "../../../components/PremiumGate";
 import { Colors } from "../../../constants/Colors";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useTextSessionReducer } from "../../../hooks";
+import { TextSessionState } from "../../../hooks/useTextSessionReducer";
 import { TypingIndicator } from "../../../components/text_session/TypingIndicator";
 import { MessageBubble } from "../../../components/text_session/MessageBubble";
 import { InputBar } from "../../../components/text_session/InputBar";
@@ -27,7 +28,7 @@ import { MemoryModal } from "../../../components/text_session/MemoryModal";
 
 // YENİ COMPONENT: SessionUI - Memo ile optimize edilmiş
 interface SessionUIProps {
-  state: any;
+  state: TextSessionState;
   isDark: boolean;
   handleBackPress: () => boolean;
   closeMemoryModal: () => void;
@@ -82,65 +83,63 @@ const SessionUI = memo<SessionUIProps>(({
         style={styles.container}
       >
         <SafeAreaView style={styles.flex}>
-          <>
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-                <Ionicons
-                  name="chevron-back"
-                  size={28}
-                  color={isDark ? "#fff" : Colors.light.tint}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
+              <Ionicons
+                name="chevron-back"
+                size={28}
+                color={isDark ? "#fff" : Colors.light.tint}
+              />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Sohbet</Text>
+            <View style={{ width: 44 }} />
+          </View>
+
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+          >
+            <View style={styles.content}>
+              {messages.length === 0 ? (
+                <View style={styles.welcomeWrapper}>
+                  <WelcomeComponent />
+                </View>
+              ) : (
+                <FlatList
+                  ref={flatListRef}
+                  data={messages}
+                  keyExtractor={(_, i) => i.toString()}
+                  renderItem={({ item }) => (
+                    <MessageBubble
+                      message={item}
+                    />
+                  )}
+                  contentContainerStyle={styles.messages}
+                  onContentSizeChange={() =>
+                    flatListRef.current?.scrollToEnd({ animated: true })
+                  }
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
                 />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Sohbet</Text>
-              <View style={{ width: 44 }} />
+              )}
+
+              {isTyping && <TypingIndicator isVisible={isTyping} />}
+
+              {error && (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+
+              <InputBar
+                input={input}
+                onInputChange={handleInputChange}
+                onSend={sendMessage}
+                isTyping={isTyping}
+                inputRef={inputRef}
+              />
             </View>
-
-            <KeyboardAvoidingView
-              style={styles.keyboardAvoidingView}
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-            >
-              <View style={styles.content}>
-                {messages.length === 0 ? (
-                  <View style={styles.welcomeWrapper}>
-                    <WelcomeComponent />
-                  </View>
-                ) : (
-                  <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    keyExtractor={(_, i) => i.toString()}
-                    renderItem={({ item }) => (
-                      <MessageBubble
-                        message={item}
-                      />
-                    )}
-                    contentContainerStyle={styles.messages}
-                    onContentSizeChange={() =>
-                      flatListRef.current?.scrollToEnd({ animated: true })
-                    }
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                  />
-                )}
-
-                {isTyping && <TypingIndicator isVisible={isTyping} />}
-
-                {error && (
-                  <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
-                )}
-
-                <InputBar
-                  input={input}
-                  onInputChange={handleInputChange}
-                  onSend={sendMessage}
-                  isTyping={isTyping}
-                  inputRef={inputRef}
-                />
-              </View>
-            </KeyboardAvoidingView>
-          </>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
 

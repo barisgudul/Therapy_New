@@ -9,6 +9,13 @@ interface MemoryModalProps {
   onClose: () => void;
 }
 
+type IoniconName = "document-text-outline" | "heart-outline" | "analytics-outline" | "bulb-outline";
+
+interface SourceInfo {
+  icon: IoniconName;
+  title: string;
+}
+
 export const MemoryModal: React.FC<MemoryModalProps> = ({ 
   isVisible, 
   memory, 
@@ -18,7 +25,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
   
 
   // Source layer'a göre ikon ve başlık seç
-  const getSourceInfo = (layer: string) => {
+  const getSourceInfo = (layer: string): SourceInfo => {
     switch (layer) {
       case 'content':
         return { icon: 'document-text-outline', title: 'Metin Anısı' };
@@ -37,7 +44,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
     <Modal
       visible={isVisible}
       animationType="slide"
-      transparent={true}
+      transparent
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
@@ -46,7 +53,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
           <View style={styles.header}>
             <View style={styles.titleContainer}>
               <Ionicons 
-                name={sourceInfo.icon as any} 
+                name={sourceInfo.icon} 
                 size={24} 
                 color="#5DA1D9" 
               />

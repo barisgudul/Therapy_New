@@ -249,7 +249,7 @@ export function useDailyReflection() {
                 text2: "Yanıtımız giderek iyileşiyor.",
                 position: "bottom",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("[Satisfaction] Skor güncelleme hatası:", error);
             Toast.show({
                 type: "error",

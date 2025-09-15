@@ -48,7 +48,7 @@ export const useUpdateVault = () => {
     },
 
     // Hata olursa, yedeği geri yükle.
-    onError: (err, newVaultData, context) => {
+    onError: (err, _newVaultData, context) => {
       if (context?.previousVault) {
         queryClient.setQueryData(VAULT_QUERY_KEY, context.previousVault);
         console.error(

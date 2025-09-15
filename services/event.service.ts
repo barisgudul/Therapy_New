@@ -23,6 +23,17 @@ export const EVENT_TYPES = [
   "onboarding_completed",
   "diary_analysis_background",
   "daily_write_error",
+  // Misafir akışı event'leri
+  "primer_seen",
+  "guest_start",
+  "chip_select",
+  "free_report_view",
+  "softwall_open",
+  "register_click",
+  "register_success",
+  // Mood reveal events
+  "mood_reveal_seen",
+  "mood_reveal_continue",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -49,9 +60,15 @@ export async function logEvent(
 ): Promise<string | null> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
+
+    // ⬇️ Misafir: şimdilik DB'ye yazma, sessizce geç
     if (!user) {
-      throw new Error("Olay kaydedilemiyor, kullanıcı giriş yapmamış.");
+      if (isDev()) {
+        console.debug(`[GuestEvent] ${event.type}`, event.data ?? {});
+      }
+      return null;
     }
+
     const eventData = { ...event, user_id: user.id }; // timestamp'ı kaldır - veritabanı otomatik doldursun
     const { data: inserted, error } = await supabase.from("events").insert([
       eventData,
@@ -134,7 +151,7 @@ export async function getDreamEvents(
     .select("*")
     .eq("user_id", user.id) // Sadece bu kullanıcının
     .eq("type", "dream_analysis") // Sadece rüya analizleri
-    .order("timestamp", { ascending: false }) // En yeniden eskiye
+    .order("created_at", { ascending: false }) // En yeniden eskiye
     .range(offset, offset + PAGE_SIZE - 1); // Sayfalama burada
 
   if (error) {
@@ -180,9 +197,10 @@ export async function updateEventData(
   }
 }
 
-export async function canUserAnalyzeDream(): Promise<
-  { canAnalyze: boolean; daysRemaining: number }
-> {
+export function canUserAnalyzeDream(): {
+  canAnalyze: boolean;
+  daysRemaining: number;
+} {
   return { canAnalyze: true, daysRemaining: 0 };
 }
 
@@ -359,7 +377,7 @@ export async function getEventsForLast(days: number): Promise<AppEvent[]> {
     .select("*")
     .eq("user_id", user.id)
     .gte("created_at", fromDate.toISOString()) // Belirtilen günden bugüne
-    .order("timestamp", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error(`⛔️ Son ${days} günlük olayları çekme hatası:`, error);

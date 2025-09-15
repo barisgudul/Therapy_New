@@ -61,7 +61,7 @@ function voiceSessionReducer(
             return { ...state, status: "recording", error: null };
         case "STOP_RECORDING":
             return { ...state, status: "processing" };
-        case "TRANSCRIPT_RECEIVED":
+        case "TRANSCRIPT_RECEIVED": {
             if (!action.payload.trim()) { // Boş transkript geldiyse
                 return { ...state, status: "idle" };
             }
@@ -71,9 +71,10 @@ function voiceSessionReducer(
                 text: action.payload,
             };
             return { ...state, messages: [...state.messages, userMessage] };
+        }
         case "SEND_TO_AI_START":
             return { ...state, status: "thinking" };
-        case "AI_RESPONSE_SUCCESS":
+        case "AI_RESPONSE_SUCCESS": {
             const aiMessage: VoiceMessage = {
                 id: `ai-${Date.now()}`,
                 sender: "ai",
@@ -86,6 +87,7 @@ function voiceSessionReducer(
                 status: "speaking",
                 lastSpokenMessageId: aiMessage.id, // <-- MESAJ SESLENDİRİLMEK ÜZERE İŞARETLENDİ
             };
+        }
         case "AI_RESPONSE_ERROR":
             return { ...state, status: "error", error: action.payload };
         case "SPEAKING_STATUS_CHANGED":

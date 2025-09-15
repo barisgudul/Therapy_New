@@ -58,16 +58,21 @@ function RootLayoutNav() {
     // Kullanıcının bulunduğu rotanın ilk segmenti, hangi grupta olduğunu söyler.
     const inAppGroup = segments[0] === "(app)";
     const inAuthGroup = segments[0] === "(auth)";
+    const inGuestGroup = segments[0] === "(guest)";
 
-    // KURAL 1: Eğer kullanıcı giriş yapmamışsa VE uygulama içinde bir yere gitmeye çalışıyorsa,
-    // onu acımasızca login ekranına fırlat.
-    if (!session && inAppGroup) {
-      router.replace("/(auth)/login");
-    }
-    // KURAL 2: Eğer kullanıcı giriş yapmışsa VE login/register gibi auth ekranlarındaysa,
-    // onu ait olduğu yere, anasayfaya (yani (app) grubuna) gönder.
-    else if (session && inAuthGroup) {
-      router.replace("/"); // '/' otomatik olarak (app)/index.tsx'e yönlenir
+    if (!session) {
+      // (app) denemesi varsa misafir akışına yolla
+      if (inAppGroup) {
+        router.replace("/(guest)/primer");
+        return;
+      }
+      // (auth) sayfalarına Soft Wall'dan gelebilir; dokunma
+    } else {
+      // login/register vb. görünmesin
+      if (inAuthGroup || inGuestGroup) {
+        router.replace("/");
+        return;
+      }
     }
   }, [session, isAuthLoading, fontsLoaded, fontError, segments, router]);
 
