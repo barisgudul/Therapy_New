@@ -4,11 +4,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router/";
 import React from "react";
 import { Image, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Colors } from "../../constants/Colors";
 import { logEvent } from "../../services/api.service";
 
 export default function SoftWall() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <LinearGradient
@@ -20,16 +22,16 @@ export default function SoftWall() {
       <SafeAreaView style={styles.wrap}>
         <View style={styles.hero}>
           <Image source={require("../../assets/therapy-illustration.png")} style={styles.logo} />
-          <Text style={styles.title}>Cevaplarına göre detaylı analizini al.</Text>
+          <Text style={styles.title}>{t("softwall.title")}</Text>
           <Text style={styles.subtitle}>
-            Analiz bir kez ücretsiz. Cevaplarının özetini, güçlü yönlerini ve olası tetikleyicilerini çıkarıyoruz.
+            {t("softwall.subtitle")}
           </Text>
         </View>
 
         <View style={styles.bullets}>
-          <Item text="Cevaplarına özel & tek seferlik rapor" />
-          <Item text="Kısa özet + güçlü yönler + tetikleyiciler" />
-          <Item text="Kaydedip daha sonra tekrar okuyabilirsin" />
+          <Item text={t("softwall.bullet1")} />
+          <Item text={t("softwall.bullet2")} />
+          <Item text={t("softwall.bullet3")} />
         </View>
 
         <Pressable
@@ -38,12 +40,12 @@ export default function SoftWall() {
             logEvent({ type: "register_click", data: { source: "softwall" } }).catch(()=>{});
             router.push("/register");
           }}>
-          <Text style={styles.ctaText}>Ücretsiz Üye Ol</Text>
+          <Text style={styles.ctaText}>{t("softwall.cta_register")}</Text>
           <Ionicons name="arrow-forward" size={18} color="#fff" />
         </Pressable>
 
         <Pressable onPress={() => router.push("/login")} style={{ marginTop: 16 }}>
-          <Text style={styles.loginLink}>Zaten hesabın var mı? Giriş yap</Text>
+          <Text style={styles.loginLink}>{t("softwall.login_link")}</Text>
         </Pressable>
       </SafeAreaView>
     </LinearGradient>

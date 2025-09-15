@@ -24,6 +24,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
+import { useTranslation } from "react-i18next";
 import { logEvent } from "../../../services/api.service";
 import { useOnboardingStore } from "../../../store/onboardingStore";
 
@@ -50,25 +51,28 @@ interface ParticleProps {
   color: string;
 }
 
-const MOOD_LEVELS: MoodLevel[] = [
-  { id: 0, label: "Çok Kötü", color: "#0D1B2A", bg: ["#02040F", "#0D1B2A"], particleColor: "#415A77" },
-  { id: 1, label: "Kötü",     color: "#1B263B", bg: ["#0D1B2A", "#1B263B"], particleColor: "#778DA9" },
-  { id: 2, label: "Üzgün",    color: "#415A77", bg: ["#1B263B", "#415A77"], particleColor: "#778DA9" },
-  { id: 3, label: "Nötr",     color: "#778DA9", bg: ["#415A77", "#778DA9"], particleColor: "#415A77" },
-  { id: 4, label: "İyi",      color: "#3B82F6", bg: ["#2B6CB0", "#3182CE"], particleColor: "#60A5FA" },
-  { id: 5, label: "Harika",   color: "#60A5FA", bg: ["#3182CE", "#63B3ED"], particleColor: "#3B82F6" },
-  { id: 6, label: "Mükemmel", color: "#06B6D4", bg: ["#155E75", "#0891B2"], particleColor: "#22D3EE" },
+// Mood level'ları çeviri anahtarlarıyla tanımla
+const getMoodLevels = (t: (key: string) => string): MoodLevel[] => [
+  { id: 0, label: t("mood_reveal.very_bad"), color: "#0D1B2A", bg: ["#02040F", "#0D1B2A"], particleColor: "#415A77" },
+  { id: 1, label: t("mood_reveal.bad"),     color: "#1B263B", bg: ["#0D1B2A", "#1B263B"], particleColor: "#778DA9" },
+  { id: 2, label: t("mood_reveal.sad"),     color: "#415A77", bg: ["#1B263B", "#415A77"], particleColor: "#778DA9" },
+  { id: 3, label: t("mood_reveal.neutral"), color: "#778DA9", bg: ["#415A77", "#778DA9"], particleColor: "#415A77" },
+  { id: 4, label: t("mood_reveal.good"),    color: "#3B82F6", bg: ["#2B6CB0", "#3182CE"], particleColor: "#60A5FA" },
+  { id: 5, label: t("mood_reveal.great"),   color: "#60A5FA", bg: ["#3182CE", "#63B3ED"], particleColor: "#3B82F6" },
+  { id: 6, label: t("mood_reveal.perfect"), color: "#06B6D4", bg: ["#155E75", "#0891B2"], particleColor: "#22D3EE" },
 ];
 
-const defaultMood = MOOD_LEVELS[3];
-const POS = ["iyi","harika","mutlu","rahat","huzurlu","umut","sev","enerjik","şükür","başardım","güzel","başarı","ilerleme","odak","yaptım"];
-const NEG = ["kötü","üzgün","yorgun","stres","kaygı","anksiyete","korku","öfke","zor","ağrı","acı","bunalmış","bunalım","sıkılmış","tükenmiş","gergin","endişe","moralim bozuk"];
+function moodFromAnswers(text: string, t: (key: string) => string): MoodLevel {
+  const POS = t('mood_reveal.pos_keywords').split(',');
+  const NEG = t('mood_reveal.neg_keywords').split(',');
 
-function moodFromAnswers(text: string): MoodLevel {
-  const t = text.toLocaleLowerCase("tr-TR");
+  // Aktif dili kullanarak lowercase yap
+  const currentLanguage = t('mood_reveal.pos_keywords').includes('iyi') ? 'tr-TR' : 'en-US';
+  const lowerCaseText = text.toLocaleLowerCase(currentLanguage);
+
   let pos = 0, neg = 0;
-  for (const w of POS) if (t.includes(w)) pos++;
-  for (const w of NEG) if (t.includes(w)) neg++;
+  for (const w of POS) if (lowerCaseText.includes(w.trim().toLowerCase())) pos++;
+  for (const w of NEG) if (lowerCaseText.includes(w.trim().toLowerCase())) neg++;
   const score = pos - neg;
   let id: number;
   if (score <= -3) id = 0;
@@ -78,7 +82,7 @@ function moodFromAnswers(text: string): MoodLevel {
   else if (score === 1) id = 4;
   else if (score === 2) id = 5;
   else id = 6;
-  return MOOD_LEVELS[id];
+  return getMoodLevels(t)[id];
 }
 
 const Particle = ({ p, color }: ParticleProps) => {
@@ -150,6 +154,7 @@ interface Props { onContinueToSoftWall?: () => void; }
 
 export default function MoodComparisonScreen({ onContinueToSoftWall }: Props = {}) {
   const router = useRouter();
+  const { t } = useTranslation();
   const answersArray = useOnboardingStore((s) => s.answersArray);
 
   const [theme, setTheme] = useState<{ initial: ThemeType; final: ThemeType } | null>(null);
@@ -160,8 +165,8 @@ export default function MoodComparisonScreen({ onContinueToSoftWall }: Props = {
   useEffect(() => {
     logEvent({ type: "mood_reveal_seen", data: {} }).catch(() => {});
     const text = (answersArray ?? []).map(a => a.answer).join(" ").trim();
-    const final = text ? moodFromAnswers(text) : MOOD_LEVELS[4];
-    const initial = defaultMood;
+    const final = text ? moodFromAnswers(text, t) : getMoodLevels(t)[4];
+    const initial = getMoodLevels(t)[3]; // neutral mood
     setTheme({
       initial: { bg: initial.bg, tint: initial.color, particleColor: initial.particleColor },
       final:   { bg: final.bg,   tint: final.color,   particleColor: final.particleColor },
@@ -169,11 +174,11 @@ export default function MoodComparisonScreen({ onContinueToSoftWall }: Props = {
     setReady(true);
     transitionProgress.value = withDelay(400, withTiming(1, { duration: 4000, easing: Easing.bezier(0.25, 1, 0.5, 1) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answersArray]);
+  }, [answersArray, t]);
 
   const animatedBg = useAnimatedStyle(() => ({ opacity: transitionProgress.value }));
   const animatedTint = useAnimatedStyle(() => ({
-    tintColor: theme ? interpolateColor(transitionProgress.value, [0, 1], [theme.initial.tint, theme.final.tint]) : defaultMood.color,
+    tintColor: theme ? interpolateColor(transitionProgress.value, [0, 1], [theme.initial.tint, theme.final.tint]) : getMoodLevels(t)[3].color,
   }));
 
   const handleTap = async () => {
@@ -209,7 +214,7 @@ export default function MoodComparisonScreen({ onContinueToSoftWall }: Props = {
       <Pressable onPress={handleTap} style={styles.fullScreenPressable}>
         <BlurView intensity={20} tint="dark" style={styles.tapHint}>
           <Ionicons name="hand-left-outline" size={18} color="#E2E8F0" />
-          <Text style={styles.tapHintText}>Devam etmek için dokun</Text>
+          <Text style={styles.tapHintText}>{t("mood_reveal.continue_hint")}</Text>
         </BlurView>
       </Pressable>
     </View>

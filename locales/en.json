@@ -1,0 +1,51 @@
+{
+  "common": {
+    "stepCounter": "Step {{step}} / {{total}}",
+    "placeholder_freeWrite": "Write whatever comes to mind...",
+    "continue": "Continue",
+    "finishAndStart": "Finish and Start"
+  },
+  "onboarding_step1": {
+    "question": "How was your mental energy today? Briefly describe it.",
+    "details": "2-3 words are enough."
+  },
+  "onboarding_step2": {
+    "question": "What has been draining you the most lately?",
+    "details": "Two sentences will suffice."
+  },
+  "onboarding_step3": {
+    "question": "What would be a small step this week that would make you feel good?",
+    "details": "Small enough that you can do it right now."
+  },
+  "primer": {
+    "title": "Welcome to the App!",
+    "subtitle": "Please select a language or continue.",
+    "cta": "Get Started"
+  },
+  "mood_reveal": {
+    "continue_hint": "Tap to continue",
+    "pos_keywords": "good,great,happy,relaxed,peaceful,hope,love,energetic,grateful,accomplished,beautiful,success,progress,focus,did",
+    "neg_keywords": "bad,sad,tired,stress,anxiety,worried,fear,anger,difficult,pain,hurt,overwhelmed,crisis,bored,exhausted,tense,worry,low morale",
+    "very_bad": "Very Bad",
+    "bad": "Bad",
+    "sad": "Sad",
+    "neutral": "Neutral",
+    "good": "Good",
+    "great": "Great",
+    "perfect": "Perfect"
+  },
+  "softwall": {
+    "title": "Get detailed analysis based on your answers.",
+    "subtitle": "Analysis is free once. We extract summary of your answers, strengths and possible triggers.",
+    "bullet1": "Report personalized to your answers & one-time",
+    "bullet2": "Short summary + strengths + triggers",
+    "bullet3": "Save and read again later",
+    "cta_register": "Sign Up Free",
+    "login_link": "Already have an account? Sign in"
+  },
+  "recall": {
+    "title": "Shall we return to your previous report?",
+    "subtitle": "2 recommendations were locked. We'll save and unlock them in 1 minute.",
+    "cta": "Continue"
+  }
+}

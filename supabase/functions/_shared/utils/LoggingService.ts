@@ -11,19 +11,19 @@ export class LoggingService {
   }
 
   private async log(
-    level: "INFO" | "WARN" | "ERROR",
-    functionName: string,
+    level: "INFO" | "WARN" | "ERROR" | "DEBUG",
+    sourceFunction: string,
     message: string,
-    payload?: object,
+    metadata?: object,
   ) {
     try {
-      const { error } = await adminClient.from("system_logs").insert({
+      const { error } = await adminClient.from("app_logs").insert({
         transaction_id: this.transactionId,
         user_id: this.userId,
-        function_name: functionName,
         log_level: level,
+        source_function: sourceFunction,
         message: message,
-        payload: payload || null,
+        metadata: metadata || null,
       });
       if (error) {
         console.error("!!! CRITICAL LOGGING FAILURE !!!", error);
@@ -33,30 +33,37 @@ export class LoggingService {
     }
   }
 
-  public info(functionName: string, message: string, payload?: object) {
-    console.log(`[INFO][${this.transactionId}] ${functionName}: ${message}`);
-    this.log("INFO", functionName, message, payload);
+  public info(sourceFunction: string, message: string, metadata?: object) {
+    console.log(`[INFO][${this.transactionId}] ${sourceFunction}: ${message}`);
+    this.log("INFO", sourceFunction, message, metadata);
   }
 
-  public warn(functionName: string, message: string, payload?: object) {
-    console.warn(`[WARN][${this.transactionId}] ${functionName}: ${message}`);
-    this.log("WARN", functionName, message, payload);
+  public warn(sourceFunction: string, message: string, metadata?: object) {
+    console.warn(`[WARN][${this.transactionId}] ${sourceFunction}: ${message}`);
+    this.log("WARN", sourceFunction, message, metadata);
   }
 
   public error(
-    functionName: string,
+    sourceFunction: string,
     message: string,
     error: unknown,
-    payload?: object,
+    metadata?: object,
   ) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(
-      `[ERROR][${this.transactionId}] ${functionName}: ${message}`,
+      `[ERROR][${this.transactionId}] ${sourceFunction}: ${message}`,
       error,
     );
-    this.log("ERROR", functionName, `${message} - Error: ${errorMessage}`, {
-      ...payload,
+    this.log("ERROR", sourceFunction, `${message} - Error: ${errorMessage}`, {
+      ...metadata,
       stack: error instanceof Error ? error.stack : undefined,
     });
+  }
+
+  public debug(sourceFunction: string, message: string, metadata?: object) {
+    console.debug(
+      `[DEBUG][${this.transactionId}] ${sourceFunction}: ${message}`,
+    );
+    this.log("DEBUG", sourceFunction, message, metadata);
   }
 }

@@ -2,19 +2,22 @@
 import { useRouter } from "expo-router";
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 
 export default function Recall() {
   const router = useRouter();
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        Az önceki raporuna geri dönelim mi?
+        {t("recall.title")}
       </Text>
       <Text style={styles.subtitle}>
-        2 önerin kilitliydi. 1 dakikada kaydedip açıyoruz.
+        {t("recall.subtitle")}
       </Text>
       <Pressable onPress={() => router.replace("/(guest)/softwall")} style={styles.button}>
-        <Text style={styles.buttonText}>Devam Et</Text>
+        <Text style={styles.buttonText}>{t("recall.cta")}</Text>
       </Pressable>
     </View>
   );

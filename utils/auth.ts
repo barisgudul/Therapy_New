@@ -1,65 +1,88 @@
-// utils/auth.ts - OLMASI GEREKEN BU
+// utils/auth.ts - NİHAİ VERSİYON
 
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
+import { Answer } from "../store/onboardingStore"; // Answer tipini import et
+import i18n from "./i18n"; // i18n'i import et
 
-// Hata mesajlarını merkezileştiriyoruz.
-const getFriendlyError = (raw: string): string => {
-    const msg = raw.toLowerCase();
-    if (msg.includes("invalid login credentials")) return "E-posta veya şifre hatalı. Lütfen tekrar kontrol edin.";
-    if (msg.includes("network") || msg.includes("fetch")) return "İnternet bağlantınızı kontrol edin.";
-    if (msg.includes("user not found")) return "Bu e-posta adresiyle kayıtlı bir hesap bulunamadı.";
-    if (msg.includes("email not confirmed")) return "Lütfen e-posta adresinizi onaylayın.";
-    if (msg.includes('already in use')) return 'Bu e-posta adresi zaten kullanımda.';
+// Hata mesajlarını daha anlaşılır hale getir
+const getFriendlyError = (rawMessage: string): string => {
+    const msg = rawMessage.toLowerCase();
+    if (msg.includes("invalid login credentials")) {
+        return "E-posta veya şifre hatalı.";
+    }
+    if (msg.includes("network") || msg.includes("fetch")) {
+        return "İnternet bağlantını kontrol edin.";
+    }
+    if (
+        msg.includes("user already registered") ||
+        msg.includes("already in use")
+    ) return "Bu e-posta adresi zaten kullanılıyor.";
+    if (msg.includes("password should be at least 6 characters")) {
+        return "Şifre en az 6 karakter olmalıdır.";
+    }
     return "Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.";
 };
 
-// GİRİŞ YAPMA VE KULLANICIYI DOĞRULAMA MANTIĞI
-// BÜTÜN AĞIR İŞİ BU FONKSİYON YAPACAK
-export const signInAndVerifyUser = async (email: string, password: string) => {
-    // 1. Giriş yapmayı dene
-    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-    });
+/**
+ * Yeni kullanıcı kaydı oluşturur ve onboarding verilerini Supabase'e gönderir.
+ * Bu, misafir akışını tamamlayan en önemli fonksiyondur.
+ */
+export async function signUpWithOnboardingData(
+    email: string,
+    password: string,
+    nickname: string,
+    answersArray: Answer[],
+) {
+    try {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                // Bu 'data' objesi, kullanıcı oluşturulurken onun metadata'sına
+                // güvenli bir şekilde eklenir. Veritabanı trigger'ı bu veriyi oradan okuyacak.
+                data: {
+                    nickname: nickname.trim(),
+                    onboarding_answers: answersArray,
+                    locale: i18n.language, // <<-- BU SATIRI EKLE
+                },
+            },
+        });
 
-    if (signInError) {
-        return { success: false, error: getFriendlyError(signInError.message) };
+        if (error) {
+            throw error; // Hata varsa yakala ve aşağıda işle
+        }
+
+        return { user: data.user, error: null };
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : String(error);
+        return { user: null, error: getFriendlyError(errorMessage) };
     }
-
-    const user = signInData.user;
-    if (!user) {
-        return { success: false, error: "Giriş sonrası kullanıcı bilgisi alınamadı." };
-    }
-
-    // 2. Veritabanından kullanıcı verisini kontrol et (vault)
-    // Bu, RLS politikasının çalışıp çalışmadığını ve kullanıcının profilinin olup olmadığını test eder.
-    const { error: vaultError } = await supabase
-        .from('user_vaults')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .limit(1)
-        .single();
-
-    if (vaultError) {
-        await supabase.auth.signOut(); // Güvenlik önlemi: Profili olmayan kullanıcıyı sistemde tutma.
-        return { success: false, error: "Veritabanına erişim engellendi. Profiliniz yüklenemedi." };
-    }
-    
-    // Her şey yolunda.
-    return { success: true, error: null };
-};
-
-// KAYIT OLMA MANTIĞI (Bu zaten vardı, sadece hata yönetimini merkezileştirdik)
-export async function signUpWithEmail(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    });
-    if (error) throw new Error(getFriendlyError(error.message));
-    return data.user;
 }
 
-// ÇIKIŞ YAPMA MANTIĞI (Bu zaten iyiydi)
+/**
+ * Mevcut kullanıcı için giriş yapar.
+ */
+export async function signInWithEmail(email: string, password: string) {
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+        if (error) throw error;
+        return { session: data.session, error: null };
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : String(error);
+        return { session: null, error: getFriendlyError(errorMessage) };
+    }
+}
+
+/**
+ * Kullanıcının oturumunu kapatır.
+ */
 export async function signOut() {
     await supabase.auth.signOut();
 }

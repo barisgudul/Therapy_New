@@ -1,0 +1,52 @@
+
+{
+  "common": {
+    "stepCounter": "Adım {{step}} / {{total}}",
+    "placeholder_freeWrite": "İçinden geldiği gibi yaz...",
+    "continue": "Devam",
+    "finishAndStart": "Tamamla ve Başla"
+  },
+  "onboarding_step1": {
+    "question": "Bugün zihinsel enerjin nasıl geçti? Kısaca yaz.",
+    "details": "2–3 kelime yeter."
+  },
+  "onboarding_step2": {
+    "question": "Son günlerde seni en çok yoran şey neydi?",
+    "details": "İki cümle yazman yeterli."
+  },
+  "onboarding_step3": {
+    "question": "Bu hafta küçük ama iyi hissettirecek bir adım ne olurdu?",
+    "details": "Hemen şimdi yapabileceğin kadar küçük."
+  },
+  "primer": {
+    "title": "Uygulamaya Hoş Geldin!",
+    "subtitle": "Lütfen dil seçimi yap veya devam et.",
+    "cta": "Hemen Başla"
+  },
+  "mood_reveal": {
+    "continue_hint": "Devam etmek için dokun",
+    "pos_keywords": "iyi,harika,mutlu,rahat,huzurlu,umut,sev,enerjik,şükür,başardım,güzel,başarı,ilerleme,odak,yaptım",
+    "neg_keywords": "kötü,üzgün,yorgun,stres,kaygı,anksiyete,korku,öfke,zor,ağrı,acı,bunalmış,bunalım,sıkılmış,tükenmiş,gergin,endişe,moralim bozuk",
+    "very_bad": "Çok Kötü",
+    "bad": "Kötü",
+    "sad": "Üzgün",
+    "neutral": "Nötr",
+    "good": "İyi",
+    "great": "Harika",
+    "perfect": "Mükemmel"
+  },
+  "softwall": {
+    "title": "Cevaplarına göre detaylı analizini al.",
+    "subtitle": "Analiz bir kez ücretsiz. Cevaplarının özetini, güçlü yönlerini ve olası tetikleyicilerini çıkarıyoruz.",
+    "bullet1": "Cevaplarına özel & tek seferlik rapor",
+    "bullet2": "Kısa özet + güçlü yönler + tetikleyiciler",
+    "bullet3": "Kaydedip daha sonra tekrar okuyabilirsin",
+    "cta_register": "Ücretsiz Üye Ol",
+    "login_link": "Zaten hesabın var mı? Giriş yap"
+  },
+  "recall": {
+    "title": "Az önceki raporuna geri dönelim mi?",
+    "subtitle": "2 önerin kilitliydi. 1 dakikada kaydedip açıyoruz.",
+    "cta": "Devam Et"
+  }
+}

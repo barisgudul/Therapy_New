@@ -1,0 +1,51 @@
+{
+  "common": {
+    "stepCounter": "Schritt {{step}} / {{total}}",
+    "placeholder_freeWrite": "Schreibe, was dir in den Sinn kommt...",
+    "continue": "Weiter",
+    "finishAndStart": "Abschließen und starten"
+  },
+  "onboarding_step1": {
+    "question": "Wie war deine mentale Energie heute? Beschreibe sie kurz.",
+    "details": "2-3 Wörter genügen."
+  },
+  "onboarding_step2": {
+    "question": "Was hat dich in letzter Zeit am meisten belastet?",
+    "details": "Zwei Sätze reichen aus."
+  },
+  "onboarding_step3": {
+    "question": "Was wäre ein kleiner Schritt diese Woche, der dir ein gutes Gefühl geben würde?",
+    "details": "Klein genug, dass du ihn sofort umsetzen kannst."
+  },
+  "primer": {
+    "title": "Willkommen bei der App!",
+    "subtitle": "Bitte wähle eine Sprache aus oder fahre fort.",
+    "cta": "Jetzt starten"
+  },
+  "mood_reveal": {
+    "continue_hint": "Tippen um fortzufahren",
+    "pos_keywords": "gut,toll,glücklich,entspannt,friedlich,Hoffnung,Liebe,energisch,dankbar,geschafft,schön,Erfolg,Fortschritt,Fokus,getan",
+    "neg_keywords": "schlecht,traurig,müde,Stress,Angst,besorgt,Angst,Wut,schwierig,Schmerz,wehrtun,überfordert,Krise,gelangweilt,erschöpft,angespannt,Sorge,niedrige Moral",
+    "very_bad": "Sehr Schlecht",
+    "bad": "Schlecht",
+    "sad": "Traurig",
+    "neutral": "Neutral",
+    "good": "Gut",
+    "great": "Toll",
+    "perfect": "Perfekt"
+  },
+  "softwall": {
+    "title": "Erhalte detaillierte Analyse basierend auf deinen Antworten.",
+    "subtitle": "Analyse ist einmal kostenlos. Wir extrahieren Zusammenfassung deiner Antworten, Stärken und mögliche Auslöser.",
+    "bullet1": "Bericht personalisiert für deine Antworten & einmalig",
+    "bullet2": "Kurze Zusammenfassung + Stärken + Auslöser",
+    "bullet3": "Speichern und später erneut lesen",
+    "cta_register": "Kostenlos registrieren",
+    "login_link": "Hast du bereits ein Konto? Anmelden"
+  },
+  "recall": {
+    "title": "Sollen wir zu deinem vorherigen Bericht zurückkehren?",
+    "subtitle": "2 Empfehlungen waren gesperrt. Wir speichern und entsperren sie in 1 Minute.",
+    "cta": "Fortfahren"
+  }
+}

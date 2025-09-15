@@ -13,14 +13,11 @@ export enum AppMode {
   Recall = "Recall",
 }
 
-type Answer = { step: number; question: string; answer: string };
+export type Answer = { step: number; question: string; answer: string };
 
 interface OnboardingState {
-  // mevcut alanlar
-  answers: Record<string, string>;
-  nickname: string; // Kullanıcının register'da girdiği nickname
+  nickname: string;
   currentStep: number;
-  setAnswer: (step: number, question: string, answer: string) => void;
   setNickname: (nickname: string) => void;
   resetOnboarding: () => void;
 
@@ -30,19 +27,17 @@ interface OnboardingState {
   firstLaunchSeen: boolean;
   trialExpiresAt: number | null; // ms
   recallEligibleAt: number | null; // ms
-  answersArray: Answer[];
+  answersArray: Answer[]; // GERÇEĞİN TEK KAYNAĞI BU
 
   setMode: (m: AppMode) => void;
   setGuest: (g: boolean) => void;
   setFirstLaunchSeen: () => void;
   setTrial: (msFromNow: number) => void;
   setRecallAt: (msFromNow: number) => void;
-  setAnswerArray: (step: number, q: string, a: string) => void;
+  setAnswer: (step: number, q: string, a: string) => void;
 }
 
-export const useOnboardingStore = create<OnboardingState>((set, get) => ({
-  // mevcut defaults
-  answers: {},
+export const useOnboardingStore = create<OnboardingState>((set) => ({
   nickname: "",
   currentStep: 1,
 
@@ -54,16 +49,9 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   recallEligibleAt: null,
   answersArray: [],
 
-  // mevcut aksiyonlar
-  setAnswer: (step, question, answer) =>
-    set((state) => ({
-      answers: { ...state.answers, [question]: answer },
-      currentStep: step,
-    })),
   setNickname: (nickname) => set({ nickname }),
   resetOnboarding: () =>
     set({
-      answers: {},
       nickname: "",
       currentStep: 1,
       isGuest: true,
@@ -79,12 +67,30 @@ export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   setFirstLaunchSeen: () => set({ firstLaunchSeen: true }),
   setTrial: (ms) => set({ trialExpiresAt: Date.now() + ms }),
   setRecallAt: (ms) => set({ recallEligibleAt: Date.now() + ms }),
-  setAnswerArray: (step, question, answer) => {
-    const others = get().answersArray.filter((x) => x.step !== step);
-    set({
-      answersArray: [...others, { step, question, answer }].sort((a, b) =>
-        a.step - b.step
-      ),
+  setAnswer: (step, question, answer) => {
+    set((state) => {
+      const existingAnswerIndex = state.answersArray.findIndex((x) =>
+        x.step === step
+      );
+      const newAnswers = [...state.answersArray];
+      if (existingAnswerIndex > -1) {
+        newAnswers[existingAnswerIndex] = { step, question, answer };
+      } else {
+        newAnswers.push({ step, question, answer });
+      }
+      return {
+        answersArray: newAnswers.sort((a, b) => a.step - b.step),
+      };
     });
   },
 }));
+
+// Eğer bir yerde obje formatına ihtiyaç duyarsan, bu selector'ı kullan.
+export const useOnboardingAnswersObject = () => {
+  return useOnboardingStore((state) =>
+    state.answersArray.reduce((acc, curr) => {
+      acc[curr.question] = curr.answer;
+      return acc;
+    }, {} as Record<string, string>)
+  );
+};

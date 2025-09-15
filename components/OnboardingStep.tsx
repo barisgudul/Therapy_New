@@ -1,5 +1,6 @@
 // components/OnboardingStep.tsx
 
+import { useTranslation } from "react-i18next"; // 1. Hook'u import et
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { MotiView } from "moti";
@@ -24,8 +25,7 @@ import { Spacing } from "../constants/Design";
 interface OnboardingStepProps {
   step: number;
   totalSteps: number;
-  question: string;
-  questionDetails?: string;
+  questionKey: string; // `question` yerine `questionKey`
   icon: keyof typeof Ionicons.glyphMap;
   onNextPress: (answer: string) => void;
   isLastStep?: boolean;
@@ -35,13 +35,13 @@ interface OnboardingStepProps {
 export default function OnboardingStep({
   step,
   totalSteps,
-  question,
-  questionDetails,
+  questionKey, // `question` ve `questionDetails` yerine bunu kullanacağız
   icon,
   onNextPress,
   isLastStep = false,
   minChars = 8,
 }: OnboardingStepProps) {
+  const { t } = useTranslation(); // 2. Hook'u bileşenin içinde çağır
   const [answer, setAnswer] = useState("");
   const progress = step / totalSteps;
 
@@ -83,7 +83,8 @@ export default function OnboardingStep({
                           />
                         </View>
                         <Text style={styles.stepCounter}>
-                          {`Adım ${step} / ${totalSteps}`}
+                          {/* 3. Metni t fonksiyonu ile değiştir */}
+                          {t("common.stepCounter", { step, total: totalSteps })}
                         </Text>
                       </View>
                     </MotiView>
@@ -104,15 +105,15 @@ export default function OnboardingStep({
                     transition={{ delay: 200, type: "timing", duration: 350 }}
                     style={styles.content}
                   >
-                    <Text style={styles.questionText}>{question}</Text>
-                    {questionDetails && (
-                      <Text style={styles.detailsText}>{questionDetails}</Text>
-                    )}
+                    {/* 4. Soru ve detayları da t fonksiyonu ile al */}
+                    <Text style={styles.questionText}>{t(`${questionKey}.question`)}</Text>
+                    <Text style={styles.detailsText}>{t(`${questionKey}.details`)}</Text>
                     <TextInput
                       style={styles.textArea}
                       value={answer}
                       onChangeText={setAnswer}
-                      placeholder="İçinden geldiği gibi yaz..."
+                      // 5. Placeholder'ı da t fonksiyonu ile al
+                      placeholder={t("common.placeholder_freeWrite")}
                       placeholderTextColor="#A9B4C8"
                       multiline
                       autoFocus
@@ -150,7 +151,8 @@ export default function OnboardingStep({
                       answer.trim().length < minChars && { color: "#A9B4C8" },
                     ]}
                   >
-                    {isLastStep ? "Tamamla ve Başla" : "Devam"}
+                    {/* 6. Buton metnini de t fonksiyonu ile al */}
+                    {isLastStep ? t("common.finishAndStart") : t("common.continue")}
                   </Text>
                   <Ionicons
                     name="arrow-forward"

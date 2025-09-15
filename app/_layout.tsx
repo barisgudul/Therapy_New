@@ -1,5 +1,6 @@
 // app/_layout.tsx --- KESİN VE NİHAİ VERSİYON
 
+import "../utils/i18n"; // <-- BU SATIRI EN ÜSTE EKLE
 import "react-native-get-random-values";
 import "react-native-reanimated";
 
@@ -9,7 +10,7 @@ import { useFonts } from "expo-font";
 import { useRouter, useSegments } from "expo-router/";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
+import React from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import Toast, { BaseToastProps } from "react-native-toast-message";
@@ -19,7 +20,6 @@ import { AppToast } from "../components/shared/AppToast";
 import UndoToast from "../components/dream/UndoToast";
 import { AuthProvider, useAuth } from "../context/Auth";
 import { LoadingProvider } from "../context/Loading";
-import { useGlobalLoading } from "../hooks/useGlobalLoading";
 
 const queryClient = new QueryClient();
 
@@ -43,41 +43,12 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
-  useGlobalLoading();
-
-    const [fontsLoaded, fontError] = useFonts({
+    const [fontsLoaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  useEffect(() => {
-    // Henüz hiçbir şey hazır değilse, bekle.
-    if (isAuthLoading === undefined || !fontsLoaded) {
-      return;
-    }
-
-    // Kullanıcının bulunduğu rotanın ilk segmenti, hangi grupta olduğunu söyler.
-    const inAppGroup = segments[0] === "(app)";
-    const inAuthGroup = segments[0] === "(auth)";
-    const inGuestGroup = segments[0] === "(guest)";
-
-    if (!session) {
-      // (app) denemesi varsa misafir akışına yolla
-      if (inAppGroup) {
-        router.replace("/(guest)/primer");
-        return;
-      }
-      // (auth) sayfalarına Soft Wall'dan gelebilir; dokunma
-    } else {
-      // login/register vb. görünmesin
-      if (inAuthGroup || inGuestGroup) {
-        router.replace("/");
-        return;
-      }
-    }
-  }, [session, isAuthLoading, fontsLoaded, fontError, segments, router]);
-
-  // Yükleme ekranı - AuthProvider henüz hazır değilse
-  if (isAuthLoading === undefined || !fontsLoaded) {
+  // Yükleme ekranı - Fontlar veya Auth hazır değilse bekle
+  if (!fontsLoaded || isAuthLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0a7ea4" />
@@ -85,7 +56,26 @@ function RootLayoutNav() {
     );
   }
 
-  // Her şey hazır, ana navigasyonu göster.
+  // Artık tüm yönlendirme mantığı burada değil.
+  // Sadece session durumuna göre ana gruplar arasında yönlendirme yapacağız.
+  const inAuthGroup = segments[0] === "(auth)";
+  const inAppGroup = segments[0] === "(app)";
+
+  // Eğer kullanıcı giriş yapmamışsa ve app grubuna girmeye çalışıyorsa
+  // onu misafir akışına yönlendir.
+  if (!session && inAppGroup) {
+      router.replace("/(guest)/primer");
+      return null;
+  }
+
+  // Eğer kullanıcı giriş yapmışsa ve auth grubuna girmeye çalışıyorsa
+  // onu ana sayfaya yönlendir.
+  if (session && inAuthGroup) {
+      router.replace("/");
+      return null;
+  }
+
+  // Geri kalan her şey için, navigasyonu göster.
   return (
     <ThemeProvider value={DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }} />

@@ -2,6 +2,7 @@
 import { getErrorMessage } from "../utils/errors";
 import { supabase } from "../utils/supabase";
 import { AppEvent, logEvent as _logEvent } from "./event.service";
+import i18n from "../utils/i18n"; // i18n'i import et
 
 // Vault Service API calls
 import {
@@ -24,37 +25,16 @@ import {
 } from "./subscription.service";
 import type { AnalysisReport } from "../types/analysis";
 
-// --- BU BÖLÜM TAMAMEN DEĞİŞECEK ---
-
-// Global eylemleri tutacak bir nesne
-let globalLoadingActions:
-    | { show: (msg?: string) => void; hide: () => void }
-    | null = null;
-
-// Eylemleri kaydetmek için yeni fonksiyon
-export const setGlobalLoadingActions = (
-    actions: { show: (msg?: string) => void; hide: () => void },
-) => {
-    globalLoadingActions = actions;
-};
-
-// Tüm API çağrılarını saran wrapper'ı GÜNCELLE
+// Tüm API çağrılarını saran wrapper'ı TEMİZLE
 export async function apiCall<T>(
     promise: Promise<T>,
-    loadingMessage?: string,
 ): Promise<{ data: T | null; error: string | null }> {
-    // Global loading state'i YENİ YÖNTEMLE güncelle
-    globalLoadingActions?.show(loadingMessage);
-
     try {
         const data = await promise;
         return { data, error: null };
     } catch (error) {
         console.error("API call failed:", getErrorMessage(error));
         return { data: null, error: getErrorMessage(error) };
-    } finally {
-        // Yüklemeyi YENİ YÖNTEMLE gizle
-        globalLoadingActions?.hide();
     }
 }
 
@@ -230,5 +210,35 @@ export function triggerBehavioralAnalysis(periodDays: number) {
         return data;
     })();
 
+    return apiCall(promise);
+}
+
+// YENİ: Onboarding insight üretme
+export function generateOnboardingInsight(
+    answer1: string,
+    answer2: string,
+    answer3: string,
+) {
+    const promise = (async (): Promise<{ insight: string }> => {
+        const { data, error } = await supabase.functions.invoke(
+            "generate-onboarding-insight",
+            {
+                body: {
+                    answer1,
+                    answer2,
+                    answer3,
+                    language: i18n.language, // AKTİF DİLİ DE GÖNDER
+                },
+            },
+        );
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return data as { insight: string };
+    })();
+
+    // Artık loading mesajı vermiyoruz, bu HomeIllustration'da yönetiliyor
     return apiCall(promise);
 }

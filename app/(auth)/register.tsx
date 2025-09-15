@@ -1,34 +1,32 @@
-// app/register.tsx
+// app/register.tsx - NİHAİ VERSİYON
 
 import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router/";
 import React, { useState } from "react";
-import {
-    LayoutAnimation,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { LayoutAnimation, Text, TouchableOpacity, View } from "react-native";
 import { AuthInput } from "../../components/AuthInput.tsx";
 import { AuthLayout } from "../../components/AuthLayout.tsx";
 import { LoadingButton } from "../../components/LoadingButton.tsx";
 import { useLoading } from "../../context/Loading.tsx";
-import { useOnboardingStore, AppMode } from "../../store/onboardingStore";
+import { AppMode, useOnboardingStore } from "../../store/onboardingStore";
 import { authScreenStyles as styles } from "../../styles/auth";
-import { signUpWithEmail } from "../../utils/auth";
 import { logEvent } from "../../services/api.service";
+import { signUpWithOnboardingData } from "../../utils/auth"; // YENİ FONKSİYONU İÇERİ AL
 
 export default function RegisterScreen() {
     const router = useRouter();
     const { showLoading, hideLoading, isLoading } = useLoading();
-    const setNickname = useOnboardingStore((s) => s.setNickname);
-    const setGuest = useOnboardingStore((s) => s.setGuest);
-    const setMode = useOnboardingStore((s) => s.setMode);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [nickname, setNicknameLocal] = useState("");
     const [error, setError] = useState("");
     const [step, setStep] = useState(0);
+
+    // Misafir verilerini Zustand store'dan al
+    const answersArray = useOnboardingStore((s) => s.answersArray);
+    const setGuest = useOnboardingStore((s) => s.setGuest);
+    const setMode = useOnboardingStore((s) => s.setMode);
+    const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding);
 
     const changeStep = (nextStep: number) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.spring);
@@ -50,40 +48,46 @@ export default function RegisterScreen() {
         setError("");
         if (!nickname.trim()) {
             setError("Size nasıl hitap etmemizi istersiniz?");
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             return;
         }
         showLoading("Hesap oluşturuluyor...");
-        try {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            const user = await signUpWithEmail(email, password);
-            if (!user) throw new Error("Kullanıcı oluşturulamadı.");
-            setNickname(nickname.trim());
-            setGuest(false);
-            setMode(AppMode.Summary);
-            await logEvent({ type: "register_success", data: { source: "softwall" } }).catch(()=>{});
-            router.replace("/analysis/instant-analysis");
-        } catch (error: unknown) {
-            const errorMessage = error instanceof Error
-                ? error.message
-                : "Beklenmedik bir hata oluştu";
-            if (errorMessage.includes("already in use")) {
-                setError("Bu e-posta adresi zaten kullanımda.");
-                changeStep(0);
-            } else {
-                setError("Bir hata oluştu. Lütfen tekrar deneyin.");
-            }
+
+        // YENİ, GÜVENLİ KAYIT İŞLEMİ
+        const { user, error: signUpError } = await signUpWithOnboardingData(
+            email,
+            password,
+            nickname,
+            answersArray
+        );
+
+        hideLoading();
+
+        if (signUpError) {
+            setError(signUpError); // Dostane hata mesajı doğrudan auth.ts'den gelecek
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        } finally {
-            hideLoading();
+            if (signUpError.includes("kullanılıyor")) {
+                changeStep(0); // E-posta zaten kullanımdaysa ilk adıma dön
+            }
+        } else if (user) {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+            // Veri artık backend'de güvende. Cihazdaki misafir verilerini temizle.
+            resetOnboarding();
+            setGuest(false);
+            setMode(AppMode.Home); // Doğrudan ana sayfaya yönlendir
+
+            await logEvent({ type: "register_success", data: { source: "softwall" } });
+
+            // AuthProvider'ın state'i güncellemesini beklemeden doğrudan yönlendir
+            router.replace("/");
         }
     };
 
     const FooterLink = (
         <TouchableOpacity onPress={() => router.push("/login")}>
             <Text style={styles.linkText}>
-                Zaten bir hesabın var mı?{" "}
-                <Text style={styles.linkTextBold}>Giriş yap.</Text>
+                Zaten bir hesabın var mı? <Text style={styles.linkTextBold}>Giriş yap.</Text>
             </Text>
         </TouchableOpacity>
     );
