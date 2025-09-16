@@ -1,105 +1,97 @@
-// app/forgot-password.tsx
-
-import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router/";
+// app/(auth)/forgot-password.tsx
 import React, { useState } from "react";
-import { Alert, Pressable, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router/";
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { AuthInput } from "../../components/AuthInput";
 import { AuthLayout } from "../../components/AuthLayout";
-import { LoadingButton } from "../../components/LoadingButton";
+import { AuthButton } from "../../components/AuthButton";
 import { useLoading } from "../../context/Loading";
 import { authScreenStyles as styles } from "../../styles/auth";
 import { supabase } from "../../utils/supabase";
+import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "../../constants/Colors";
 
 export default function ForgotPasswordScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { showLoading, hideLoading, isLoading } = useLoading();
     const [email, setEmail] = useState("");
+    const [error, setError] = useState<{ field: string; message: string } | null>(null);
     const [sent, setSent] = useState(false);
 
     const handlePasswordReset = async () => {
+        setError(null);
         if (!email.trim() || !email.includes("@")) {
-            Alert.alert(
-                "Geçersiz E-posta",
-                "Lütfen geçerli bir e-posta adresi girin.",
-            );
+            setError({ field: 'email', message: t('auth.error_invalid_email') });
             return;
         }
         showLoading("Link gönderiliyor...");
-        const { error } = await supabase.auth.resetPasswordForEmail(
-            email.trim(),
-            {
-                redirectTo: "therapy://reset-password",
-            },
-        );
-        if (error) {
-            Alert.alert("Hata", "Bir sorun oluştu: " + error.message);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+
+        hideLoading();
+        if (resetError) {
+            setError({ field: 'general', message: resetError.message });
         } else {
             setSent(true);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
-        hideLoading();
     };
-
-    if (sent) {
-        return (
-            <View
-                style={[styles.background, {
-                    justifyContent: "center",
-                    padding: 24,
-                }]}
-            >
-                <Text style={styles.title}>E-postanı Kontrol Et</Text>
-                <Text style={styles.subtitle}>
-                    <Text style={{ fontWeight: "bold" }}>{email}</Text>{" "}
-                    adresine bir şifre sıfırlama bağlantısı gönderildi.
-                </Text>
-                <Pressable
-                    onPress={() => router.replace("/login")}
-                    style={[styles.button, { marginTop: 32 }]}
-                >
-                    <Text style={styles.buttonText}>Giriş Ekranına Dön</Text>
-                </Pressable>
-            </View>
-        );
-    }
 
     const FooterLink = (
         <TouchableOpacity onPress={() => router.back()}>
             <Text style={styles.linkText}>
-                Giriş ekranına{" "}
-                <Text style={styles.linkTextBold}>geri dön.</Text>
+                {t("auth.back_to_login_prefix")}
+                <Text style={styles.linkTextBold}>{t("auth.back_to_login_link")}</Text>
             </Text>
         </TouchableOpacity>
     );
 
+    // E-posta gönderildikten sonra gösterilecek "başarı" ekranı
+    if (sent) {
+        return (
+            <AuthLayout title={t('auth.check_your_email_title')} subtitle={t('auth.check_your_email_subtitle', { email })} footer={null}>
+                <View style={{ alignItems: 'center', marginVertical: 24 }}>
+                    <Ionicons name="checkmark-circle-outline" size={64} color={Colors.light.tint} />
+                </View>
+                <AuthButton text={t('auth.back_to_login_cta')} onPress={() => router.replace('/login')} />
+            </AuthLayout>
+        );
+    }
+
+    // Standart şifre sıfırlama formu
     return (
         <AuthLayout
-            title="Şifre Sıfırlama"
-            subtitle="Hesabına ait e-postayı gir, sana bir kurtarma linki gönderelim."
+            title={t("auth.forgot_password_title")}
+            subtitle={t("auth.forgot_password_subtitle")}
             footer={FooterLink}
         >
-            <View style={{ height: 20 }} />
+            {error && (
+                <Animated.View entering={FadeIn.duration(300)} style={styles.errorContainer}>
+                    <Text style={styles.errorMessage}>{error.message}</Text>
+                </Animated.View>
+            )}
 
-            <View style={styles.inputWrapper}>
-                <AuthInput
-                    iconName="mail-outline"
-                    placeholder="E-posta Adresin"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    onSubmitEditing={handlePasswordReset}
-                    autoFocus
+            <View style={styles.formContainer}>
+                <View style={[styles.inputWrapper, error && styles.inputWrapperError]}>
+                    <AuthInput
+                        iconName="mail-outline"
+                        placeholder={t("auth.email")}
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        onSubmitEditing={handlePasswordReset}
+                        autoFocus
+                    />
+                </View>
+
+                <AuthButton
+                    isLoading={isLoading}
+                    text={t("auth.send_recovery_link")}
+                    onPress={handlePasswordReset}
                 />
             </View>
-
-            <LoadingButton
-                isLoading={isLoading}
-                text="Kurtarma Linki Gönder"
-                onPress={handlePasswordReset}
-            />
         </AuthLayout>
     );
 }

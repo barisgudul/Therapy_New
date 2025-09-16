@@ -3,6 +3,9 @@ import React, { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, FadeIn } from "react-native-reanimated";
+import { supabase } from "../utils/supabase";
+import { useOnboardingStore } from "../store/onboardingStore";
+import { useTranslation } from "react-i18next";
 
 // RENK SABİTLERİ
 const START_BG: readonly [string, string] = ["#0D1B2A", "#1B263B"]; // Başlangıç rengi
@@ -16,23 +19,51 @@ interface ProcessingScreenProps {
 
 export default function ProcessingScreen({ text, onComplete }: ProcessingScreenProps) {
   const transitionProgress = useSharedValue(0);
+  const answersArray = useOnboardingStore((s) => s.answersArray);
+  const resetOnboarding = useOnboardingStore((s) => s.resetOnboarding); // RESET FONKSİYONUNU ÇEK
+  const { i18n } = useTranslation();
 
   useEffect(() => {
-    // Component'in ne kadar süre "işlem yapıyor" gibi görüneceğini belirle
-    const processingDuration = 2000; // 2 saniye
-    const animationDuration = 1500;  // 1.5 saniye
+    const generateAndSaveInsight = async () => {
+      // 1. Cevapların olduğundan emin ol
+      if (answersArray.length < 3) {
+        console.error("Onboarding cevapları eksik, analiz oluşturulamadı.");
+        onComplete(); // Hata olsa bile devam et, kullanıcıyı kitleme
+        return;
+      }
 
-    const timer = setTimeout(() => {
-      // Renk geçişini başlat
-      transitionProgress.value = withTiming(1, { duration: animationDuration });
+      try {
+        // 2. SUPABASE FONKSİYONUNU ÇAĞIR
+        console.log("Analiz fonksiyonu çağrılıyor...");
+        const { data, error } = await supabase.functions.invoke('generate-onboarding-insight', {
+          body: {
+            answer1: answersArray[0].answer,
+            answer2: answersArray[1].answer,
+            answer3: answersArray[2].answer,
+            language: i18n.language,
+          },
+        });
 
-      // Animasyon bittikten sonra onComplete fonksiyonunu çağır
-      setTimeout(onComplete, animationDuration);
+        if (error) throw error;
+        console.log("Analiz başarıyla oluşturuldu:", data);
 
-    }, processingDuration);
+        // === TEMİZLİK ZAMANI ===
+        // Analiz başarıyla istendiğine göre, bu geçici veriye artık ihtiyacımız yok.
+        resetOnboarding();
+        console.log("Onboarding verileri temizlendi.");
 
-    return () => clearTimeout(timer); // Ekrandan ayrılırsa temizle
-  }, [onComplete, transitionProgress]);
+      } catch (error) {
+        console.error("Analiz oluşturma veya kaydetme hatası:", error);
+      } finally {
+        // 3. Animasyonu ve yönlendirmeyi başlat
+        const animationDuration = 1500;
+        transitionProgress.value = withTiming(1, { duration: animationDuration });
+        setTimeout(onComplete, animationDuration);
+      }
+    };
+
+    generateAndSaveInsight();
+  }, [onComplete, transitionProgress, answersArray, i18n.language, resetOnboarding]); // resetOnboarding'i bağımlılıklara ekle
 
   const animatedBackgroundStyle = useAnimatedStyle(() => {
     return { opacity: transitionProgress.value };

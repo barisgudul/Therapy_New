@@ -1,6 +1,6 @@
 // components/AuthLayout.tsx
 import React from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View, Image } from 'react-native'; // Image'ı import et
 import { authScreenStyles as styles } from '../styles/auth';
 
 interface AuthLayoutProps {
@@ -21,21 +21,20 @@ export const AuthLayout = ({ title, subtitle, children, footer }: AuthLayoutProp
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          {/* SAHNE DIŞI: Marka */}
-          <View style={styles.headerContainer}>
-            <Text style={styles.brand}>
-              lumen<Text style={styles.dot}>.</Text>
-            </Text>
-          </View>
+          {/*
+            DIŞ HEADER'I TAMAMEN KALDIRDIK.
+            ARTIK TEK BİR ODAK NOKTAMIZ VAR: KART.
+          */}
 
-          {/* SAHNE: Ana kartımız. Başlık, alt başlık ve form elemanları (children) artık bunun içinde. */}
           <View style={styles.formCard}>
+            {/* İŞTE KİMLİĞİMİZ! LOGO ARTIK AİT OLDUĞU YERDE. */}
+            <Image source={require("../assets/logo.png")} style={styles.logo} />
+
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
             {children}
           </View>
 
-          {/* SAHNE DIŞI: Footer linki */}
           <View style={styles.footer}>
             {footer}
           </View>

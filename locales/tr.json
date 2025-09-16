@@ -74,6 +74,19 @@
     "no_account": "Hesabın yok mu? ",
     "register_link": "Kayıt ol.",
     "error_password_length": "Şifreniz en az 6 karakter olmalıdır.",
-    "error_nickname_required": "Size nasıl hitap etmemizi istediğinizi belirtmelisiniz."
+    "error_nickname_required": "Size nasıl hitap etmemizi istediğinizi belirtmelisiniz.",
+    "error_invalid_email": "Lütfen geçerli bir e-posta adresi girin.",
+    "or": "veya",
+    "continue_with_google": "Google ile Devam Et",
+    "continue_with_apple": "Apple ile Devam Et",
+    "forgot_password": "Şifreni mi unuttun?",
+    "forgot_password_title": "Şifre Sıfırlama",
+    "forgot_password_subtitle": "Hesabına ait e-postayı gir, sana bir kurtarma linki gönderelim.",
+    "send_recovery_link": "Kurtarma Linki Gönder",
+    "check_your_email_title": "E-postanı Kontrol Et",
+    "check_your_email_subtitle": "{{email}} adresine bir şifre sıfırlama bağlantısı gönderildi.",
+    "back_to_login_prefix": "Giriş ekranına ",
+    "back_to_login_link": "geri dön.",
+    "back_to_login_cta": "Giriş Ekranına Dön"
   }
 }

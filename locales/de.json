@@ -73,6 +73,19 @@
     "no_account": "Hast du kein Konto? ",
     "register_link": "Registrieren.",
     "error_password_length": "Dein Passwort muss mindestens 6 Zeichen lang sein.",
-    "error_nickname_required": "Bitte gib an, wie wir dich ansprechen sollen."
+    "error_nickname_required": "Bitte gib an, wie wir dich ansprechen sollen.",
+    "error_invalid_email": "Bitte gib eine gültige E-Mail-Adresse ein.",
+    "or": "oder",
+    "continue_with_google": "Mit Google fortfahren",
+    "continue_with_apple": "Mit Apple fortfahren",
+    "forgot_password": "Passwort vergessen?",
+    "forgot_password_title": "Passwort zurücksetzen",
+    "forgot_password_subtitle": "Gib deine Kontak-E-Mail ein und wir senden dir einen Wiederherstellungslink.",
+    "send_recovery_link": "Wiederherstellungslink senden",
+    "check_your_email_title": "Überprüfe deine E-Mail",
+    "check_your_email_subtitle": "Ein Passwort-zurücksetzen-Link wurde an {{email}} gesendet.",
+    "back_to_login_prefix": "Zurück zur ",
+    "back_to_login_link": "Anmeldung.",
+    "back_to_login_cta": "Zurück zur Anmeldung"
   }
 }

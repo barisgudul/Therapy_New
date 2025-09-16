@@ -129,6 +129,22 @@ serve(async (req: Request) => {
     );
 
     const parsedResponse = JSON.parse(response);
+
+    // === İŞTE MOTORU ARABAYA KOYDUĞUMUZ YER ===
+    // 1. Oluşturulan analizi kullanıcının profiline kaydet
+    const { error: updateError } = await supabaseClient
+      .from("profiles")
+      .update({ onboarding_insight: parsedResponse }) // 'profiles' tablosunda 'onboarding_insight' adında bir JSONB sütunun olmalı
+      .eq("id", user.id);
+
+    if (updateError) {
+      // Eğer güncelleme başarısız olursa, hatayı logla ama yine de devam et.
+      // Kullanıcının akışını durdurmak istemeyiz.
+      console.error("Failed to save insight to profile:", updateError);
+    }
+    // ===============================================
+
+    // 2. Analizi yine de frontend'e geri gönder
     return new Response(JSON.stringify(parsedResponse), {
       status: 200, /*...*/
     });

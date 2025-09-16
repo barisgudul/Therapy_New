@@ -73,6 +73,19 @@
     "no_account": "Don't have an account? ",
     "register_link": "Sign up.",
     "error_password_length": "Your password must be at least 6 characters.",
-    "error_nickname_required": "Please specify how you'd like us to address you."
+    "error_nickname_required": "Please specify how you'd like us to address you.",
+    "error_invalid_email": "Please enter a valid email address.",
+    "or": "or",
+    "continue_with_google": "Continue with Google",
+    "continue_with_apple": "Continue with Apple",
+    "forgot_password": "Forgot your password?",
+    "forgot_password_title": "Password Reset",
+    "forgot_password_subtitle": "Enter your account email and we'll send you a recovery link.",
+    "send_recovery_link": "Send Recovery Link",
+    "check_your_email_title": "Check Your Email",
+    "check_your_email_subtitle": "A password reset link has been sent to {{email}}.",
+    "back_to_login_prefix": "Back to ",
+    "back_to_login_link": "login.",
+    "back_to_login_cta": "Back to Login"
   }
 }
