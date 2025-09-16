@@ -18,14 +18,16 @@
     "details": "Klein genug, dass du ihn sofort umsetzen kannst."
   },
   "primer": {
-    "title": "Willkommen bei der App!",
-    "subtitle": "Bitte wähle eine Sprache aus oder fahre fort.",
-    "cta": "Jetzt starten"
+    "hero_title": "Willkommen bei Lumen",
+    "hero_subtitle_big": "Wenn Sie bereit für Ihre erste kostenlose Analyse sind, legen wir los.",
+    "cta_analysis": "Meine Analyse starten",
+    "free_badge": "Erste Analyse kostenlos",
+    "have_account": "Ich habe ein Konto"
   },
   "mood_reveal": {
     "continue_hint": "Tippen um fortzufahren",
-    "pos_keywords": "gut,toll,glücklich,entspannt,friedlich,Hoffnung,Liebe,energisch,dankbar,geschafft,schön,Erfolg,Fortschritt,Fokus,getan",
-    "neg_keywords": "schlecht,traurig,müde,Stress,Angst,besorgt,Angst,Wut,schwierig,Schmerz,wehrtun,überfordert,Krise,gelangweilt,erschöpft,angespannt,Sorge,niedrige Moral",
+    "pos_keywords": ["gut","toll","glücklich","entspannt","friedlich","Hoffnung","Liebe","energisch","dankbar","geschafft","schön","Erfolg","Fortschritt","Fokus","getan"],
+    "neg_keywords": ["schlecht","traurig","müde","Stress","Angst","besorgt","Angst","Wut","schwierig","Schmerz","wehrtun","überfordert","Krise","gelangweilt","erschöpft","angespannt","Sorge","niedrige Moral"],
     "very_bad": "Sehr Schlecht",
     "bad": "Schlecht",
     "sad": "Traurig",
@@ -35,17 +37,42 @@
     "perfect": "Perfekt"
   },
   "softwall": {
-    "title": "Erhalte detaillierte Analyse basierend auf deinen Antworten.",
-    "subtitle": "Analyse ist einmal kostenlos. Wir extrahieren Zusammenfassung deiner Antworten, Stärken und mögliche Auslöser.",
-    "bullet1": "Bericht personalisiert für deine Antworten & einmalig",
-    "bullet2": "Kurze Zusammenfassung + Stärken + Auslöser",
-    "bullet3": "Speichern und später erneut lesen",
-    "cta_register": "Kostenlos registrieren",
-    "login_link": "Hast du bereits ein Konto? Anmelden"
+    "title": "Deine Analyse wird dein Potenzial erhellen.",
+    "subtitle": "Wenn du bereit bist, die persönliche Analyse zu entdecken, die aus deinen Antworten erstellt wurde, lass uns diesen ersten Schritt tun. Du bist auf dieser Reise nicht allein.",
+    "features_title": "Was ist in deiner Analyse?",
+    "feature_pattern_title": "Deine Denkmuster",
+    "feature_pattern_desc": "Entdecke die Verbindungen zwischen deinen Antworten und was sie über dich verraten.",
+    "feature_potential_title": "Dein verborgenes Potenzial",
+    "feature_potential_desc": "Sieh die Stärke und Möglichkeiten hinter dem, was dich erschöpft.",
+    "feature_step_title": "Dein erster Schritt",
+    "feature_step_desc": "Ein personalisierter Anfang, um das kleine Ziel zu erreichen, das du erwähnt hast.",
+    "cta_register": "Meine Analyse entdecken",
+    "login_link": "Ich habe bereits ein Konto"
   },
   "recall": {
     "title": "Sollen wir zu deinem vorherigen Bericht zurückkehren?",
-    "subtitle": "2 Empfehlungen waren gesperrt. Wir speichern und entsperren sie in 1 Minute.",
-    "cta": "Fortfahren"
+    "subtitle": "Deine Antworten wurden nicht gespeichert, aber sie sind noch hier. Du kannst dich in 1 Minute anmelden, um deine Analyse zu sehen.",
+    "cta": "Weiter und Analyse ansehen",
+    "motivation_text": "Setze deinen Fortschritt fort, indem du dort weitermachst, wo du aufgehört hast.",
+    "restart": "Neu starten"
+  },
+  "auth": {
+    "create_account": "Konto erstellen",
+    "login": "Anmelden",
+    "almost_done": "Fast fertig",
+    "enter_info_register": "Gib deine Daten für einen Neuanfang ein.",
+    "enter_info_login": "Willkommen zurück in deinem Konto.",
+    "how_should_we_call_you": "Wie sollen wir dich ansprechen?",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "nickname": "Bevorzugter Name",
+    "continue": "Weiter",
+    "create_account_cta": "Konto erstellen",
+    "have_account": "Hast du bereits ein Konto? ",
+    "login_link": "Anmelden.",
+    "no_account": "Hast du kein Konto? ",
+    "register_link": "Registrieren.",
+    "error_password_length": "Dein Passwort muss mindestens 6 Zeichen lang sein.",
+    "error_nickname_required": "Bitte gib an, wie wir dich ansprechen sollen."
   }
 }

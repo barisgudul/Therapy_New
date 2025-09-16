@@ -19,14 +19,16 @@
     "details": "Hemen şimdi yapabileceğin kadar küçük."
   },
   "primer": {
-    "title": "Uygulamaya Hoş Geldin!",
-    "subtitle": "Lütfen dil seçimi yap veya devam et.",
-    "cta": "Hemen Başla"
+    "hero_title": "Lumen'e Hoş Geldin",
+    "hero_subtitle_big": "İlk ücretsiz analizine hazırsan, başlayalım.",
+    "cta_analysis": "Analizimi Başlat",
+    "free_badge": "İlk analiz ücretsiz",
+    "have_account": "Hesabım var"
   },
   "mood_reveal": {
     "continue_hint": "Devam etmek için dokun",
-    "pos_keywords": "iyi,harika,mutlu,rahat,huzurlu,umut,sev,enerjik,şükür,başardım,güzel,başarı,ilerleme,odak,yaptım",
-    "neg_keywords": "kötü,üzgün,yorgun,stres,kaygı,anksiyete,korku,öfke,zor,ağrı,acı,bunalmış,bunalım,sıkılmış,tükenmiş,gergin,endişe,moralim bozuk",
+    "pos_keywords": ["iyi","harika","mutlu","rahat","huzurlu","umut","sev","enerjik","şükür","başardım","güzel","başarı","ilerleme","odak","yaptım"],
+    "neg_keywords": ["kötü","üzgün","yorgun","stres","kaygı","anksiyete","korku","öfke","zor","ağrı","acı","bunalmış","bunalım","sıkılmış","tükenmiş","gergin","endişe","moralim bozuk"],
     "very_bad": "Çok Kötü",
     "bad": "Kötü",
     "sad": "Üzgün",
@@ -36,17 +38,42 @@
     "perfect": "Mükemmel"
   },
   "softwall": {
-    "title": "Cevaplarına göre detaylı analizini al.",
-    "subtitle": "Analiz bir kez ücretsiz. Cevaplarının özetini, güçlü yönlerini ve olası tetikleyicilerini çıkarıyoruz.",
-    "bullet1": "Cevaplarına özel & tek seferlik rapor",
-    "bullet2": "Kısa özet + güçlü yönler + tetikleyiciler",
-    "bullet3": "Kaydedip daha sonra tekrar okuyabilirsin",
-    "cta_register": "Ücretsiz Üye Ol",
-    "login_link": "Zaten hesabın var mı? Giriş yap"
+    "title": "Analizin, potansiyelini aydınlatacak.",
+    "subtitle": "Verdiğin cevaplarla hazırlanan kişisel analizini keşfetmeye hazırsan, bu ilk adımı atalım. Bu yolculukta yalnız değilsin.",
+    "features_title": "Analizinde Neler Var?",
+    "feature_pattern_title": "Düşünce Kalıpların",
+    "feature_pattern_desc": "Cevapların arasındaki bağlantıyı ve sana ne anlattığını keşfet.",
+    "feature_potential_title": "Gizli Potansiyelin",
+    "feature_potential_desc": "Seni yoran şeylerin ardındaki gücü ve fırsatları gör.",
+    "feature_step_title": "Atacağın İlk Adım",
+    "feature_step_desc": "Belirttiğin o küçük hedefe ulaşman için kişiselleştirilmiş bir başlangıç.",
+    "cta_register": "Analizimi Keşfet",
+    "login_link": "Zaten hesabım var"
   },
   "recall": {
     "title": "Az önceki raporuna geri dönelim mi?",
-    "subtitle": "2 önerin kilitliydi. 1 dakikada kaydedip açıyoruz.",
-    "cta": "Devam Et"
+    "subtitle": "Cevapların kaydedilmedi ama hala burada. Analizini görmek için 1 dakikada üye olabilirsin.",
+    "cta": "Devam Et ve Analizi Gör",
+    "motivation_text": "Kaldığın yerden devam ederek ilerlemeni sürdür.",
+    "restart": "Yeni Başla"
+  },
+  "auth": {
+    "create_account": "Hesap Oluştur",
+    "login": "Giriş Yap",
+    "almost_done": "Neredeyse Bitti",
+    "enter_info_register": "Yeni bir başlangıç için bilgilerini gir.",
+    "enter_info_login": "Hesabına tekrar hoş geldin.",
+    "how_should_we_call_you": "Sana nasıl hitap etmemizi istersin?",
+    "email": "E-posta",
+    "password": "Şifre",
+    "nickname": "Tercih ettiğin isim",
+    "continue": "Devam Et",
+    "create_account_cta": "Hesabı Oluştur",
+    "have_account": "Zaten bir hesabın var mı? ",
+    "login_link": "Giriş yap.",
+    "no_account": "Hesabın yok mu? ",
+    "register_link": "Kayıt ol.",
+    "error_password_length": "Şifreniz en az 6 karakter olmalıdır.",
+    "error_nickname_required": "Size nasıl hitap etmemizi istediğinizi belirtmelisiniz."
   }
 }

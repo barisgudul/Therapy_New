@@ -114,12 +114,13 @@ export async function updateUserVault(newVaultData: VaultData): Promise<void> {
 
     // Metadata bilgilerini yeni sütunlara kopyala
     if (newVaultData.metadata?.currentMood) {
-      updateData.current_mood = newVaultData.metadata.currentMood;
+      updateData.current_mood = String(newVaultData.metadata.currentMood);
     }
 
     if (newVaultData.metadata?.lastDailyReflectionAt) {
-      updateData.last_daily_reflection_at =
-        newVaultData.metadata.lastDailyReflectionAt;
+      updateData.last_daily_reflection_at = String(
+        newVaultData.metadata.lastDailyReflectionAt,
+      );
     }
 
     const { error } = await supabase

@@ -46,7 +46,7 @@ export default {
         },
       ],
       'expo-audio',
-      
+      'expo-localization',
     ],
 
     // Typed Routes deneyi

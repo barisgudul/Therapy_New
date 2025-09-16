@@ -81,6 +81,30 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 /**
+ * Kullanıcı girişini yapar ve doğrular.
+ */
+export async function signInAndVerifyUser(email: string, password: string) {
+    try {
+        const result = await signInWithEmail(email, password);
+
+        if (result.error) {
+            return { success: false, error: result.error };
+        }
+
+        if (!result.session) {
+            return { success: false, error: "Oturum oluşturulamadı." };
+        }
+
+        return { success: true, session: result.session };
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error
+            ? error.message
+            : String(error);
+        return { success: false, error: getFriendlyError(errorMessage) };
+    }
+}
+
+/**
  * Kullanıcının oturumunu kapatır.
  */
 export async function signOut() {

@@ -20,6 +20,7 @@ import { AppToast } from "../components/shared/AppToast";
 import UndoToast from "../components/dream/UndoToast";
 import { AuthProvider, useAuth } from "../context/Auth";
 import { LoadingProvider } from "../context/Loading";
+import { useOnboardingStore } from "../store/onboardingStore";
 
 const queryClient = new QueryClient();
 
@@ -42,10 +43,45 @@ function RootLayoutNav() {
   const { session, isLoading: isAuthLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const recallEligibleAt = useOnboardingStore((s) => s.recallEligibleAt);
+  const answersArray = useOnboardingStore((s) => s.answersArray);
 
-    const [fontsLoaded] = useFonts({
+  const [fontsLoaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
+
+  // Artık tüm yönlendirme mantığı burada değil.
+  // Sadece session durumuna göre ana gruplar arasında yönlendirme yapacağız.
+  const inAuthGroup = segments[0] === "(auth)";
+  const inAppGroup = segments[0] === "(app)";
+
+  // Router yönlendirmelerini render sırasında değil, useEffect içinde yap
+  React.useEffect(() => {
+    // Eğer kullanıcı giriş yapmamışsa ve app grubuna girmeye çalışıyorsa
+    // onu misafir akışına yönlendir.
+    if (!session && inAppGroup) {
+      router.replace("/(guest)/primer");
+      return;
+    }
+
+    // Eğer kullanıcı giriş yapmışsa ve auth grubuna girmeye çalışıyorsa
+    // onu ana sayfaya yönlendir.
+    if (session && inAuthGroup) {
+      router.replace("/");
+      return;
+    }
+
+    // RECALL MANTIĞI: Kullanıcı giriş yapmamış, onboarding tamamlanmış ve recall zamanı geçmişse
+    // recall sayfasına yönlendir.
+    const now = Date.now();
+    const hasCompletedOnboarding = answersArray.length >= 3; // 3 adım tamamlanmış
+    const isRecallTime = recallEligibleAt && now >= recallEligibleAt;
+
+    if (!session && !inAuthGroup && !inAppGroup && hasCompletedOnboarding && isRecallTime) {
+      router.replace("/(guest)/recall");
+      return;
+    }
+  }, [session, inAuthGroup, inAppGroup, router, recallEligibleAt, answersArray]);
 
   // Yükleme ekranı - Fontlar veya Auth hazır değilse bekle
   if (!fontsLoaded || isAuthLoading) {
@@ -54,25 +90,6 @@ function RootLayoutNav() {
         <ActivityIndicator size="large" color="#0a7ea4" />
       </View>
     );
-  }
-
-  // Artık tüm yönlendirme mantığı burada değil.
-  // Sadece session durumuna göre ana gruplar arasında yönlendirme yapacağız.
-  const inAuthGroup = segments[0] === "(auth)";
-  const inAppGroup = segments[0] === "(app)";
-
-  // Eğer kullanıcı giriş yapmamışsa ve app grubuna girmeye çalışıyorsa
-  // onu misafir akışına yönlendir.
-  if (!session && inAppGroup) {
-      router.replace("/(guest)/primer");
-      return null;
-  }
-
-  // Eğer kullanıcı giriş yapmışsa ve auth grubuna girmeye çalışıyorsa
-  // onu ana sayfaya yönlendir.
-  if (session && inAuthGroup) {
-      router.replace("/");
-      return null;
   }
 
   // Geri kalan her şey için, navigasyonu göster.

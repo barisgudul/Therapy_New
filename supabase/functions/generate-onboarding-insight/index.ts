@@ -13,32 +13,50 @@ interface RequestBody {
   language: string; // Dil parametresini ekledik
 }
 
-// Prompt'ları merkezi bir yerden yönetelim
+// Prompt'ları merkezi bir yerden yönetelim - NİHAİ YAPISAL VERSİYON
 const PROMPTS: Record<string, (a1: string, a2: string, a3: string) => string> =
   {
     tr: (a1, a2, a3) =>
-      `ROL: Sen, bilge ve cesaretlendirici bir yol göstericisin.
-GÖREV: Sana verilen 3 cevaptan yola çıkarak, kullanıcı için 2-3 cümlelik, pozitif ve geleceğe dönük bir içgörü yaz. Asla teşhis koyma, sadece gözlemlerini yansıt. "Sen" dilini kullan.
-CEVAP 1 (Zihinsel Enerji): "${a1}"
-CEVAP 2 (En Çok Yoran Şey): "${a2}"
-CEVAP 3 (Küçük Adım): "${a3}"
-İSTENEN ÇIKTI (Sadece JSON): { "insight": "Buraya 2-3 cümlelik içgörüyü yaz." }`,
+      `ROL: Sen, Stanford mezunu, empatik bir performans psikoloğusun.
+GÖREV: Kullanıcının 3 cevabını kullanarak, aşağıdaki 3 anahtarı dolduran bir JSON nesnesi oluştur. Her bir alan tek bir cümle olmalı. Tonun bilge, kısa ve güçlü olmalı.
+1.  **pattern**: Cevap 1 (enerji) ve Cevap 2 (zorluk) arasındaki gözlemlenebilir düşünce kalıbını tanımla. Örneğin, "Enerjinin düşük olması, genellikle [Zorluk]'a odaklandığında ortaya çıkan bir kalıp gibi görünüyor."
+2.  **potential**: Cevap 2'deki (zorluk) durumu yeniden çerçevele (reframe) ve içindeki gizli gücü veya potansiyeli ortaya çıkar. Örneğin, eğer zorluk 'mükemmeliyetçilik' ise potansiyel 'yüksek standartlara sahip olmak'tır. Eğer zorluk 'başkalarını memnun etme çabası' ise potansiyel 'derin bir empati yeteneği'dir. Cümlen, "Bu durum aynı zamanda [Gizli Potansiyel] gibi bir gücü de içinde barındırıyor." şeklinde olmalı.
+3.  **first_step**: Cevap 3'ü (adım), bu yeni keşfedilen potansiyeli kullanarak kalıbı kırmak için atılacak ilk mantıklı eylem olarak sun. Cümlen, "Belirttiğin '[Küçük Adım]' adımı, bu gücünü kullanarak başlayabileceğin harika bir nokta." şeklinde olmalı.
+
+CEVAPLAR:
+- Zihinsel Enerji: "${a1}"
+- En Çok Yoran Şey: "${a2}"
+- Küçük Adım: "${a3}"
+
+İSTENEN ÇIKTI (Sadece JSON): { "pattern": "...", "potential": "...", "first_step": "..." }`,
 
     en: (a1, a2, a3) =>
-      `ROLE: You are a wise and encouraging guide.
-TASK: Based on the 3 answers provided, write a 2-3 sentence, positive, and forward-looking insight for the user. Never diagnose, only reflect observations. Use the "you" pronoun.
-ANSWER 1 (Mental Energy): "${a1}"
-ANSWER 2 (Biggest Drain): "${a2}"
-ANSWER 3 (Small Step): "${a3}"
-DESIRED OUTPUT (JSON only): { "insight": "Write the 2-3 sentence insight here." }`,
+      `ROLE: You are an empathetic performance psychologist from Stanford.
+TASK: Using the user's 3 answers, create a JSON object that fills the following 3 keys. Each field must be a single sentence. Your tone should be wise, concise, and powerful.
+1.  **pattern**: Describe the observable thought pattern between Answer 1 (energy) and Answer 2 (challenge). E.g., "It seems to be a pattern that your low energy appears when you focus on [The Challenge]."
+2.  **potential**: Reframe the situation in Answer 2 (challenge) and uncover the hidden strength or potential within it. E.g., if the challenge is 'perfectionism', the potential is 'having high standards'. If the challenge is 'people-pleasing', the potential is 'a deep capacity for empathy'. Your sentence should be like, "This situation also holds a hidden strength, such as [The Hidden Potential]."
+3.  **first_step**: Present Answer 3 (the step) as the first logical action to break the pattern using this newly discovered potential. Your sentence should be like, "The small step you mentioned, '[The Small Step]', is an excellent place to start using this strength."
+
+ANSWERS:
+- Mental Energy: "${a1}"
+- Biggest Drain: "${a2}"
+- Small Step: "${a3}"
+
+DESIRED OUTPUT (JSON only): { "pattern": "...", "potential": "...", "first_step": "..." }`,
 
     de: (a1, a2, a3) =>
-      `ROLLE: Du bist ein weiser und ermutigender Mentor.
-AUFGABE: Schreibe basierend auf den 3 gegebenen Antworten eine 2-3 Sätze lange, positive und zukunftsorientierte Einsicht für den Benutzer. Stelle niemals eine Diagnose, spiegle nur Beobachtungen wider. Verwende die "Du"-Anrede.
-ANTWORT 1 (Mentale Energie): "${a1}"
-ANTWORT 2 (Größte Belastung): "${a2}"
-ANTWORT 3 (Kleiner Schritt): "${a3}"
-GEWÜNSCHTE AUSGABE (Nur JSON): { "insight": "Schreibe die 2-3 Sätze lange Einsicht hier." }`,
+      `ROLLE: Du bist ein einfühlsamer Leistungspsychologe aus Stanford.
+AUFGABE: Erstelle anhand der 3 Antworten des Benutzers ein JSON-Objekt, das die folgenden 3 Schlüssel ausfüllt. Jedes Feld muss ein einziger Satz sein. Dein Ton sollte weise, prägnant und kraftvoll sein.
+1.  **pattern**: Beschreibe das beobachtbare Denkmuster zwischen Antwort 1 (Energie) und Antwort 2 (Herausforderung). Z.B.: "Es scheint ein Muster zu sein, dass deine niedrige Energie auftritt, wenn du dich auf [Die Herausforderung] konzentrierst."
+2.  **potential**: Formuliere die Situation in Antwort 2 (Herausforderung) neu und decke die verborgene Stärke oder das Potenzial darin auf. Z.B.: Wenn die Herausforderung 'Perfektionismus' ist, ist das Potenzial 'hohe Standards zu haben'. Wenn die Herausforderung 'People-Pleasing' ist, ist das Potenzial 'eine tiefe Fähigkeit zur Empathie'. Dein Satz sollte lauten: "Diese Situation birgt auch eine verborgene Stärke, wie zum Beispiel [Das verborgene Potenzial]."
+3.  **first_step**: Präsentiere Antwort 3 (der Schritt) als die erste logische Handlung, um das Muster unter Nutzung dieses neu entdeckten Potenzials zu durchbrechen. Dein Satz sollte lauten: "Der kleine Schritt, den du erwähnt hast, '[Der kleine Schritt]', ist ein ausgezeichneter Ausgangspunkt, um diese Stärke zu nutzen."
+
+ANTWORTEN:
+- Mentale Energie: "${a1}"
+- Größte Belastung: "${a2}"
+- Kleiner Schritt: "${a3}"
+
+GEWÜNSCHTE AUSGABE (Nur JSON): { "pattern": "...", "potential": "...", "first_step": "..." }`,
   };
 
 serve(async (req: Request) => {
@@ -116,10 +134,13 @@ serve(async (req: Request) => {
     });
   } catch (error) {
     console.error("Onboarding insight generation error:", error);
-    // Hata durumunda güvenli fallback
+    // Hata durumunda güvenli fallback - yeni yapısal format
     return new Response(
       JSON.stringify({
-        insight: "Welcome to your journey! Every step will make you stronger.",
+        pattern:
+          "Her yolculuk bir ilk adımla başlar ve sen o adımı atmaya hazırsın.",
+        potential: "Zorlukların içinde her zaman büyüme potansiyeli gizlidir.",
+        first_step: "Bu yolda ilerlemeye devam etmen, en büyük gücün olacak.",
       }),
       { status: 200 /*...*/ },
     );

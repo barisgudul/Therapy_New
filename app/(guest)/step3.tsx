@@ -12,6 +12,7 @@ export default function Step3() {
   const setAnswer = useOnboardingStore((s) => s.setAnswer);
   const setMode = useOnboardingStore((s) => s.setMode);
   const setTrial = useOnboardingStore((s) => s.setTrial);
+  const setRecallAt = useOnboardingStore((s) => s.setRecallAt);
 
   // SABİT METİN YERİNE, ÇEVİRİDEN GELEN SORUYU AL
   const QUESTION = t("onboarding_step3.question");
@@ -21,8 +22,11 @@ export default function Step3() {
     setAnswer(3, QUESTION, answer);
     logEvent({ type: "guest_start", data: {} }).catch(() => {});
     setTrial(90_000);
+    // Kullanıcı onboarding'i tamamladığında, 24 saat sonra recall sayfası gösterilsin
+    // setRecallAt(24 * 60 * 60 * 1000); // ESKİ SATIRI YORUMA AL - 24 saat
+    setRecallAt(Date.now() + (5 * 1000)); // YENİ SATIR: Şimdiki zamandan 5 saniye sonrası
     setMode(AppMode.InstantReport); // mod etiketi kalabilir, yönlendirme farklı
-    router.replace("/mood-reveal");
+    router.replace("/(guest)/softwall");
   };
 
   return (

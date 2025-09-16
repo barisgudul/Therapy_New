@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 5. TEK VE GÜÇLÜ useEffect
+  // 5. TEK VE GÜÇLÜ useEffect - Optimize edilmiş versiyon
   useEffect(() => {
     let isMounted = true; // Component'in hala mount olup olmadığını takip et
 
@@ -113,29 +113,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // State güncellemelerini güvenli bir şekilde yap
       const currentUser = session?.user ?? null;
 
+      // Tüm state güncellemelerini tek seferde yap
       if (isMounted) {
         setIsLoading(true);
         setSession(session);
         setUser(currentUser);
+        // Kullanıcı durumu kontrolünü de burada yap
+        if (currentUser) {
+          checkUserStatus(currentUser);
+        } else {
+          console.log("[AUTH] Kullanıcı oturumu kapalı. Cache temizleniyor...");
+          queryClient.clear();
+        }
       }
 
-      if (currentUser) {
-        await checkUserStatus(currentUser);
-      } else {
-        console.log("[AUTH] Kullanıcı oturumu kapalı. Cache temizleniyor...");
-        queryClient.clear();
-      }
-
+      // Loading durumunu ayarla ve authReady'yi işaretle
       if (isMounted) {
         setIsLoading(false);
-        // Auth durumunun tamamen hazır olduğunu işaretle
         setAuthReady(true);
       }
     };
 
     // Uygulama ilk açıldığında mevcut oturumu al ve işle
     supabase.auth.getSession().then(({ data: { session } }) => {
-      handleAuthStateChange("INITIAL_SESSION", session);
+      if (isMounted) {
+        handleAuthStateChange("INITIAL_SESSION", session);
+      }
     });
 
     // Oturum değişikliklerini dinle

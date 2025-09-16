@@ -2,7 +2,6 @@
 
 import { createInstance } from "i18next";
 import { initReactI18next } from "react-i18next";
-import ICU from "i18next-icu";
 import * as Localization from "expo-localization";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -27,11 +26,17 @@ const i18n = createInstance();
 
 i18n
     .use(initReactI18next)
-    .use(new ICU())
     .init({
         resources,
         fallbackLng: DEFAULT_LANGUAGE,
-        interpolation: { escapeValue: false },
+        interpolation: {
+            escapeValue: false,
+            // React i18next'in default interpolation'ını kullan
+            format: function (value, format, _lng) {
+                if (format === "uppercase") return value.toUpperCase();
+                return value;
+            },
+        },
         saveMissing: __DEV__,
         missingKeyHandler: (lng, _ns, key) => {
             console.warn(`[i18n] Eksik anahtar: "${key}" | Dil: "${lng}"`);

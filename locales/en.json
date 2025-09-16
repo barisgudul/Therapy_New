@@ -18,14 +18,16 @@
     "details": "Small enough that you can do it right now."
   },
   "primer": {
-    "title": "Welcome to the App!",
-    "subtitle": "Please select a language or continue.",
-    "cta": "Get Started"
+    "hero_title": "Welcome to Lumen",
+    "hero_subtitle_big": "If you're ready for your first free analysis, let's get started.",
+    "cta_analysis": "Start My Analysis",
+    "free_badge": "First analysis free",
+    "have_account": "I have an account"
   },
   "mood_reveal": {
     "continue_hint": "Tap to continue",
-    "pos_keywords": "good,great,happy,relaxed,peaceful,hope,love,energetic,grateful,accomplished,beautiful,success,progress,focus,did",
-    "neg_keywords": "bad,sad,tired,stress,anxiety,worried,fear,anger,difficult,pain,hurt,overwhelmed,crisis,bored,exhausted,tense,worry,low morale",
+    "pos_keywords": ["good","great","happy","relaxed","peaceful","hope","love","energetic","grateful","accomplished","beautiful","success","progress","focus","did"],
+    "neg_keywords": ["bad","sad","tired","stress","anxiety","worried","fear","anger","difficult","pain","hurt","overwhelmed","crisis","bored","exhausted","tense","worry","low morale"],
     "very_bad": "Very Bad",
     "bad": "Bad",
     "sad": "Sad",
@@ -35,17 +37,42 @@
     "perfect": "Perfect"
   },
   "softwall": {
-    "title": "Get detailed analysis based on your answers.",
-    "subtitle": "Analysis is free once. We extract summary of your answers, strengths and possible triggers.",
-    "bullet1": "Report personalized to your answers & one-time",
-    "bullet2": "Short summary + strengths + triggers",
-    "bullet3": "Save and read again later",
-    "cta_register": "Sign Up Free",
-    "login_link": "Already have an account? Sign in"
+    "title": "Your analysis will illuminate your potential.",
+    "subtitle": "If you're ready to discover the personal analysis prepared from your answers, let's take this first step. You're not alone on this journey.",
+    "features_title": "What's in Your Analysis?",
+    "feature_pattern_title": "Your Thought Patterns",
+    "feature_pattern_desc": "Discover the connections between your answers and what they reveal about you.",
+    "feature_potential_title": "Your Hidden Potential",
+    "feature_potential_desc": "See the strength and opportunities behind what drains you.",
+    "feature_step_title": "Your First Step",
+    "feature_step_desc": "A personalized start to help you achieve that small goal you mentioned.",
+    "cta_register": "Discover My Analysis",
+    "login_link": "I already have an account"
   },
   "recall": {
     "title": "Shall we return to your previous report?",
-    "subtitle": "2 recommendations were locked. We'll save and unlock them in 1 minute.",
-    "cta": "Continue"
+    "subtitle": "Your answers weren't saved but they're still here. You can sign up in 1 minute to see your analysis.",
+    "cta": "Continue and See Analysis",
+    "motivation_text": "Keep progressing by continuing from where you left off.",
+    "restart": "Start Fresh"
+  },
+  "auth": {
+    "create_account": "Create Account",
+    "login": "Sign In",
+    "almost_done": "Almost Done",
+    "enter_info_register": "Enter your details for a fresh start.",
+    "enter_info_login": "Welcome back to your account.",
+    "how_should_we_call_you": "How should we address you?",
+    "email": "Email",
+    "password": "Password",
+    "nickname": "Preferred name",
+    "continue": "Continue",
+    "create_account_cta": "Create Account",
+    "have_account": "Already have an account? ",
+    "login_link": "Sign in.",
+    "no_account": "Don't have an account? ",
+    "register_link": "Sign up.",
+    "error_password_length": "Your password must be at least 6 characters.",
+    "error_nickname_required": "Please specify how you'd like us to address you."
   }
 }

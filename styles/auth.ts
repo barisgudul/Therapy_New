@@ -1,124 +1,109 @@
-// styles/auth.ts (APPLE HUMAN INTERFACE GUIDELINES TADINDA)
+// styles/auth.ts
+import { StyleSheet } from "react-native";
+import { Colors } from "../constants/Colors";
 
-import { StyleSheet } from 'react-native';
-import { Colors } from '../constants/Colors';
-import { Spacing } from '../constants/Design';
+const SPACING = { small: 8, medium: 16, large: 24 };
+const BORDER_RADIUS = { button: 22, card: 32, input: 20 }; // Kart radius'unu primer ile eşitle
 
 export const authScreenStyles = StyleSheet.create({
-  // TEMEL YAPI: Temiz, aydınlık, ferah.
-  background: {
-    flex: 1,
-    backgroundColor: '#F9F9F9', 
-  },
-  container: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.large,
-    paddingBottom: Spacing.large,
-  },
+  // Ana Zemin
+  background: { flex: 1, backgroundColor: "#F7FAFF" },
+  container: { flexGrow: 1, justifyContent: "center", padding: SPACING.medium }, // Dış padding'i biraz azalttık
+
+  // SAHNE DIŞI: Header (Sadece marka)
   headerContainer: {
-    alignItems: 'center',
-    marginBottom: Spacing.xxlarge + Spacing.medium, // Daha fazla boşluk.
+    alignItems: "center",
+    marginBottom: SPACING.medium, // Kart ile arasına boşluk
   },
   brand: {
-    fontSize: 32, // Daha cesur.
-    fontWeight: '700', // Apple'ın sevdiği gibi.
+    fontSize: 32,
+    fontWeight: "600",
     color: Colors.light.tint,
-    textTransform: 'lowercase',
-    letterSpacing: 1,
+    textTransform: "lowercase",
+    letterSpacing: 1.8,
   },
   dot: {
     color: Colors.light.tint,
-    fontWeight: '800',
+    fontSize: 36,
+    fontWeight: "900",
   },
+
+  // SAHNE: İşte tüm sihir burada. Form elemanlarını içine alacak olan kart.
+  formCard: {
+    backgroundColor: "#fff",
+    borderRadius: BORDER_RADIUS.card,
+    padding: SPACING.large,
+    borderWidth: 1,
+    borderColor: "rgba(93,161,217,0.12)",
+    shadowColor: "#6C63FF",
+    shadowOpacity: 0.1,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+
+  // KART İÇİ: Başlıklar
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1c1c1e', // Neredeyse siyah.
-    marginTop: Spacing.large,
-    marginBottom: Spacing.small,
-    textAlign: 'center',
+    fontSize: 32,
+    fontWeight: "700",
+    color: Colors.light.tint,
+    textAlign: "center", // Başlığı kartın içinde ortala
   },
   subtitle: {
-    fontSize: 17,
-    color: '#8e8e93', // iOS'in ikincil metin rengi.
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: '95%',
+    marginTop: SPACING.small,
+    fontSize: 16,
+    color: "#4A5568",
+    textAlign: "center",
+    marginBottom: SPACING.large, // Altındaki formla arasına boşluk
   },
-  
-  // FORM ELEMANLARI: iOS Ayarlar menüsü gibi. Gruplanmış, temiz.
+
+  // KART İÇİ: Form Stilleri
+  formContainer: {/* Artık ekstra margin'e ihtiyacı yok */},
   inputWrapper: {
-    backgroundColor: '#FFFFFF', // Saf beyaz arka plan.
-    borderRadius: 12, // iOS standardı.
-    overflow: 'hidden', // Çizgiler taşmasın.
-    marginBottom: Spacing.xlarge,
+    backgroundColor: "#FFFFFF",
+    borderRadius: BORDER_RADIUS.input,
+    borderWidth: 1,
+    borderColor: "rgba(93,161,217,0.2)",
+    marginBottom: SPACING.large,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 50,
-    paddingHorizontal: Spacing.medium,
-  },
-  inputSeparator: {
-    height: StyleSheet.hairlineWidth, // PİKSEL MÜKEMMELLİĞİ.
-    backgroundColor: '#c6c6c8',
-    marginLeft: Spacing.medium + 22 + 12, // ikon + boşluk kadar içeriden başlar.
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.medium,
   },
   inputIcon: {
-    marginRight: 12,
     color: Colors.light.tint,
+    opacity: 0.6,
+    marginRight: 12,
   },
   input: {
     flex: 1,
-    fontSize: 17,
-    color: '#1c1c1e',
+    height: 60,
+    fontSize: 16,
+    color: "#1E293B",
   },
-  
-  // ANA BUTON: DOLU, GÜÇLÜ, NET.
-  button: {
-    height: 52,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.light.tint, // Gradient yok. Düz renk.
+  inputSeparator: {
+    height: 1,
+    backgroundColor: "rgba(93,161,217,0.2)",
+    marginLeft: 45,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  
-  // İKİNCİL BUTON (YEŞİL)
-  greenButton: {
-    backgroundColor: '#34C759', // iOS'in standart yeşili.
+  errorText: {
+    color: "#E53E3E",
+    textAlign: "center",
+    marginBottom: SPACING.medium,
   },
 
-  // ALT LİNK
+  // SAHNE DIŞI: Footer
   footer: {
-    alignItems: 'center',
-    marginTop: Spacing.xlarge,
+    marginTop: SPACING.large,
+    alignItems: "center",
   },
   linkText: {
+    color: "#4A5568",
     fontSize: 15,
-    color: '#8e8e93',
   },
   linkTextBold: {
+    fontWeight: "600",
     color: Colors.light.tint,
-    fontWeight: '600',
-  },
-  
-  // HATA MESAJI
-  errorText: {
-    color: '#ff3b30', // iOS'in standart kırmızısı.
-    textAlign: 'center',
-    marginBottom: Spacing.medium,
-    fontSize: 15,
-    fontWeight: '500',
-  },
-
-  // LayoutAnimation için
-  formContainer: {
-    // Bu container, animasyonun düzgün çalışması için var.
   },
 });
