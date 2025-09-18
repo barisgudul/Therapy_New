@@ -10,42 +10,42 @@ import { Colors } from "../constants/Colors";
 
 // Bu fonksiyon artık component'in içinde değil, saf bir yardımcı fonksiyon.
 const convertMarkdownToHTML = (markdown: string): string => {
-    const withNormalizedBullets = markdown.replace(/\s*•\s+/g, "\n• ").trim();
-    const html = withNormalizedBullets
-        .replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>')
-        .replace(/^### (.*$)/gim, '<h3 class="md-h3">$1</h3>')
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/^• (.*$)/gim, "<li>$1</li>")
-        .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
-        .replace(/\n/g, "<br/>");
-    return html;
+  const withNormalizedBullets = markdown.replace(/\s*•\s+/g, "\n• ").trim();
+  const html = withNormalizedBullets
+    .replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>')
+    .replace(/^### (.*$)/gim, '<h3 class="md-h3">$1</h3>')
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^• (.*$)/gim, "<li>$1</li>")
+    .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
+    .replace(/\n/g, "<br/>");
+  return html;
 };
 
 const buildElegantHtml = (content: AnalysisReportContent): string => {
-    const brandTint = Colors.light.tint;
-    const brandText = Colors.light.text;
-    const softText = Colors.light.softText;
-    const cardBg = Colors.light.card;
-    const pageBg = Colors.light.background;
-    const accent = Colors.light.accent;
+  const brandTint = Colors.light.tint;
+  const brandText = Colors.light.text;
+  const softText = Colors.light.softText;
+  const cardBg = Colors.light.card;
+  const pageBg = Colors.light.background;
+  const accent = Colors.light.accent;
 
-    const coverGradientStart = "#E0ECFD";
-    const coverGradientEnd = "#F4E6FF";
+  const coverGradientStart = "#E0ECFD";
+  const coverGradientEnd = "#F4E6FF";
 
-    const overviewHTML = convertMarkdownToHTML(
-        content.reportSections.overview || "",
-    );
-    const goldenThreadHTML = convertMarkdownToHTML(
-        content.reportSections.goldenThread || "",
-    );
-    const blindSpotHTML = convertMarkdownToHTML(
-        content.reportSections.blindSpot || "",
-    );
+  const overviewHTML = convertMarkdownToHTML(
+    content.reportSections.overview || "",
+  );
+  const goldenThreadHTML = convertMarkdownToHTML(
+    content.reportSections.goldenThread || "",
+  );
+  const blindSpotHTML = convertMarkdownToHTML(
+    content.reportSections.blindSpot || "",
+  );
 
-    const readMinutes = content.derivedData?.readMinutes ?? 2;
-    const headingsCount = content.derivedData?.headingsCount ?? 6;
+  const readMinutes = content.derivedData?.readMinutes ?? 2;
+  const headingsCount = content.derivedData?.headingsCount ?? 6;
 
-    return `
+  return `
       <!DOCTYPE html>
       <html>
         <head>
@@ -79,10 +79,10 @@ const buildElegantHtml = (content: AnalysisReportContent): string => {
         <body>
           <div class="page">
             <div class="cover">
-              <div class="brand">Lumen<span class="dot">.</span></div>
+              <div class="brand">Gisbel<span class="dot">.</span></div>
               <div class="title">${
-        content.reportSections.mainTitle || "Kişisel Rapor"
-    }</div>
+    content.reportSections.mainTitle || "Kişisel Rapor"
+  }</div>
               <p class="subtitle">Özet raporun indirildi. Aşağıda kişisel içgörün yer alıyor.</p>
               <div class="stats">
                 <div class="chip">≈ ${readMinutes} dk okuma</div>
@@ -91,37 +91,37 @@ const buildElegantHtml = (content: AnalysisReportContent): string => {
             </div>
 
             ${
-        overviewHTML
-            ? `
+    overviewHTML
+      ? `
             <section class="section">
               <h3>Genel Bakış</h3>
               <div class="content">${overviewHTML}</div>
             </section>`
-            : ""
-    }
+      : ""
+  }
 
             ${
-        goldenThreadHTML
-            ? `
+    goldenThreadHTML
+      ? `
             <section class="section">
               <h3>Altın İp</h3>
               <div class="content">${goldenThreadHTML}</div>
             </section>`
-            : ""
-    }
+      : ""
+  }
 
             ${
-        blindSpotHTML
-            ? `
+    blindSpotHTML
+      ? `
             <section class="section">
               <h3>Kör Nokta</h3>
               <div class="content">${blindSpotHTML}</div>
             </section>`
-            : ""
-    }
+      : ""
+  }
 
             <div class="footer">
-              <span class="brandmark">Lumen<span class="dot">.</span></span> ile otomatik oluşturuldu
+              <span class="brandmark">Gisbel<span class="dot">.</span></span> ile otomatik oluşturuldu
             </div>
           </div>
         </body>
@@ -130,52 +130,52 @@ const buildElegantHtml = (content: AnalysisReportContent): string => {
 };
 
 export const generatePdf = async (activeSummary: AnalysisReportContent) => {
-    try {
-        const htmlContent = buildElegantHtml(activeSummary);
+  try {
+    const htmlContent = buildElegantHtml(activeSummary);
 
-        const options = {
-            html: htmlContent,
-            fileName: `lumen_kisisel_rapor_${
-                new Date().toISOString().split("T")[0]
-            }`,
-            directory: "Documents",
-            base64: false,
-            height: 842,
-            width: 595,
-            padding: 10,
-        };
+    const options = {
+      html: htmlContent,
+      fileName: `Gisbel_kisisel_rapor_${
+        new Date().toISOString().split("T")[0]
+      }`,
+      directory: "Documents",
+      base64: false,
+      height: 842,
+      width: 595,
+      padding: 10,
+    };
 
-        const file = await RNHTMLtoPDF.convert(options);
+    const file = await RNHTMLtoPDF.convert(options);
 
-        if (file.filePath) {
-            const fileUri = `file://${file.filePath}`;
-            const canShare = await Sharing.isAvailableAsync();
-            if (canShare) {
-                await Sharing.shareAsync(fileUri, {
-                    dialogTitle: "Raporunu Paylaş",
-                    mimeType: "application/pdf",
-                    UTI: Platform.OS === "ios" ? "com.adobe.pdf" : undefined,
-                });
-            } else {
-                Toast.show({
-                    type: "success",
-                    text1: "PDF Oluşturuldu",
-                    text2: fileUri,
-                });
-            }
-        } else {
-            Toast.show({
-                type: "error",
-                text1: "PDF Yolu Bulunamadı",
-                text2: "Oluşturulan dosya yolu alınamadı.",
-            });
-        }
-    } catch (e) {
-        console.error("PDF oluşturma hatası:", e);
-        Toast.show({
-            type: "error",
-            text1: "PDF Oluşturulamadı",
-            text2: "PDF oluşturulurken bir hata oluştu.",
+    if (file.filePath) {
+      const fileUri = `file://${file.filePath}`;
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(fileUri, {
+          dialogTitle: "Raporunu Paylaş",
+          mimeType: "application/pdf",
+          UTI: Platform.OS === "ios" ? "com.adobe.pdf" : undefined,
         });
+      } else {
+        Toast.show({
+          type: "success",
+          text1: "PDF Oluşturuldu",
+          text2: fileUri,
+        });
+      }
+    } else {
+      Toast.show({
+        type: "error",
+        text1: "PDF Yolu Bulunamadı",
+        text2: "Oluşturulan dosya yolu alınamadı.",
+      });
     }
+  } catch (e) {
+    console.error("PDF oluşturma hatası:", e);
+    Toast.show({
+      type: "error",
+      text1: "PDF Oluşturulamadı",
+      text2: "PDF oluşturulurken bir hata oluştu.",
+    });
+  }
 };

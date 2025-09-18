@@ -12,7 +12,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({ onSettingsPress }) => {
   return (
     <View style={styles.topBar}>
       <Text style={styles.brand}>
-        Lumen<Text style={styles.dot}>.</Text>
+        Gisbel<Text style={styles.dot}>.</Text>
       </Text>
       <View style={styles.topButtons}>
         <TouchableOpacity

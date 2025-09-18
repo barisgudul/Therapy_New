@@ -41,7 +41,7 @@ export default function Primer() {
           <View style={styles.pageMainContent}>
             <View style={styles.headerContainer}>
               <Text style={styles.headerBrand}>
-                lumen<Text style={styles.headerDot}>.</Text>
+                Gisbel<Text style={styles.headerDot}>.</Text>
               </Text>
             </View>
 

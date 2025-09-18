@@ -29,7 +29,7 @@ export const DiaryList: React.FC = () => {
 
         <View style={styles.headerTitleContainer}>
             <Text style={styles.logo}>
-                Lumen<Text style={styles.dot}>.</Text>
+                Gisbel<Text style={styles.dot}>.</Text>
             </Text>
             <Text style={styles.title}>Günlüklerim</Text>
         </View>
