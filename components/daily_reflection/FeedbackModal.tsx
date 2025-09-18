@@ -19,6 +19,7 @@ interface FeedbackModalProps {
   satisfactionScore: number | null;
   onSatisfaction: (score: number) => void;
   onNavigateToTherapy: () => void;
+  hideSatisfaction?: boolean; // Opsiyonel prop
 }
 
 // === DEĞİŞİKLİK BURADA BAŞLIYOR ===
@@ -35,6 +36,7 @@ export default function FeedbackModal({
   satisfactionScore,
   onSatisfaction,
   onNavigateToTherapy,
+  hideSatisfaction = false, // Default false
 }: FeedbackModalProps) {
 
     const shakeAnimation = useRef(new Animated.Value(0)).current;
@@ -154,45 +156,47 @@ export default function FeedbackModal({
           </TouchableOpacity>
         </View>
 
-        {/* Satisfaction Feedback */}
-        <View style={styles.satisfactionContainer}>
-          <Text style={styles.satisfactionText}>
-            Bu yanıt nasıl? Geri bildiriminiz bizim için değerli.
-          </Text>
-          <View style={styles.satisfactionButtons}>
-            <TouchableOpacity
-              style={[
-                styles.satisfactionButton,
-                satisfactionScore === -1 && styles.satisfactionButtonActive
-              ]}
-              onPress={() => onSatisfaction(-1)}
-              disabled={satisfactionScore !== null}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={satisfactionScore === -1 ? "thumbs-down" : "thumbs-down-outline"}
-                size={24}
-                color={satisfactionScore === -1 ? "#ef4444" : "#6b7280"}
-              />
-            </TouchableOpacity>
+        {/* Satisfaction Feedback - Sadece hideSatisfaction false ise göster */}
+        {!hideSatisfaction && (
+          <View style={styles.satisfactionContainer}>
+            <Text style={styles.satisfactionText}>
+              Bu yanıt nasıl? Geri bildiriminiz bizim için değerli.
+            </Text>
+            <View style={styles.satisfactionButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.satisfactionButton,
+                  satisfactionScore === -1 && styles.satisfactionButtonActive
+                ]}
+                onPress={() => onSatisfaction(-1)}
+                disabled={satisfactionScore !== null}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={satisfactionScore === -1 ? "thumbs-down" : "thumbs-down-outline"}
+                  size={24}
+                  color={satisfactionScore === -1 ? "#ef4444" : "#6b7280"}
+                />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.satisfactionButton,
-                satisfactionScore === 1 && styles.satisfactionButtonActive
-              ]}
-              onPress={() => onSatisfaction(1)}
-              disabled={satisfactionScore !== null}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={satisfactionScore === 1 ? "thumbs-up" : "thumbs-up-outline"}
-                size={24}
-                color={satisfactionScore === 1 ? "#10b981" : "#6b7280"}
-              />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.satisfactionButton,
+                  satisfactionScore === 1 && styles.satisfactionButtonActive
+                ]}
+                onPress={() => onSatisfaction(1)}
+                disabled={satisfactionScore !== null}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={satisfactionScore === 1 ? "thumbs-up" : "thumbs-up-outline"}
+                  size={24}
+                  color={satisfactionScore === 1 ? "#10b981" : "#6b7280"}
+                />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </View>
     </Modal>
   );

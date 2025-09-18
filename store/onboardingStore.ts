@@ -18,8 +18,12 @@ export type Answer = { step: number; question: string; answer: string };
 interface OnboardingState {
   nickname: string;
   currentStep: number;
+  onboardingInsight: Record<string, string> | null; // EKLE
+  analysisUnlocked: boolean; // Analiz ekranı bir kez açıldı mı?
   setNickname: (nickname: string) => void;
-  resetOnboarding: () => void;
+  reset: () => void; // resetOnboarding -> reset olarak değiştirildi ve her şeyi sıfırlayacak
+  setOnboardingInsight: (insight: Record<string, string> | null) => void; // EKLE
+  setAnalysisUnlocked: (unlocked: boolean) => void; // Analiz kilidini ayarla
 
   // yeni alanlar ve aksiyonlar
   isGuest: boolean;
@@ -40,6 +44,8 @@ interface OnboardingState {
 export const useOnboardingStore = create<OnboardingState>((set) => ({
   nickname: "",
   currentStep: 1,
+  onboardingInsight: null, // EKLE
+  analysisUnlocked: false,
 
   // yeni defaults
   isGuest: true,
@@ -50,7 +56,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   answersArray: [],
 
   setNickname: (nickname) => set({ nickname }),
-  resetOnboarding: () =>
+  reset: () =>
     set({
       nickname: "",
       currentStep: 1,
@@ -59,9 +65,13 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
       trialExpiresAt: null,
       recallEligibleAt: null,
       answersArray: [],
+      onboardingInsight: null, // Analiz verisini de temizle
+      analysisUnlocked: false, // Analiz kilidini sıfırla
     }),
 
   // yeni aksiyonlar
+  setOnboardingInsight: (insight) => set({ onboardingInsight: insight }), // EKLE
+  setAnalysisUnlocked: (unlocked) => set({ analysisUnlocked: unlocked }),
   setMode: (m) => set({ mode: m }),
   setGuest: (g) => set({ isGuest: g }),
   setFirstLaunchSeen: () => set({ firstLaunchSeen: true }),

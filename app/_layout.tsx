@@ -7,7 +7,7 @@ import "react-native-reanimated";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
-import { useRouter, useSegments } from "expo-router/";
+import { usePathname, useRouter, useSegments } from "expo-router/";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import React from "react";
@@ -40,9 +40,10 @@ const toastConfig = {
 // ANA NAVİGASYON VE YÖNLENDİRME MANTIĞI
 // ======================================================================
 function RootLayoutNav() {
-  const { session, isLoading: isAuthLoading } = useAuth();
+  const { session } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const pathname = usePathname();
   const recallEligibleAt = useOnboardingStore((s) => s.recallEligibleAt);
   const answersArray = useOnboardingStore((s) => s.answersArray);
 
@@ -54,6 +55,8 @@ function RootLayoutNav() {
   // Sadece session durumuna göre ana gruplar arasında yönlendirme yapacağız.
   const inAuthGroup = segments[0] === "(auth)";
   const inAppGroup = segments[0] === "(app)";
+  const inAnalysisPage = segments.includes("analysis");
+  const isOnAnalysisRoute = Boolean(pathname && pathname.includes("/(auth)/analysis"));
 
   // Router yönlendirmelerini render sırasında değil, useEffect içinde yap
   React.useEffect(() => {
@@ -64,10 +67,9 @@ function RootLayoutNav() {
       return;
     }
 
-    // Eğer kullanıcı giriş yapmışsa ve auth grubuna girmeye çalışıyorsa
-    // onu ana sayfaya yönlendir.
+    // Eğer kullanıcı giriş yapmışsa ve auth grubundaysa, burada hiçbir şey yapma.
+    // Register/login kendi yönlendirmesini zaten yapıyor. Extra replace flicker'a yol açıyor.
     if (session && inAuthGroup) {
-      router.replace("/");
       return;
     }
 
@@ -81,10 +83,10 @@ function RootLayoutNav() {
       router.replace("/(guest)/recall");
       return;
     }
-  }, [session, inAuthGroup, inAppGroup, router, recallEligibleAt, answersArray]);
+  }, [session, inAuthGroup, inAppGroup, inAnalysisPage, isOnAnalysisRoute, router, recallEligibleAt, answersArray]);
 
   // Yükleme ekranı - Fontlar veya Auth hazır değilse bekle
-  if (!fontsLoaded || isAuthLoading) {
+  if (!fontsLoaded) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#0a7ea4" />

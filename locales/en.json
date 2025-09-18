@@ -86,6 +86,45 @@
     "check_your_email_subtitle": "A password reset link has been sent to {{email}}.",
     "back_to_login_prefix": "Back to ",
     "back_to_login_link": "login.",
-    "back_to_login_cta": "Back to Login"
+    "back_to_login_cta": "Back to Login",
+    "logging_in": "Logging in...",
+    "unexpected_error": "An unexpected error occurred.",
+    "creating_account": "Creating account...",
+    "unknown_error": "An unknown error occurred.",
+    "sending_link": "Sending link..."
+  },
+  "analysis": {
+    "title": "Deep Analysis",
+    "subtitle": "Initial impressions, insights and concrete plan",
+    "processing_text": "Your account is being created and your first report is being prepared...",
+    "not_found": "Analysis not found.",
+    "pdf": {
+      "title": "Mini Analysis",
+      "pattern": "Your Thought Pattern",
+      "reframe": "Reframe",
+      "potential": "Hidden Potential",
+      "first_step": "Your First Step",
+      "micro_habit": "Micro Habit",
+      "root_cause": "Root Cause",
+      "success_metric": "Success Metric",
+      "follow_ups": "Follow-up Questions",
+      "plan_7d": "7-Day Plan"
+    },
+    "sections": {
+      "pattern": "Your Thought Pattern",
+      "reframe": "Reframe",
+      "potential": "Hidden Potential",
+      "first_step": "First Step",
+      "micro_habit": "Micro Habit",
+      "success_metric": "Success Metric",
+      "affirmation": "Affirmation",
+      "follow_ups": "Follow-up Questions",
+      "plan_7d": "7-Day Plan"
+    },
+    "cta": {
+      "start_chat": "Start Chat",
+      "export_pdf": "Export as PDF",
+      "continue": "Continue"
+    }
   }
 }

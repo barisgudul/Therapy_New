@@ -9,6 +9,7 @@ export interface VaultData {
   keyInsights?: string[];
   coreBeliefs?: Record<string, string>;
   onboarding?: Record<string, string>;
+  onboardingInsight?: Record<string, string>; // YENİ ALAN
   profile?: {
     nickname?: string;
     birthDate?: string;

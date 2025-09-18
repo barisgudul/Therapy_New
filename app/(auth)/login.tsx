@@ -23,7 +23,7 @@ export default function LoginScreen() {
 
     const handleSignIn = async () => {
         setError(null);
-        showLoading('Giriş yapılıyor...');
+        showLoading(t('auth.logging_in'));
 
         try {
             const result = await signInAndVerifyUser(email, password);
@@ -36,7 +36,7 @@ export default function LoginScreen() {
             }
         } catch (_error) {
             hideLoading();
-            setError({ field: 'general', message: "Beklenmedik bir hata oluştu." });
+            setError({ field: 'general', message: t('auth.unexpected_error') });
         }
     };
 

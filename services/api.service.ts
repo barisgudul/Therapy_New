@@ -219,7 +219,7 @@ export function generateOnboardingInsight(
     answer2: string,
     answer3: string,
 ) {
-    const promise = (async (): Promise<{ insight: string }> => {
+    const promise = (async (): Promise<Record<string, string>> => {
         const { data, error } = await supabase.functions.invoke(
             "generate-onboarding-insight",
             {
@@ -232,11 +232,13 @@ export function generateOnboardingInsight(
             },
         );
 
-        if (error) {
-            throw new Error(error.message);
-        }
+        if (error) throw new Error(error.message);
 
-        return data as { insight: string };
+        // Fonksiyon artık güvenli içgörü objesini döner
+        return (typeof data === "string" ? JSON.parse(data) : data) as Record<
+            string,
+            string
+        >;
     })();
 
     // Artık loading mesajı vermiyoruz, bu HomeIllustration'da yönetiliyor

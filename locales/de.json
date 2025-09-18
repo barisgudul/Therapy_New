@@ -86,6 +86,45 @@
     "check_your_email_subtitle": "Ein Passwort-zurücksetzen-Link wurde an {{email}} gesendet.",
     "back_to_login_prefix": "Zurück zur ",
     "back_to_login_link": "Anmeldung.",
-    "back_to_login_cta": "Zurück zur Anmeldung"
+    "back_to_login_cta": "Zurück zur Anmeldung",
+    "logging_in": "Anmelden...",
+    "unexpected_error": "Ein unerwarteter Fehler ist aufgetreten.",
+    "creating_account": "Konto wird erstellt...",
+    "unknown_error": "Ein unbekannter Fehler ist aufgetreten.",
+    "sending_link": "Link wird gesendet..."
+  },
+  "analysis": {
+    "title": "Tiefenanalyse",
+    "subtitle": "Erste Eindrücke, Erkenntnisse und konkreter Plan",
+    "processing_text": "Ihr Konto wird erstellt und Ihr erster Bericht wird vorbereitet...",
+    "not_found": "Analyse nicht gefunden.",
+    "pdf": {
+      "title": "Mini-Analyse",
+      "pattern": "Dein Denkmuster",
+      "reframe": "Neurahmung",
+      "potential": "Verborgenes Potenzial",
+      "first_step": "Dein erster Schritt",
+      "micro_habit": "Mikro-Gewohnheit",
+      "root_cause": "Grundursache",
+      "success_metric": "Erfolgsmetrik",
+      "follow_ups": "Nachfassfragen",
+      "plan_7d": "7-Tage-Plan"
+    },
+    "sections": {
+      "pattern": "Dein Denkmuster",
+      "reframe": "Neurahmung",
+      "potential": "Verborgenes Potenzial",
+      "first_step": "Erster Schritt",
+      "micro_habit": "Mikro-Gewohnheit",
+      "success_metric": "Erfolgsmessung",
+      "affirmation": "Affirmation",
+      "follow_ups": "Nachfragen",
+      "plan_7d": "7-Tage-Plan"
+    },
+    "cta": {
+      "start_chat": "Chat starten",
+      "export_pdf": "Als PDF exportieren",
+      "continue": "Weiter"
+    }
   }
 }

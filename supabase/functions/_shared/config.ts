@@ -29,7 +29,7 @@ export const config = {
     FAST: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
 
     // Derin analiz ve karmaşık görevler için (rüya analizi, raporlama)
-    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-1.5-pro-latest"),
+    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-1.5-flash-latest"),
 
     // Eskiden kullandığın "INTENT" ve "RESPONSE" anahtarlarını koruyoruz
     // ama artık daha genel olan "FAST" modelini kullanıyorlar.
@@ -82,11 +82,11 @@ export const config = {
     DIARY_CONCLUSION: getEnvAsNumber("LLM_MAX_OUT_DIARY_CONCLUSION", 250),
 
     // AI analiz ve raporlar için tavan
-    AI_ANALYSIS: getEnvAsNumber("LLM_MAX_OUT_AI_ANALYSIS", 1024),
+    AI_ANALYSIS: getEnvAsNumber("LLM_MAX_OUT_AI_ANALYSIS", 2048),
     // Text session yanıtları için tavan (warm start dahil)
     TEXT_SESSION_RESPONSE: getEnvAsNumber("LLM_MAX_OUT_TEXT_SESSION", 128),
-    // Onboarding insight için tavan (çok kısa ve ucuz)
-    ONBOARDING_INSIGHT: getEnvAsNumber("LLM_MAX_OUT_ONBOARDING_INSIGHT", 150),
+    // Onboarding insight için tavan (DETAYLI VE DEĞERLİ)
+    ONBOARDING_INSIGHT: getEnvAsNumber("LLM_MAX_OUT_ONBOARDING_INSIGHT", 2048),
   } as const,
 
   /**

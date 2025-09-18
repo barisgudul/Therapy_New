@@ -68,7 +68,7 @@ export default function RegisterScreen() {
             setError({ field: 'nickname', message: t("auth.error_nickname_required") });
             return;
         }
-        showLoading("Hesap oluşturuluyor...");
+        showLoading(t('auth.creating_account'));
 
         const { user, error: signUpError } = await signUpWithOnboardingData(email, password, nickname, answersArray);
 
@@ -93,7 +93,7 @@ export default function RegisterScreen() {
         } else {
             // Beklenmedik bir durum, ne user var ne error.
             hideLoading();
-            setError({ field: 'general', message: 'Bilinmeyen bir hata oluştu.' });
+            setError({ field: 'general', message: t('auth.unknown_error') });
         }
     };
 

@@ -46,7 +46,6 @@ export default function Primer() {
             </View>
 
             <View style={styles.cardContainer}>
-              <LinearGradient colors={GRADIENT_COLORS} style={styles.cardAura} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
               <Image source={require("../../assets/logo.png")} style={styles.cardLogo} />
               <Text style={styles.cardTitle}>{t("primer.hero_title")}</Text>
               <Text style={styles.cardSubtitle}>{t("primer.hero_subtitle_big")}</Text>
@@ -125,15 +124,6 @@ const styles = StyleSheet.create({
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
-  },
-  cardAura: {
-    position: "absolute",
-    top: -80,
-    width: "150%",
-    height: 200,
-    borderRadius: 200,
-    opacity: 0.25,
-    transform: [{ rotate: "10deg" }],
   },
   cardLogo: {
     width: 72,

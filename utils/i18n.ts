@@ -1,6 +1,10 @@
 // utils/i18n.ts - GÜNCELLENMİŞ VE KALICI VERSİYON
 
-import { createInstance } from "i18next";
+import i18n, {
+    changeLanguage as i18nChangeLanguage,
+    init,
+    use as i18nUse,
+} from "i18next";
 import { initReactI18next } from "react-i18next";
 import * as Localization from "expo-localization";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,26 +26,23 @@ const resources = {
 
 // Bu fonksiyon, kullanıcının dilini değiştirmek için kullanılacak.
 // Hem uygulamanın dilini değiştirir hem de bu seçimi cihaza kaydeder.
-const i18n = createInstance();
-
-i18n
-    .use(initReactI18next)
-    .init({
-        resources,
-        fallbackLng: DEFAULT_LANGUAGE,
-        interpolation: {
-            escapeValue: false,
-            // React i18next'in default interpolation'ını kullan
-            format: function (value, format, _lng) {
-                if (format === "uppercase") return value.toUpperCase();
-                return value;
-            },
+i18nUse(initReactI18next);
+init({
+    resources,
+    fallbackLng: DEFAULT_LANGUAGE,
+    interpolation: {
+        escapeValue: false,
+        // React i18next'in default interpolation'ını kullan
+        format: function (value, format, _lng) {
+            if (format === "uppercase") return value.toUpperCase();
+            return value;
         },
-        saveMissing: __DEV__,
-        missingKeyHandler: (lng, _ns, key) => {
-            console.warn(`[i18n] Eksik anahtar: "${key}" | Dil: "${lng}"`);
-        },
-    });
+    },
+    saveMissing: __DEV__,
+    missingKeyHandler: (lng, _ns, key) => {
+        console.warn(`[i18n] Eksik anahtar: "${key}" | Dil: "${lng}"`);
+    },
+});
 
 // Bu bölüm, uygulama ilk açıldığında çalışır ve doğru dili ayarlar.
 const initializeLanguage = async () => {
@@ -55,16 +56,16 @@ const initializeLanguage = async () => {
 
     if (selectedLanguage && SUPPORTED_LANGUAGES.includes(selectedLanguage)) {
         // 2. Varsa, onu kullan.
-        i18n.changeLanguage(selectedLanguage);
+        i18nChangeLanguage(selectedLanguage);
     } else {
         // 3. Yoksa, telefonun sistem dilini kullan.
         const deviceLocale = Localization.getLocales()?.[0]?.languageCode
             ?.toLowerCase();
         if (deviceLocale && SUPPORTED_LANGUAGES.includes(deviceLocale)) {
-            i18n.changeLanguage(deviceLocale);
+            i18nChangeLanguage(deviceLocale);
         } else {
             // O da desteklenmiyorsa, varsayılan dili (İngilizce) kullan.
-            i18n.changeLanguage(DEFAULT_LANGUAGE);
+            i18nChangeLanguage(DEFAULT_LANGUAGE);
         }
     }
 };
@@ -81,7 +82,7 @@ export const changeLanguage = async (lng: string) => {
     }
 
     // 1. i18next'in aktif dilini değiştir.
-    await i18n.changeLanguage(lng);
+    await i18nChangeLanguage(lng);
 
     // 2. Kullanıcının seçimini AsyncStorage'a kaydet ki uygulama tekrar açıldığında hatırlansın.
     try {

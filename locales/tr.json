@@ -87,6 +87,45 @@
     "check_your_email_subtitle": "{{email}} adresine bir şifre sıfırlama bağlantısı gönderildi.",
     "back_to_login_prefix": "Giriş ekranına ",
     "back_to_login_link": "geri dön.",
-    "back_to_login_cta": "Giriş Ekranına Dön"
+    "back_to_login_cta": "Giriş Ekranına Dön",
+    "logging_in": "Giriş yapılıyor...",
+    "unexpected_error": "Beklenmedik bir hata oluştu.",
+    "creating_account": "Hesap oluşturuluyor...",
+    "unknown_error": "Bilinmeyen bir hata oluştu.",
+    "sending_link": "Link gönderiliyor..."
+  },
+  "analysis": {
+    "title": "Derin Analizin",
+    "subtitle": "İlk izlenimlerim, keşifler ve somut plan",
+    "processing_text": "Hesabın oluşturuluyor ve ilk raporun hazırlanıyor...",
+    "not_found": "Analiz bulunamadı.",
+    "pdf": {
+      "title": "Mini Analiz",
+      "pattern": "Düşünce Kalıbın",
+      "reframe": "Yeniden Çerçeve",
+      "potential": "Gizli Potansiyelin",
+      "first_step": "İlk Adımın",
+      "micro_habit": "Mikro Alışkanlık",
+      "root_cause": "Kök Neden",
+      "success_metric": "Başarı Ölçütü",
+      "follow_ups": "Takip Soruları",
+      "plan_7d": "7 Günlük Plan"
+    },
+    "sections": {
+      "pattern": "Düşünce Kalıbın",
+      "reframe": "Yeniden Çerçeve",
+      "potential": "Gizli Potansiyelin",
+      "first_step": "İlk Adımın",
+      "micro_habit": "Mikro Alışkanlık",
+      "success_metric": "Başarı Ölçütü",
+      "affirmation": "Olumlama",
+      "follow_ups": "Takip Soruları",
+      "plan_7d": "7 Günlük Plan"
+    },
+    "cta": {
+      "start_chat": "Sohbete Başla",
+      "export_pdf": "PDF Olarak Dışa Aktar",
+      "continue": "Devam Et"
+    }
   }
 }

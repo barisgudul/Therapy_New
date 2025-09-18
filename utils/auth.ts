@@ -1,7 +1,7 @@
 // utils/auth.ts - NİHAİ VERSİYON
 
 import { supabase } from "./supabase";
-import { Answer } from "../store/onboardingStore"; // Answer tipini import et
+import { Answer, useOnboardingStore } from "../store/onboardingStore"; // Answer tipini ve store'u import et
 import i18n from "./i18n"; // i18n'i import et
 
 // Hata mesajlarını daha anlaşılır hale getir
@@ -50,6 +50,57 @@ export async function signUpWithOnboardingData(
 
         if (error) {
             throw error; // Hata varsa yakala ve aşağıda işle
+        }
+
+        // Kaydolma başarılı olduysa ve oturum oluştuysa, onboarding içgörüsünü üret
+        if (data.user && data.session) {
+            // Oturumu anında set et ki sonraki invoke doğru JWT ile gitsin
+            await supabase.auth.setSession({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+            });
+            const a1 = answersArray[0]?.answer ?? "";
+            const a2 = answersArray[1]?.answer ?? "";
+            const a3 = answersArray[2]?.answer ?? "";
+
+            // Zorunlu 3 cevap yoksa analiz çağrısı yapma
+            if (a1 && a2 && a3) {
+                const { data: insightData, error: insightError } =
+                    await supabase.functions.invoke(
+                        "generate-onboarding-insight",
+                        {
+                            body: {
+                                answer1: a1,
+                                answer2: a2,
+                                answer3: a3,
+                                language: i18n.language,
+                                nickname: nickname, // <<-- EKLEMEN GEREKEN LANET SATIR BU
+                            },
+                        },
+                    );
+
+                if (insightError) {
+                    // 500 gibi hataları kullanıcıya yansıt
+                    return {
+                        user: null,
+                        error:
+                            "Analiziniz oluşturulamadı. Lütfen tekrar deneyin.",
+                    };
+                }
+
+                // Başarılıysa store'a kaydet
+                const payload = typeof insightData === "string"
+                    ? JSON.parse(insightData)
+                    : insightData;
+                useOnboardingStore.getState().setOnboardingInsight(
+                    payload as Record<string, string>,
+                );
+            }
+        } else {
+            // Beklenmedik durum: kullanıcı var ama session yoksa akışı durdur
+            throw new Error(
+                "Kullanıcı oluşturuldu ancak oturum başlatılamadı.",
+            );
         }
 
         return { user: data.user, error: null };

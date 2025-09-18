@@ -27,7 +27,7 @@ export default function ForgotPasswordScreen() {
             setError({ field: 'email', message: t('auth.error_invalid_email') });
             return;
         }
-        showLoading("Link gönderiliyor...");
+        showLoading(t('auth.sending_link'));
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
 
         hideLoading();

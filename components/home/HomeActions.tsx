@@ -12,12 +12,14 @@ type IconName = keyof typeof Ionicons.glyphMap;
 interface HomeActionsProps {
   onDailyPress: () => void;
   onReportPress: () => void;
+  onOnboardingInsightPress?: () => void; // YENİ: Opsiyonel press handler
   latestReport?: UserReport | null;
 }
 
 export const HomeActions: React.FC<HomeActionsProps> = ({
   onDailyPress,
   onReportPress,
+  onOnboardingInsightPress, // YENİ
   latestReport,
 }) => {
   const router = useRouter();
@@ -43,6 +45,18 @@ export const HomeActions: React.FC<HomeActionsProps> = ({
           isSpecial
         />
       )}
+
+      {/* === YENİ BUTON BAŞLANGIÇ === */}
+      {/* Sadece onOnboardingInsightPress fonksiyonu varsa bu butonu göster */}
+      {onOnboardingInsightPress && (
+        <ActionButton
+          onPress={onOnboardingInsightPress}
+          icon="bulb-outline"
+          text="İlk Analizin Hazır!"
+          isSpecial // Diğer özel buton gibi dikkat çekici olsun
+        />
+      )}
+      {/* === YENİ BUTON BİTİŞ === */}
 
       {/* Tüm normal butonlar */}
       {actions.map(action => (

@@ -6,8 +6,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
 import { useVault } from "./useVault";
 import { supabase } from "../utils/supabase";
+import { useOnboardingStore } from "../store/onboardingStore";
 
-export type ActiveModal = null | "dailyMessage" | "report";
+export type ActiveModal =
+    | null
+    | "dailyMessage"
+    | "report"
+    | "onboardingInsight";
 
 const todayISO = () => new Date().toISOString().split("T")[0];
 
@@ -17,6 +22,31 @@ export const useHomeScreen = () => {
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     const queryClient = useQueryClient();
     const scaleAnim = useRef(new Animated.Value(1)).current;
+    const [profileInsight, setProfileInsight] = useState<
+        Record<string, string> | null
+    >(null);
+
+    const storeInsight = useOnboardingStore((s) => s.onboardingInsight);
+    const setOnboardingInsight = useOnboardingStore((s) =>
+        s.setOnboardingInsight
+    );
+
+    // Store'da insight varsa onu kullan, yoksa profiles'tan çek
+    const onboardingInsight = storeInsight || profileInsight;
+
+    // user_vaults tablosundan analizi çek (vault içinden)
+    useEffect(() => {
+        if (vault?.onboardingInsight && !storeInsight) {
+            // Vault'ta analiz varsa ve store'da yoksa, store'a kaydet
+            setProfileInsight(
+                vault.onboardingInsight as Record<string, string>,
+            );
+            setOnboardingInsight(
+                vault.onboardingInsight as Record<string, string>,
+            );
+            console.log("Vault'tan analiz yüklendi:", vault.onboardingInsight);
+        }
+    }, [vault, storeInsight, setOnboardingInsight]);
 
     // Bildirim yönetimi
     useEffect(() => {
@@ -59,6 +89,7 @@ export const useHomeScreen = () => {
         }).start();
 
     const handleModalClose = () => {
+        // Artık onboarding insight'ı silmiyoruz, sadece modalı kapatıyoruz
         setActiveModal(null);
         animateBg(false);
     };
@@ -73,6 +104,11 @@ export const useHomeScreen = () => {
     };
 
     const handleReportPress = () => setActiveModal("report");
+
+    const handleOnboardingInsightPress = () => {
+        setActiveModal("onboardingInsight");
+        animateBg(true);
+    };
 
     const handleSettingsPress = () => router.push("/settings");
 
@@ -120,12 +156,14 @@ export const useHomeScreen = () => {
         dailyTheme,
         decisionLogId,
         isVaultLoading,
+        onboardingInsight,
         handleDailyPress,
         handleReportPress,
         handleSettingsPress,
         handleModalClose,
         handleNavigateToTherapy,
         handleSatisfaction,
+        handleOnboardingInsightPress,
         invalidateLatestReport: () =>
             queryClient.invalidateQueries({ queryKey: ["latestReport"] }),
     };
