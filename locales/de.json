@@ -24,18 +24,6 @@
     "free_badge": "Erste Analyse kostenlos",
     "have_account": "Ich habe ein Konto"
   },
-  "mood_reveal": {
-    "continue_hint": "Tippen um fortzufahren",
-    "pos_keywords": ["gut","toll","glücklich","entspannt","friedlich","Hoffnung","Liebe","energisch","dankbar","geschafft","schön","Erfolg","Fortschritt","Fokus","getan"],
-    "neg_keywords": ["schlecht","traurig","müde","Stress","Angst","besorgt","Angst","Wut","schwierig","Schmerz","wehrtun","überfordert","Krise","gelangweilt","erschöpft","angespannt","Sorge","niedrige Moral"],
-    "very_bad": "Sehr Schlecht",
-    "bad": "Schlecht",
-    "sad": "Traurig",
-    "neutral": "Neutral",
-    "good": "Gut",
-    "great": "Toll",
-    "perfect": "Perfekt"
-  },
   "softwall": {
     "title": "Deine Analyse wird dein Potenzial erhellen.",
     "subtitle": "Wenn du bereit bist, die persönliche Analyse zu entdecken, die aus deinen Antworten erstellt wurde, lass uns diesen ersten Schritt tun. Du bist auf dieser Reise nicht allein.",
@@ -125,6 +113,141 @@
       "start_chat": "Chat starten",
       "export_pdf": "Als PDF exportieren",
       "continue": "Weiter"
+    }
+  },
+  "home": {
+    "illustration": {
+      "title": "Pflege deinen Geist",
+      "subtitle": "Erlebe das Entdecken deiner blinden Flecken mit KI-Unterstützung"
+    },
+    "actions": {
+      "daily_mood": "Wie fühlst du dich heute?",
+      "diary": "Tagebuch",
+      "dream_analysis": "Traum-Analyse",
+      "personal_report": "Persönlicher Bericht",
+      "chat": "Chat",
+      "past_chats": "Meine vergangenen Chats",
+      "weekly_insight_ready": "Deine wöchentliche Einsicht-Entdeckung ist bereit!",
+      "first_analysis_ready": "Deine erste Analyse ist bereit!",
+      "how_therapy_works": "Wie funktionieren Therapien?"
+    },
+    "feedback_modal": {
+      "title": "Deine tägliche Reflexion",
+      "subtitle": "Meine Gedanken zu deinen Emotionen heute",
+      "loading": "Deine Reflexion wird vorbereitet...",
+      "chat_button": "Chatten",
+      "ok_button": "Verstanden",
+      "satisfaction_question": "Wie war diese Antwort? Dein Feedback ist uns wichtig."
+    },
+    "report_modal": {
+      "default_title": "Wöchentliche Einsicht",
+      "close_button": "Verstanden"
+    }
+  },
+  "settings": {
+    "main": {
+      "title": "Konto-Kontrollzentrum",
+      "editProfile": "Profil bearbeiten",
+      "security": "Sicherheit",
+      "language": "Sprache",
+      "dangerZone_title": "Gefahrenzone",
+      "dangerZone_resetData": "Alle Daten zurücksetzen",
+      "dangerZone_signOut": "Sicher abmelden",
+      "footer_version": "Gisbel. v1.0.0"
+    },
+    "language": {
+      "title": "Sprachauswahl",
+      "turkish": "Türkçe",
+      "english": "English",
+      "german": "Deutsch"
+    },
+    "profile": {
+      "title": "Profil & Einstellungen",
+      "subtitle": "Mache deine Reise zu deiner eigenen.",
+      "section_title": "Grundinformationen",
+      "name_label": "Name",
+      "name_placeholder": "Wie sollen wir dich ansprechen?",
+      "relationship_label": "Beziehungsstatus",
+      "relationship_single": "Single",
+      "relationship_in_relationship": "In einer Beziehung",
+      "relationship_married": "Verheiratet",
+      "relationship_complicated": "Es ist kompliziert",
+      "save_button": "Änderungen speichern",
+      "plan_current": "{{planName}} Plan",
+      "plan_subtitle_premium": "Du hast alle Berechtigungen",
+      "plan_subtitle_free": "Upgrade für mehr Funktionen",
+      "toast_name_required": "Namensfeld darf nicht leer bleiben.",
+      "toast_success_title": "Erfolg!",
+      "toast_success_body": "Dein Profil wurde aktualisiert.",
+      "toast_error_title": "Fehler",
+      "toast_error_body": "Beim Aktualisieren des Profils ist ein Problem aufgetreten.",
+      "error_loading": "Profil konnte nicht geladen werden. Bitte versuche es erneut."
+    },
+    "security": {
+      "title": "Sicherheits-Kontrollpanel",
+      "subtitle": "Verwalte und überwache hier die Sicherheit deines Kontos.",
+      "section_overview": "Übersicht",
+      "login_methods": "Anmeldemethoden",
+      "section_password": "Passwortverwaltung",
+      "change_password": "Passwort ändern",
+      "section_sessions": "Aktive Sitzungen",
+      "this_device": "Dieses Gerät",
+      "current_location": "Aktueller Standort",
+      "now": "Jetzt",
+      "active_session": "(Aktive Sitzung)",
+      "sign_out": "Abmelden",
+      "alert_signOut_title": "Abmelden",
+      "alert_signOut_body": "Bist du sicher, dass du deine Sitzung auf diesem Gerät beenden möchtest?",
+      "alert_cancel": "Abbrechen",
+      "alert_error": "Fehler"
+    },
+    "password": {
+      "title": "Passwort-Aktualisierung",
+      "subtitle": "Halte die Sicherheit deines Kontos auf höchstem Niveau.",
+      "current_password_label": "Aktuelles Passwort",
+      "new_password_label": "Neues Passwort",
+      "confirm_password_label": "Neues Passwort (Erneut)",
+      "placeholder_current": "••••••••",
+      "placeholder_new": "Mindestens 8 starke Zeichen",
+      "placeholder_confirm": "Bestätige dein neues Passwort",
+      "submit_button": "Passwort sicher ändern",
+      "alert_missing_fields_title": "Fehlende Felder",
+      "alert_missing_fields_body": "Bitte fülle alle Felder aus.",
+      "alert_mismatch_title": "Passwörter stimmen nicht überein",
+      "alert_mismatch_body": "Die neuen Passwörter, die du eingegeben hast, stimmen nicht überein.",
+      "alert_weak_title": "Schwaches Passwort",
+      "alert_weak_body": "Passwort muss mindestens 8 Zeichen lang sein und Groß-/Kleinbuchstaben sowie Zahlen enthalten.",
+      "alert_same_title": "Gleiches Passwort",
+      "alert_same_body": "Dein neues Passwort kann nicht mit deinem aktuellen Passwort identisch sein.",
+      "error_auth": "Benutzeridentität konnte nicht verifiziert werden.",
+      "error_wrong_password": "Dein aktuelles Passwort ist falsch. Bitte überprüfe.",
+      "alert_success_title": "Erfolg",
+      "alert_success_body": "Dein Passwort wurde sicher geändert.",
+      "alert_success_button": "Großartig",
+      "alert_error_title": "Ein Fehler ist aufgetreten",
+      "error_unexpected": "Ein unerwarteter Fehler ist aufgetreten"
+    },
+    "subscription": {
+      "title": "Schalte dein Potenzial frei",
+      "subtitle": "Eröffne eine neue Seite in deiner psychischen Gesundheitsreise mit unbegrenztem Zugang.",
+      "toast_success_title": "Simulation erfolgreich!",
+      "toast_success_body": "Herzlichen Glückwunsch, du hast auf {{planName}} Plan aktualisiert.",
+      "toast_error_title": "Fehler",
+      "toast_error_body": "Ein Problem ist aufgetreten.",
+      "feature_text_sessions": "Text-Sitzungen",
+      "feature_voice_sessions": "Sprach-Sitzungen",
+      "feature_dream_analysis": "Traum-Analyse",
+      "feature_ai_reports": "KI-Berichte",
+      "feature_therapist_selection": "Therapeutenauswahl",
+      "feature_session_history": "Sitzungsverlauf",
+      "feature_pdf_export": "PDF-Export",
+      "feature_priority_support": "Prioritäts-Support"
+    },
+    "featuredCard": {
+      "premium_label": "{{planName}} Plan Aktiv",
+      "premium_subtitle": "Du genießt alle Privilegien",
+      "free_label": "Schalte dein Potenzial frei",
+      "free_subtitle": "Erhalte unbegrenzten Zugang zu allen Funktionen"
     }
   }
 }

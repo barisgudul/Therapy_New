@@ -114,6 +114,26 @@ export const authScreenStyles = StyleSheet.create({
     color: Colors.light.tint,
   },
 
+  // BUTON STİLLERİ - LoadingButton için gerekli
+  button: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: BORDER_RADIUS.button,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    shadowColor: Colors.light.tint,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
+  },
+  buttonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
   // YENİ VE PROFESYONEL AYIRICI
   dividerContainer: {
     flexDirection: "row",

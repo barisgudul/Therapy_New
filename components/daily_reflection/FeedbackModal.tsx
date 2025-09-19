@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Modal from 'react-native-modal';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 import { renderMarkdownText } from '../../utils/markdownRenderer';
 
 
@@ -38,7 +39,7 @@ export default function FeedbackModal({
   onNavigateToTherapy,
   hideSatisfaction = false, // Default false
 }: FeedbackModalProps) {
-
+    const { t } = useTranslation();
     const shakeAnimation = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -92,9 +93,9 @@ export default function FeedbackModal({
             </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>Günlük Yansıman</Text>
+        <Text style={styles.title}>{t('home.feedback_modal.title')}</Text>
         <Text style={styles.subtitle}>
-          Bugünkü duygularına dair düşüncelerim
+          {t('home.feedback_modal.subtitle')}
         </Text>
 
         <ScrollView
@@ -105,7 +106,7 @@ export default function FeedbackModal({
             renderMarkdownText(aiMessage, dynamicColor)
           ) : (
             <Text style={{ fontSize: 16, color: "#718096", textAlign: 'center' }}>
-              Yansımanız hazırlanıyor...
+              {t('home.feedback_modal.loading')}
             </Text>
           )}
         </ScrollView>
@@ -130,7 +131,7 @@ export default function FeedbackModal({
                 >
                   <Ionicons name="chatbubble-ellipses-outline" size={20} color="#6B46C1" />
                   <Text style={[styles.buttonText, styles.secondaryButtonText]}>
-                    Sohbet Et
+                    {t('home.feedback_modal.chat_button')}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -149,7 +150,7 @@ export default function FeedbackModal({
               style={styles.primaryButtonGradient}
             >
               <Text style={[styles.buttonText, styles.primaryButtonText]}>
-                Tamamdır
+                {t('home.feedback_modal.ok_button')}
               </Text>
               <Ionicons name="checkmark-circle-outline" size={20} color="#6B46C1" />
             </LinearGradient>
@@ -160,7 +161,7 @@ export default function FeedbackModal({
         {!hideSatisfaction && (
           <View style={styles.satisfactionContainer}>
             <Text style={styles.satisfactionText}>
-              Bu yanıt nasıl? Geri bildiriminiz bizim için değerli.
+              {t('home.feedback_modal.satisfaction_question')}
             </Text>
             <View style={styles.satisfactionButtons}>
               <TouchableOpacity

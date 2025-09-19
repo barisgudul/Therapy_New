@@ -16,23 +16,23 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../utils/supabase";
 
-// --- BÖLÜM 1: DOĞRU YERDE, DOĞRU İSİMLERLE TANIMLANMIŞ COMPONENT ---
-// BU COMPONENT, ANA FONKSİYONUN DIŞINDA. HER RENDER'DA YENİDEN YARATILMIYOR.
-// KENDİ GÖRÜNÜRLÜK STATE'İNİ KENDİSİ YÖNETİYOR. TEMİZ. MODÜLER.
+
 
 const PasswordInputField = ({
     label,
     value,
     onChangeText,
-    placeholder,
+    placeholderKey,
 }: {
     label: string;
     value: string;
     onChangeText: (text: string) => void;
-    placeholder: string;
+    placeholderKey: string;
 }) => {
+    const { t } = useTranslation();
     // KULLANICININ HAYATINI KOLAYLAŞTIRAN O ÖZELLİK GERİ GELDİ.
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
@@ -45,7 +45,7 @@ const PasswordInputField = ({
                     secureTextEntry={!isPasswordVisible}
                     value={value}
                     onChangeText={onChangeText}
-                    placeholder={placeholder}
+                    placeholder={t(placeholderKey)}
                     placeholderTextColor="#9CA3AF"
                     autoCapitalize="none"
                 />
@@ -70,6 +70,7 @@ const PasswordInputField = ({
 // --- BÖLÜM 2: ANA SAYFA - ANLAŞILIR İSİMLER, TEMİZ YAPI ---
 
 export default function ChangePasswordScreen() {
+    const { t } = useTranslation();
     const router = useRouter();
 
     // İSİMLER DÜZELTİLDİ: Artık neyin ne olduğu belli.
@@ -86,26 +87,26 @@ export default function ChangePasswordScreen() {
     const handleUpdatePassword = async () => {
         if (!currentPassword || !newPassword || !confirmNewPassword) {
             return Alert.alert(
-                "Eksik Alanlar",
-                "Lütfen tüm alanları doldurun.",
+                t('settings.password.alert_missing_fields_title'),
+                t('settings.password.alert_missing_fields_body'),
             );
         }
         if (newPassword !== confirmNewPassword) {
             return Alert.alert(
-                "Şifreler Uyuşmuyor",
-                "Girdiğiniz yeni şifreler eşleşmiyor.",
+                t('settings.password.alert_mismatch_title'),
+                t('settings.password.alert_mismatch_body'),
             );
         }
         if (!isPasswordStrong(newPassword)) {
             return Alert.alert(
-                "Zayıf Şifre",
-                "Şifre en az 8 karakter olmalı, büyük/küçük harf ve rakam içermelidir.",
+                t('settings.password.alert_weak_title'),
+                t('settings.password.alert_weak_body'),
             );
         }
         if (currentPassword === newPassword) {
             return Alert.alert(
-                "Aynı Şifre",
-                "Yeni şifreniz, mevcut şifrenizle aynı olamaz.",
+                t('settings.password.alert_same_title'),
+                t('settings.password.alert_same_body'),
             );
         }
 
@@ -113,7 +114,7 @@ export default function ChangePasswordScreen() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user?.email) {
-                throw new Error("Kullanıcı kimliği doğrulanamadı.");
+                throw new Error(t('settings.password.error_auth'));
             }
 
             // HATA DEĞİŞKENLERİ DÜZELTİLDİ: Artık 'e1', 'e2' gibi saçmalıklar yok.
@@ -124,7 +125,7 @@ export default function ChangePasswordScreen() {
                 });
             if (signInError) {
                 throw new Error(
-                    "Mevcut şifreniz yanlış. Lütfen kontrol ediniz.",
+                    t('settings.password.error_wrong_password'),
                 );
             }
 
@@ -133,15 +134,15 @@ export default function ChangePasswordScreen() {
             });
             if (updateError) throw updateError; // Supabase'den gelen hatayı direkt fırlat.
 
-            Alert.alert("Başarılı", "Şifreniz güvenle değiştirildi.", [{
-                text: "Harika",
+            Alert.alert(t('settings.password.alert_success_title'), t('settings.password.alert_success_body'), [{
+                text: t('settings.password.alert_success_button'),
                 onPress: () => router.back(),
             }]);
         } catch (error: unknown) {
             const errorMessage = error instanceof Error
                 ? error.message
-                : "Beklenmedik bir hata oluştu";
-            Alert.alert("Bir Hata Oluştu", errorMessage);
+                : t('settings.password.error_unexpected');
+            Alert.alert(t('settings.password.alert_error_title'), errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -176,30 +177,30 @@ export default function ChangePasswordScreen() {
                                 color="#1E3A8A"
                             />
                         </View>
-                        <Text style={styles.title}>Şifre Güncelleme</Text>
+                        <Text style={styles.title}>{t('settings.password.title')}</Text>
                         <Text style={styles.subtitle}>
-                            Hesap güvenliğinizi en üst düzeyde tutun.
+                            {t('settings.password.subtitle')}
                         </Text>
                     </View>
 
                     <View style={styles.formContainer}>
                         <PasswordInputField
-                            label="Mevcut Şifre"
+                            label={t('settings.password.current_password_label')}
                             value={currentPassword}
                             onChangeText={setCurrentPassword}
-                            placeholder="••••••••"
+                            placeholderKey="settings.password.placeholder_current"
                         />
                         <PasswordInputField
-                            label="Yeni Şifre"
+                            label={t('settings.password.new_password_label')}
                             value={newPassword}
                             onChangeText={setNewPassword}
-                            placeholder="En az 8 güçlü karakter"
+                            placeholderKey="settings.password.placeholder_new"
                         />
                         <PasswordInputField
-                            label="Yeni Şifre (Tekrar)"
+                            label={t('settings.password.confirm_password_label')}
                             value={confirmNewPassword}
                             onChangeText={setConfirmNewPassword}
-                            placeholder="Yeni şifrenizi onaylayın"
+                            placeholderKey="settings.password.placeholder_confirm"
                         />
 
                         <Pressable
@@ -216,7 +217,7 @@ export default function ChangePasswordScreen() {
                                 ? <ActivityIndicator color="#FFFFFF" />
                                 : (
                                     <Text style={styles.submitButtonText}>
-                                        Şifreyi Güvenle Değiştir
+                                        {t('settings.password.submit_button')}
                                     </Text>
                                 )}
                         </Pressable>

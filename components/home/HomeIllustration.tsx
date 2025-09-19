@@ -1,7 +1,11 @@
+// components/home/HomeIllustration.tsx
 import React from "react";
 import { View, Image, StyleSheet, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 
 export const HomeIllustration: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
       {/* RESİM İÇİN BİR SARMALAYICI (WRAPPER) EKLİYORUZ */}
@@ -13,9 +17,9 @@ export const HomeIllustration: React.FC = () => {
         />
       </View>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>Zihnine İyi Bak</Text>
+        <Text style={styles.title}>{t('home.illustration.title')}</Text>
         <Text style={styles.subtitle}>
-          Yapay zekâ destekli kör noktalarını keşfetmeyi deneyimle
+          {t('home.illustration.subtitle')}
         </Text>
       </View>
     </View>

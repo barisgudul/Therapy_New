@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { Alert, ActivityIndicator, View } from "react-native";
 // import { useVaultStore } from '../store/vaultStore'; // SİL
 import { supabase } from "../utils/supabase";
+import * as Linking from 'expo-linking';
 
 // 1. CONTEXT TİPİNİ GENİŞLETİYORUZ
 type AuthContextType = {
@@ -39,7 +40,7 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // isLoading state'i yerine authReady üzerinden türetilmiş değer kullanacağız
   const [isPendingDeletion, setIsPendingDeletion] = useState(false);
 
   const queryClient = useQueryClient();
@@ -94,64 +95,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 5. TEK VE GÜÇLÜ useEffect - Optimize edilmiş versiyon
+  // context/Auth.tsx --- TEMİZLENMİŞ ve DOĞRU useEffect ---
   useEffect(() => {
-    let isMounted = true; // Component'in hala mount olup olmadığını takip et
+    // 1. Başlangıçta mevcut oturumu al
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) checkUserStatus(session.user);
+      setAuthReady(true);
+    });
 
-    const handleAuthStateChange = async (
-      _event: string,
-      session: Session | null,
-    ) => {
-      if (!isMounted) return; // Component unmount olduysa çık
-
-      console.log(
-        `[AUTH] onAuthStateChange tetiklendi. Oturum: ${
-          session ? "VAR ✅" : "YOK ❌"
-        }`,
-      );
-
-      // State güncellemelerini güvenli bir şekilde yap
-      const currentUser = session?.user ?? null;
-
-      // Tüm state güncellemelerini tek seferde yap
-      if (isMounted) {
-        setIsLoading(true);
+    // 2. Auth durumundaki normal değişiklikleri (giriş, çıkış vs.) dinle
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
         setSession(session);
+        const currentUser = session?.user ?? null;
         setUser(currentUser);
-        // Kullanıcı durumu kontrolünü de burada yap
         if (currentUser) {
           checkUserStatus(currentUser);
         } else {
-          console.log("[AUTH] Kullanıcı oturumu kapalı. Cache temizleniyor...");
           queryClient.clear();
         }
       }
+    );
 
-      // Loading durumunu ayarla ve authReady'yi işaretle
-      if (isMounted) {
-        setIsLoading(false);
-        setAuthReady(true);
-      }
+    // 3. OAuth'tan geri dönen derin link'i yakala ve session'a çevir
+    const handleDeepLink = async ({ url }: { url: string }) => {
+      console.log('[OAUTH] deep link:', url);
+      const { data, error } = await (supabase.auth as unknown as {
+        exchangeCodeForSession: (args: { currentUrl: string }) => Promise<{ data: { session?: unknown } | null; error: { message: string } | null }>;
+      }).exchangeCodeForSession({ currentUrl: url });
+      if (error) console.error('[OAUTH] exchange hata:', error.message);
+      if (data?.session) console.log('[OAUTH] session set:', (data as unknown as { session: { user?: { email?: string } } }).session.user?.email);
     };
+    
+    // Uygulama çalışırken gelen deep link'leri dinle
+    const deepLinkSubscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Uygulama ilk açıldığında mevcut oturumu al ve işle
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isMounted) {
-        handleAuthStateChange("INITIAL_SESSION", session);
+    // Uygulama kapalıyken deep link ile açılırsa, ilk URL'i işle
+    Linking.getInitialURL().then(url => {
+      if (url) {
+        handleDeepLink({ url });
       }
     });
 
-    // Oturum değişikliklerini dinle
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      handleAuthStateChange,
-    );
-
-    // Component kaldırıldığında dinleyiciyi kapat ve cleanup yap
+    // Temizlik: Component kaldırıldığında dinleyicileri kapat
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
+      deepLinkSubscription.remove();
     };
-  }, [queryClient]); // Bağımlılıklar doğru.
+  }, [queryClient]);
+
+  const isLoading = !authReady;
 
   const value = {
     user,

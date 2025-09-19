@@ -22,6 +22,7 @@ import {
     TextInputProps,
     View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import Toast from "react-native-toast-message";
 import { Colors } from "../../constants/Colors";
 import { useSubscription } from "../../hooks/useSubscription";
@@ -94,6 +95,7 @@ const SelectorGroup: FC<{
 
 // settings.tsx'teki FeaturedCard'ın bir varyasyonu
 const FeaturedCard: FC = memo(function FeaturedCard() {
+    const { t } = useTranslation();
     const { planName, isPremium } = useSubscription();
     const router = useRouter();
 
@@ -143,14 +145,14 @@ const FeaturedCard: FC = memo(function FeaturedCard() {
             </View>
             <View style={styles.featuredTextContainer}>
                 <Text style={[styles.featuredLabel, { color: planMeta.color }]}>
-                    {planName} Plan
+                    {t('settings.profile.plan_current', { planName })}
                 </Text>
                 <Text
                     style={[styles.featuredSubtitle, { color: planMeta.color }]}
                 >
                     {isPremium
-                        ? "Tüm ayrıcalıklara sahipsin"
-                        : "Daha fazla özellik için yükselt"}
+                        ? t('settings.profile.plan_subtitle_premium')
+                        : t('settings.profile.plan_subtitle_free')}
                 </Text>
             </View>
             <Ionicons name="arrow-forward" size={24} color={planMeta.color} />
@@ -164,12 +166,14 @@ interface InputGroupProps extends TextInputProps {
 
 const InputGroup: FC<InputGroupProps> = memo(
     function InputGroup({ label, ...props }) {
+        const { t } = useTranslation();
         return (
             <View style={styles.inputContainer}>
                 <Text style={styles.label}>{label}</Text>
                 <TextInput
                     style={styles.input}
                     placeholderTextColor={Colors.light.softText}
+                    placeholder={t('settings.profile.name_placeholder')}
                     {...props}
                 />
             </View>
@@ -182,6 +186,7 @@ const SaveButton: FC<{
     isSaving: boolean;
     isDisabled: boolean;
 }> = memo(function SaveButton({ onPress, isSaving, isDisabled }) {
+    const { t } = useTranslation();
     return (
         <Pressable
             onPress={onPress}
@@ -196,7 +201,7 @@ const SaveButton: FC<{
         >
             {isSaving
                 ? <ActivityIndicator color={Colors.light.card} />
-                : <Text style={styles.buttonText}>Değişiklikleri Kaydet</Text>}
+                : <Text style={styles.buttonText}>{t('settings.profile.save_button')}</Text>}
         </Pressable>
     );
 });
@@ -206,6 +211,7 @@ const SaveButton: FC<{
 // =================================================================
 
 export default function ProfileScreen() {
+    const { t } = useTranslation();
     const { data: vault, isLoading: isLoadingVault, error: vaultError } =
         useVault();
     const { mutate: updateVault, isPending: isSaving } = useUpdateVault();
@@ -237,7 +243,7 @@ export default function ProfileScreen() {
         if (!localProfile.nickname.trim()) {
             Toast.show({
                 type: "error",
-                text1: "İsim alanı boş bırakılamaz.",
+                text1: t('settings.profile.toast_name_required'),
             });
             return;
         }
@@ -254,8 +260,8 @@ export default function ProfileScreen() {
             updateVault(newVaultData);
             Toast.show({
                 type: "success",
-                text1: "Başarılı!",
-                text2: "Profilin güncellendi.",
+                text1: t('settings.profile.toast_success_title'),
+                text2: t('settings.profile.toast_success_body'),
             });
 
             // KULLANICI DENEYİMİ: Toast mesajını görmesi için 1 saniye bekle
@@ -268,11 +274,11 @@ export default function ProfileScreen() {
             console.error("[PROFILE_SAVE_ERROR]", error);
             Toast.show({
                 type: "error",
-                text1: "Hata",
-                text2: "Profil güncellenirken bir sorun oluştu.",
+                text1: t('settings.profile.toast_error_title'),
+                text2: t('settings.profile.toast_error_body'),
             });
         }
-    }, [localProfile, vault, updateVault, router]);
+    }, [localProfile, vault, updateVault, router, t]);
 
     const renderContent = () => {
         if (isLoadingVault && !vault) {
@@ -287,29 +293,28 @@ export default function ProfileScreen() {
         if (vaultError) {
             return (
                 <Text style={styles.errorText}>
-                    Profil yüklenemedi. Lütfen tekrar deneyin.
+                    {t('settings.profile.error_loading')}
                 </Text>
             );
         }
         return (
             <View>
-                <Text style={styles.sectionTitle}>Temel Bilgiler</Text>
+                <Text style={styles.sectionTitle}>{t('settings.profile.section_title')}</Text>
                 <InputGroup
-                    label="İsim"
+                    label={t('settings.profile.name_label')}
                     value={localProfile.nickname}
                     onChangeText={(text) => handleInputChange("nickname", text)}
-                    placeholder="Size nasıl hitap etmemizi istersiniz?"
                     returnKeyType="done"
                     autoCapitalize="words"
                 />
 
                 <SelectorGroup
-                    label="İlişki Durumu"
+                    label={t('settings.profile.relationship_label')}
                     options={[
-                        { value: "single", label: "Bekarım" },
-                        { value: "in_relationship", label: "İlişkim var" },
-                        { value: "married", label: "Evliyim" },
-                        { value: "complicated", label: "Karışık" },
+                        { value: "single", label: t('settings.profile.relationship_single') },
+                        { value: "in_relationship", label: t('settings.profile.relationship_in_relationship') },
+                        { value: "married", label: t('settings.profile.relationship_married') },
+                        { value: "complicated", label: t('settings.profile.relationship_complicated') },
                     ]}
                     selectedValue={localProfile.relationshipStatus}
                     onSelect={(value) =>
@@ -344,7 +349,7 @@ export default function ProfileScreen() {
                         />
                     </Pressable>
                     <View style={styles.pageHeader}>
-                        <Text style={styles.pageTitle}>Profil & Tercihler</Text>
+                        <Text style={styles.pageTitle}>{t('settings.profile.title')}</Text>
                     </View>
                     {/* Başlığın sağ tarafını boş bırakarak ortalanmasını sağlıyoruz */}
                     <View style={{ width: 44 }} />
@@ -356,7 +361,7 @@ export default function ProfileScreen() {
                     keyboardDismissMode="on-drag"
                 >
                     <Text style={styles.pageSubtitle}>
-                        Yolculuğunu kendine özel kıl.
+                        {t('settings.profile.subtitle')}
                     </Text>
 
                     {renderContent()}

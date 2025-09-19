@@ -5,6 +5,8 @@ import { LayoutAnimation, Text, View, TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from '@expo/vector-icons'; // Vektör ikonlar için
 import Animated, { FadeIn } from 'react-native-reanimated'; // Animasyon için
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectTo } from "../../utils/authRedirect";
 import { AuthInput } from "../../components/AuthInput";
 import { AuthLayout } from "../../components/AuthLayout";
 import { AuthButton } from "../../components/AuthButton";
@@ -34,22 +36,68 @@ export default function RegisterScreen() {
         setStep(nextStep);
     };
 
-    // YENİ: Sosyal Medya Giriş Fonksiyonları
     const handleSignInWithGoogle = async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-        });
-        if (error) {
-            setError({ field: 'social', message: error.message });
+        try {
+            const redirectTo = makeRedirectTo();
+    
+            // 2. Supabase'e komut veriliyor: "Rotayı hazırla ama arabayı sürme, direksiyon bende."
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo,
+                    skipBrowserRedirect: true, // <-- EN KRİTİK ANAHTAR
+                    scopes: 'email profile',
+                },
+            });
+    
+            if (error) {
+                console.error("Supabase rotayı hazırlayamadı:", error.message);
+                setError({ field: 'social', message: error.message });
+                return;
+            }
+    
+            // 3. Direksiyona geçiliyor: Supabase'in verdiği rotayı kullanarak tarayıcıyı biz açıyoruz.
+            if (data?.url) {
+                await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+            } else {
+                setError({ field: 'social', message: 'Google yönlendirme URL’i alınamadı.' });
+            }
+    
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Beklenmedik bir tarayıcı hatası.";
+            console.error("Direksiyona geçerken hata:", message);
+            setError({ field: 'social', message });
         }
     };
-
+    
     const handleSignInWithApple = async () => {
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'apple',
-        });
-        if (error) {
-            setError({ field: 'social', message: error.message });
+        // Apple için de birebir aynı mantık.
+        try {
+            const redirectTo = makeRedirectTo();
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'apple',
+                options: {
+                    redirectTo,
+                    skipBrowserRedirect: true,
+                },
+            });
+    
+            if (error) {
+                console.error("Supabase (Apple) rotayı hazırlayamadı:", error.message);
+                setError({ field: 'social', message: error.message });
+                return;
+            }
+    
+            if (data?.url) {
+                await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+            } else {
+                setError({ field: 'social', message: 'Apple yönlendirme URL’i alınamadı.' });
+            }
+    
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Beklenmedik bir tarayıcı hatası.";
+            console.error("Direksiyona geçerken hata (Apple):", message);
+            setError({ field: 'social', message });
         }
     };
 

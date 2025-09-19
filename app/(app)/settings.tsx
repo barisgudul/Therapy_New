@@ -13,15 +13,54 @@ import {
     View,
     ActivityIndicator,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/Auth.tsx";
 import { FeaturedCard } from "../../components/settings/FeaturedCard";
 import { SettingsCard } from "../../components/settings/SettingsCard";
 import { useSettings } from "../../hooks/useSettings";
 
+// === YENİ COMPONENT: DİL SEÇİCİ ===
+const LanguageSelector = () => {
+    const { t, i18n } = useTranslation();
+    const currentLanguage = i18n.language;
+
+    const languages = [
+        { code: 'tr', name: t('settings.language.turkish') },
+        { code: 'en', name: t('settings.language.english') },
+        { code: 'de', name: t('settings.language.german') },
+    ];
+
+    return (
+        <View style={styles.languageContainer}>
+            <Text style={styles.sectionTitle}>{t('settings.language.title')}</Text>
+            <View style={styles.languageButtons}>
+                {languages.map((lang) => (
+                    <Pressable
+                        key={lang.code}
+                        style={[
+                            styles.langButton,
+                            currentLanguage === lang.code && styles.langButtonActive
+                        ]}
+                        onPress={() => i18n.changeLanguage(lang.code)}
+                    >
+                        <Text style={[
+                            styles.langButtonText,
+                            currentLanguage === lang.code && styles.langButtonTextActive
+                        ]}>
+                            {lang.name}
+                        </Text>
+                    </Pressable>
+                ))}
+            </View>
+        </View>
+    );
+};
+
 // --- BÖLÜM 2: ANA AYARLAR EKRANI ---
 
 export default function SettingsScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
 
     // ARTIK GÜVENLİ: AuthProvider hazır olmadan bu kod zaten çalışmayacak.
     const { user } = useAuth();
@@ -36,7 +75,7 @@ export default function SettingsScreen() {
                 <View style={styles.header}>
                     <View style={{ width: 44 }} />
                     <View style={styles.pageHeader}>
-                        <Text style={styles.pageTitle}>Hesap Kontrol Merkezi</Text>
+                        <Text style={styles.pageTitle}>{t('settings.main.title')}</Text>
                     </View>
                     <Pressable
                         onPress={() => router.back()}
@@ -54,15 +93,17 @@ export default function SettingsScreen() {
                     <View style={styles.gridContainer}>
                         <SettingsCard
                             icon="person-circle-outline"
-                            label="Profili Düzenle"
+                            label={t('settings.main.editProfile')}
                             onPress={() => router.push("/(settings)/profile")}
                         />
                         <SettingsCard
                             icon="shield-half-outline"
-                            label="Güvenlik"
+                            label={t('settings.main.security')}
                             onPress={() => router.push("/(settings)/security")}
                         />
                     </View>
+
+                    <LanguageSelector />
 
                     <FeaturedCard />
 
@@ -74,7 +115,7 @@ export default function SettingsScreen() {
                                 color="#BE123C"
                             />
                             <Text style={styles.destructiveTitle}>
-                                Tehlikeli Bölge
+                                {t('settings.main.dangerZone_title')}
                             </Text>
                         </View>
                         {isResetting
@@ -94,7 +135,7 @@ export default function SettingsScreen() {
                                     ]}
                                 >
                                     <Text style={styles.destructiveButtonText}>
-                                        Tüm Verileri Sıfırla
+                                        {t('settings.main.dangerZone_resetData')}
                                     </Text>
                                     <Ionicons
                                         name="trash-outline"
@@ -113,7 +154,7 @@ export default function SettingsScreen() {
                             ]}
                         >
                             <Text style={styles.destructiveButtonText}>
-                                Güvenli Çıkış
+                                {t('settings.main.dangerZone_signOut')}
                             </Text>
                             <Ionicons
                                 name="log-out-outline"
@@ -124,7 +165,7 @@ export default function SettingsScreen() {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>Gisbel. v1.0.0</Text>
+                        <Text style={styles.footerText}>{t('settings.main.footer_version')}</Text>
                     </View>
                 </ScrollView>
             </SafeAreaView>
@@ -218,4 +259,43 @@ const styles = StyleSheet.create({
     },
     footerText: { fontSize: 14, color: "#94A3B8" },
     loadingWrapper: { alignItems: "center", padding: 16 },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#475569',
+        marginBottom: 12,
+    },
+    languageContainer: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 24,
+        padding: 20,
+        marginTop: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+    },
+    languageButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        gap: 10,
+    },
+    langButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: '#CBD5E1',
+        alignItems: 'center',
+    },
+    langButtonActive: {
+        backgroundColor: '#EEF2FF',
+        borderColor: '#4338CA',
+    },
+    langButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#475569',
+    },
+    langButtonTextActive: {
+        color: '#4338CA',
+    },
 });

@@ -4,22 +4,24 @@ import { Pressable, View, Text, StyleSheet, ActivityIndicator } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router/';
+import { useTranslation } from 'react-i18next';
 import { useSubscription } from '../../hooks/useSubscription';
 
 export const FeaturedCard = () => {
+    const { t } = useTranslation();
     const { isPremium, planName, loading } = useSubscription();
     const router = useRouter();
 
     const cardMeta = isPremium ? {
         icon: 'diamond' as const,
-        label: `${planName} Planı Aktif`,
-        subtitle: 'Tüm ayrıcalıklardan yararlanıyorsun',
+        label: t('settings.featuredCard.premium_label', { planName }),
+        subtitle: t('settings.featuredCard.premium_subtitle'),
         gradient: ["#EDE9FE", "#F0F9FF"] as const,
         iconColor: "#5B21B6"
     } : {
         icon: 'sparkles-outline' as const,
-        label: 'Potansiyelinin Kilidini Aç',
-        subtitle: 'Tüm özelliklere sınırsız erişimle tanış',
+        label: t('settings.featuredCard.free_label'),
+        subtitle: t('settings.featuredCard.free_subtitle'),
         gradient: ["#EDE9FE", "#F0F9FF"] as const,
         iconColor: "#5B21B6"
     };

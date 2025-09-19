@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import Toast from "react-native-toast-message"; // Toast'u import et
 import { Colors } from "../../constants/Colors";
 import { useAuth } from "../../context/Auth";
@@ -53,6 +54,7 @@ const getThemeForPlan = (planName: string) => {
 };
 
 export default function SubscriptionScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const router = useRouter();
   const { planName, refresh: setSubscriptionPlan } = useSubscription();
@@ -68,13 +70,13 @@ export default function SubscriptionScreen() {
 
       Toast.show({
         type: "success",
-        text1: "Simülasyon Başarılı!",
-        text2: `Tebrikler, ${plan.name} planına geçtiniz.`,
+        text1: t('settings.subscription.toast_success_title'),
+        text2: t('settings.subscription.toast_success_body', { planName: plan.name }),
       });
       // Kullanıcı aynı ekranda kalıp yeni planının "Mevcut Plan" olarak işaretlendiğini görecek
     } catch (error) {
       console.error(error); // Hata varsa logla!
-      Toast.show({ type: "error", text1: "Hata", text2: "Bir sorun oluştu." });
+      Toast.show({ type: "error", text1: t('settings.subscription.toast_error_title'), text2: t('settings.subscription.toast_error_body') });
     } finally {
       setIsUpgrading(null);
     }
@@ -93,22 +95,22 @@ export default function SubscriptionScreen() {
     const allFeatureKeys = [
       {
         key: "text_sessions",
-        name: "Metin Seansları",
+        name: t('settings.subscription.feature_text_sessions'),
         icon: "chatbubble-ellipses-outline" as const,
       },
-      { key: "voice_sessions", name: "Sesli Seanslar", icon: "mic-outline" as const },
-      { key: "dream_analysis", name: "Rüya Analizi", icon: "moon-outline" as const },
-      { key: "ai_reports", name: "AI Raporları", icon: "analytics-outline" as const },
+      { key: "voice_sessions", name: t('settings.subscription.feature_voice_sessions'), icon: "mic-outline" as const },
+      { key: "dream_analysis", name: t('settings.subscription.feature_dream_analysis'), icon: "moon-outline" as const },
+      { key: "ai_reports", name: t('settings.subscription.feature_ai_reports'), icon: "analytics-outline" as const },
       {
         key: "therapist_selection",
-        name: "Terapist Seçimi",
+        name: t('settings.subscription.feature_therapist_selection'),
         icon: "people-outline" as const,
       },
-      { key: "session_history", name: "Seans Geçmişi", icon: "time-outline" as const },
-      { key: "pdf_export", name: "PDF Export", icon: "download-outline" as const },
+      { key: "session_history", name: t('settings.subscription.feature_session_history'), icon: "time-outline" as const },
+      { key: "pdf_export", name: t('settings.subscription.feature_pdf_export'), icon: "download-outline" as const },
       {
         key: "priority_support",
-        name: "Öncelikli Destek",
+        name: t('settings.subscription.feature_priority_support'),
         icon: "headset-outline" as const,
       },
     ];
@@ -120,7 +122,7 @@ export default function SubscriptionScreen() {
       premium: String(premiumPlan.features[feature.key] || "❌"),
       icon: feature.icon, // Artık as const ile tanımlandı
     }));
-  }, [plans]); // Sadece planlar değiştiğinde yeniden hesapla
+  }, [plans, t]); // Sadece planlar veya çeviri değiştiğinde yeniden hesapla
   // DÜZELTİLDİ: Orijinal diziyi bozmuyor ve her render'da yeniden hesaplanmıyor.
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => b.price - a.price);
@@ -143,7 +145,7 @@ export default function SubscriptionScreen() {
         {/* YENİ HEADER */}
         <View style={styles.header}>
           <View style={styles.headerSpacer} />
-          <Text style={styles.headerTitle}>Potansiyelini Ortaya Çıkar</Text>
+          <Text style={styles.headerTitle}>{t('settings.subscription.title')}</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="close" size={28} color={Colors.light.tint} />
           </TouchableOpacity>
@@ -153,7 +155,7 @@ export default function SubscriptionScreen() {
           contentContainerStyle={{ paddingBottom: 50 }}
         >
           <Text style={styles.headerSubtitle}>
-            Sınırsız erişim ile zihinsel sağlık yolculuğunda yeni bir sayfa aç.
+            {t('settings.subscription.subtitle')}
           </Text>
 
         <View style={styles.plansContainer}>

@@ -24,18 +24,6 @@
     "free_badge": "First analysis free",
     "have_account": "I have an account"
   },
-  "mood_reveal": {
-    "continue_hint": "Tap to continue",
-    "pos_keywords": ["good","great","happy","relaxed","peaceful","hope","love","energetic","grateful","accomplished","beautiful","success","progress","focus","did"],
-    "neg_keywords": ["bad","sad","tired","stress","anxiety","worried","fear","anger","difficult","pain","hurt","overwhelmed","crisis","bored","exhausted","tense","worry","low morale"],
-    "very_bad": "Very Bad",
-    "bad": "Bad",
-    "sad": "Sad",
-    "neutral": "Neutral",
-    "good": "Good",
-    "great": "Great",
-    "perfect": "Perfect"
-  },
   "softwall": {
     "title": "Your analysis will illuminate your potential.",
     "subtitle": "If you're ready to discover the personal analysis prepared from your answers, let's take this first step. You're not alone on this journey.",
@@ -125,6 +113,141 @@
       "start_chat": "Start Chat",
       "export_pdf": "Export as PDF",
       "continue": "Continue"
+    }
+  },
+  "home": {
+    "illustration": {
+      "title": "Take Care of Your Mind",
+      "subtitle": "Experience discovering your blind spots with AI support"
+    },
+    "actions": {
+      "daily_mood": "How Are You Feeling Today?",
+      "diary": "Diary",
+      "dream_analysis": "Dream Analysis",
+      "personal_report": "Personal Report",
+      "chat": "Chat",
+      "past_chats": "My Past Chats",
+      "weekly_insight_ready": "Your Weekly Insight Discovery is Ready!",
+      "first_analysis_ready": "Your First Analysis is Ready!",
+      "how_therapy_works": "How do therapies work?"
+    },
+    "feedback_modal": {
+      "title": "Your Daily Reflection",
+      "subtitle": "My thoughts on your emotions today",
+      "loading": "Your reflection is being prepared...",
+      "chat_button": "Chat",
+      "ok_button": "Got it",
+      "satisfaction_question": "How was this response? Your feedback is valuable to us."
+    },
+    "report_modal": {
+      "default_title": "Weekly Insight",
+      "close_button": "Understood"
+    }
+  },
+  "settings": {
+    "main": {
+      "title": "Account Control Center",
+      "editProfile": "Edit Profile",
+      "security": "Security",
+      "language": "Language",
+      "dangerZone_title": "Danger Zone",
+      "dangerZone_resetData": "Reset All Data",
+      "dangerZone_signOut": "Sign Out Safely",
+      "footer_version": "Gisbel. v1.0.0"
+    },
+    "language": {
+      "title": "Language Selection",
+      "turkish": "Türkçe",
+      "english": "English",
+      "german": "Deutsch"
+    },
+    "profile": {
+      "title": "Profile & Preferences",
+      "subtitle": "Make your journey your own.",
+      "section_title": "Basic Information",
+      "name_label": "Name",
+      "name_placeholder": "How should we address you?",
+      "relationship_label": "Relationship Status",
+      "relationship_single": "Single",
+      "relationship_in_relationship": "In a relationship",
+      "relationship_married": "Married",
+      "relationship_complicated": "It's complicated",
+      "save_button": "Save Changes",
+      "plan_current": "{{planName}} Plan",
+      "plan_subtitle_premium": "You have all privileges",
+      "plan_subtitle_free": "Upgrade for more features",
+      "toast_name_required": "Name field cannot be left blank.",
+      "toast_success_title": "Success!",
+      "toast_success_body": "Your profile has been updated.",
+      "toast_error_title": "Error",
+      "toast_error_body": "An issue occurred while updating profile.",
+      "error_loading": "Profile could not be loaded. Please try again."
+    },
+    "security": {
+      "title": "Security Control Panel",
+      "subtitle": "Manage and monitor your account security here.",
+      "section_overview": "Overview",
+      "login_methods": "Login Methods",
+      "section_password": "Password Management",
+      "change_password": "Change Password",
+      "section_sessions": "Active Sessions",
+      "this_device": "This Device",
+      "current_location": "Current Location",
+      "now": "Now",
+      "active_session": "(Active Session)",
+      "sign_out": "Sign Out",
+      "alert_signOut_title": "Sign Out",
+      "alert_signOut_body": "Are you sure you want to end your session on this device?",
+      "alert_cancel": "Cancel",
+      "alert_error": "Error"
+    },
+    "password": {
+      "title": "Password Update",
+      "subtitle": "Keep your account security at the highest level.",
+      "current_password_label": "Current Password",
+      "new_password_label": "New Password",
+      "confirm_password_label": "New Password (Again)",
+      "placeholder_current": "••••••••",
+      "placeholder_new": "At least 8 strong characters",
+      "placeholder_confirm": "Confirm your new password",
+      "submit_button": "Change Password Securely",
+      "alert_missing_fields_title": "Missing Fields",
+      "alert_missing_fields_body": "Please fill in all fields.",
+      "alert_mismatch_title": "Passwords Don't Match",
+      "alert_mismatch_body": "The new passwords you entered do not match.",
+      "alert_weak_title": "Weak Password",
+      "alert_weak_body": "Password must be at least 8 characters, contain uppercase/lowercase letters and numbers.",
+      "alert_same_title": "Same Password",
+      "alert_same_body": "Your new password cannot be the same as your current password.",
+      "error_auth": "User identity could not be verified.",
+      "error_wrong_password": "Your current password is incorrect. Please check.",
+      "alert_success_title": "Success",
+      "alert_success_body": "Your password has been changed securely.",
+      "alert_success_button": "Great",
+      "alert_error_title": "An Error Occurred",
+      "error_unexpected": "An unexpected error occurred"
+    },
+    "subscription": {
+      "title": "Unlock Your Potential",
+      "subtitle": "Open a new page in your mental health journey with unlimited access.",
+      "toast_success_title": "Simulation Successful!",
+      "toast_success_body": "Congratulations, you have upgraded to {{planName}} plan.",
+      "toast_error_title": "Error",
+      "toast_error_body": "An issue occurred.",
+      "feature_text_sessions": "Text Sessions",
+      "feature_voice_sessions": "Voice Sessions",
+      "feature_dream_analysis": "Dream Analysis",
+      "feature_ai_reports": "AI Reports",
+      "feature_therapist_selection": "Therapist Selection",
+      "feature_session_history": "Session History",
+      "feature_pdf_export": "PDF Export",
+      "feature_priority_support": "Priority Support"
+    },
+    "featuredCard": {
+      "premium_label": "{{planName}} Plan Active",
+      "premium_subtitle": "You are enjoying all the privileges",
+      "free_label": "Unlock Your Potential",
+      "free_subtitle": "Get unlimited access to all features"
     }
   }
 }

@@ -17,6 +17,7 @@ import {
     Text,
     View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { supabase } from "../../utils/supabase";
 
 // --- BÖLÜM 1: KOMPONENTLER (GÜNCELLENDİ) ---
@@ -104,34 +105,38 @@ const SessionCard = (
         isActive?: boolean;
         onSignOut?: () => void;
     },
-) => (
-    <View style={styles.sessionCard}>
-        <Ionicons
-            name={isActive ? "laptop-outline" : "phone-portrait-outline"}
-            size={28}
-            color={isActive ? "#4338CA" : "#475569"}
-        />
-        <View style={styles.sessionDetails}>
-            <Text style={styles.sessionDevice}>
-                {device}{" "}
-                {isActive && (
-                    <Text style={styles.activeText}>(Aktif Oturum)</Text>
-                )}
-            </Text>
-            <Text style={styles.sessionLocation}>{location} · {lastSeen}</Text>
+) => {
+    const { t } = useTranslation();
+    return (
+        <View style={styles.sessionCard}>
+            <Ionicons
+                name={isActive ? "laptop-outline" : "phone-portrait-outline"}
+                size={28}
+                color={isActive ? "#4338CA" : "#475569"}
+            />
+            <View style={styles.sessionDetails}>
+                <Text style={styles.sessionDevice}>
+                    {device}{" "}
+                    {isActive && (
+                        <Text style={styles.activeText}>{t('settings.security.active_session')}</Text>
+                    )}
+                </Text>
+                <Text style={styles.sessionLocation}>{location} · {lastSeen}</Text>
+            </View>
+            {/* BU BUTON ARTIK İŞE YARIYOR (Sadece aktif oturum için) */}
+            {isActive && (
+                <Pressable onPress={onSignOut}>
+                    <Text style={styles.signOutText}>{t('settings.security.sign_out')}</Text>
+                </Pressable>
+            )}
         </View>
-        {/* BU BUTON ARTIK İŞE YARIYOR (Sadece aktif oturum için) */}
-        {isActive && (
-            <Pressable onPress={onSignOut}>
-                <Text style={styles.signOutText}>Çıkış Yap</Text>
-            </Pressable>
-        )}
-    </View>
-);
+    );
+};
 
 // --- BÖLÜM 2: GÜVENLİK KONTROL PANELİ (TAM TEÇHİZATLI HALİ) ---
 
 export default function SecurityDashboardScreen() {
+    const { t } = useTranslation();
     const router = useRouter();
     const [identities, setIdentities] = useState<UserIdentity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -158,19 +163,19 @@ export default function SecurityDashboardScreen() {
     // ADIM #2: Basit bir "bu cihazdan çıkış yap" fonksiyonu.
     const handleSignOutFromThisDevice = () => {
         Alert.alert(
-            "Çıkış Yap",
-            "Bu cihazdaki oturumunuzu sonlandırmak istediğinizden emin misiniz?",
+            t('settings.security.alert_signOut_title'),
+            t('settings.security.alert_signOut_body'),
             [
-                { text: "Vazgeç", style: "cancel" },
+                { text: t('settings.security.alert_cancel'), style: "cancel" },
                 {
-                    text: "Çıkış Yap",
+                    text: t('settings.security.sign_out'),
                     style: "destructive",
                     onPress: async () => {
                         const { error } = await supabase.auth.signOut();
                         if (!error) {
                             router.replace("/(welcome)"); // veya login sayfan neyse
                         } else {
-                            Alert.alert("Hata", error.message);
+                            Alert.alert(t('settings.security.alert_error'), error.message);
                         }
                     },
                 },
@@ -208,19 +213,19 @@ export default function SecurityDashboardScreen() {
                     </Pressable>
                     <View style={styles.pageHeader}>
                         <Text style={styles.pageTitle}>
-                            Güvenlik Kontrol Paneli
+                            {t('settings.security.title')}
                         </Text>
                         <Text style={styles.pageSubtitle}>
-                            Hesap güvenliğinizi buradan yönetin ve izleyin.
+                            {t('settings.security.subtitle')}
                         </Text>
                     </View>
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Genel Bakış</Text>
+                        <Text style={styles.sectionTitle}>{t('settings.security.section_overview')}</Text>
                         <View style={styles.card}>
                             <InfoRow
                                 icon="log-in-outline"
-                                label="Giriş Yöntemleri"
+                                label={t('settings.security.login_methods')}
                                 value={providerNames}
                             />
                             {/* İKİ FAKTÖRLÜ DOĞRULAMA SATIRI ARTIK YOK */}
@@ -234,12 +239,12 @@ export default function SecurityDashboardScreen() {
                     {hasEmailProvider && (
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>
-                                Şifre Yönetimi
+                                {t('settings.security.section_password')}
                             </Text>
                             <View style={styles.card}>
                                 <ActionRow
                                     icon="key-outline"
-                                    label="Şifreyi Değiştir"
+                                    label={t('settings.security.change_password')}
                                     onPress={() =>
                                         router.push(
                                             "/(settings)/change-password",
@@ -250,12 +255,12 @@ export default function SecurityDashboardScreen() {
                     )}
 
                     <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>Aktif Oturumlar</Text>
+                        <Text style={styles.sectionTitle}>{t('settings.security.section_sessions')}</Text>
                         <View style={styles.card}>
                             <SessionCard
-                                device="Bu Cihaz" // Cihaz modelini dinamik olarak al, alamazsa "Bu Cihaz" yaz.
-                                location="Mevcut Konum" // Konum bilgisi hassas ve karmaşık olduğu için genel bir ifade kullanıyoruz.
-                                lastSeen="Şimdi"
+                                device={t('settings.security.this_device')} // Cihaz modelini dinamik olarak al, alamazsa "Bu Cihaz" yaz.
+                                location={t('settings.security.current_location')} // Konum bilgisi hassas ve karmaşık olduğu için genel bir ifade kullanıyoruz.
+                                lastSeen={t('settings.security.now')}
                                 isActive
                                 onSignOut={handleSignOutFromThisDevice}
                             />

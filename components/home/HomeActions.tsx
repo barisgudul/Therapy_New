@@ -3,6 +3,7 @@ import React from "react";
 import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
 import { useRouter } from "expo-router/";
 import { Ionicons } from '@expo/vector-icons'; // Ionicons'u import et
+import { useTranslation } from "react-i18next";
 import { ActionButton } from './ActionButton';
 import { UserReport } from "../../services/report.service";
 
@@ -23,15 +24,16 @@ export const HomeActions: React.FC<HomeActionsProps> = ({
   latestReport,
 }) => {
   const router = useRouter();
+  const { t } = useTranslation();
 
   // Array'in tipini doğru şekilde tanımla
   const actions: { key: string; icon: IconName; text: string; onPress: () => void; }[] = [
-    { key: 'daily', icon: 'sparkles-outline', text: 'Bugün Nasıl Hissediyorsun?', onPress: onDailyPress },
-    { key: 'diary', icon: 'book-outline', text: 'Günlük', onPress: () => router.push("/diary") },
-    { key: 'dream', icon: 'cloudy-night-outline', text: 'Rüya Analizi', onPress: () => router.push("/dream") },
-    { key: 'ai_summary', icon: 'analytics-outline', text: 'Kişisel Rapor', onPress: () => router.push("/ai_summary") },
-    { key: 'therapy', icon: 'chatbubble-outline', text: 'Sohbet ', onPress: () => router.push("/therapy/therapy_options") },
-    { key: 'transcripts', icon: 'time-outline', text: 'Geçmiş Sohbetlerim', onPress: () => router.push("/transcripts") },
+    { key: 'daily', icon: 'sparkles-outline', text: t('home.actions.daily_mood'), onPress: onDailyPress },
+    { key: 'diary', icon: 'book-outline', text: t('home.actions.diary'), onPress: () => router.push("/diary") },
+    { key: 'dream', icon: 'cloudy-night-outline', text: t('home.actions.dream_analysis'), onPress: () => router.push("/dream") },
+    { key: 'ai_summary', icon: 'analytics-outline', text: t('home.actions.personal_report'), onPress: () => router.push("/ai_summary") },
+    { key: 'therapy', icon: 'chatbubble-outline', text: t('home.actions.chat'), onPress: () => router.push("/therapy/therapy_options") },
+    { key: 'transcripts', icon: 'time-outline', text: t('home.actions.past_chats'), onPress: () => router.push("/transcripts") },
   ];
 
   return (
@@ -41,7 +43,7 @@ export const HomeActions: React.FC<HomeActionsProps> = ({
         <ActionButton
           onPress={onReportPress}
           icon="sparkles-sharp"
-          text="Haftalık İçgörü Keşfin Hazır!"
+          text={t('home.actions.weekly_insight_ready')}
           isSpecial
         />
       )}
@@ -52,7 +54,7 @@ export const HomeActions: React.FC<HomeActionsProps> = ({
         <ActionButton
           onPress={onOnboardingInsightPress}
           icon="bulb-outline"
-          text="İlk Analizin Hazır!"
+          text={t('home.actions.first_analysis_ready')}
           isSpecial // Diğer özel buton gibi dikkat çekici olsun
         />
       )}
@@ -74,7 +76,7 @@ export const HomeActions: React.FC<HomeActionsProps> = ({
         style={styles.linkButton}
         onPress={() => router.push("/how_it_works")}
       >
-        <Text style={styles.linkText}>Terapiler nasıl işler?</Text>
+        <Text style={styles.linkText}>{t('home.actions.how_therapy_works')}</Text>
       </TouchableOpacity>
     </View>
   );

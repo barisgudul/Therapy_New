@@ -25,18 +25,6 @@
     "free_badge": "İlk analiz ücretsiz",
     "have_account": "Hesabım var"
   },
-  "mood_reveal": {
-    "continue_hint": "Devam etmek için dokun",
-    "pos_keywords": ["iyi","harika","mutlu","rahat","huzurlu","umut","sev","enerjik","şükür","başardım","güzel","başarı","ilerleme","odak","yaptım"],
-    "neg_keywords": ["kötü","üzgün","yorgun","stres","kaygı","anksiyete","korku","öfke","zor","ağrı","acı","bunalmış","bunalım","sıkılmış","tükenmiş","gergin","endişe","moralim bozuk"],
-    "very_bad": "Çok Kötü",
-    "bad": "Kötü",
-    "sad": "Üzgün",
-    "neutral": "Nötr",
-    "good": "İyi",
-    "great": "Harika",
-    "perfect": "Mükemmel"
-  },
   "softwall": {
     "title": "Analizin, potansiyelini aydınlatacak.",
     "subtitle": "Verdiğin cevaplarla hazırlanan kişisel analizini keşfetmeye hazırsan, bu ilk adımı atalım. Bu yolculukta yalnız değilsin.",
@@ -126,6 +114,141 @@
       "start_chat": "Sohbete Başla",
       "export_pdf": "PDF Olarak Dışa Aktar",
       "continue": "Devam Et"
+    }
+  },
+  "home": {
+    "illustration": {
+      "title": "Zihnine İyi Bak",
+      "subtitle": "Yapay zekâ destekli kör noktalarını keşfetmeyi deneyimle"
+    },
+    "actions": {
+      "daily_mood": "Bugün Nasıl Hissediyorsun?",
+      "diary": "Günlük",
+      "dream_analysis": "Rüya Analizi",
+      "personal_report": "Kişisel Rapor",
+      "chat": "Sohbet",
+      "past_chats": "Geçmiş Sohbetlerim",
+      "weekly_insight_ready": "Haftalık İçgörü Keşfin Hazır!",
+      "first_analysis_ready": "İlk Analizin Hazır!",
+      "how_therapy_works": "Terapiler nasıl işler?"
+    },
+    "feedback_modal": {
+      "title": "Günlük Yansıman",
+      "subtitle": "Bugünkü duygularına dair düşüncelerim",
+      "loading": "Yansımanız hazırlanıyor...",
+      "chat_button": "Sohbet Et",
+      "ok_button": "Tamamdır",
+      "satisfaction_question": "Bu yanıt nasıl? Geri bildiriminiz bizim için değerli."
+    },
+    "report_modal": {
+      "default_title": "Haftalık İçgörün",
+      "close_button": "Anladım"
+    }
+  },
+  "settings": {
+    "main": {
+      "title": "Hesap Kontrol Merkezi",
+      "editProfile": "Profili Düzenle",
+      "security": "Güvenlik",
+      "language": "Dil",
+      "dangerZone_title": "Tehlikeli Bölge",
+      "dangerZone_resetData": "Tüm Verileri Sıfırla",
+      "dangerZone_signOut": "Güvenli Çıkış",
+      "footer_version": "Gisbel. v1.0.0"
+    },
+    "language": {
+      "title": "Dil Seçimi",
+      "turkish": "Türkçe",
+      "english": "English",
+      "german": "Deutsch"
+    },
+    "profile": {
+      "title": "Profil & Tercihler",
+      "subtitle": "Yolculuğunu kendine özel kıl.",
+      "section_title": "Temel Bilgiler",
+      "name_label": "İsim",
+      "name_placeholder": "Size nasıl hitap etmemizi istersiniz?",
+      "relationship_label": "İlişki Durumu",
+      "relationship_single": "Bekarım",
+      "relationship_in_relationship": "İlişkim var",
+      "relationship_married": "Evliyim",
+      "relationship_complicated": "Karışık",
+      "save_button": "Değişiklikleri Kaydet",
+      "plan_current": "{{planName}} Plan",
+      "plan_subtitle_premium": "Tüm ayrıcalıklara sahipsin",
+      "plan_subtitle_free": "Daha fazla özellik için yükselt",
+      "toast_name_required": "İsim alanı boş bırakılamaz.",
+      "toast_success_title": "Başarılı!",
+      "toast_success_body": "Profilin güncellendi.",
+      "toast_error_title": "Hata",
+      "toast_error_body": "Profil güncellenirken bir sorun oluştu.",
+      "error_loading": "Profil yüklenemedi. Lütfen tekrar deneyin."
+    },
+    "security": {
+      "title": "Güvenlik Kontrol Paneli",
+      "subtitle": "Hesap güvenliğinizi buradan yönetin ve izleyin.",
+      "section_overview": "Genel Bakış",
+      "login_methods": "Giriş Yöntemleri",
+      "section_password": "Şifre Yönetimi",
+      "change_password": "Şifreyi Değiştir",
+      "section_sessions": "Aktif Oturumlar",
+      "this_device": "Bu Cihaz",
+      "current_location": "Mevcut Konum",
+      "now": "Şimdi",
+      "active_session": "(Aktif Oturum)",
+      "sign_out": "Çıkış Yap",
+      "alert_signOut_title": "Çıkış Yap",
+      "alert_signOut_body": "Bu cihazdaki oturumunuzu sonlandırmak istediğinizden emin misiniz?",
+      "alert_cancel": "Vazgeç",
+      "alert_error": "Hata"
+    },
+    "password": {
+      "title": "Şifre Güncelleme",
+      "subtitle": "Hesap güvenliğinizi en üst düzeyde tutun.",
+      "current_password_label": "Mevcut Şifre",
+      "new_password_label": "Yeni Şifre",
+      "confirm_password_label": "Yeni Şifre (Tekrar)",
+      "placeholder_current": "••••••••",
+      "placeholder_new": "En az 8 güçlü karakter",
+      "placeholder_confirm": "Yeni şifrenizi onaylayın",
+      "submit_button": "Şifreyi Güvenle Değiştir",
+      "alert_missing_fields_title": "Eksik Alanlar",
+      "alert_missing_fields_body": "Lütfen tüm alanları doldurun.",
+      "alert_mismatch_title": "Şifreler Uyuşmuyor",
+      "alert_mismatch_body": "Girdiğiniz yeni şifreler eşleşmiyor.",
+      "alert_weak_title": "Zayıf Şifre",
+      "alert_weak_body": "Şifre en az 8 karakter olmalı, büyük/küçük harf ve rakam içermelidir.",
+      "alert_same_title": "Aynı Şifre",
+      "alert_same_body": "Yeni şifreniz, mevcut şifrenizle aynı olamaz.",
+      "error_auth": "Kullanıcı kimliği doğrulanamadı.",
+      "error_wrong_password": "Mevcut şifreniz yanlış. Lütfen kontrol ediniz.",
+      "alert_success_title": "Başarılı",
+      "alert_success_body": "Şifreniz güvenle değiştirildi.",
+      "alert_success_button": "Harika",
+      "alert_error_title": "Bir Hata Oluştu",
+      "error_unexpected": "Beklenmedik bir hata oluştu"
+    },
+    "subscription": {
+      "title": "Potansiyelini Ortaya Çıkar",
+      "subtitle": "Sınırsız erişim ile zihinsel sağlık yolculuğunda yeni bir sayfa aç.",
+      "toast_success_title": "Simülasyon Başarılı!",
+      "toast_success_body": "Tebrikler, {{planName}} planına geçtiniz.",
+      "toast_error_title": "Hata",
+      "toast_error_body": "Bir sorun oluştu.",
+      "feature_text_sessions": "Metin Seansları",
+      "feature_voice_sessions": "Sesli Seanslar",
+      "feature_dream_analysis": "Rüya Analizi",
+      "feature_ai_reports": "AI Raporları",
+      "feature_therapist_selection": "Terapist Seçimi",
+      "feature_session_history": "Seans Geçmişi",
+      "feature_pdf_export": "PDF Export",
+      "feature_priority_support": "Öncelikli Destek"
+    },
+    "featuredCard": {
+      "premium_label": "{{planName}} Planı Aktif",
+      "premium_subtitle": "Tüm ayrıcalıklardan yararlanıyorsun",
+      "free_label": "Potansiyelinin Kilidini Aç",
+      "free_subtitle": "Tüm özelliklere sınırsız erişimle tanış"
     }
   }
 }

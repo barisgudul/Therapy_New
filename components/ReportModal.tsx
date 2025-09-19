@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import Markdown from "react-native-markdown-display"; // SIHIRLI PARÇA
 import Modal from "react-native-modal"; // react-native'in değil, bu kütüphanenin modalı
+import { useTranslation } from "react-i18next";
 import { Colors } from "../constants/Colors"; // Renklerini import et
 import { markReportAsRead, UserReport } from "../services/report.service";
 
@@ -19,6 +20,8 @@ interface Props {
 }
 
 const ReportModal = ({ isVisible, onClose, report }: Props) => {
+    const { t } = useTranslation();
+
     // === DOĞRU YÖNTEM: YAN ETKİ YÖNETİMİ ===
     // Modalın "görünür" olması durumuna (state) bir yan etki (side effect) bağlıyoruz.
     // Kullanıcının ne yaptığı (butona mı bastı, aşağı mı kaydırdı) umrumuzda değil.
@@ -48,7 +51,7 @@ const ReportModal = ({ isVisible, onClose, report }: Props) => {
                 {/* Başlık */}
                 <View style={styles.header}>
                     <Text style={styles.title}>
-                        {report.report_title || "Haftalık İçgörün"}
+                        {report.report_title || t('home.report_modal.default_title')}
                     </Text>
                 </View>
 
@@ -68,7 +71,7 @@ const ReportModal = ({ isVisible, onClose, report }: Props) => {
                         style={styles.closeButton}
                         onPress={onClose}
                     >
-                        <Text style={styles.closeButtonText}>Anladım</Text>
+                        <Text style={styles.closeButtonText}>{t('home.report_modal.close_button')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

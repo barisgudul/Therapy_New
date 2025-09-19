@@ -1,22 +1,21 @@
-// app.config.js - DÜZELTİLMİŞ VE TAM HALİ
+// app.config.js - YENİDEN MARKALANMIŞ VE TEMİZLENMİŞ VERSİYON
 import process from "node:process";
 
 export default {
   expo: {
-    name: 'Therapy_New',
-    slug: 'therapynew',
+    name: 'Gisbel',                                 // DEĞİŞTİ
+    slug: 'gisbel',                                 // DEĞİŞTİ
     version: '1.0.0',
     orientation: 'portrait',
-    icon: './assets/images/icon.png',
-    scheme: 'therapy',
+    icon: './assets/logo.png',
+    scheme: 'gisbel',                               // DEĞİŞTİ
     userInterfaceStyle: 'automatic',
     newArchEnabled: true,
 
-    // IOS ve ANDROID için özel ayarlar
     ios: {
       supportsTablet: true,
       infoPlist: {ITSAppUsesNonExemptEncryption: false},
-      bundleIdentifier: "com.barisgudul.TherapyNew"
+      bundleIdentifier: "com.barisgudul.gisbel"     // DEĞİŞTİ VE STANDARTLAŞTIRILDI
     },
     android: {
       adaptiveIcon: {
@@ -24,8 +23,7 @@ export default {
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
-      // --- BU SATIR EKLENDİ ---
-      package: "com.barisgudul.TherapyNew"
+      package: "com.barisgudul.gisbel"              // DEĞİŞTİ VE STANDARTLAŞTIRILDI
     },
     web: {
       bundler: 'metro',
@@ -33,7 +31,6 @@ export default {
       favicon: './assets/images/favicon.png',
     },
 
-    // TÜM PLUGIN'LER BURADA BİRLEŞTİRİLDİ
     plugins: [
       'expo-router',
       [
@@ -49,15 +46,13 @@ export default {
       'expo-localization',
     ],
 
-    // Typed Routes deneyi
     experiments: {
       typedRoutes: true,
     },
 
-    // SENİN GİZLİ ANAHTARLARIN BURADA GÜVENDE
     extra: {
       eas: {
-        projectId: "56e80492-e055-42f0-b974-5007f88c7a8c" 
+        projectId: "56e80492-e055-42f0-b974-5007f88c7a8c"
       },
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

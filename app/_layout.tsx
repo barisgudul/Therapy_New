@@ -1,7 +1,9 @@
 // app/_layout.tsx --- KESİN VE NİHAİ VERSİYON
 
-import "../utils/i18n"; // <-- BU SATIRI EN ÜSTE EKLE
 import "react-native-get-random-values";
+import "expo-standard-web-crypto";
+import * as WebBrowser from "expo-web-browser";
+import "../utils/i18n"; // i18n polyfill'lerden SONRA gelmeli
 import "react-native-reanimated";
 
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
@@ -21,7 +23,7 @@ import UndoToast from "../components/dream/UndoToast";
 import { AuthProvider, useAuth } from "../context/Auth";
 import { LoadingProvider } from "../context/Loading";
 import { useOnboardingStore } from "../store/onboardingStore";
-
+WebBrowser.maybeCompleteAuthSession();
 const queryClient = new QueryClient();
 
 // ESKİ VE YENİ DÜNYAYI BİRLEŞTİRİYORUZ
