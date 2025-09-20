@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router/';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { COSMIC_COLORS } from '../../constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorStateProps {
   message: string;
@@ -13,13 +14,14 @@ interface ErrorStateProps {
 
 export default function ErrorState({ message, showBackButton = true }: ErrorStateProps) {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <LinearGradient colors={COSMIC_COLORS.background} style={styles.container}>
       <Text style={styles.errorText}>{message}</Text>
       {showBackButton && (
         <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>Geri Dön</Text>
+          <Text style={styles.backButtonText}>{t('dream.components.errorState.back')}</Text>
         </TouchableOpacity>
       )}
     </LinearGradient>

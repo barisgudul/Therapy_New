@@ -23,6 +23,8 @@ import { COSMIC_COLORS } from "../../../constants/Colors";
 import { useVault } from "../../../hooks/useVault";
 import { canUserAnalyzeDream } from "../../../services/event.service";
 import { supabase } from "../../../utils/supabase";
+import { useTranslation } from "react-i18next";
+import i18n from "../../../utils/i18n";
 
 export default function AnalyzeDreamScreen() {
   const [dream, setDream] = useState("");
@@ -30,6 +32,7 @@ export default function AnalyzeDreamScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   // ADIM 2'DEKİ DÜZELTME: Vault verisini baştan alıyoruz.
   const { data: _vault, isLoading: isVaultLoading } = useVault();
@@ -50,7 +53,7 @@ export default function AnalyzeDreamScreen() {
 
       const eventPayload = {
         type: "dream_analysis" as const,
-        data: { dreamText: dream.trim() },
+        data: { dreamText: dream.trim(), language: i18n.language },
       };
 
       // processUserEvent, "dream_analysis" eventinde string eventId döndürmeli.
@@ -81,21 +84,21 @@ export default function AnalyzeDreamScreen() {
 
       Toast.show({
         type: "success",
-        text1: "Analiz Başarılı!",
-        text2: "Sonuçlar yükleniyor...",
+        text1: t("dream.analyze.toast_success_title"),
+        text2: t("dream.analyze.toast_success_body"),
       });
     },
 
     // HATA DURUMU: Gelen hatayı olduğu gibi basma, anlaşılır hale getir.
     onError: (e: Error) => {
-      setError(e.message || "Beklenmedik bir hata oluştu.");
-      if ((e.message || "").includes("limitinize ulaştınız")) {
-        Toast.show({ type: "info", text1: "Limit Doldu", text2: e.message });
+      setError(e.message || t("dream.analyze.toast_error_body"));
+      if ((e.message || "").toLowerCase().includes("limit")) {
+        Toast.show({ type: "info", text1: t("dream.analyze.toast_limit_title"), text2: e.message });
       } else {
         Toast.show({
           type: "error",
-          text1: "Analiz Başarısız Oldu",
-          text2: e.message || "Lütfen daha sonra tekrar deneyin.",
+          text1: t("dream.analyze.toast_error_title"),
+          text2: e.message || t("dream.analyze.toast_error_body"),
         });
       }
     },
@@ -133,9 +136,9 @@ export default function AnalyzeDreamScreen() {
           >
           <MotiView from={{ opacity: 0, translateY: -10 }} animate={{ opacity: 1, translateY: 0 }}>
             <Ionicons name="moon-outline" size={36} color={COSMIC_COLORS.accent} style={styles.moonIcon} />
-            <Text style={styles.headerTitle}>Yeni Rüya</Text>
+            <Text style={styles.headerTitle}>{t("dream.analyze.header_title")}</Text>
             <Text style={styles.headerSubtext}>
-              Zihninizin derinliklerinden gelen mesajı yazın.
+              {t("dream.analyze.header_subtext")}
             </Text>
           </MotiView>
 
@@ -143,7 +146,7 @@ export default function AnalyzeDreamScreen() {
             <View style={styles.inputCard}>
               <TextInput
                 style={styles.input}
-                placeholder="Gecenin sessizliğinde zihnimde belirenler..."
+                placeholder={t("dream.analyze.placeholder")}
                 placeholderTextColor={COSMIC_COLORS.textSecondary}
                 multiline
                 value={dream}
@@ -153,7 +156,7 @@ export default function AnalyzeDreamScreen() {
               />
             </View>
             <View style={styles.metaRow}>
-              <Text style={styles.helperText}>Özel kalır, sadece analiz için kullanılır.</Text>
+              <Text style={styles.helperText}>{t("dream.analyze.helper_privacy")}</Text>
               <Text style={styles.counter}>{trimmedLen}/{MIN_LEN}</Text>
             </View>
           </MotiView>
@@ -184,7 +187,7 @@ export default function AnalyzeDreamScreen() {
                 {analyzeMutation.isPending ? (
                   <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
                 ) : (
-                  <Text style={styles.analyzeButtonText}>Analiz Et</Text>
+                  <Text style={styles.analyzeButtonText}>{t("dream.analyze.button_analyze")}</Text>
                 )}
               </LinearGradient>
             </TouchableOpacity>

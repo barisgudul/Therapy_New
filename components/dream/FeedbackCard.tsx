@@ -4,6 +4,7 @@ import { MotiView } from 'moti';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COSMIC_COLORS } from '../../constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 interface FeedbackCardProps {
   isSubmitting: boolean;
@@ -12,6 +13,7 @@ interface FeedbackCardProps {
 }
 
 export default function FeedbackCard({ isSubmitting, feedbackSent, onSubmitFeedback }: FeedbackCardProps) {
+  const { t } = useTranslation();
   return (
     <MotiView
       style={styles.card}
@@ -21,17 +23,17 @@ export default function FeedbackCard({ isSubmitting, feedbackSent, onSubmitFeedb
     >
       <View style={styles.cardHeader}>
         <Ionicons name="stats-chart-outline" size={24} color={COSMIC_COLORS.accent} />
-        <Text style={styles.cardTitle}>Geri Bildirim</Text>
+        <Text style={styles.cardTitle}>{t('dream.components.feedback.title')}</Text>
       </View>
 
       {feedbackSent ? (
         <View style={styles.thankYouContainer}>
           <Ionicons name="checkmark-circle-outline" size={24} color="#34D399" />
-          <Text style={styles.thankYouText}>Geri bildiriminiz için teşekkürler!</Text>
+          <Text style={styles.thankYouText}>{t('dream.components.feedback.thanks')}</Text>
         </View>
       ) : (
         <>
-          <Text style={styles.cardText}>Bu analizi ve kurulan bağlantıları faydalı buldunuz mu?</Text>
+          <Text style={styles.cardText}>{t('dream.components.feedback.question')}</Text>
           <View style={styles.buttonContainer}>
             {isSubmitting ? (
               <ActivityIndicator color={COSMIC_COLORS.accent} />

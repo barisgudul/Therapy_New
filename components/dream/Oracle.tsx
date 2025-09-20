@@ -18,6 +18,7 @@ import { COSMIC_COLORS } from "../../constants/Colors";
 import { generateSilentOracle } from "../../services/prompt.service";
 import type { OracleOutput } from "../../services/prompt.service";
 import DreamSigil from "./Sigil";
+import { useTranslation } from "react-i18next";
 
 // State yönetimi aynı, dokunmuyoruz.
 type OracleState =
@@ -52,6 +53,7 @@ interface OracleProps {
 }
 
 export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, initialData, onSaveResult }: OracleProps) {
+    const { t, i18n } = useTranslation();
     const initialState: OracleState = initialData ? { status: "success", data: initialData } : { status: "idle" };
     const [state, dispatch] = useReducer(oracleReducer, initialState);
     const tapAnimation = useSharedValue(0);
@@ -62,11 +64,11 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
         tapAnimation.value = withTiming(1, { duration: 600 });
         try {
             const inputs = { dreamTheme, pastLink, blindSpot, goldenThread };
-            const output = await generateSilentOracle(inputs);
+            const output = await generateSilentOracle(inputs, i18n.language);
             dispatch({ type: "RESOLVE", payload: output });
             onSaveResult?.(output);
         } catch (_error) {
-            dispatch({ type: "REJECT", payload: "Analiz şu an mümkün değil. Lütfen daha sonra tekrar dene." });
+            dispatch({ type: "REJECT", payload: t('dream.components.oracle.error_generic') });
         }
     };
 
@@ -84,7 +86,7 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
             {/* 🔥 DEĞİŞİKLİK 1: İKON VE BAŞLIK GÜNCELLENDİ 🔥 */}
             <View style={styles.cardHeader}>
                 <Ionicons name="telescope-outline" size={24} color={COSMIC_COLORS.accent} />
-                <Text style={styles.cardTitle}>Daha Derine İn</Text>
+                <Text style={styles.cardTitle}>{t('dream.components.oracle.title')}</Text>
             </View>
 
             <View style={styles.contentContainer}>
@@ -92,7 +94,7 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
                     <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
                         {/* 🔥 DEĞİŞİKLİK 2: ALT BAŞLIK VE BUTON METNİ GÜNCELLENDİ 🔥 */}
                         <Text style={styles.subtitle}>
-                            Yüzeyin altındaki gizli bağlantıları ve eylem adımlarını gör.
+                            {t('dream.components.oracle.subtitle')}
                         </Text>
                         <TouchableOpacity
                             style={styles.buttonContainer}
@@ -105,7 +107,7 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
                                 end={{ x: 1, y: 0.5 }}
                                 style={styles.button}
                             >
-                                <Text style={styles.buttonText}>Keşfet</Text>
+                                <Text style={styles.buttonText}>{t('dream.components.oracle.explore')}</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </MotiView>
@@ -114,7 +116,7 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
                 {state.status === "loading" && (
                      <View style={styles.centered}>
                         <ActivityIndicator color={COSMIC_COLORS.accent} size="small" />
-                        <Text style={styles.loadingText}>Analiz ediliyor...</Text>
+                        <Text style={styles.loadingText}>{t('dream.components.oracle.loading')}</Text>
                     </View>
                 )}
 
@@ -123,7 +125,7 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
                         <Text style={styles.errorText}>{state.message}</Text>
                         <TouchableOpacity style={styles.buttonContainer} onPress={handleFetchOracle} activeOpacity={0.8}>
                             <LinearGradient colors={COSMIC_COLORS.accentGradient} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.button}>
-                                <Text style={styles.buttonText}>Tekrar Dene</Text>
+                                <Text style={styles.buttonText}>{t('dream.components.oracle.retry')}</Text>
                             </LinearGradient>
                         </TouchableOpacity>
                     </MotiView>

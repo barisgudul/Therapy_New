@@ -6,12 +6,14 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Markdown from 'react-native-markdown-display'; // <-- TERCÜMANI IMPORT ET
 import { COSMIC_COLORS } from '../../constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 interface InterpretationCardProps {
   interpretation?: string;
 }
 
 export default function InterpretationCard({ interpretation }: InterpretationCardProps) {
+  const { t } = useTranslation();
   if (!interpretation) {
     return null; 
   }
@@ -20,7 +22,7 @@ export default function InterpretationCard({ interpretation }: InterpretationCar
     <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 300 }}>
       <View style={styles.cardHeader}>
         <Ionicons name="compass-outline" size={24} color={COSMIC_COLORS.accent} />
-        <Text style={styles.cardTitle}>Derinlemesine Yorum</Text>
+        <Text style={styles.cardTitle}>{t('dream.components.interpretation.title')}</Text>
       </View>
       
       {/* ESKİ <Text> GİTTİ, YERİNE <Markdown> GELDİ */}

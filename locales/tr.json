@@ -145,6 +145,66 @@
       "close_button": "Anladım"
     }
   },
+  "dream": {
+    "index": {
+      "header_title": "Rüya Günlüğü",
+      "header_subtitle": "Bilinçaltını analizlerle keşfet.",
+      "empty_title": "Henüz analiz edilmiş bir rüya yok.",
+      "empty_subtext": "Aşağıdaki butona dokunarak ilk rüya analizinizi alın.",
+      "new_button": "Yeni Rüya Analizi",
+      "card_untitled": "Başlıksız Rüya",
+      "delete_error_title": "Hata",
+      "delete_error_body": "Rüya silinirken bir sorun oluştu."
+    },
+    "analyze": {
+      "header_title": "Yeni Rüya",
+      "header_subtext": "Zihninin derinliklerinden gelen mesajı yaz.",
+      "placeholder": "Gecenin sessizliğinde zihnimde belirenler...",
+      "helper_privacy": "Özel kalır, sadece analiz için kullanılır.",
+      "button_analyze": "Analiz Et",
+      "toast_success_title": "Analiz Başarılı!",
+      "toast_success_body": "Sonuçlar yükleniyor...",
+      "toast_limit_title": "Limit Doldu",
+      "toast_error_title": "Analiz Başarısız Oldu",
+      "toast_error_body": "Lütfen daha sonra tekrar deneyin.",
+      "error_too_short": "Lütfen rüyanı biraz daha detaylı anlat.",
+      "error_limit_reached": "Günlük rüya analizi limitine ulaştın."
+    },
+    "result": {
+      "error_loading": "Analiz yüklenemedi.",
+      "error_not_found": "Analiz bulunamadı.",
+      "header_untitled": "Başlıksız Analiz"
+    },
+    "components": {
+      "summary": { "title": "Genel Özet" },
+      "themes": { "title": "Ana Temalar" },
+      "interpretation": { "title": "Derinlemesine Yorum" },
+      "cross": { "title": "Geçmişten Gelen Yankılar" },
+      "feedback": {
+        "title": "Geri Bildirim",
+        "question": "Bu analizi ve kurulan bağlantıları faydalı buldun mu?",
+        "thanks": "Geri bildirimin için teşekkürler!",
+        "toast_success": "Geri bildirimin kaydedildi!",
+        "toast_error_title": "Hata"
+      },
+      "oracle": {
+        "title": "Daha Derine İn",
+        "subtitle": "Yüzeyin altındaki gizli bağlantıları ve eylem adımlarını gör.",
+        "explore": "Keşfet",
+        "retry": "Tekrar Dene",
+        "loading": "Analiz ediliyor...",
+        "error_generic": "Analiz şu an mümkün değil. Lütfen daha sonra tekrar dene.",
+        "toast_save_error_title": "Hata",
+        "toast_save_error_body": "Derin analiz sonucu kaydedilemedi."
+      },
+      "errorState": { "back": "Geri Dön" },
+      "undoToast": {
+        "title": "Rüya Silindi",
+        "subtitle": "İşlem geri alınabilir.",
+        "undo": "Geri Al"
+      }
+    }
+  },
   "settings": {
     "main": {
       "title": "Hesap Kontrol Merkezi",

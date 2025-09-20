@@ -91,7 +91,10 @@ export async function handleDreamAnalysis(
     );
   }
 
-  const { dreamText } = context.initialEvent.data as { dreamText?: string };
+  const { dreamText, language } = context.initialEvent.data as {
+    dreamText?: string;
+    language?: string;
+  };
 
   if (
     !dreamText || typeof dreamText !== "string" || dreamText.trim().length < 10
@@ -114,7 +117,7 @@ export async function handleDreamAnalysis(
     userDossier,
     ragContext,
     dreamText,
-  });
+  }, language ?? "en");
 
   // 3. AI'YI ÇAĞIR
   const rawResponse = await AiService.invokeGemini(
@@ -149,6 +152,7 @@ export async function handleDreamAnalysis(
         dreamText,
         analysis: analysisData,
         dialogue: [],
+        language: language ?? "en",
       },
     }, { onConflict: "user_id,transaction_id" })
     .select("id")

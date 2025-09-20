@@ -144,6 +144,66 @@
       "close_button": "Understood"
     }
   },
+  "dream": {
+    "index": {
+      "header_title": "Dream Journal",
+      "header_subtitle": "Explore your subconscious with analyses.",
+      "empty_title": "No analyzed dreams yet.",
+      "empty_subtext": "Tap the button below to get your first dream analysis.",
+      "new_button": "New Dream Analysis",
+      "card_untitled": "Untitled Dream",
+      "delete_error_title": "Error",
+      "delete_error_body": "An issue occurred while deleting the dream."
+    },
+    "analyze": {
+      "header_title": "New Dream",
+      "header_subtext": "Write the message emerging from your mind's depths.",
+      "placeholder": "In the silence of the night, what emerged in my mind...",
+      "helper_privacy": "Stays private, only used for analysis.",
+      "button_analyze": "Analyze",
+      "toast_success_title": "Analysis Successful!",
+      "toast_success_body": "Loading results...",
+      "toast_limit_title": "Limit Reached",
+      "toast_error_title": "Analysis Failed",
+      "toast_error_body": "Please try again later.",
+      "error_too_short": "Please describe your dream in more detail.",
+      "error_limit_reached": "You have reached the daily dream analysis limit."
+    },
+    "result": {
+      "error_loading": "Failed to load analysis.",
+      "error_not_found": "Analysis not found.",
+      "header_untitled": "Untitled Analysis"
+    },
+    "components": {
+      "summary": { "title": "Summary" },
+      "themes": { "title": "Key Themes" },
+      "interpretation": { "title": "In-depth Interpretation" },
+      "cross": { "title": "Echoes from the Past" },
+      "feedback": {
+        "title": "Feedback",
+        "question": "Did you find this analysis and connections useful?",
+        "thanks": "Thanks for your feedback!",
+        "toast_success": "Your feedback has been saved!",
+        "toast_error_title": "Error"
+      },
+      "oracle": {
+        "title": "Go Deeper",
+        "subtitle": "See hidden links and action steps beneath the surface.",
+        "explore": "Explore",
+        "retry": "Try Again",
+        "loading": "Analyzing...",
+        "error_generic": "Analysis is not possible right now. Please try again later.",
+        "toast_save_error_title": "Error",
+        "toast_save_error_body": "Deep analysis result could not be saved."
+      },
+      "errorState": { "back": "Go Back" },
+      "undoToast": {
+        "title": "Dream Deleted",
+        "subtitle": "This action can be undone.",
+        "undo": "Undo"
+      }
+    }
+  },
   "settings": {
     "main": {
       "title": "Account Control Center",

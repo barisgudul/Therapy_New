@@ -5,6 +5,7 @@ import { MotiView } from 'moti';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { COSMIC_COLORS } from '../../constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 // Bu component'in dışarıdan hangi veriyi alacağını tanımla
 interface SummaryCardProps {
@@ -12,6 +13,7 @@ interface SummaryCardProps {
 }
 
 export default function SummaryCard({ summary }: SummaryCardProps) {
+  const { t } = useTranslation();
   // Eğer özet yoksa, bu kartı hiç gösterme (veya bir "veri yok" mesajı göster)
   if (!summary) {
     return null; 
@@ -22,7 +24,7 @@ export default function SummaryCard({ summary }: SummaryCardProps) {
     <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 100 }}>
       <View style={styles.cardHeader}>
         <Ionicons name="sparkles-outline" size={24} color={COSMIC_COLORS.accent} />
-        <Text style={styles.cardTitle}>Genel Özet</Text>
+        <Text style={styles.cardTitle}>{t('dream.components.summary.title')}</Text>
       </View>
       <Text style={styles.cardText}>{summary}</Text>
     </MotiView>

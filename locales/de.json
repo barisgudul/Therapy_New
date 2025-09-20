@@ -144,6 +144,66 @@
       "close_button": "Verstanden"
     }
   },
+  "dream": {
+    "index": {
+      "header_title": "Traum-Tagebuch",
+      "header_subtitle": "Erkunde dein Unterbewusstsein mit Analysen.",
+      "empty_title": "Noch keine analysierten Träume.",
+      "empty_subtext": "Tippe unten auf die Schaltfläche, um deine erste Traumanalyse zu erhalten.",
+      "new_button": "Neue Traumanalyse",
+      "card_untitled": "Ohne Titel",
+      "delete_error_title": "Fehler",
+      "delete_error_body": "Beim Löschen des Traums ist ein Problem aufgetreten."
+    },
+    "analyze": {
+      "header_title": "Neuer Traum",
+      "header_subtext": "Schreibe die Botschaft, die aus den Tiefen deines Geistes auftaucht.",
+      "placeholder": "In der Stille der Nacht tauchte in meinem Geist auf...",
+      "helper_privacy": "Bleibt privat, nur für die Analyse verwendet.",
+      "button_analyze": "Analysieren",
+      "toast_success_title": "Analyse erfolgreich!",
+      "toast_success_body": "Ergebnisse werden geladen...",
+      "toast_limit_title": "Limit erreicht",
+      "toast_error_title": "Analyse fehlgeschlagen",
+      "toast_error_body": "Bitte versuche es später erneut.",
+      "error_too_short": "Bitte beschreibe deinen Traum etwas detaillierter.",
+      "error_limit_reached": "Du hast das tägliche Limit für Traumanalysen erreicht."
+    },
+    "result": {
+      "error_loading": "Analyse konnte nicht geladen werden.",
+      "error_not_found": "Analyse nicht gefunden.",
+      "header_untitled": "Analyse ohne Titel"
+    },
+    "components": {
+      "summary": { "title": "Zusammenfassung" },
+      "themes": { "title": "Hauptthemen" },
+      "interpretation": { "title": "Tiefgehende Interpretation" },
+      "cross": { "title": "Echos aus der Vergangenheit" },
+      "feedback": {
+        "title": "Feedback",
+        "question": "Fandest du diese Analyse und die Verbindungen hilfreich?",
+        "thanks": "Danke für dein Feedback!",
+        "toast_success": "Dein Feedback wurde gespeichert!",
+        "toast_error_title": "Fehler"
+      },
+      "oracle": {
+        "title": "Geh tiefer",
+        "subtitle": "Sieh verborgene Verbindungen und Handlungsschritte unter der Oberfläche.",
+        "explore": "Entdecken",
+        "retry": "Erneut versuchen",
+        "loading": "Wird analysiert...",
+        "error_generic": "Analyse ist derzeit nicht möglich. Bitte versuche es später erneut.",
+        "toast_save_error_title": "Fehler",
+        "toast_save_error_body": "Tiefenanalyse-Ergebnis konnte nicht gespeichert werden."
+      },
+      "errorState": { "back": "Zurück" },
+      "undoToast": {
+        "title": "Traum gelöscht",
+        "subtitle": "Aktion kann rückgängig gemacht werden.",
+        "undo": "Rückgängig"
+      }
+    }
+  },
   "settings": {
     "main": {
       "title": "Konto-Kontrollzentrum",

@@ -5,6 +5,7 @@ import { MotiView } from 'moti';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { COSMIC_COLORS } from '../../constants/Colors';
+import { useTranslation } from 'react-i18next';
 
 // Bu component'in dışarıdan hangi veriyi alacağını tanımla
 interface ThemesCardProps {
@@ -12,6 +13,7 @@ interface ThemesCardProps {
 }
 
 export default function ThemesCard({ themes }: ThemesCardProps) {
+  const { t } = useTranslation();
   // Eğer temalar yoksa, bu kartı hiç gösterme
   if (!themes || themes.length === 0) {
     return null; 
@@ -21,7 +23,7 @@ export default function ThemesCard({ themes }: ThemesCardProps) {
     <MotiView style={styles.card} from={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 200 }}>
       <View style={styles.cardHeader}>
         <Ionicons name="key-outline" size={22} color={COSMIC_COLORS.accent} />
-        <Text style={styles.cardTitle}>Ana Temalar</Text>
+        <Text style={styles.cardTitle}>{t('dream.components.themes.title')}</Text>
       </View>
       <View style={styles.tagsContainer}>
         {themes.map((tag: string) => (

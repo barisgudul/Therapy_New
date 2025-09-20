@@ -5,6 +5,7 @@ import { MotiView } from "moti";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { COSMIC_COLORS } from "../../constants/Colors";
+import { useTranslation } from "react-i18next";
 
 // Component'in dışarıdan alacağı veri tipleri
 interface Connection {
@@ -19,6 +20,7 @@ interface CrossConnectionsCardProps {
 export default function CrossConnectionsCard(
     { connections }: CrossConnectionsCardProps,
 ) {
+    const { t } = useTranslation();
     if (!connections || connections.length === 0) {
         return null;
     }
@@ -36,7 +38,7 @@ export default function CrossConnectionsCard(
                     size={24}
                     color={COSMIC_COLORS.accent}
                 />
-                <Text style={styles.cardTitle}>Geçmişten Gelen Yankılar</Text>
+                <Text style={styles.cardTitle}>{t('dream.components.cross.title')}</Text>
             </View>
 
             <View style={styles.connectionsContainer}>

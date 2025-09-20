@@ -23,11 +23,14 @@ import SkeletonCard from "../../../components/dream/SkeletonCard.tsx";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { AppEvent, getDreamEvents } from "../../../services/event.service";
 import { supabase } from "../../../utils/supabase";
+import { useTranslation } from "react-i18next";
+import i18n from "../../../utils/i18n";
 
 export default function DreamJournalScreen() {
   const router = useRouter();
   const queryClient = useQueryClient(); // Query client'a erişim için
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   // YENİ: useInfiniteQuery ile sonsuz kaydırma
   const {
@@ -122,8 +125,8 @@ export default function DreamJournalScreen() {
       }
       Toast.show({
         type: "error",
-        text1: "Hata",
-        text2: "Rüya silinirken bir sorun oluştu.",
+        text1: t("dream.index.delete_error_title"),
+        text2: t("dream.index.delete_error_body"),
       });
     },
     onSettled: () => {
@@ -151,9 +154,9 @@ export default function DreamJournalScreen() {
         size={60}
         color={COSMIC_COLORS.textSecondary}
       />
-      <Text style={styles.emptyTitle}>Henüz analiz edilmiş bir rüya yok.</Text>
+      <Text style={styles.emptyTitle}>{t("dream.index.empty_title")}</Text>
       <Text style={styles.emptySubtext}>
-        Aşağıdaki butona dokunarak ilk rüya analizinizi alın.
+        {t("dream.index.empty_subtext")}
       </Text>
     </View>
   ), []);
@@ -175,10 +178,10 @@ export default function DreamJournalScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle} numberOfLines={1}>
             {(item.data.analysis as { title?: string })?.title ||
-              "Başlıksız Rüya"}
+              t("dream.index.card_untitled")}
           </Text>
           <Text style={styles.cardDate}>
-            {new Date(item.timestamp).toLocaleDateString("tr-TR", {
+            {new Date(item.timestamp).toLocaleDateString(i18n.language, {
               day: "numeric",
               month: "long",
             })}
@@ -215,9 +218,9 @@ export default function DreamJournalScreen() {
             />
           </TouchableOpacity>
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Rüya Günlüğü</Text>
+            <Text style={styles.headerTitle}>{t("dream.index.header_title")}</Text>
             <Text style={styles.headerSubtext}>
-              Bilinçaltınızı analizlerle keşfedin.
+              {t("dream.index.header_subtitle")}
             </Text>
           </View>
         </View>
@@ -265,7 +268,7 @@ export default function DreamJournalScreen() {
                 size={24}
                 color={COSMIC_COLORS.textPrimary}
               />
-              <Text style={styles.newDreamButtonText}>Yeni Rüya Analizi</Text>
+              <Text style={styles.newDreamButtonText}>{t("dream.index.new_button")}</Text>
             </View>
           </TouchableOpacity>
         </View>

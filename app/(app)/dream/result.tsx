@@ -27,6 +27,8 @@ import { getLatestAnalysisReport } from "../../../services/api.service";
 import { AppEvent, getEventById } from "../../../services/event.service";
 import { supabase } from "../../../utils/supabase";
 // SimulationCard kaldırıldı
+import { useTranslation } from "react-i18next";
+import i18n from "../../../utils/i18n";
 
 // Diyalog kartı kaldırıldı
 
@@ -38,6 +40,7 @@ export default function DreamResultScreen() {
     const queryClient = useQueryClient(); // Query Client'a erişim
     const scrollRef = useRef<ScrollView | null>(null);
     const isInitialLoad = useRef(true);
+    const { t } = useTranslation();
 
     // YENİ: TanStack Query ile birleşik veri (event + latest report)
     type CombinedDreamResult = {
@@ -168,11 +171,11 @@ export default function DreamResultScreen() {
     }
 
     if (isError) {
-        return <ErrorState message={error?.message || "Analiz yüklenemedi."} />;
+        return <ErrorState message={error?.message || t("dream.result.error_loading")} />;
     }
 
     if (!data) {
-        return <ErrorState message="Analiz bulunamadı." />;
+        return <ErrorState message={t("dream.result.error_not_found")} />;
     }
 
     const { event, report } = data;
@@ -219,7 +222,7 @@ export default function DreamResultScreen() {
                     >
                         <Text style={styles.headerDate}>
                             {new Date(event.timestamp).toLocaleDateString(
-                                "tr-TR",
+                                i18n.language,
                                 {
                                     day: "numeric",
                                     month: "long",
@@ -228,7 +231,7 @@ export default function DreamResultScreen() {
                             )}
                         </Text>
                         <Text style={styles.headerTitle}>
-                            {analysis?.title || "Başlıksız Analiz"}
+                            {analysis?.title || t("dream.result.header_untitled")}
                         </Text>
                     </MotiView>
 
@@ -252,13 +255,13 @@ export default function DreamResultScreen() {
                     <Oracle
                         dreamTheme={analysis?.themes?.[0] || "Kontrol Kaybı"}
                         pastLink={analysis?.crossConnections?.[0] ? `${analysis.crossConnections[0].connection}: ${analysis.crossConnections[0].evidence}` : (report?.content?.reportSections.goldenThread || analysis?.summary || analysis?.interpretation || "Geçmiş bir bağ")}
-                        blindSpot={report?.content?.reportSections.blindSpot || analysis?.interpretation || "zor konuşmadan kaçınma"}
-                        goldenThread={report?.content?.reportSections.goldenThread || analysis?.summary || analysis?.interpretation || "tekrar eden yönelim"}
+                        blindSpot={report?.content?.reportSections.blindSpot || analysis?.interpretation || "blind spot"}
+                        goldenThread={report?.content?.reportSections.goldenThread || analysis?.summary || analysis?.interpretation || "golden thread"}
                         initialData={oracleResult}
                         onSaveResult={(oracleData) => {
                             const writeId = event?.id;
                             if (!writeId) {
-                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Geçerli bir analiz ID bulunamadı.' });
+                                Toast.show({ type: 'error', text1: t('dream.components.oracle.toast_save_error_title'), text2: t('dream.components.oracle.toast_save_error_body') });
                                 return;
                             }
                             oracleMutation.mutate({ eventId: writeId, oracleData });
@@ -272,7 +275,7 @@ export default function DreamResultScreen() {
                         onSubmitFeedback={(score) => {
                             const writeId = event?.id;
                             if (!writeId) {
-                                Toast.show({ type: 'error', text1: 'Kayıt hatası', text2: 'Geçerli bir analiz ID bulunamadı.' });
+                                Toast.show({ type: 'error', text1: t('dream.components.oracle.toast_save_error_title'), text2: t('dream.components.oracle.toast_save_error_body') });
                                 return;
                             }
                             feedbackMutation.mutate({ eventId: writeId, score });
