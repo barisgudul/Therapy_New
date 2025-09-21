@@ -145,6 +145,41 @@
       "close_button": "Anladım"
     }
   },
+  "daily_reflection": {
+    "header_title": "Duygu Günlüğü",
+    "loading": "Yükleniyor...",
+    "premium": {
+      "title": "Günlük Limit Doldu",
+      "description": "Günde 1 duygu günlüğü yazabilirsin. Premium planla sınırsız günlük yazabilirsin.",
+      "usage_label": "Kullanım: {{used}}/{{limit}}",
+      "button": "Premium'a Geç"
+    },
+    "slider": {
+      "question": "Bugün nasıl hissediyorsun?"
+    },
+    "prompt": {
+      "placeholder": "Bugün'ün duygularını ve düşüncelerini buraya yaz..."
+    },
+    "input_modal": {
+      "title": "Bugün Nasılsın?",
+      "subtitle": "Duygularını ve düşüncelerini güvenle paylaş",
+      "placeholder": "İçinden geçenleri anlatmak ister misin?",
+      "submit": "Tamam"
+    },
+    "save": {
+      "button": "Günlüğü Tamamla",
+      "saving": "Kaydediliyor..."
+    },
+    "moods": [
+      "Çok Kötü",
+      "Kötü",
+      "İdare Eder",
+      "Normal",
+      "İyi",
+      "Harika",
+      "Muhteşem"
+    ]
+  },
   "dream": {
     "index": {
       "header_title": "Rüya Günlüğü",

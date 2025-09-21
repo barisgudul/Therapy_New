@@ -118,7 +118,8 @@ export function useDailyReflection() {
     async function saveSession() {
         if (!note || saving) return;
         setSaving(true);
-        setAiMessage("Size özel bir yansıma hazırlanıyor...");
+        // Boş bırak: FeedbackModal boş mesajda i18n'den 'home.feedback_modal.loading' gösterir
+        setAiMessage("");
         setFeedbackVisible(true);
 
         try {

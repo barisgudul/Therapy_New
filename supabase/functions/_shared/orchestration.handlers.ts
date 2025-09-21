@@ -236,9 +236,10 @@ export async function handleDailyReflection(
       "Missing transactionId; upsert will not dedupe.",
     );
   }
-  const { todayNote, todayMood } = context.initialEvent.data as {
+  const { todayNote, todayMood, language } = context.initialEvent.data as {
     todayNote?: string;
     todayMood?: string;
+    language?: string;
   };
 
   if (!todayNote || !todayMood) {
@@ -258,7 +259,7 @@ export async function handleDailyReflection(
     todayMood,
     todayNote,
     retrievedMemories,
-  });
+  }, language ?? "en");
 
   const aiJsonResponse = await AiService.invokeGemini(
     prompt,
@@ -311,6 +312,7 @@ export async function handleDailyReflection(
           conversationTheme,
           transactionId: context.transactionId,
           status: "processing",
+          language: language ?? "en",
         },
         mood: todayMood,
       }, { onConflict: "user_id,transaction_id" })

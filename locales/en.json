@@ -144,6 +144,41 @@
       "close_button": "Understood"
     }
   },
+  "daily_reflection": {
+    "header_title": "Daily Reflection",
+    "loading": "Loading...",
+    "premium": {
+      "title": "Daily Limit Reached",
+      "description": "You can write 1 mood entry per day. With Premium, you can write unlimited daily entries.",
+      "usage_label": "Usage: {{used}}/{{limit}}",
+      "button": "Upgrade to Premium"
+    },
+    "slider": {
+      "question": "How are you feeling today?"
+    },
+    "prompt": {
+      "placeholder": "Write your feelings and thoughts of today here..."
+    },
+    "input_modal": {
+      "title": "How Are You Today?",
+      "subtitle": "Share your feelings and thoughts safely",
+      "placeholder": "Would you like to share what's on your mind?",
+      "submit": "Done"
+    },
+    "save": {
+      "button": "Complete Journal",
+      "saving": "Saving..."
+    },
+    "moods": [
+      "Very Bad",
+      "Bad",
+      "So-so",
+      "Normal",
+      "Good",
+      "Great",
+      "Excellent"
+    ]
+  },
   "dream": {
     "index": {
       "header_title": "Dream Journal",

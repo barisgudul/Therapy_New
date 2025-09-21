@@ -24,17 +24,19 @@ import { MOOD_LEVELS} from "../../constants/dailyWrite.constants";
 import { useDailyReflection } from "../../hooks/useDailyReflection";
 import { styles } from "../../styles/dailyWrite.styles";
 import { interpolateColor } from "../../utils/color.utils";
+import { useTranslation } from "react-i18next";
 
 
 
 export default function DailyReflectionScreen() {
   const { state, handlers } = useDailyReflection();
   const [sliderWidth, setSliderWidth] = useState(0); // Slider genişliği için state
+  const { t } = useTranslation();
 
   if (state.freemium.loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Yükleniyor...</Text>
+        <Text>{t('daily_reflection.loading')}</Text>
       </View>
     );
   }
@@ -47,16 +49,16 @@ export default function DailyReflectionScreen() {
           <LinearGradient colors={["#6366F1", "#8B5CF6"]} style={styles.premiumCard}>
             <View style={styles.premiumHeader}>
               <Ionicons name="diamond" size={32} color="white" />
-              <Text style={styles.premiumTitle}>Günlük Limit Doldu</Text>
+              <Text style={styles.premiumTitle}>{t('daily_reflection.premium.title')}</Text>
             </View>
             <Text style={styles.premiumDescription}>
-              Günde 1 duygu günlüğü yazabilirsiniz. Premium planla sınırsız günlük yazabilirsiniz.
+              {t('daily_reflection.premium.description')}
             </Text>
             <Text style={styles.premiumUsage}>
-              Kullanım: {state.freemium.used_count}/{state.freemium.limit_count}
+              {t('daily_reflection.premium.usage_label', { used: state.freemium.used_count, limit: state.freemium.limit_count })}
             </Text>
             <TouchableOpacity style={styles.premiumButton} onPress={() => handlers.router.push("/subscription")}>
-              <Text style={styles.premiumButtonText}>Premium&apos;a Geç</Text>
+              <Text style={styles.premiumButtonText}>{t('daily_reflection.premium.button')}</Text>
               <Ionicons name="arrow-forward" size={20} color="#6366F1" />
             </TouchableOpacity>
           </LinearGradient>
@@ -90,7 +92,7 @@ export default function DailyReflectionScreen() {
   // Tek renk gereken yerler için (thumb, border vs.) başlangıç rengini kullanabiliriz
   const singleDynamicColor = dynamicStartColor;
 
-  const currentMood = MOOD_LEVELS[Math.round(state.moodValue)];
+  const currentMoodLabel = t(`daily_reflection.moods.${Math.round(state.moodValue)}`);
 
   // --- PİKSEL MÜKEMMELLİĞİ İÇİN SLIDER HESAPLAMASI ---
   // Bu değerler, slider thumb'ının görsel boyutuna ve component'in iç padding'ine göre ayarlandı.
@@ -135,15 +137,15 @@ export default function DailyReflectionScreen() {
       <Animated.View style={[styles.light, styles.light1, { transform: state.light1.getTranslateTransform() }]} />
       <Animated.View style={[styles.light, styles.light2, { transform: state.light2.getTranslateTransform() }]} />
 
-      <GradientHeader text="Duygu Günlüğü" colors={dynamicGradient} />
+      <GradientHeader text={t('daily_reflection.header_title')} colors={dynamicGradient} />
 
       <Animated.View style={[styles.container, state.fadeIn]}>
         <View style={styles.mainContent}>
           <BlurView intensity={50} tint="light" style={[styles.card, styles.moodCard, { borderColor: singleDynamicColor }]}>
-            <Text style={styles.title}>Bugün nasıl hissediyorsun?</Text>
+            <Text style={styles.title}>{t('daily_reflection.slider.question')}</Text>
             <View style={styles.moodBlock}>
               <GradientMoodImage colors={dynamicGradient} moodValue={state.moodValue} />
-              <GradientMoodLabel text={currentMood.label} colors={dynamicGradient} />
+              <GradientMoodLabel text={currentMoodLabel} colors={dynamicGradient} />
             </View>
           </BlurView>
           {/* --- SLIDER DEĞİŞİKLİĞİ --- */}
@@ -189,7 +191,7 @@ export default function DailyReflectionScreen() {
             <BlurView intensity={50} tint="light" style={[styles.card, styles.promptCard]}>
               <Ionicons name="create-outline" size={24} color={singleDynamicColor} />
               <Text numberOfLines={1} style={[styles.promptText, state.note && styles.promptFilled]}>
-                {state.note || "Bugün'ün duygularını ve düşüncelerini buraya yaz..."}
+                {state.note || t('daily_reflection.prompt.placeholder')}
               </Text>
             </BlurView>
           </TouchableOpacity>
@@ -206,7 +208,7 @@ export default function DailyReflectionScreen() {
           >
             <LinearGradient start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} colors={dynamicGradient} style={[styles.saveBtn, (!state.note || state.saving) && { opacity: 0.5 }]}>
               <Ionicons name="checkmark-circle-outline" size={24} color="#fff" />
-              <Text style={styles.saveText}>{state.saving ? "Kaydediliyor..." : "Günlüğü Tamamla"}</Text>
+              <Text style={styles.saveText}>{state.saving ? t('daily_reflection.save.saving') : t('daily_reflection.save.button')}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>

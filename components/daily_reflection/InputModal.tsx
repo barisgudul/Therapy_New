@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Modal from 'react-native-modal';
+import { useTranslation } from 'react-i18next';
 
 interface InputModalProps {
   isVisible: boolean;
@@ -25,6 +26,7 @@ export default function InputModal({
   onNoteChange,
   dynamicColor,
 }: InputModalProps) {
+  const { t } = useTranslation();
 
   return (
     <Modal
@@ -62,9 +64,9 @@ export default function InputModal({
                   </View>
               </View>
 
-              <Text style={styles.title}>Bugün Nasılsın?</Text>
+              <Text style={styles.title}>{t('daily_reflection.input_modal.title')}</Text>
               <Text style={styles.subtitle}>
-                Duygularını ve düşüncelerini güvenle paylaş
+                {t('daily_reflection.input_modal.subtitle')}
               </Text>
 
               {/* YENİ TASARIM: Gömülü ve çerçevesiz TextInput */}
@@ -74,7 +76,7 @@ export default function InputModal({
                   style={styles.textInput}
                   value={note}
                   onChangeText={onNoteChange}
-                  placeholder="İçinden geçenleri anlatmak ister misin?"
+                  placeholder={t('daily_reflection.input_modal.placeholder')}
                   placeholderTextColor="#9CA3AF"
                   multiline
                   autoFocus
@@ -99,7 +101,7 @@ export default function InputModal({
                       style={styles.primaryButtonGradient}
                     >
                       <Ionicons name="checkmark-circle-outline" size={20} color="#6B46C1" />
-                      <Text style={[styles.buttonText, styles.primaryButtonText]}>Tamam</Text>
+                      <Text style={[styles.buttonText, styles.primaryButtonText]}>{t('daily_reflection.input_modal.submit')}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
               </View>

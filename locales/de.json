@@ -144,6 +144,41 @@
       "close_button": "Verstanden"
     }
   },
+  "daily_reflection": {
+    "header_title": "Tägliche Reflexion",
+    "loading": "Wird geladen...",
+    "premium": {
+      "title": "Tageslimit erreicht",
+      "description": "Du kannst pro Tag 1 Stimmungseintrag schreiben. Mit Premium kannst du unbegrenzt Tagebucheinträge schreiben.",
+      "usage_label": "Nutzung: {{used}}/{{limit}}",
+      "button": "Auf Premium upgraden"
+    },
+    "slider": {
+      "question": "Wie fühlst du dich heute?"
+    },
+    "prompt": {
+      "placeholder": "Schreibe hier deine heutigen Gefühle und Gedanken..."
+    },
+    "input_modal": {
+      "title": "Wie geht es dir heute?",
+      "subtitle": "Teile deine Gefühle und Gedanken sicher",
+      "placeholder": "Möchtest du erzählen, was dir durch den Kopf geht?",
+      "submit": "Fertig"
+    },
+    "save": {
+      "button": "Tagebuch abschließen",
+      "saving": "Wird gespeichert..."
+    },
+    "moods": [
+      "Sehr schlecht",
+      "Schlecht",
+      "Geht so",
+      "Normal",
+      "Gut",
+      "Super",
+      "Großartig"
+    ]
+  },
   "dream": {
     "index": {
       "header_title": "Traum-Tagebuch",
