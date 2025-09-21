@@ -1,7 +1,8 @@
 // hooks/useSettings.ts
 import { useState } from "react";
 import { Alert } from "react-native";
-import { useRouter } from "expo-router";
+import i18n from "../utils/i18n";
+import { useRouter } from "expo-router/";
 import { signOut } from "../utils/auth";
 import { supabase } from "../utils/supabase";
 
@@ -11,12 +12,15 @@ export const useSettings = () => {
 
     const handleSignOut = () => {
         Alert.alert(
-            "Çıkış Yap",
-            "Hesabınızdan çıkış yapmak istediğinizden emin misiniz?",
+            i18n.t("settings.security.alert_signOut_title"),
+            i18n.t("settings.security.alert_signOut_body"),
             [
-                { text: "Vazgeç", style: "cancel" },
                 {
-                    text: "Çıkış Yap",
+                    text: i18n.t("settings.security.alert_cancel"),
+                    style: "cancel",
+                },
+                {
+                    text: i18n.t("settings.security.sign_out"),
                     style: "destructive",
                     onPress: async () => {
                         try {
@@ -25,12 +29,15 @@ export const useSettings = () => {
                         } catch (error: unknown) {
                             const errorMessage = error instanceof Error
                                 ? error.message
-                                : "Beklenmedik bir hata oluştu";
+                                : i18n.t("settings.password.error_unexpected");
                             console.error(
-                                "Çıkış yapılırken bir hata oluştu:",
+                                "Sign out error:",
                                 errorMessage,
                             );
-                            Alert.alert("Hata", errorMessage);
+                            Alert.alert(
+                                i18n.t("settings.security.alert_error"),
+                                errorMessage,
+                            );
                         }
                     },
                 },
@@ -47,15 +54,14 @@ export const useSettings = () => {
             if (error) throw error;
 
             Alert.alert(
-                "İşlem Başlatıldı",
-                "Hesabınız 7 gün içinde kalıcı olarak silinmek üzere sıraya alındı. Bu süre zarfında fikrinizi değiştirirseniz, tekrar giriş yaparak işlemi iptal edebilirsiniz.",
+                i18n.t("settings.main.dangerZone_title"),
+                i18n.t("settings.profile.error_loading"),
             );
             await signOut();
             router.replace("/login");
         } catch (err: unknown) {
             console.error("Veri sıfırlama işlemi sırasında hata:", err);
-            let errorMessage =
-                "Beklenmedik bir hata oluştu. Lütfen daha sonra tekrar deneyin.";
+            let errorMessage = i18n.t("settings.password.error_unexpected");
 
             if (err instanceof Error) {
                 if (err.message === "Failed to fetch") {
@@ -65,36 +71,47 @@ export const useSettings = () => {
                     "details" in err &&
                     typeof (err as { details?: string }).details === "string"
                 ) {
-                    errorMessage = `Sunucu Hatası: ${
-                        (err as { details: string }).details
-                    }`;
+                    errorMessage = (err as { details: string }).details;
                 }
             }
 
-            Alert.alert("Başarısız Oldu", errorMessage);
+            Alert.alert(
+                i18n.t("settings.password.alert_error_title"),
+                errorMessage,
+            );
         } finally {
             setIsResetting(false);
         }
     };
 
     const handleResetData = () => {
-        const confirmationText = "tüm verilerimi sil";
+        const confirmationText = "tüm verilerimi sil"; // TODO: çok dillendirme istenirse locale'e alınabilir
         Alert.alert(
-            "Emin misiniz?",
-            `Bu işlem GERİ ALINAMAZ! Tüm uygulama verileriniz kalıcı olarak silinecektir.`,
+            i18n.t("settings.main.dangerZone_title"),
+            i18n.t("settings.profile.subtitle"),
             [
-                { text: "Vazgeç", style: "cancel" },
                 {
-                    text: "Devam Et",
+                    text: i18n.t("settings.security.alert_cancel"),
+                    style: "cancel",
+                },
+                {
+                    text: i18n.t("common.continue"),
                     style: "destructive",
                     onPress: () => {
                         Alert.prompt(
-                            "Son Onay",
+                            i18n.t("settings.main.dangerZone_title"),
                             `Lütfen devam etmek için aşağıdaki kutucuğa "${confirmationText}" yazın.`,
                             [
-                                { text: "Vazgeç", style: "cancel" },
                                 {
-                                    text: "ONAYLIYORUM, SİL",
+                                    text: i18n.t(
+                                        "settings.security.alert_cancel",
+                                    ),
+                                    style: "cancel",
+                                },
+                                {
+                                    text: i18n.t(
+                                        "settings.main.dangerZone_resetData",
+                                    ),
                                     style: "destructive",
                                     onPress: async (inputText) => {
                                         if (
@@ -102,8 +119,12 @@ export const useSettings = () => {
                                                 confirmationText
                                         ) {
                                             Alert.alert(
-                                                "Hata",
-                                                "Yazdığınız metin eşleşmedi. İşlem iptal edildi.",
+                                                i18n.t(
+                                                    "settings.profile.toast_error_title",
+                                                ),
+                                                i18n.t(
+                                                    "settings.profile.toast_error_body",
+                                                ),
                                             );
                                             return;
                                         }

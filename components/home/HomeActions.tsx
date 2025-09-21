@@ -76,7 +76,7 @@ export const HomeActions: React.FC<HomeActionsProps> = ({
         style={styles.linkButton}
         onPress={() => router.push("/how_it_works")}
       >
-        <Text style={styles.linkText}>{t('home.actions.how_therapy_works')}</Text>
+        <Text style={styles.linkText}>{t('home.actions.what_is_gisbel')}</Text>
       </TouchableOpacity>
     </View>
   );

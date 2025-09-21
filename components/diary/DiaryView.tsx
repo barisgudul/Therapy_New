@@ -5,15 +5,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDiaryContext } from "../../context/DiaryContext";
+import { useTranslation } from "react-i18next";
 
 export const DiaryView: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { state, handlers } = useDiaryContext();
+  const { t, i18n } = useTranslation();
 
   if (!state.selectedDiary) {
     return (
       <View style={styles.diaryViewContainer}>
-        <Text>Günlük yükleniyor...</Text>
+        <Text>{t('diary.view.loading')}</Text>
       </View>
     );
   }
@@ -24,7 +26,7 @@ export const DiaryView: React.FC = () => {
         <TouchableOpacity onPress={() => handlers.exitView()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
         </TouchableOpacity>
-        <Text style={styles.diaryViewTitle}>Günlük</Text>
+        <Text style={styles.diaryViewTitle}>{t('diary.view.title')}</Text>
         <TouchableOpacity style={styles.deleteButton} onPress={() => handlers.deleteDiary(state.selectedDiary!.id)}>
           <Ionicons name="trash-outline" size={24} color="#E53E3E" />
         </TouchableOpacity>
@@ -36,10 +38,10 @@ export const DiaryView: React.FC = () => {
             <View style={styles.writingPageHeader}>
               <View style={styles.writingPageInfo}>
                 <Ionicons name="document-text" size={24} color={Colors.light.tint} />
-                <Text style={styles.writingPageTitle}>Günlük Sayfası</Text>
+                <Text style={styles.writingPageTitle}>{t('diary.view.page_title')}</Text>
               </View>
               <Text style={styles.writingPageDate}>
-                {state.selectedDiary ? new Date(state.selectedDiary.timestamp).toLocaleDateString("tr-TR") : ""}
+                {state.selectedDiary ? new Date(state.selectedDiary.timestamp).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : i18n.language === 'tr' ? 'tr-TR' : 'en-US') : ""}
               </Text>
             </View>
             <View style={styles.writingPageContent}>
@@ -54,7 +56,7 @@ export const DiaryView: React.FC = () => {
                           color={Colors.light.tint}
                         />
                         <Text style={styles.writingMessageTitle}>
-                          {message.isUser ? "Sen" : "AI Asistan"}
+                          {message.isUser ? t('diary.messages.user_label') : t('diary.messages.ai_label')}
                         </Text>
                         <Text style={styles.writingMessageTime}>
                           {new Date(message.timestamp).toLocaleTimeString("tr-TR", {

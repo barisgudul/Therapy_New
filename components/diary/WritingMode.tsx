@@ -5,14 +5,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
 import { useDiaryContext } from "../../context/DiaryContext";
+import { useTranslation } from "react-i18next";
 
 export const WritingMode: React.FC = () => {
   const { state, handlers } = useDiaryContext();
+  const { t, i18n } = useTranslation();
+  const userDisplayName = (state.userName && state.userName.trim() && state.userName !== 'Sen')
+    ? state.userName
+    : t('diary.messages.user_label');
   return (
     <LinearGradient colors={["#F4F6FF", "#FFFFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
       <View style={styles.topBar}></View>
 
-      <Text style={styles.headerTitle}>Yeni Günlük</Text>
+      <Text style={styles.headerTitle}>{t('diary.writing.new_entry')}</Text>
 
       <View style={styles.content}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -21,18 +26,18 @@ export const WritingMode: React.FC = () => {
               <View style={styles.writingPageHeader}>
                 <View style={styles.writingPageInfo}>
                   <Ionicons name="document-text" size={24} color={Colors.light.tint} />
-                  <Text style={styles.writingPageTitle}>Günlük Sayfası</Text>
+                  <Text style={styles.writingPageTitle}>{t('diary.writing.page_title')}</Text>
                 </View>
-                <Text style={styles.writingPageDate}>{new Date().toLocaleDateString("tr-TR")}</Text>
+                <Text style={styles.writingPageDate}>{new Date().toLocaleDateString(i18n.language === 'de' ? 'de-DE' : i18n.language === 'tr' ? 'tr-TR' : 'en-US')}</Text>
               </View>
               <View style={styles.writingPageContent}>
                 {state.messages.map((message, index) => (
                   <View key={index} style={styles.writingMessageBlock}>
                     <View style={styles.writingMessageHeader}>
                       <Ionicons name={message.isUser ? "person-circle" : "sparkles"} size={20} color={Colors.light.tint} />
-                                              <Text style={styles.writingMessageTitle}>{message.isUser ? state.userName : "AI Asistan"}</Text>
+                                              <Text style={styles.writingMessageTitle}>{message.isUser ? userDisplayName : t('diary.writing.ai_label')}</Text>
                       <Text style={styles.writingMessageTime}>
-                        {new Date(message.timestamp).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(message.timestamp).toLocaleTimeString(i18n.language === 'de' ? 'de-DE' : i18n.language === 'tr' ? 'tr-TR' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                       </Text>
                     </View>
                     <Text
@@ -50,20 +55,20 @@ export const WritingMode: React.FC = () => {
                 {state.isSubmitting && (
                   <View style={styles.writingAnalyzingContainer}>
                     <ActivityIndicator color={Colors.light.tint} />
-                    <Text style={styles.writingAnalyzingText}>Düşüncelerin analiz ediliyor...</Text>
+                    <Text style={styles.writingAnalyzingText}>{t('diary.writing.analyzing')}</Text>
                   </View>
                 )}
 
                 {state.messages.length === 0 && (
                   <TouchableOpacity style={styles.writingDiaryInputPlaceholder} onPress={handlers.openModal}>
-                    <Text style={styles.writingDiaryInputPlaceholderText}>Düşüncelerini yazmaya başla...</Text>
+                    <Text style={styles.writingDiaryInputPlaceholderText}>{t('diary.writing.placeholder_start')}</Text>
                   </TouchableOpacity>
                 )}
 
                 {/* Fallback placeholder for when questions are empty but conversation is ongoing */}
                 {state.messages.length > 0 && state.currentQuestions.length === 0 && !state.isConversationDone && !state.isSubmitting && (
                   <TouchableOpacity style={styles.writingDiaryInputPlaceholder} onPress={handlers.openModal}>
-                    <Text style={styles.writingDiaryInputPlaceholderText}>Devam etmek için dokun...</Text>
+                    <Text style={styles.writingDiaryInputPlaceholderText}>{t('diary.writing.placeholder_continue')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -76,7 +81,7 @@ export const WritingMode: React.FC = () => {
                 <LinearGradient colors={["#F8FAFF", "#FFFFFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.saveButtonGradient}>
                   <View style={styles.saveButtonContent}>
                     <Ionicons name="checkmark-circle-outline" size={24} color={Colors.light.tint} />
-                    <Text style={styles.saveButtonText}>Günlüğü Tamamla ve Kaydet</Text>
+                    <Text style={styles.saveButtonText}>{t('diary.writing.save_button')}</Text>
                   </View>
                 </LinearGradient>
               </TouchableOpacity>
@@ -90,7 +95,7 @@ export const WritingMode: React.FC = () => {
                 <View style={styles.writingQuestionsHeader}>
                   <Ionicons name="sparkles-outline" size={20} color={Colors.light.tint} />
                   <Text style={styles.writingQuestionsTitle}>
-                    {state.currentQuestions.length > 0 ? "Nasıl devam edelim?" : "Devam etmek ister misin?"}
+                    {state.currentQuestions.length > 0 ? t('diary.writing.continue_title') : t('diary.writing.continue_alt')}
                   </Text>
                 </View>
 
@@ -103,7 +108,7 @@ export const WritingMode: React.FC = () => {
                 {/* Fallback butonunu sadece konuşma başladıysa göster */}
                 {state.currentQuestions.length === 0 && state.messages.length > 0 && (
                   <TouchableOpacity style={styles.writingQuestionButton} onPress={() => handlers.openModal()}>
-                    <Text style={styles.writingQuestionText}>Kendi cümlemle yazmak istiyorum</Text>
+                    <Text style={styles.writingQuestionText}>{t('diary.writing.write_my_own')}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -119,7 +124,7 @@ export const WritingMode: React.FC = () => {
               <View style={styles.modalHeader}>
                 <View style={styles.modalHeaderLeft}>
                   <Ionicons name="document-text" size={24} color={Colors.light.tint} />
-                  <Text style={styles.modalTitle}>Yeni Günlük</Text>
+                  <Text style={styles.modalTitle}>{t('diary.writing.new_entry')}</Text>
                 </View>
                 <TouchableOpacity style={styles.modalCloseButton} onPress={handlers.closeModal}>
                   <Ionicons name="close" size={24} color={Colors.light.tint} />
@@ -135,7 +140,7 @@ export const WritingMode: React.FC = () => {
               <View style={styles.modalBody}>
                 <TextInput
                   style={[styles.modalInput]}
-                  placeholder={state.activeQuestion ? "Cevabını buraya yaz..." : "Düşüncelerini yazmaya başla..."}
+                  placeholder={state.activeQuestion ? t('diary.writing.modal_send') : t('diary.writing.placeholder_start')}
                   value={state.currentInput}
                   onChangeText={handlers.changeInput}
                   placeholderTextColor="#9CA3AF"
@@ -148,7 +153,7 @@ export const WritingMode: React.FC = () => {
               <View style={styles.modalFooter}>
                 <TouchableOpacity style={[styles.modalButton, (!state.currentInput.trim() || state.isConversationDone) && styles.buttonDisabled]} onPress={handlers.submitAnswer} disabled={!state.currentInput.trim() || state.isConversationDone} activeOpacity={0.85}>
                   <LinearGradient colors={["#FFFFFF", "#F8FAFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.modalButtonGradient}>
-                    <Text style={styles.modalButtonText}>{state.messages.length === 0 ? "Günlüğü Başlat" : "Cevabı Gönder"}</Text>
+                    <Text style={styles.modalButtonText}>{state.messages.length === 0 ? t('diary.writing.modal_start') : t('diary.writing.modal_send')}</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>

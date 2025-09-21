@@ -521,22 +521,41 @@ type DiaryResponse = {
   conversationId: string;
 };
 
-// Default sorular - AI başarısız olursa kullanılır
-const DEFAULT_DIARY_QUESTIONS = [
-  "Şu an içinden geçen baskın duygu ne?",
-  "Bu hikâyedeki en zor an hangisiydi, neden?",
-  "Şu anda sana iyi gelecek küçük bir adım ne olurdu?",
-];
+// Default sorular - AI başarısız olursa kullanılır (dil duyarlı)
+const DEFAULT_DIARY_QUESTIONS_BY_LANG: Record<string, string[]> = {
+  tr: [
+    "Şu an içinden geçen baskın duygu ne?",
+    "Bu hikâyedeki en zor an hangisiydi, neden?",
+    "Şu anda sana iyi gelecek küçük bir adım ne olurdu?",
+  ],
+  en: [
+    "What is the dominant feeling you're having right now?",
+    "What was the toughest moment in this story, and why?",
+    "What is one small step that would feel good right now?",
+  ],
+  de: [
+    "Was ist das vorherrschende Gefühl, das du jetzt erlebst?",
+    "Was war der schwierigste Moment in dieser Geschichte und warum?",
+    "Welcher kleine Schritt würde sich jetzt gut anfühlen?",
+  ],
+};
+
+function getDefaultDiaryQuestions(lang: string): string[] {
+  return DEFAULT_DIARY_QUESTIONS_BY_LANG[lang] ||
+    DEFAULT_DIARY_QUESTIONS_BY_LANG.en;
+}
 
 export async function handleDiaryEntry(
   context: InteractionContext,
 ): Promise<DiaryResponse> {
   const { initialEvent, initialVault } = context;
-  const { userInput, conversationId, turn } = (initialEvent.data ?? {}) as {
-    userInput?: string;
-    conversationId?: string | null;
-    turn?: number;
-  };
+  const { userInput, conversationId, turn, language } =
+    (initialEvent.data ?? {}) as {
+      userInput?: string;
+      conversationId?: string | null;
+      turn?: number;
+      language?: string;
+    };
 
   if (!userInput || typeof userInput !== "string") {
     throw new ValidationError("Günlük için metin gerekli.");
@@ -546,8 +565,12 @@ export async function handleDiaryEntry(
   const vaultContext = vaultToContextString(initialVault as VaultData);
 
   // 1) İlk tur: duygu + 3 soru üret
+  const lang = ["tr", "en", "de"].includes(language as string)
+    ? (language as string)
+    : "en";
+
   if (!conversationId || !turn || turn === 0) {
-    const prompt = getDiaryStartPrompt(userInput, userName, vaultContext);
+    const prompt = getDiaryStartPrompt(userInput, userName, vaultContext, lang);
     const raw = await AiService.invokeGemini(
       prompt,
       config.AI_MODELS.FAST,
@@ -567,10 +590,16 @@ export async function handleDiaryEntry(
     // Soruları al, yoksa default kullan
     const qs = (Array.isArray(parsed.questions) && parsed.questions.length > 0)
       ? parsed.questions.slice(0, 3)
-      : DEFAULT_DIARY_QUESTIONS;
+      : getDefaultDiaryQuestions(lang);
+
+    const startMsgByLang: Record<string, string> = {
+      tr: "Hazırım. Şunlardan biriyle devam edelim:",
+      en: "I'm ready. Let's continue with one of these:",
+      de: "Ich bin bereit. Lass uns mit einem davon weitermachen:",
+    };
 
     return {
-      aiResponse: "Hazırım. Şunlardan biriyle devam edelim:",
+      aiResponse: startMsgByLang[lang] || startMsgByLang.en,
       nextQuestions: qs,
       isFinal: false,
       conversationId: context.transactionId,
@@ -578,7 +607,7 @@ export async function handleDiaryEntry(
   }
 
   // 2) Sonraki turlar: yeni sorular üret, gerekiyorsa bitir
-  const nextPrompt = getDiaryNextQuestionsPrompt(userInput, userName);
+  const nextPrompt = getDiaryNextQuestionsPrompt(userInput, userName, lang);
   const rawNext = await AiService.invokeGemini(
     nextPrompt,
     config.AI_MODELS.FAST,
@@ -598,16 +627,22 @@ export async function handleDiaryEntry(
 
   // Fallback uygula
   const nextQs = aiCouldNotGenerateQuestions
-    ? DEFAULT_DIARY_QUESTIONS
+    ? getDefaultDiaryQuestions(lang)
     : parsedQs.slice(0, 3);
 
   // Bitiş kriteri: 3. turdan sonra YA DA AI soru üretemediyse finalize et
   const shouldFinish = (turn ?? 0) >= 2 || aiCouldNotGenerateQuestions;
 
-  let aiResponse = "Devam edelim; sana iyi gelen bir yerden anlatabilirsin.";
+  const continueMsgByLang: Record<string, string> = {
+    tr: "Devam edelim; sana iyi gelen bir yerden anlatabilirsin.",
+    en: "Let's continue; share from wherever feels right to you.",
+    de: "Lass uns fortfahren; erzähle von dem Punkt, der sich richtig anfühlt.",
+  };
+
+  let aiResponse = continueMsgByLang[lang] || continueMsgByLang.en;
   if (shouldFinish) {
     // Kısa kapanış
-    const conclPrompt = getDiaryConclusionPrompt(userInput, userName, "");
+    const conclPrompt = getDiaryConclusionPrompt(userInput, userName, "", lang);
     try {
       const rawC = await AiService.invokeGemini(
         conclPrompt,

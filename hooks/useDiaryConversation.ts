@@ -2,6 +2,7 @@
 import { useCallback, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import Toast from "react-native-toast-message";
+import i18n from "../utils/i18n";
 import type { Message } from "../types/diary.types";
 import { getErrorMessage } from "../utils/errors";
 import { supabase } from "../utils/supabase";
@@ -43,6 +44,7 @@ export function useDiaryConversation() {
                                 userInput: payload.text,
                                 conversationId: payload.convoId,
                                 turn: payload.turn,
+                                language: i18n.language,
                             },
                         },
                     },
@@ -70,7 +72,7 @@ export function useDiaryConversation() {
         onError: (e: Error) =>
             Toast.show({
                 type: "error",
-                text1: "AI Asistan Bağlanamadı",
+                text1: i18n.t("diary.toasts.ai_connect_error_title"),
                 text2: getErrorMessage(e),
             }),
     });

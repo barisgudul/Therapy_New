@@ -7,11 +7,13 @@ import { Colors } from "../../constants/Colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDiaryContext } from "../../context/DiaryContext";
 import { useRouter } from "expo-router/";
+import { useTranslation } from "react-i18next";
 
 export const DiaryList: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { state, handlers } = useDiaryContext();
   const router = useRouter(); // Geri butonu için eklendi
+  const { t, i18n } = useTranslation();
 
   return (
     <LinearGradient
@@ -31,7 +33,7 @@ export const DiaryList: React.FC = () => {
             <Text style={styles.logo}>
                 Gisbel<Text style={styles.dot}>.</Text>
             </Text>
-            <Text style={styles.title}>Günlüklerim</Text>
+            <Text style={styles.title}>{t('diary.list.title')}</Text>
         </View>
 
         {/* Bu boş view, başlığın tam ortada kalmasını sağlar */}
@@ -39,7 +41,7 @@ export const DiaryList: React.FC = () => {
       </View>
 
       <Text style={styles.subtitle}>
-        Duygularını ve düşüncelerini kaydet.
+        {t('diary.list.subtitle')}
       </Text>
 
       <View style={styles.content}>
@@ -75,8 +77,8 @@ export const DiaryList: React.FC = () => {
                     />
                   </LinearGradient>
                 </View>
-                <Text style={styles.emptyStateText}>Henüz günlük yazmamışsın</Text>
-                <Text style={styles.emptyStateSubtext}>Yeni bir günlük yazarak başla</Text>
+                <Text style={styles.emptyStateText}>{t('diary.list.empty_title')}</Text>
+                <Text style={styles.emptyStateSubtext}>{t('diary.list.empty_subtext')}</Text>
               </View>
             ) : (
               <FlatList
@@ -89,16 +91,16 @@ export const DiaryList: React.FC = () => {
                         <View style={styles.diaryCardDateContainer}>
                           <Ionicons name="calendar" size={20} color={Colors.light.tint} />
                           <Text style={styles.diaryDate}>
-                            {new Date(event.timestamp).toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric" })}
+                            {new Date(event.timestamp).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : i18n.language === 'tr' ? 'tr-TR' : 'en-US', { year: "numeric", month: "long", day: "numeric" })}
                           </Text>
                         </View>
                         <Text style={styles.diaryTime}>
-                          {new Date(event.timestamp).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(event.timestamp).toLocaleTimeString(i18n.language === 'de' ? 'de-DE' : i18n.language === 'tr' ? 'tr-TR' : 'en-US', { hour: "2-digit", minute: "2-digit" })}
                         </Text>
                       </View>
                       <View style={styles.diaryPreview}>
                         <Text style={styles.diaryPreviewText} numberOfLines={2}>
-                          {event.data?.messages?.[0]?.text || "Boş günlük"}
+                          {event.data?.messages?.[0]?.text || ''}
                         </Text>
                       </View>
                     </LinearGradient>
@@ -125,7 +127,7 @@ export const DiaryList: React.FC = () => {
             <View style={styles.newDiaryButtonIconCircle}>
               <Ionicons name="add" size={28} color={Colors.light.tint} />
             </View>
-            <Text style={styles.newDiaryButtonText}>Yeni Günlük</Text>
+            <Text style={styles.newDiaryButtonText}>{t('diary.list.button_new')}</Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>

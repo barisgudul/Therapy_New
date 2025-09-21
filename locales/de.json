@@ -129,7 +129,9 @@
       "past_chats": "Meine vergangenen Chats",
       "weekly_insight_ready": "Deine wöchentliche Einsicht-Entdeckung ist bereit!",
       "first_analysis_ready": "Deine erste Analyse ist bereit!",
-      "how_therapy_works": "Wie funktionieren Therapien?"
+      "how_therapy_works": "Wie funktionieren Therapien?",
+      "how_app_works": "Wie funktioniert die App?",
+      "what_is_gisbel": "Was ist Gisbel?"
     },
     "feedback_modal": {
       "title": "Deine tägliche Reflexion",
@@ -177,8 +179,64 @@
       "Gut",
       "Super",
       "Großartig"
-    ]
+    ],
+    "feedback_ready": "Deine Reflexion ist bereit.",
+    "toasts": {
+      "validation_title": "Fehlende Informationen",
+      "api_error_title": "Ein Problem ist aufgetreten",
+      "unexpected_title": "Unerwarteter Fehler",
+      "satisfaction_success_title": "Danke!",
+      "satisfaction_success_body": "Dein Feedback wurde gespeichert.",
+      "satisfaction_error_title": "Feedback konnte nicht gesendet werden"
+    }
   },
+  "diary": {
+    "list": {
+      "title": "Meine Tagebücher",
+      "subtitle": "Halte deine Gefühle und Gedanken fest.",
+      "empty_title": "Du hast noch kein Tagebuch geschrieben",
+      "empty_subtext": "Beginne mit einem neuen Eintrag",
+      "button_new": "Neues Tagebuch"
+    },
+    "view": {
+      "loading": "Tagebuch wird geladen...",
+      "title": "Tagebuch",
+      "page_title": "Tagebuchseite"
+    },
+    "writing": {
+      "new_entry": "Neues Tagebuch",
+      "page_title": "Tagebuchseite",
+      "analyzing": "Deine Gedanken werden analysiert...",
+      "placeholder_start": "Beginne, deine Gedanken zu schreiben...",
+      "placeholder_continue": "Zum Fortfahren tippen...",
+      "save_button": "Abschließen und Speichern",
+      "continue_title": "Wie machen wir weiter?",
+      "continue_alt": "Möchtest du fortfahren?",
+      "write_my_own": "Ich möchte in meinen eigenen Worten schreiben",
+      "modal_start": "Tagebuch starten",
+      "modal_send": "Antwort senden",
+      "ai_label": "KI-Assistent"
+    },
+    "messages": {
+      "user_label": "Du",
+      "ai_label": "KI-Assistent"
+    },
+    "toasts": {
+      "save_error_title": "Speicherfehler",
+      "delete_success": "Tagebuch gelöscht",
+      "delete_error_title": "Löschfehler",
+      "ai_connect_error_title": "KI-Assistent nicht verfügbar"
+    }
+  },
+  "subscription": {
+    "usage": {
+      "unlimited": "Unbegrenzt",
+      "not_available": "Nicht verfügbar",
+      "weekly_quota": "wöchentliche Quote",
+      "daily_quota": "tägliches Kontingent"
+    }
+  },
+
   "dream": {
     "index": {
       "header_title": "Traum-Tagebuch",
@@ -343,6 +401,59 @@
       "premium_subtitle": "Du genießt alle Privilegien",
       "free_label": "Schalte dein Potenzial frei",
       "free_subtitle": "Erhalte unbegrenzten Zugang zu allen Funktionen"
+    }
+  }
+  ,
+  "about": {
+    "header_title": "Was ist Gisbel?",
+    "intro": {
+      "title": "Dein smarter Begleiter für mentale Klarheit",
+      "text": "Gisbel bietet ein KI-gestütztes Erlebnis, um Bewusstsein zu stärken, blinde Flecken sichtbar zu machen und mit kleinen, wirksamen Schritten voranzukommen. Es arbeitet nahtlos mit Primer-, Login- und Analyse-Flows."
+    },
+    "steps_title": "Das Gisbel-Erlebnis",
+    "features": {
+      "daily_mood": {
+        "title": "Tägliches Stimmungstracking",
+        "description": "Halte fest, wie du dich täglich fühlst. KI analysiert Muster, damit du Fortschritte siehst."
+      },
+      "ai_journal": {
+        "title": "KI-unterstütztes Journaling",
+        "description": "Erhalte leitende Fragen beim Schreiben und gewinne tiefere Einsichten."
+      },
+      "dream_analysis": {
+        "title": "KI-gestützte Traumanalyse",
+        "description": "Träume festhalten und mögliche Bedeutungen erkunden; Botschaften deines Unterbewusstseins entdecken."
+      },
+      "ai_reports": {
+        "title": "KI-Zusammenfassungsberichte",
+        "description": "Verfolge Denkmuster und Fortschritt mit regelmäßigen, personalisierten Berichten."
+      },
+      "therapy_sessions": {
+        "title": "Natürliches Chat-Erlebnis",
+        "description": "Stimme für natürlichen Fluss; Text für tiefere Reflexion – da, wenn du es brauchst."
+      },
+      "conversation_history": {
+        "title": "Chat-Verlauf",
+        "description": "Bewahre Unterhaltungen sicher auf und sieh sie jederzeit erneut an."
+      }
+    },
+    "steps": {
+      "1": {
+        "title": "Schneller Start",
+        "description": "Von Startseite aus mit Stimmung, Journal oder Traumanalyse beginnen."
+      },
+      "2": {
+        "title": "Einfacher Flow",
+        "description": "Klare Führung hilft dir, Ziele schneller zu erreichen."
+      },
+      "3": {
+        "title": "Persönliche Analyse",
+        "description": "Erkenne Stärken und erste Schritte mit KI-Zusammenfassungen und Mini-PDF."
+      },
+      "4": {
+        "title": "Fortschritt festigen",
+        "description": "Chats, Journale und Traumanalysen an einem Ort; verfolge dein Wachstum."
+      }
     }
   }
 }

@@ -130,7 +130,9 @@
       "past_chats": "Geçmiş Sohbetlerim",
       "weekly_insight_ready": "Haftalık İçgörü Keşfin Hazır!",
       "first_analysis_ready": "İlk Analizin Hazır!",
-      "how_therapy_works": "Terapiler nasıl işler?"
+      "how_therapy_works": "Terapiler nasıl işler?",
+      "how_app_works": "Uygulama nasıl çalışır?",
+      "what_is_gisbel": "Gisbel nedir?"
     },
     "feedback_modal": {
       "title": "Günlük Yansıman",
@@ -178,8 +180,64 @@
       "İyi",
       "Harika",
       "Muhteşem"
-    ]
+    ],
+    "feedback_ready": "Yansımanız hazırlandı.",
+    "toasts": {
+      "validation_title": "Eksik Bilgi",
+      "api_error_title": "Bir Sorun Oluştu",
+      "unexpected_title": "Beklenmedik Hata",
+      "satisfaction_success_title": "Teşekkürler!",
+      "satisfaction_success_body": "Geri bildiriminiz kaydedildi.",
+      "satisfaction_error_title": "Geri Bildirim Gönderilemedi"
+    }
   },
+  "diary": {
+    "list": {
+      "title": "Günlüklerim",
+      "subtitle": "Duygularını ve düşüncelerini kaydet.",
+      "empty_title": "Henüz günlük yazmamışsın",
+      "empty_subtext": "Yeni bir günlük yazarak başla",
+      "button_new": "Yeni Günlük"
+    },
+    "view": {
+      "loading": "Günlük yükleniyor...",
+      "title": "Günlük",
+      "page_title": "Günlük Sayfası"
+    },
+    "writing": {
+      "new_entry": "Yeni Günlük",
+      "page_title": "Günlük Sayfası",
+      "analyzing": "Düşüncelerin analiz ediliyor...",
+      "placeholder_start": "Düşüncelerini yazmaya başla...",
+      "placeholder_continue": "Devam etmek için dokun...",
+      "save_button": "Günlüğü Tamamla ve Kaydet",
+      "continue_title": "Nasıl devam edelim?",
+      "continue_alt": "Devam etmek ister misin?",
+      "write_my_own": "Kendi cümlemle yazmak istiyorum",
+      "modal_start": "Günlüğü Başlat",
+      "modal_send": "Cevabı Gönder",
+      "ai_label": "AI Asistan"
+    },
+    "messages": {
+      "user_label": "Sen",
+      "ai_label": "AI Asistan"
+    },
+    "toasts": {
+      "save_error_title": "Kayıt Hatası",
+      "delete_success": "Günlük silindi",
+      "delete_error_title": "Silme Hatası",
+      "ai_connect_error_title": "AI Asistan Bağlanamadı"
+    }
+  },
+  "subscription": {
+    "usage": {
+      "unlimited": "Sınırsız",
+      "not_available": "Mevcut Değil",
+      "weekly_quota": "haftalık hak",
+      "daily_quota": "günlük hak"
+    }
+  },
+
   "dream": {
     "index": {
       "header_title": "Rüya Günlüğü",
@@ -344,6 +402,59 @@
       "premium_subtitle": "Tüm ayrıcalıklardan yararlanıyorsun",
       "free_label": "Potansiyelinin Kilidini Aç",
       "free_subtitle": "Tüm özelliklere sınırsız erişimle tanış"
+    }
+  }
+  ,
+  "about": {
+    "header_title": "Gisbel nedir?",
+    "intro": {
+      "title": "Zihinsel netlik için akıllı yol arkadaşın",
+      "text": "Gisbel., duygusal farkındalığını artırmana, kör noktalarını görmene ve küçük ama etkili adımlarla ilerlemene yardım eden bir yapay zekâ destekli deneyim sunar. Primer, giriş ve analiz akışlarımızla bütünleşik çalışır."
+    },
+    "steps_title": "Gisbel deneyimi",
+    "features": {
+      "daily_mood": {
+        "title": "Günlük Duygu Takibi",
+        "description": "Her gün nasıl hissettiğini kaydet. AI paternlerini analiz eder, gelişimini görmeni sağlar."
+      },
+      "ai_journal": {
+        "title": "AI Destekli Günlük Yazma",
+        "description": "Yazarken yönlendirici sorular al, daha derin bir içgörü yolculuğuna çık."
+      },
+      "dream_analysis": {
+        "title": "Yapay Zekâ Destekli Rüya Analizi",
+        "description": "Rüyalarını kaydet, olası anlamlarını keşfet; bilinçaltının mesajlarını gör."
+      },
+      "ai_reports": {
+        "title": "AI Özet Raporları",
+        "description": "Düzenli kişiselleştirilmiş raporlarla düşünce kalıplarını ve ilerlemeni takip et."
+      },
+      "therapy_sessions": {
+        "title": "Doğal Sohbet Deneyimi",
+        "description": "Sesli sohbetle doğal akış, yazılı sohbetle derin düşünme; ihtiyaç anında yanında."
+      },
+      "conversation_history": {
+        "title": "Sohbet Geçmişi",
+        "description": "Tüm sohbetlerini güvenle sakla, dilediğinde geri dönüp incele."
+      }
+    },
+    "steps": {
+      "1": {
+        "title": "Hızlı başlangıç",
+        "description": "Ana ekrandan duygu takibi, günlük veya rüya analiziyle başla."
+      },
+      "2": {
+        "title": "Sade akış",
+        "description": "Net yönlendirmelerle hedefine hızlıca ilerle."
+      },
+      "3": {
+        "title": "Kişisel Analiz",
+        "description": "AI özetleri ve mini PDF ile güçlü yanlarını ve ilk adımlarını görün."
+      },
+      "4": {
+        "title": "İlerlemeyi pekiştir",
+        "description": "Sohbet geçmişin, günlüklerin ve rüya analizlerin tek yerde; ilerlemeni izle."
+      }
     }
   }
 }

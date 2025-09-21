@@ -16,6 +16,7 @@ import {
 import { useFeatureAccess } from "./useSubscription";
 import { useUpdateVault, useVault } from "./useVault";
 import { supabase } from "../utils/supabase";
+import i18n from "../utils/i18n";
 
 const { width, height } = Dimensions.get("window");
 
@@ -132,7 +133,11 @@ export function useDailyReflection() {
                         eventPayload: {
                             type: "daily_reflection",
                             mood: todayMood,
-                            data: { todayNote: note, todayMood },
+                            data: {
+                                todayNote: note,
+                                todayMood,
+                                language: i18n.language,
+                            },
                         },
                     },
                 },
@@ -175,7 +180,8 @@ export function useDailyReflection() {
             }
 
             // Başarılı durum
-            const aiResponse = data?.aiResponse || "Yansımanız hazırlandı.";
+            const aiResponse = data?.aiResponse ||
+                i18n.t("daily_reflection.feedback_ready");
             setAiMessage(aiResponse);
 
             if (data?.decisionLogId) {
@@ -192,26 +198,26 @@ export function useDailyReflection() {
             }
         } catch (err) { // Bu catch artık HEM supabase hatasını HEM de ağ hatasını yakalar.
             // Hata mesajını ve UI'ı güncelle.
-            setAiMessage("Yansıma oluşturulamadı. Lütfen tekrar deneyin.");
+            setAiMessage(i18n.t("home.feedback_modal.loading"));
 
             // Hata türüne göre kullanıcıya farklı mesajlar göster.
             if (err instanceof ValidationError) {
                 Toast.show({
                     type: "error",
-                    text1: "Eksik Bilgi",
+                    text1: i18n.t("daily_reflection.toasts.validation_title"),
                     text2: err.message,
                 });
             } else if (err instanceof ApiError) {
                 Toast.show({
                     type: "error",
-                    text1: "Bir Sorun Oluştu",
+                    text1: i18n.t("daily_reflection.toasts.api_error_title"),
                     text2: err.message,
                 });
             } else {
                 Toast.show({
                     type: "error",
-                    text1: "Beklenmedik Hata",
-                    text2: "Lütfen internet bağlantınızı kontrol edin.",
+                    text1: i18n.t("daily_reflection.toasts.unexpected_title"),
+                    text2: i18n.t("auth.unexpected_error"),
                 });
             }
 
@@ -246,16 +252,22 @@ export function useDailyReflection() {
             setSatisfactionScore(score);
             Toast.show({
                 type: "success",
-                text1: "Geri bildiriminiz için teşekkürler!",
-                text2: "Yanıtımız giderek iyileşiyor.",
+                text1: i18n.t(
+                    "daily_reflection.toasts.satisfaction_success_title",
+                ),
+                text2: i18n.t(
+                    "daily_reflection.toasts.satisfaction_success_body",
+                ),
                 position: "bottom",
             });
         } catch (error: unknown) {
             console.error("[Satisfaction] Skor güncelleme hatası:", error);
             Toast.show({
                 type: "error",
-                text1: "Geri Bildirim Gönderilemedi",
-                text2: getErrorMessage(error), // Kullanıcıya anlamlı hata göster
+                text1: i18n.t(
+                    "daily_reflection.toasts.satisfaction_error_title",
+                ),
+                text2: getErrorMessage(error),
                 position: "bottom",
             });
         }

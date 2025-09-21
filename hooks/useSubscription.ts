@@ -1,6 +1,7 @@
 // hooks/useSubscription.ts - ADAM EDİLMİŞ HALİ
 
 import { useCallback } from "react";
+import i18n from "../utils/i18n";
 import { SubscriptionPlan, UsageStats } from "../services/subscription.service";
 import { useSubscriptionStore } from "../store/subscriptionStore";
 
@@ -14,15 +15,17 @@ const MOCK_PLANS: SubscriptionPlan[] = [
     name: "Premium",
     price: 99.99,
     currency: "$",
-    description: "Tüm özelliklere sınırsız erişim ve öncelikli destek.",
+    description: i18n.t("settings.subscription.subtitle"),
     features: {
-      text_sessions: "Sınırsız",
-      voice_sessions: "Sınırsız",
-      dream_analysis: "Sınırsız",
-      ai_reports: "Sınırsız",
-      session_history: "Sınırsız",
-      pdf_export: "Evet",
-      priority_support: "Evet",
+      text_sessions: i18n.t("settings.subscription.feature_text_sessions"),
+      voice_sessions: i18n.t("settings.subscription.feature_voice_sessions"),
+      dream_analysis: i18n.t("settings.subscription.feature_dream_analysis"),
+      ai_reports: i18n.t("settings.subscription.feature_ai_reports"),
+      session_history: i18n.t("settings.subscription.feature_session_history"),
+      pdf_export: i18n.t("settings.subscription.feature_pdf_export"),
+      priority_support: i18n.t(
+        "settings.subscription.feature_priority_support",
+      ),
     },
   },
   {
@@ -30,15 +33,17 @@ const MOCK_PLANS: SubscriptionPlan[] = [
     name: "+Plus",
     price: 19.99,
     currency: "$",
-    description: "Temel özelliklere daha fazla erişim ve ekstralar.",
+    description: i18n.t("settings.subscription.subtitle"),
     features: {
-      text_sessions: "Sınırsız",
-      voice_sessions: "5 hak/ay",
-      dream_analysis: "Sınırsız",
-      ai_reports: "Yok",
-      session_history: "Sınırlı (30 gün)",
-      pdf_export: "Yok",
-      priority_support: "Yok",
+      text_sessions: i18n.t("settings.subscription.feature_text_sessions"),
+      voice_sessions: i18n.t("settings.subscription.feature_voice_sessions"),
+      dream_analysis: i18n.t("settings.subscription.feature_dream_analysis"),
+      ai_reports: i18n.t("settings.subscription.feature_ai_reports"),
+      session_history: i18n.t("settings.subscription.feature_session_history"),
+      pdf_export: i18n.t("settings.subscription.feature_pdf_export"),
+      priority_support: i18n.t(
+        "settings.subscription.feature_priority_support",
+      ),
     },
   },
   {
@@ -46,7 +51,7 @@ const MOCK_PLANS: SubscriptionPlan[] = [
     name: "Free",
     price: 0,
     currency: "₺",
-    description: "Uygulamayı denemek için temel başlangıç.",
+    description: i18n.t("settings.subscription.subtitle"),
     features: {},
   },
 ];
@@ -134,7 +139,7 @@ export function useFeatureAccess(feature: keyof UsageStats) {
   // BU FONKSİYON ARTIK STABİL BİR REFERANSA SAHİP
   const refreshAccess = useCallback(() => {
     // Gerçek bir uygulamada burada API çağrısı ve state güncellemesi olurdu.
-  }, [feature]); // 'feature' değişirse fonksiyonun yeniden yaratılması normaldir.
+  }, []);
 
   return {
     ...access,
@@ -148,18 +153,20 @@ export function useFeatureAccess(feature: keyof UsageStats) {
 // =================================================================
 
 export const formatUsageText = (used: number, limit: number): string => {
-  if (limit === -1) return "Sınırsız";
-  if (limit === 0) return "Mevcut Değil";
+  if (limit === -1) return i18n.t("subscription.usage.unlimited");
+  if (limit === 0) return i18n.t("subscription.usage.not_available");
   if (limit > 0 && limit < 1) {
     const weeklyLimit = Math.round(limit * 7);
     const usedWeekly = Math.ceil(used * 7);
     const remainingWeekly = weeklyLimit - usedWeekly;
-    return `${
-      remainingWeekly > 0 ? remainingWeekly : 0
-    } / ${weeklyLimit} haftalık hak`;
+    return `${remainingWeekly > 0 ? remainingWeekly : 0} / ${weeklyLimit} ${
+      i18n.t("subscription.usage.weekly_quota")
+    }`;
   }
   const remaining = limit - used;
-  return `${remaining > 0 ? remaining : 0} / ${limit} günlük hak`;
+  return `${remaining > 0 ? remaining : 0} / ${limit} ${
+    i18n.t("subscription.usage.daily_quota")
+  }`;
 };
 
 export const getUsageColor = (percentage: number): string => {

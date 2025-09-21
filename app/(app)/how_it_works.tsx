@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router/";
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -16,13 +16,32 @@ import { Colors } from "../../constants/Colors";
 import { features, steps } from "../../constants/howItWorksContent";
 import { FeatureCard } from "../../components/how_it_works/FeatureCard";
 import { StepCard } from "../../components/how_it_works/StepCard";
+import { useTranslation } from "react-i18next";
 
 export default function HowItWorksScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
+
+  // Çeviri anahtarları üzerinden başlık/açıklamaları çözümlüyoruz
+  const translatedFeatures = useMemo(() => (
+    features.map((f) => ({
+      ...f,
+      title: t(`about.features.${f.id}.title`),
+      description: t(`about.features.${f.id}.description`),
+    }))
+  ), [t]);
+
+  const translatedSteps = useMemo(() => (
+    steps.map((s) => ({
+      ...s,
+      title: t(`about.steps.${s.number}.title`),
+      description: t(`about.steps.${s.number}.description`),
+    }))
+  ), [t]);
 
   return (
     <LinearGradient
-      colors={["#F4F6FF", "#FFFFFF"]}
+      colors={["#F7FAFF", "#FFFFFF"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.container}
@@ -32,12 +51,11 @@ export default function HowItWorksScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Nasıl Çalışır?</Text>
+          <Text style={styles.headerTitle}>{t('about.header_title')}</Text>
           <View style={{ width: 44 }} />
         </View>
 
         <FlatList
-          data={features}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
@@ -53,12 +71,10 @@ export default function HowItWorksScreen() {
 
               <View style={styles.introSection}>
                 <Text style={styles.introTitle}>
-                  Kişisel Gelişim Yolculuğunuz
+                  {t('about.intro.title')}
                 </Text>
                 <Text style={styles.introText}>
-                  Gisbel., duygusal farkındalığınızı geliştirmek ve kişisel gelişiminizi
-                  desteklemek için tasarlandı. Yapay zeka teknolojisiyle günlük rutininizi
-                  zenginleştirin, düşüncelerinizi keşfedin ve kendinizi daha iyi tanıyın.
+                  {t('about.intro.text')}
                 </Text>
               </View>
             </>
@@ -67,13 +83,14 @@ export default function HowItWorksScreen() {
           ListFooterComponent={
             <>
               <View style={styles.stepsSection}>
-                <Text style={styles.stepsTitle}>Kullanım Adımları</Text>
-                {steps.map((step) => (
+                <Text style={styles.stepsTitle}>{t('about.steps_title')}</Text>
+                {translatedSteps.map((step) => (
                   <StepCard key={step.number} step={step} />
                 ))}
               </View>
             </>
           }
+          data={translatedFeatures}
         />
       </SafeAreaView>
     </LinearGradient>

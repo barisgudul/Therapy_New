@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Toast from "react-native-toast-message";
+import i18n from "../utils/i18n";
 import type { DiaryAppEvent } from "../services/event.service";
 import type { TextMessage } from "./useTextSessionReducer";
 import {
@@ -102,14 +103,17 @@ export function useDiary() {
     const deleteDiaryMutation = useMutation({
         mutationFn: (eventId: string) => deleteEventById(eventId),
         onSuccess: () => {
-            Toast.show({ type: "info", text1: "Günlük silindi" });
+            Toast.show({
+                type: "info",
+                text1: i18n.t("diary.toasts.delete_success"),
+            });
             queryClient.invalidateQueries({ queryKey: ["diaryEvents"] });
             setMode("list");
         },
         onError: (e: Error) =>
             Toast.show({
                 type: "error",
-                text1: "Silme Hatası",
+                text1: i18n.t("diary.toasts.delete_error_title"),
                 text2: getErrorMessage(e),
             }),
     });

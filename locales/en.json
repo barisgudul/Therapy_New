@@ -129,7 +129,9 @@
       "past_chats": "My Past Chats",
       "weekly_insight_ready": "Your Weekly Insight Discovery is Ready!",
       "first_analysis_ready": "Your First Analysis is Ready!",
-      "how_therapy_works": "How do therapies work?"
+      "how_therapy_works": "How do therapies work?",
+      "how_app_works": "How does the app work?",
+      "what_is_gisbel": "What is Gisbel?"
     },
     "feedback_modal": {
       "title": "Your Daily Reflection",
@@ -177,8 +179,64 @@
       "Good",
       "Great",
       "Excellent"
-    ]
+    ],
+    "feedback_ready": "Your reflection is ready.",
+    "toasts": {
+      "validation_title": "Missing Information",
+      "api_error_title": "An Issue Occurred",
+      "unexpected_title": "Unexpected Error",
+      "satisfaction_success_title": "Thanks!",
+      "satisfaction_success_body": "Your feedback has been saved.",
+      "satisfaction_error_title": "Feedback Couldn't Be Sent"
+    }
   },
+  "diary": {
+    "list": {
+      "title": "My Diaries",
+      "subtitle": "Record your feelings and thoughts.",
+      "empty_title": "You haven't written a diary yet",
+      "empty_subtext": "Start by writing a new entry",
+      "button_new": "New Diary"
+    },
+    "view": {
+      "loading": "Loading diary...",
+      "title": "Diary",
+      "page_title": "Diary Page"
+    },
+    "writing": {
+      "new_entry": "New Diary",
+      "page_title": "Diary Page",
+      "analyzing": "Analyzing your thoughts...",
+      "placeholder_start": "Start writing your thoughts...",
+      "placeholder_continue": "Tap to continue...",
+      "save_button": "Complete and Save",
+      "continue_title": "How shall we continue?",
+      "continue_alt": "Would you like to continue?",
+      "write_my_own": "I want to write in my own words",
+      "modal_start": "Start Diary",
+      "modal_send": "Send Answer",
+      "ai_label": "AI Assistant"
+    },
+    "messages": {
+      "user_label": "You",
+      "ai_label": "AI Assistant"
+    },
+    "toasts": {
+      "save_error_title": "Save Error",
+      "delete_success": "Diary deleted",
+      "delete_error_title": "Delete Error",
+      "ai_connect_error_title": "AI Assistant Unavailable"
+    }
+  },
+  "subscription": {
+    "usage": {
+      "unlimited": "Unlimited",
+      "not_available": "Not Available",
+      "weekly_quota": "weekly quota",
+      "daily_quota": "daily quota"
+    }
+  },
+
   "dream": {
     "index": {
       "header_title": "Dream Journal",
@@ -343,6 +401,59 @@
       "premium_subtitle": "You are enjoying all the privileges",
       "free_label": "Unlock Your Potential",
       "free_subtitle": "Get unlimited access to all features"
+    }
+  }
+  ,
+  "about": {
+    "header_title": "What is Gisbel?",
+    "intro": {
+      "title": "Your smart companion for mental clarity",
+      "text": "Gisbel offers an AI-assisted experience to boost awareness, reveal blind spots, and help you progress with small, effective steps. It works cohesively with primer, login, and analysis flows."
+    },
+    "steps_title": "The Gisbel experience",
+    "features": {
+      "daily_mood": {
+        "title": "Daily Mood Tracking",
+        "description": "Record how you feel each day. AI analyzes your patterns so you can see progress."
+      },
+      "ai_journal": {
+        "title": "AI-Assisted Journaling",
+        "description": "Receive guiding questions as you write and go deeper into insight."
+      },
+      "dream_analysis": {
+        "title": "AI-Powered Dream Analysis",
+        "description": "Record dreams and explore possible meanings; discover messages from your subconscious."
+      },
+      "ai_reports": {
+        "title": "AI Summary Reports",
+        "description": "Track your thought patterns and progress through regular, personalized reports."
+      },
+      "therapy_sessions": {
+        "title": "Natural Chat Experience",
+        "description": "Voice for natural flow; text for deeper reflection—there when you need it."
+      },
+      "conversation_history": {
+        "title": "Conversation History",
+        "description": "Keep your conversations safe and revisit them anytime."
+      }
+    },
+    "steps": {
+      "1": {
+        "title": "Quick start",
+        "description": "From Home, begin with mood, journal, or dream analysis."
+      },
+      "2": {
+        "title": "Simple flow",
+        "description": "Clear guidance to help you reach goals faster."
+      },
+      "3": {
+        "title": "Personal Analysis",
+        "description": "See your strengths and first steps with AI summaries and a mini PDF."
+      },
+      "4": {
+        "title": "Reinforce progress",
+        "description": "Chats, journals, and dream analyses in one place; track your growth."
+      }
     }
   }
 }
