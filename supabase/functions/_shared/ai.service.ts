@@ -119,70 +119,257 @@ export async function generateElegantReport(
   memories: ProcessedMemory[],
   days: number,
   predictions?: Prediction[],
+  language?: string,
 ): Promise<ElegantReportPayload> {
+  const lang = ["tr", "en", "de"].includes(String(language))
+    ? String(language)
+    : "en";
+
+  // Dil kaynakları
+  const L = {
+    tr: {
+      locale: "tr-TR",
+      unknownSentiment: "belirsiz",
+      noMemories: "- Bu dönemde öne çıkan bir anı kaydedilmemiş.",
+      userContext: (name: string) => `KULLANICI BİLGİSİ: İsmi ${name}.`,
+      goalLine: (goal: string) => `KULLANICININ HEDEFİ: ${goal}`,
+      coreBeliefsLabel: "Temel İnançları",
+      predictionsHeading: (d: number) =>
+        `### GEÇMİŞ TAHMİNLER (Son ${d} Gün) ###`,
+      blindSpotPrefix: "Fark ettin mi?",
+      fallback: {
+        title: "Analiz Başarısız Oldu",
+        overview:
+          "Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.",
+        analogyTitle: "Veri Akışı Kesintisi",
+        analogyText: "Sinyal alınamadı.",
+      },
+    },
+    en: {
+      locale: "en-US",
+      unknownSentiment: "unknown",
+      noMemories: "- No standout memory was recorded in this period.",
+      userContext: (name: string) => `USER INFO: Name is ${name}.`,
+      goalLine: (goal: string) => `USER GOAL: ${goal}`,
+      coreBeliefsLabel: "Core Beliefs",
+      predictionsHeading: (d: number) =>
+        `### PAST PREDICTIONS (Last ${d} Days) ###`,
+      blindSpotPrefix: "Did you notice?",
+      fallback: {
+        title: "Analysis Failed",
+        overview:
+          "An error occurred while creating the report. Please try again.",
+        analogyTitle: "Signal Drop",
+        analogyText: "No signal could be captured.",
+      },
+    },
+    de: {
+      locale: "de-DE",
+      unknownSentiment: "unbekannt",
+      noMemories:
+        "- In diesem Zeitraum wurde keine herausragende Erinnerung aufgezeichnet.",
+      userContext: (name: string) => `NUTZERINFO: Name ist ${name}.`,
+      goalLine: (goal: string) => `NUTZERZIEL: ${goal}`,
+      coreBeliefsLabel: "Kernüberzeugungen",
+      predictionsHeading: (d: number) =>
+        `### VERGANGENE PROGNOSE (Letzte ${d} Tage) ###`,
+      blindSpotPrefix: "Ist dir aufgefallen?",
+      fallback: {
+        title: "Analyse fehlgeschlagen",
+        overview:
+          "Beim Erstellen des Berichts ist ein Fehler aufgetreten. Bitte versuche es erneut.",
+        analogyTitle: "Signalverlust",
+        analogyText: "Kein Signal empfangen.",
+      },
+    },
+  } as const;
+  const I = L[lang as keyof typeof L];
+
   const formattedMemories = memories.length > 0
     ? memories.map((m) => {
-      const sentiment = m.sentiment_data?.dominant_emotion || "belirsiz";
+      const sentiment = m.sentiment_data?.dominant_emotion ||
+        I.unknownSentiment;
       return `- ${
-        new Date(m.event_time).toLocaleDateString("tr-TR")
+        new Date(m.event_time).toLocaleDateString(I.locale)
       }: [${sentiment}] "${String(m.content).substring(0, 150)}..."`;
     }).join("\n")
-    : "- Bu dönemde öne çıkan bir anı kaydedilmemiş.";
+    : I.noMemories;
 
   const userName = vault?.profile?.nickname ?? null;
-  const userContextLine = userName
-    ? `KULLANICI BİLGİSİ: İsmi ${userName}.`
-    : "";
+  const userContextLine = userName ? I.userContext(userName) : "";
   const goalLine = vault?.profile?.therapyGoals
-    ? `KULLANICININ HEDEFİ: ${String(vault.profile.therapyGoals)}`
+    ? I.goalLine(String(vault.profile.therapyGoals))
     : "";
 
   const predictionsBlock = (predictions && predictions.length > 0)
-    ? `\n### GEÇMİŞ TAHMİNLER (Son ${days} Gün) ###\n` +
+    ? `\n${I.predictionsHeading(days)}\n` +
       predictions.map((p) => `- ${p.title}: ${p.description}`).join("\n")
     : "";
 
-  const prompt = `
-  ROL: Sen, bilge ve empatik bir "Zihin Arkeoloğu"sun. Bir robot gibi değil, bir yol arkadaşı gibi konuş.
+  // Çok dilli prompt şablonları
+  type PromptArgs = {
+    days: number;
+    userContextLine: string;
+    goalLine: string;
+    coreBeliefsLabel: string;
+    formattedMemories: string;
+    predictionsBlock: string;
+    blindSpotPrefix: string;
+  };
 
-  GÖREV: Sana verilen yapısal verilerden yola çıkarak, Zihin Panosu için TEK BİR JSON objesi üret.
+  const PROMPTS: Record<string, (a: PromptArgs) => string> = {
+    tr: (
+      {
+        days,
+        userContextLine,
+        goalLine,
+        coreBeliefsLabel,
+        formattedMemories,
+        predictionsBlock,
+        blindSpotPrefix,
+      },
+    ) =>
+      `
+GÖREV: Aşağıdaki verilerden yola çıkarak Zihin Panosu için TEK BİR JSON nesnesi üret. Bir robot gibi değil, yol arkadaşı gibi ve doğrudan ikinci tekil şahıs ("sen") ile konuş.
 
-  SAĞLANAN VERİLER:
+SAĞLANAN VERİLER:
 
-  ### KULLANICI PROFİLİ (VAULT) ###
-  Bu, kullanıcının kim olduğunun özeti.
-  ${userContextLine}
-  ${goalLine}
-  Temel İnançları: ${JSON.stringify(vault.coreBeliefs || {})}
+### KULLANICI PROFİLİ (VAULT) ###
+${userContextLine}
+${goalLine}
+${coreBeliefsLabel}: ${JSON.stringify(vault.coreBeliefs || {})}
 
-  ### EN ALAKALI ANILAR (Son ${days} Gün) ###
-  Bunlar, kullanıcının zihninde son zamanlarda yer etmiş önemli anlar.
-  ${formattedMemories}
+### EN ALAKALI ANILAR (Son ${days} Gün) ###
+${formattedMemories}
 
-  ${predictionsBlock}
+${predictionsBlock}
 
-  İSTENEN JSON ÇIKTI YAPISI (KESİNLİKLE UYULMALIDIR):
-  {
-    "reportSections": {
-      "mainTitle": "Bu dönemin en vurucu ve özet başlığını YAZ.",
-      "overview": "2-3 cümlelik, dönemin ana temasını (Vault ve Anılardan yola çıkarak) özetleyen bir giriş paragrafı YAZ.",
-      "goldenThread": "Anılar arasındaki ana neden-sonuç ilişkisini anlatan 2 paragraflık bir analiz YAZ. 'Günlük Kayıtların Analizi' bölümü bu olacak.",
-      "blindSpot": "'Fark ettin mi?' ile başlayan ve görmediği bir kalıbı (Vault ve Anıları birleştirerek) ortaya çıkaran 1 paragraflık bölümü YAZ."
-    },
-    "reportAnalogy": {
-      "title": "Tüm analizi özetleyen bir metafor veya analoji başlığı YAZ. Örn: 'Pusulasını Arayan Kaptan'.",
-      "text": "Bu metaforu 1-2 cümleyle açıkla."
-    },
-    "derivedData": { "readMinutes": 2, "headingsCount": 4 }
-  }
+İSTENEN JSON ÇIKTI YAPISI (KESİN):
+{
+  "reportSections": {
+    "mainTitle": "Bu dönemi özetleyen vurucu bir başlık YAZ.",
+    "overview": "Vault ve anılardan yola çıkarak 2-3 cümlede ana temayı ÖZETLE.",
+    "goldenThread": "Anılar arasındaki neden-sonuç ilişkisini 2 paragrafta ANLAT.",
+    "blindSpot": "'${blindSpotPrefix}' ile başlayan ve gözden kaçan bir kalıbı gösteren 1 paragraf YAZ."
+  },
+  "reportAnalogy": {
+    "title": "Analizi tek metaforda ÖZETLEYEN bir başlık YAZ.",
+    "text": "Bu metaforu 1-2 cümlede AÇIKLA."
+  },
+  "derivedData": { "readMinutes": 2, "headingsCount": 4 }
+}
 
-  KURALLAR:
-  - **EN ÖNEMLİ KURAL: Tüm metni doğrudan ikinci tekil şahıs ('sen') kullanarak yaz. Ona kendisinden üçüncü bir şahıs gibi ASLA bahsetme.**
-  - Eğer ismini biliyorsan ('sen'), cümlenin başına bir kere ismiyle hitap et, sonra 'sen' diye devam et.
-  - Cevabın SADECE yukarıdaki JSON formatında olsun. Başka hiçbir şey ekleme.
-  - Markdown kullanMA. Vurgu için **kelime** formatını KULLANABİLİRSİN.
-  - Emoji YOK. Liste YOK.
-  `;
+KURALLAR:
+- Sadece GEÇERLİ JSON üret, ek açıklama yazma.
+- Tamamen Türkçe yaz ve "sen" diye hitap et.
+- Emoji ve Markdown KULLANMA.
+`.trim(),
+
+    en: (
+      {
+        days,
+        userContextLine,
+        goalLine,
+        coreBeliefsLabel,
+        formattedMemories,
+        predictionsBlock,
+        blindSpotPrefix,
+      },
+    ) =>
+      `
+TASK: From the data below, produce ONE JSON object for the Mind Board. Speak like a companion, not a robot, and use second person ("you").
+
+PROVIDED DATA:
+
+### USER PROFILE (VAULT) ###
+${userContextLine}
+${goalLine}
+${coreBeliefsLabel}: ${JSON.stringify(vault.coreBeliefs || {})}
+
+### MOST RELEVANT MEMORIES (Last ${days} Days) ###
+${formattedMemories}
+
+${predictionsBlock}
+
+REQUIRED JSON OUTPUT SHAPE (STRICT):
+{
+  "reportSections": {
+    "mainTitle": "WRITE a concise title summarizing this period.",
+    "overview": "WRITE a 2-3 sentence intro summarizing the main theme (from Vault & Memories).",
+    "goldenThread": "WRITE a 2-paragraph analysis explaining the key cause-effect across memories.",
+    "blindSpot": "WRITE 1 paragraph starting with '${blindSpotPrefix}' that reveals a blind spot."
+  },
+  "reportAnalogy": {
+    "title": "WRITE a metaphor/analogy title summarizing the analysis.",
+    "text": "Explain this metaphor in 1-2 sentences."
+  },
+  "derivedData": { "readMinutes": 2, "headingsCount": 4 }
+}
+
+RULES:
+- Output ONLY valid JSON; no extra text.
+- Entirely in English and use second person.
+- No emojis, no Markdown.
+`.trim(),
+
+    de: (
+      {
+        days,
+        userContextLine,
+        goalLine,
+        coreBeliefsLabel,
+        formattedMemories,
+        predictionsBlock,
+        blindSpotPrefix,
+      },
+    ) =>
+      `
+AUFGABE: Erstelle aus den folgenden Daten EIN JSON-Objekt für das Gedanken-Board. Sprich wie ein Begleiter, nicht wie ein Roboter, und benutze die zweite Person Singular ("du").
+
+BEREITGESTELLTE DATEN:
+
+### NUTZERPROFIL (VAULT) ###
+${userContextLine}
+${goalLine}
+${coreBeliefsLabel}: ${JSON.stringify(vault.coreBeliefs || {})}
+
+### RELEVANTESTE ERINNERUNGEN (Letzte ${days} Tage) ###
+${formattedMemories}
+
+${predictionsBlock}
+
+ERFORDERLICHES JSON-AUSGABEFORMAT (STRICT):
+{
+  "reportSections": {
+    "mainTitle": "SCHREIBE einen prägnanten Titel, der diesen Zeitraum zusammenfasst.",
+    "overview": "SCHREIBE eine Einführung in 2–3 Sätzen, die das Hauptthema (aus Vault & Erinnerungen) zusammenfasst.",
+    "goldenThread": "SCHREIBE eine Analyse in 2 Absätzen, die die wichtigsten Ursache-Wirkungs-Zusammenhänge erklärt.",
+    "blindSpot": "SCHREIBE 1 Absatz beginnend mit '${blindSpotPrefix}', der einen blinden Fleck sichtbar macht."
+  },
+  "reportAnalogy": {
+    "title": "SCHREIBE einen Metapher-/Analogie-Titel, der die Analyse zusammenfasst.",
+    "text": "Erkläre diese Metapher in 1–2 Sätzen."
+  },
+  "derivedData": { "readMinutes": 2, "headingsCount": 4 }
+}
+
+REGELN:
+- Gib NUR gültiges JSON aus; keine zusätzlichen Texte.
+- Vollständig auf Deutsch und in der zweiten Person.
+- Keine Emojis, kein Markdown.
+`.trim(),
+  };
+
+  const getPrompt = PROMPTS[lang] || PROMPTS.en;
+  const prompt = getPrompt({
+    days,
+    userContextLine,
+    goalLine,
+    coreBeliefsLabel: I.coreBeliefsLabel,
+    formattedMemories,
+    predictionsBlock,
+    blindSpotPrefix: I.blindSpotPrefix,
+  });
 
   const responseText = await invokeGemini(prompt, "gemini-1.5-pro", {
     responseMimeType: "application/json",
@@ -199,15 +386,18 @@ export async function generateElegantReport(
     console.error("AI'dan dönen JSON parse edilemedi:", e, responseText);
   }
 
-  // Güvenli fallback
+  // Güvenli fallback (dil duyarlı)
   return {
     reportSections: {
-      mainTitle: "Analiz Başarısız Oldu",
-      overview: "Rapor oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.",
+      mainTitle: I.fallback.title,
+      overview: I.fallback.overview,
       goldenThread: "",
       blindSpot: "",
     },
-    reportAnalogy: { title: "Veri Akışı Kesintisi", text: "Sinyal alınamadı." },
+    reportAnalogy: {
+      title: I.fallback.analogyTitle,
+      text: I.fallback.analogyText,
+    },
     derivedData: { readMinutes: 1, headingsCount: 1 },
   };
 }

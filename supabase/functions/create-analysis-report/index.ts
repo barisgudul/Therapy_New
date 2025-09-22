@@ -13,6 +13,7 @@ import { logRagInvocation } from "../_shared/utils/logging.service.ts";
 // Frontend bize sadece 'days' adında bir sayı gönderecek. Başka bir şey gönderirse suratına kapatacağız.
 const RequestBodySchema = z.object({
   days: z.number().int().min(1).max(365), // 1 ile 365 gün arası olmalı
+  language: z.enum(["tr", "en", "de"]).optional(),
 });
 
 // Hataları düzgün bir şekilde yakalamak için.
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
       // Eğer 'days' sayısı yanlışsa veya yoksa, kapıdan geri çevir.
       throw new Error(`Geçersiz istek: ${validation.error.message}`);
     }
-    const { days } = validation.data;
+    const { days, language } = validation.data;
     // ADAPTİF PARAMETRELERİ HESAPLA
     const retrievalParams = getAdaptiveRetrievalParams(days);
 
@@ -167,6 +168,7 @@ Deno.serve(async (req) => {
       memories || [],
       days,
       predictions,
+      language,
     );
 
     const { error: insertError } = await supabaseAdmin

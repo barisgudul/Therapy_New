@@ -3,6 +3,9 @@
 import type { InteractionContext } from "./types/context.ts";
 import { config, LLM_LIMITS } from "./config.ts";
 import * as AiService from "./ai.service.ts";
+import * as _VaultService from "./vault.service.ts";
+import { supabase as _adminClient } from "./supabase-admin.ts";
+import { deepMerge as _deepMerge } from "./utils/deepMerge.ts";
 
 // AI analizi için basit LLM çağrısı
 export async function executeDeepAnalysis(context: InteractionContext) {
@@ -10,7 +13,7 @@ export async function executeDeepAnalysis(context: InteractionContext) {
     `Kullanıcının son dönemdeki etkileşimleri için kısa bir analiz özeti üret.
 Sadece JSON döndür: { "insight": "1-2 cümlelik içgörü" }`;
 
-  return await AiService.invokeGemini(
+  const reply = await AiService.invokeGemini(
     prompt,
     config.AI_MODELS.ADVANCED,
     {
@@ -20,6 +23,10 @@ Sadece JSON döndür: { "insight": "1-2 cümlelik içgörü" }`;
     },
     context.transactionId,
   );
+
+  // Not: Kullanıcının talebiyle vault'a yedek yazım kaldırıldı.
+
+  return reply;
 }
 
 export class ControlledHybridPipeline {

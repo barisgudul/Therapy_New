@@ -17,6 +17,7 @@ import { Colors } from "../../constants/Colors";
 import { generatePdf } from "../../utils/pdfGenerator";
 import { supabase } from "../../utils/supabase";
 import { AnalysisReport } from "../../types/analysis";
+import { useTranslation } from "react-i18next";
 
 interface ReportDetailModalProps {
   isVisible: boolean;
@@ -50,20 +51,20 @@ type InsightCard = {
   color: string;
 };
 
-const mapTrend = (t: Trends) =>
-  t === "improving" ? "Yükseliş"
-  : t === "stable"   ? "Durağan"
-  : "Dikkat";
+const mapTrend = (t: Trends, tr: (k: string) => string) =>
+  t === "improving" ? tr('ai_summary.trend_improving')
+  : t === "stable"   ? tr('ai_summary.trend_stable')
+  : tr('ai_summary.trend_concerning');
 
-const mapStability = (s: Stability) =>
-  s === "high" ? "Dengeli" : s === "medium" ? "Dalgalı" : "Değişken";
+const mapStability = (s: Stability, tr: (k: string) => string) =>
+  s === "high" ? tr('ai_summary.stability_high') : s === "medium" ? tr('ai_summary.stability_medium') : tr('ai_summary.stability_low');
 
-const mapEngagement = (e: Engagement) =>
-  e === "high" ? "Optimal" : e === "medium" ? "Orta" : "Düşük";
+const mapEngagement = (e: Engagement, tr: (k: string) => string) =>
+  e === "high" ? tr('ai_summary.engagement_high') : e === "medium" ? tr('ai_summary.engagement_medium') : tr('ai_summary.engagement_low');
 
 // "Farkındalık" için pratik bir sezgisel metrik: analiz güveni
-const mapAwareness = (conf: number) =>
-  conf >= 0.66 ? "Yüksek" : conf >= 0.33 ? "Orta" : "Düşük";
+const mapAwareness = (conf: number, tr: (k: string) => string) =>
+  conf >= 0.66 ? tr('ai_summary.awareness_high') : conf >= 0.33 ? tr('ai_summary.awareness_medium') : tr('ai_summary.awareness_low');
 
 export default function ReportDetailModal({
   isVisible,
@@ -71,6 +72,7 @@ export default function ReportDetailModal({
   activeSummary,
   selectedDays,
 }: ReportDetailModalProps) {
+  const { t, i18n } = useTranslation();
   const [insights, setInsights] = useState<InsightCard[] | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
@@ -83,9 +85,12 @@ export default function ReportDetailModal({
   };
 
   // YENİ KONTROL MEKANİZMASI
+  const overviewLower = (activeSummary?.reportSections.overview || '').toLowerCase();
   const isAnalysisMeaningful = activeSummary &&
-    !activeSummary.reportSections.overview.toLowerCase().includes("yeterli veri") &&
-    !activeSummary.reportSections.overview.toLowerCase().includes("kayda değer bir an");
+    !overviewLower.includes("yeterli veri") &&
+    !overviewLower.includes("kayda değer bir an") &&
+    !overviewLower.includes("insufficient data") &&
+    !overviewLower.includes("no significant memory");
 
   // İçgörüleri server'dan çek
   useEffect(() => {
@@ -99,7 +104,7 @@ export default function ReportDetailModal({
       try {
         const { data, error } = await supabase.functions
           .invoke<BehavioralAnalysisResultLite>("analyze-behavioral-patterns", {
-            body: { periodDays: selectedDays, nonce: Date.now() + Math.random() }, // ⬅️ güçlü cache-bust
+            body: { periodDays: selectedDays, nonce: Date.now() + Math.random(), language: i18n.language }, // ⬅️ güçlü cache-bust
           });
         if (error) throw error;
         if (!data || data.total_patterns_found === 0) {
@@ -107,10 +112,10 @@ export default function ReportDetailModal({
           return;
         }
         if (!cancelled) setInsights([
-          { key:"trend",    label:"Gelişim Trendi",  value:mapTrend(data.overall_trends.communication_trend), icon:"trending-up", gradient:["rgba(147,51,234,0.12)","rgba(147,51,234,0.04)"], color:"#9333EA" },
-          { key:"balance",  label:"Duygusal Denge", value:mapStability(data.overall_trends.mood_stability),   icon:"heart",       gradient:["rgba(236,72,153,0.12)","rgba(236,72,153,0.04)"], color:"#EC4899" },
-          { key:"awareness",label:"Farkındalık",    value:mapAwareness(data.analysis_confidence),            icon:"bulb",        gradient:["rgba(34,197,94,0.12)","rgba(34,197,94,0.04)"], color:"#22C55E" },
-          { key:"energy",   label:"Enerji Seviyesi",value:mapEngagement(data.overall_trends.engagement_level),icon:"flame",      gradient:["rgba(251,146,60,0.12)","rgba(251,146,60,0.04)"], color:"#FB923C" },
+          { key:"trend",    label:t('ai_summary.insight_trend'),    value:mapTrend(data.overall_trends.communication_trend, t), icon:"trending-up", gradient:["rgba(147,51,234,0.12)","rgba(147,51,234,0.04)"], color:"#9333EA" },
+          { key:"balance",  label:t('ai_summary.insight_balance'),  value:mapStability(data.overall_trends.mood_stability, t),   icon:"heart",       gradient:["rgba(236,72,153,0.12)","rgba(236,72,153,0.04)"], color:"#EC4899" },
+          { key:"awareness",label:t('ai_summary.insight_awareness'),value:mapAwareness(data.analysis_confidence, t),            icon:"bulb",        gradient:["rgba(34,197,94,0.12)","rgba(34,197,94,0.04)"], color:"#22C55E" },
+          { key:"energy",   label:t('ai_summary.insight_energy'),   value:mapEngagement(data.overall_trends.engagement_level, t),icon:"flame",      gradient:["rgba(251,146,60,0.12)","rgba(251,146,60,0.04)"], color:"#FB923C" },
         ]);
       } catch (e) {
         if (!cancelled) {
@@ -124,7 +129,7 @@ export default function ReportDetailModal({
 
     run();
     return () => { cancelled = true; };
-  }, [isVisible, selectedDays, isAnalysisMeaningful, activeSummary, lastRefresh]); // ⬅️ bağımlılıklara ekle
+  }, [isVisible, selectedDays, isAnalysisMeaningful, activeSummary, lastRefresh, i18n.language, t]); // ⬅️ bağımlılıklara ekle
 
   // Modal kapanınca state'i temizle
   useEffect(() => {
@@ -179,25 +184,25 @@ export default function ReportDetailModal({
                   colors={["#5DA1D9", "#4988E5"]}
                   style={styles.modalBadgeGradient}
                 >
-                  <Text style={styles.modalBadgeText}>Kişisel Rapor</Text>
+                  <Text style={styles.modalBadgeText}>{t('ai_summary.header_title')}</Text>
                 </LinearGradient>
               </View>
 
-              <Text style={styles.modalMainTitle}>{activeSummary ? activeSummary.reportSections.mainTitle : 'Kişisel Rapor'}</Text>
+              <Text style={styles.modalMainTitle}>{activeSummary ? activeSummary.reportSections.mainTitle : t('ai_summary.header_title')}</Text>
               <Text style={styles.modalSubtitle}>
-                {selectedDays} Günlük Derinlemesine Analiz
+                {t('ai_summary.modal_subtitle', { days: selectedDays })}
               </Text>
               
               <View style={styles.modalStatsRow}>
                 <View style={styles.modalStatItem}>
                   <Ionicons name="calendar-outline" size={16} color={Colors.light.tint} />
-                  <Text style={styles.modalStatText}>{selectedDays} gün</Text>
+                  <Text style={styles.modalStatText}>{t('ai_summary.days_short', { count: selectedDays })}</Text>
                 </View>
                 <View style={styles.modalStatDivider} />
                 <View style={styles.modalStatItem}>
                   <Ionicons name="time-outline" size={16} color={Colors.light.tint} />
                   <Text style={styles.modalStatText}>
-                    {new Date().toLocaleDateString("tr-TR", { 
+                    {new Date().toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : i18n.language === 'de' ? 'de-DE' : 'en-US', { 
                       day: "numeric", 
                       month: "long" 
                     })}
@@ -224,22 +229,22 @@ export default function ReportDetailModal({
 
                 {/* Bölümler */}
                 <View style={styles.reportSection}>
-                  <Text style={styles.modalSectionTitle}>Genel Bakış</Text>
+                  <Text style={styles.modalSectionTitle}>{t('ai_summary.section_overview')}</Text>
                   <Markdown style={modalMarkdownStyles}>{activeSummary.reportSections.overview}</Markdown>
                 </View>
                 <View style={styles.reportSection}>
-                  <Text style={styles.modalSectionTitle}>Günlük Kayıtların Analizi</Text>
+                  <Text style={styles.modalSectionTitle}>{t('ai_summary.section_goldenThread')}</Text>
                   <Markdown style={modalMarkdownStyles}>{activeSummary.reportSections.goldenThread}</Markdown>
                 </View>
                 <View style={styles.reportSection}>
-                  <Text style={styles.modalSectionTitle}>Kör Nokta</Text>
+                  <Text style={styles.modalSectionTitle}>{t('ai_summary.section_blindSpot')}</Text>
                   <Markdown style={modalMarkdownStyles}>{activeSummary.reportSections.blindSpot}</Markdown>
                 </View>
 
                 {/* İstatistik / İçgörü Kartları */}
                 {isAnalysisMeaningful && (
                   <View key={`${selectedDays}-${activeSummary?.reportSections.mainTitle}`} style={styles.modalInsightSection}>
-                    <Text style={styles.modalSectionTitle}>Öne Çıkan İçgörüler</Text>
+                    <Text style={styles.modalSectionTitle}>{t('ai_summary.section_highlights')}</Text>
 
                     {insightsLoading && (
                       <View style={{ paddingVertical: 8 }}>
@@ -267,17 +272,16 @@ export default function ReportDetailModal({
 
                 {/* Tavsiye Bölümü */}
                 <View style={styles.modalRecommendSection}>
-                  <LinearGradient
+                    <LinearGradient
                     colors={["rgba(93,161,217,0.1)", "rgba(93,161,217,0.03)"]}
                     style={styles.modalRecommendCard}
                   >
                     <View style={styles.modalRecommendHeader}>
                       <Ionicons name="compass" size={24} color={Colors.light.tint} />
-                      <Text style={styles.modalRecommendTitle}>Kişisel Pusula</Text>
+                        <Text style={styles.modalRecommendTitle}>{t('ai_summary.recommend_title')}</Text>
                     </View>
                     <Text style={styles.modalRecommendText}>
-                      Bu dönem boyunca gösterdiğin direnç ve farkındalık takdire değer. 
-                      Gelecek günlerde duygularına alan açmaya ve içsel sesini dinlemeye devam et.
+                      {t('ai_summary.recommend_text')}
                     </Text>
                   </LinearGradient>
                 </View>
@@ -293,7 +297,7 @@ export default function ReportDetailModal({
                       style={styles.modalActionGradient}
                     >
                       <Ionicons name="download-outline" size={20} color={Colors.light.tint} />
-                      <Text style={[styles.modalActionText, { color: Colors.light.tint }]}>PDF İndir</Text>
+                      <Text style={[styles.modalActionText, { color: Colors.light.tint }]}>{t('ai_summary.pdf_download')}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
                   
@@ -304,14 +308,14 @@ export default function ReportDetailModal({
                     }}
                   >
                     <Ionicons name="share-social-outline" size={20} color={Colors.light.tint} />
-                    <Text style={[styles.modalSecondaryActionText, { color: Colors.light.tint }]}>Paylaş</Text>
+                    <Text style={[styles.modalSecondaryActionText, { color: Colors.light.tint }]}>{t('ai_summary.share')}</Text>
                   </TouchableOpacity>
                 </View>
               </>
             ) : (
               <View style={styles.modalLoadingState}>
                 <ActivityIndicator size="large" color={Colors.light.tint} />
-                <Text style={styles.modalLoadingText}>Analiz yükleniyor...</Text>
+                <Text style={styles.modalLoadingText}>{t('ai_summary.loading')}</Text>
               </View>
             )}
           </View>

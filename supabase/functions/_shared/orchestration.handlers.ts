@@ -31,6 +31,7 @@ import {
   getDiaryNextQuestionsPrompt,
   getDiaryStartPrompt,
 } from "./prompts/diary.prompt.ts";
+import * as RagService from "./rag.service.ts";
 
 // ===============================================
 // ZOD ŞEMALARI VE DOĞRULAMA
@@ -209,6 +210,8 @@ export async function handleDreamAnalysis(
     logger.error("DreamAnalysis", "process-memory invoke hatası", pmError);
     // Akışı bozma; logla ve devam et.
   }
+
+  // Not: Kullanıcının talebiyle vault'a yedek yazım kaldırıldı.
 
   logger.info("DreamAnalysis", `İşlem tamamlandı. Event ID: ${newEventId}`);
   return { eventId: newEventId };
@@ -564,13 +567,36 @@ export async function handleDiaryEntry(
   const userName = initialVault?.profile?.nickname ?? null;
   const vaultContext = vaultToContextString(initialVault as VaultData);
 
+  // RAG: cognitive_memories üzerinden bağlam al
+  const retrievedMemories = await RagService.retrieveContext(
+    context.userId,
+    userInput,
+    {
+      threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
+      count: config.RAG_PARAMS.DEFAULT.COUNT,
+    },
+  );
+  const ragForPrompt = (retrievedMemories || [])
+    .map((c) => `- ${c.content}`)
+    .slice(0, 5)
+    .join("\n");
+
   // 1) İlk tur: duygu + 3 soru üret
   const lang = ["tr", "en", "de"].includes(language as string)
     ? (language as string)
     : "en";
 
   if (!conversationId || !turn || turn === 0) {
-    const prompt = getDiaryStartPrompt(userInput, userName, vaultContext, lang);
+    // Vault + RAG birleşik bağlam
+    const combinedContext = `${vaultContext}\n\n- Alakalı notlar:\n${
+      ragForPrompt || "(bulunamadı)"
+    }`;
+    const prompt = getDiaryStartPrompt(
+      userInput,
+      userName,
+      combinedContext,
+      lang,
+    );
     const raw = await AiService.invokeGemini(
       prompt,
       config.AI_MODELS.FAST,
@@ -642,7 +668,12 @@ export async function handleDiaryEntry(
   let aiResponse = continueMsgByLang[lang] || continueMsgByLang.en;
   if (shouldFinish) {
     // Kısa kapanış
-    const conclPrompt = getDiaryConclusionPrompt(userInput, userName, "", lang);
+    const conclPrompt = getDiaryConclusionPrompt(
+      userInput,
+      userName,
+      ragForPrompt,
+      lang,
+    );
     try {
       const rawC = await AiService.invokeGemini(
         conclPrompt,

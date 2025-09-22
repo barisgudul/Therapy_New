@@ -316,15 +316,21 @@ serve(async (req: Request) => {
         { content: body.answer3, type: "onboarding_step" },
       ];
 
+      // Tek bir işlem kimliği üret ve tüm kayıtlarla paylaş (debug ve ilişkilendirme için)
+      const transactionId = crypto.randomUUID();
+
       onboardingAnswers.forEach((answer) => {
         // Beklemeden tetikle
         supabaseClient.functions.invoke("process-memory", {
           body: {
-            source_event_id: `onboarding-${user.id}`,
+            // Her cevap için benzersiz kaynak ID (unique constraint çakışmalarını önlemek için)
+            source_event_id:
+              `onboarding-${user.id}-${answer.type}-${transactionId}`,
             user_id: user.id,
             content: answer.content,
             event_time: new Date().toISOString(),
             event_type: answer.type,
+            transaction_id: transactionId,
           },
         }).then(() => {
           // no-op

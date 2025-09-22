@@ -49,28 +49,35 @@ Deno.serve(async (req) => {
       "stylometry_analysis": { "avg_sentence_length": 15, "lexical_density": 0.6 }
     }`;
 
-    const rawAnalysis = await invokeGemini(
-      analysisPrompt,
-      "gemini-1.5-flash",
-      {
-        responseMimeType: "application/json",
-      },
-      transaction_id,
-    );
-    let analysisResult: unknown;
+    let sentiment_analysis: unknown = null;
+    let stylometry_analysis: unknown = null;
     try {
-      analysisResult = JSON.parse(rawAnalysis);
-    } catch (_e) {
-      console.error(
-        "[Process-Memory] AI'dan gelen analiz sonucu JSON değil:",
-        rawAnalysis,
+      const rawAnalysis = await invokeGemini(
+        analysisPrompt,
+        "gemini-1.5-flash",
+        {
+          responseMimeType: "application/json",
+        },
+        transaction_id,
       );
-      throw new Error("AI analysis result is not valid JSON.");
+      try {
+        const parsed = JSON.parse(rawAnalysis) as {
+          sentiment_analysis?: unknown;
+          stylometry_analysis?: unknown;
+        };
+        sentiment_analysis = parsed.sentiment_analysis ?? null;
+        stylometry_analysis = parsed.stylometry_analysis ?? null;
+      } catch (_e) {
+        console.warn(
+          "[Process-Memory] AI analiz JSON parse edilemedi, boş veri ile devam ediliyor.",
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[Process-Memory] AI analiz çağrısı başarısız, boş veri ile devam.",
+        e,
+      );
     }
-    const { sentiment_analysis, stylometry_analysis } = analysisResult as {
-      sentiment_analysis: unknown;
-      stylometry_analysis: unknown;
-    };
 
     // 2. ÜÇ FARKLI EMBEDDING'İ OLUŞTUR (İçerik, Duygu, Stil)
     // Batch embedding: tek çağrıda 3 metin
@@ -79,12 +86,25 @@ Deno.serve(async (req) => {
       `Duygusal Profil: ${JSON.stringify(sentiment_analysis)}`,
       `Yazım Stili: ${JSON.stringify(stylometry_analysis)}`,
     ];
-    const batchRes = await embedContentsBatch(batchTexts, transaction_id);
-    if (!batchRes.embeddings || batchRes.embeddings.length === 0) {
-      throw new Error("Batch embedding sonuçları boş döndü.");
+    let contentEmbedding: number[] | null = null;
+    let sentimentEmbedding: number[] | null = null;
+    let stylometryEmbedding: number[] | null = null;
+    try {
+      const batchRes = await embedContentsBatch(batchTexts, transaction_id);
+      if (batchRes.embeddings && batchRes.embeddings.length >= 3) {
+        [contentEmbedding, sentimentEmbedding, stylometryEmbedding] = batchRes
+          .embeddings as (number[] | null)[];
+      } else {
+        console.warn(
+          "[Process-Memory] Batch embedding sonuçları eksik/boş, null vektörlerle devam.",
+        );
+      }
+    } catch (e) {
+      console.warn(
+        "[Process-Memory] Embedding çağrısı başarısız, null vektörlerle devam.",
+        e,
+      );
     }
-    const [contentEmbedding, sentimentEmbedding, stylometryEmbedding] = batchRes
-      .embeddings as (number[] | null)[];
 
     // 3. Veriyi cognitive_memories'e kaydet
     const adminClient = createClient(

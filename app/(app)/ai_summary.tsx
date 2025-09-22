@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import Animated, { LinearTransition } from 'react-native-reanimated';
+import { useTranslation } from "react-i18next";
 
 // Dışarıya taşıdığımız component ve fonksiyonları import ediyoruz
 import ReportCard from "../../components/ai_summary/ReportCard";
@@ -29,6 +30,7 @@ import { AnalysisReport } from "../../types/analysis";
 export default function AISummaryScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const { t, i18n } = useTranslation();
 
   // State'ler azalmadı ama artık sadece bu ekranın kendi state'leri
   const [maxDays] = useState(30);
@@ -73,7 +75,7 @@ export default function AISummaryScreen() {
       // ADIM 1: Fonksiyonu çağır ve bu sefer DÖNEN VERİYİ BİR DEĞİŞKENE ATA.
       const { data: newReportPayload, error } = await supabase.functions.invoke(
         'create-analysis-report',
-        { body: { days: selectedDays } }
+        { body: { days: selectedDays, language: i18n.language } }
       );
 
       // ADIM 2: Her türlü hatayı yakala.
@@ -85,8 +87,8 @@ export default function AISummaryScreen() {
       // ADIM 3: BAŞARI MESAJINI GÖSTER.
       Toast.show({
         type: 'success',
-        text1: 'Raporun Hazır!',
-        text2: 'Yeni kişisel raporun oluşturuldu.',
+        text1: t('ai_summary.toast_success_title'),
+        text2: t('ai_summary.toast_success_body'),
       });
 
       // ADIM 4: VERİTABANINA GİTMEK YERİNE, GELEN VERİYLE STATE'İ KENDİN GÜNCELLE.
@@ -107,11 +109,11 @@ export default function AISummaryScreen() {
       setModalVisible(true);
 
     } catch (e: unknown) {
-      const errorMessage = e instanceof Error ? e.message : 'Rapor oluşturulamadı.';
+      const errorMessage = e instanceof Error ? e.message : t('ai_summary.toast_error_generic');
       console.error('[fetchSummary Error]', errorMessage);
       Toast.show({
         type: 'error',
-        text1: 'Bir Hata Oluştu',
+        text1: t('ai_summary.toast_error_title'),
         text2: errorMessage,
       });
     } finally {
@@ -122,19 +124,19 @@ export default function AISummaryScreen() {
   // Özeti silme fonksiyonu
   const deleteSummary = (reportId: string) => {
     Alert.alert(
-      "Analizi Sil",
-      "Bu kişisel raporu kalıcı olarak silmek istediğinizden emin misiniz?",
+      t('ai_summary.confirm_delete_title'),
+      t('ai_summary.confirm_delete_message'),
       [
-        { text: "Vazgeç", style: "cancel" },
+        { text: t('ai_summary.confirm_cancel'), style: "cancel" },
         {
-          text: "Sil",
+          text: t('ai_summary.confirm_delete_cta'),
           style: "destructive",
           onPress: async () => {
             const reportsBeforeDelete = [...analysisReports];
             setAnalysisReports(prev => prev.filter(r => r.id !== reportId));
             try {
               if (reportId.startsWith("temp-")) { // ⬅️ sadece lokalde
-                Toast.show({ type: "info", text1: "Rapor Silindi" });
+                Toast.show({ type: "info", text1: t('ai_summary.toast_deleted') });
                 return;
               }
               const { error } = await supabase
@@ -144,13 +146,13 @@ export default function AISummaryScreen() {
 
               if (error) throw error;
 
-              Toast.show({ type: 'info', text1: 'Rapor Silindi' });
+              Toast.show({ type: 'info', text1: t('ai_summary.toast_deleted') });
             } catch (_e) {
               setAnalysisReports(reportsBeforeDelete);
               Toast.show({
                 type: 'error',
-                text1: 'Silinemedi',
-                text2: _e instanceof Error ? _e.message : 'Rapor silinirken bir hata oluştu.',
+                text1: t('ai_summary.toast_delete_error_title'),
+                text2: _e instanceof Error ? _e.message : t('ai_summary.toast_delete_error_body'),
               });
             }
           },
@@ -170,17 +172,17 @@ export default function AISummaryScreen() {
         <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 
-      <Text style={styles.headerTitle}>Kişisel Rapor</Text>
+      <Text style={styles.headerTitle}>{t('ai_summary.header_title')}</Text>
 
       <View style={styles.content}>
         {/* YENİ: KARŞILAMA BÖLÜMÜ */}
-        <Text style={styles.welcomeTitle}>Tekrar Hoş Geldin</Text>
+        <Text style={styles.welcomeTitle}>{t('ai_summary.welcome_title')}</Text>
         <Text style={styles.welcomeSubtitle}>
-          Geçmişini analiz ederek geleceğin için yeni bir kapı arala.
+          {t('ai_summary.welcome_subtitle')}
         </Text>
 
         {/* YENİ: KONTROL BÖLÜMÜ - ARTIK KART İÇİNDE DEĞİL */}
-        <Text style={styles.sectionHeader}>Yeni Bir Kişisel Rapor Oluştur</Text>
+        <Text style={styles.sectionHeader}>{t('ai_summary.create_title')}</Text>
         <Slider
           minimumValue={1}
           maximumValue={maxDays}
@@ -224,7 +226,7 @@ export default function AISummaryScreen() {
                 <Ionicons name="sparkles-outline" size={22} color="#FFFFFF" />
               )}
               <Text style={styles.analyzeButtonText}>
-                {loading ? "Analiz Ediliyor..." : `${selectedDays} Günlük Analiz Oluştur`}
+                {loading ? t('ai_summary.analyzing') : t('ai_summary.analyze_button', { days: selectedDays })}
               </Text>
             </View>
           </LinearGradient>
@@ -235,7 +237,7 @@ export default function AISummaryScreen() {
           <View style={commonStyles.loadingCard}><ActivityIndicator /></View>
         ) : analysisReports.length > 0 ? (
           <>
-            <Text style={styles.listHeader}>Geçmiş Analizlerin</Text>
+            <Text style={styles.listHeader}>{t('ai_summary.list_header')}</Text>
             <Animated.FlatList
               data={analysisReports}
               itemLayoutAnimation={LinearTransition.duration(300)}
@@ -271,10 +273,10 @@ export default function AISummaryScreen() {
               </LinearGradient>
             </View>
             <Text style={styles.emptyStateText}>
-              Henüz analiz oluşturulmadı
+              {t('ai_summary.empty_title')}
             </Text>
             <Text style={styles.emptyStateSubtext}>
-              Duygu geçmişini analiz etmeye başla
+              {t('ai_summary.empty_subtext')}
             </Text>
           </View>
         )}

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Colors } from '../../constants/Colors';
 
@@ -34,11 +35,12 @@ const createPreviewText = (content?: AnalysisReport['content']): string => {
   const analogyText = content?.reportAnalogy?.text;
   if (analogyText) return analogyText;
   const overview = content?.reportSections?.overview;
-  return overview ? overview.replace(/\*\*/g, '').trim() : 'Özet bulunmuyor.';
+  return overview ? overview.replace(/\*\*/g, '').trim() : '';
 };
 
 export default function ReportCard({ item, onPress, onDelete }: ReportCardProps) {
-  const mainTitle = item.content?.reportSections?.mainTitle || "Başlıksız Rapor";
+  const { t, i18n } = useTranslation();
+  const mainTitle = item.content?.reportSections?.mainTitle || t('ai_summary.header_title');
 
   return (
     <TouchableOpacity style={styles.cardContainer} activeOpacity={0.9} onPress={onPress}>
@@ -52,15 +54,15 @@ export default function ReportCard({ item, onPress, onDelete }: ReportCardProps)
           <View style={styles.headerTextContainer}>
             <Text style={styles.title}>{mainTitle}</Text>
             <Text style={styles.subtitle}>
-              {new Date(item.created_at).toLocaleDateString('tr-TR', { month: 'long', day: 'numeric' })}
+              {new Date(item.created_at).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : i18n.language === 'de' ? 'de-DE' : 'en-US', { month: 'long', day: 'numeric' })}
               {' • '}
-              {item.days_analyzed} günlük analiz
+              {t('ai_summary.card_subtitle', { days: item.days_analyzed })}
             </Text>
           </View>
         </View>
 
         <Text style={styles.previewText} numberOfLines={3}>
-          {createPreviewText(item.content)}
+          {createPreviewText(item.content) || t('ai_summary.no_overview')}
         </Text>
 
         <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
