@@ -93,9 +93,7 @@ export const config = {
    * Özellik bayrakları - dinamik özellik kontrolü için
    * Environment variable'larla açılıp kapatılabilir
    */
-  FEATURE_FLAGS: {
-    ANTIPARROT_ENABLED: getEnv("ANTIPARROT_ENABLED", "1") === "1",
-  } as const,
+  FEATURE_FLAGS: {} as const,
 } as const;
 
 // LLM limitleri ayrı export - kolay import için

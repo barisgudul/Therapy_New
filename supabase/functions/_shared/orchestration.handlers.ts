@@ -10,11 +10,6 @@ import * as VaultService from "./vault.service.ts";
 
 import { config, LLM_LIMITS } from "./config.ts";
 import { deepMerge } from "./utils/deepMerge.ts";
-import {
-  ensureNonParrotReply,
-  hasCliches,
-  looksParroty,
-} from "./utils/antiParrot.ts";
 import { safeParseJsonBlock } from "./utils/json.ts";
 // CONTEXT SERVİSLERİ
 import { buildTextSessionContext } from "./contexts/session.context.service.ts";
@@ -717,7 +712,8 @@ export function handleDefault(
 // TEXT SESSION HANDLER'I - TEMİZLENMİŞ VE MODÜLER
 // =============================
 
-// BU ESKİ, DAĞINIK handleTextSession'ın YERİNE GELECEK OLAN YENİ VERSİYON
+// Update for handleTextSession in orchestration.handlers.ts
+
 export async function handleTextSession(context: InteractionContext): Promise<{
   aiResponse: string;
   usedMemory: { content: string; source_layer: string } | null;
@@ -728,216 +724,166 @@ export async function handleTextSession(context: InteractionContext): Promise<{
     pendingSessionId?: string | null;
   };
 
-  // TEŞHİS LOGU: AntiParrot-v2 çalışıyor mu kontrolü
+  // Enhanced logging for context tracking
   logger.info(
-    "AntiParrot-v2",
-    `build: 2025-09-06, rules: lcs5 trig0.55 cliche unicode-fix`,
+    "TextSession",
+    `Session starting - Warm start: ${!!pendingSessionId}, Messages: ${
+      messages?.length || 0
+    }`,
   );
 
-  // 1. SICA BAŞLANGIÇ KONTROLÜ (WARM START)
+  // 1. WARM START CHECK
   const isWarmStartAttempt = messages && messages.length === 0 &&
     pendingSessionId;
 
   if (isWarmStartAttempt) {
-    // Sıcak başlangıç için bağlamı çek
-    const { warmStartContext } = await buildTextSessionContext(
-      userId,
-      "", // userMessage boş
-      pendingSessionId,
-    );
+    // Get warm start context with activity history
+    const { warmStartContext, activityContext, userDossier } =
+      await buildTextSessionContext(userId, "", pendingSessionId);
 
     if (!warmStartContext) {
       throw new ValidationError("Geçici oturum bulunamadı veya süresi doldu.");
     }
 
-    logger.info("TextSession", "Sıcak başlangıç bağlamı çekildi.");
+    logger.info(
+      "TextSession",
+      "Warm start context loaded with activity history.",
+    );
 
-    // Sıcak başlangıç için özel prompt oluştur
+    // Enhanced warm start prompt with context awareness
     const warmStartPrompt = `
-      SENİN ROLÜN: Sen, az önce bir kullanıcıya günlük yansıması yapmış bir zihin aynasısın. Şimdi o yansıma üzerinden sohbete devam edeceksin.
+ROLE: Sen, kullanıcıyla derin bağ kuran ve onun hikayesini hatırlayan bir yol arkadaşısın.
 
-      BAĞLAM (KULLANICI BUNU BİLMİYOR, SEN BİLİYORSUN):
-      - Kullanıcının Günlüğü: "${warmStartContext.originalNote}"
-      - Senin Az Önceki Yansıtman: "${warmStartContext.aiReflection}"
-      - Ana Tema: "${warmStartContext.theme}"
+BAĞLAM:
+- Kullanıcının az önceki notu: "${warmStartContext.originalNote}"
+- Senin yansıtman: "${warmStartContext.aiReflection}"
+- Ana tema: "${warmStartContext.theme}"
+${userDossier.recentMood ? `- Son ruh hali: ${userDossier.recentMood}` : ""}
+${
+      userDossier.recentTopics?.length
+        ? `- Son konuları: ${userDossier.recentTopics.join(", ")}`
+        : ""
+    }
+${activityContext ? `\nSon aktiviteler:\n${activityContext}` : ""}
 
-      GÖREVİN: Sohbete BAŞLAT. Kullanıcıya "Sohbet Et" butonuna bastığı için bir karşılama mesajı yaz. Mesajın, yukarıdaki bağlamı bildiğini hissettirsin ama "kayıtlara göre" gibi robotik olmasın. Doğal bir geçiş yap.
+GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsal bir karşılama yaz.
+- Az önceki yansımadan organik olarak devam et
+- Geçmiş aktivitelerinden bir detayı hatırlat
+- "Kayıtlara göre" gibi robotik ifadeler KULLANMA
+- Spesifik ve kişisel ol
 
-      ÖRNEK CEVAPLAR:
-      - "Az önceki yansımamızda bahsettiğin o proje konusu nasıl gidiyor? Bu dinginlik hissini neye borçlusun sence?"
-      - "Yansımanı paylaştığın için teşekkürler. O 'sakinlik' anı üzerine biraz daha konuşmak istersen buradayım. Seni bu noktaya getiren neydi?"
+ÖRNEKLER:
+✓ "Az önce bahsettiğin ${warmStartContext.theme} konusu... Geçen hafta da benzer bir şey yaşamıştın sanırım?"
+✓ "${userDossier.recentMood || "sakin"} görünüyorsun bugün, ${
+      warmStartContext.originalNote.slice(0, 30)
+    }... dediğin yer nereden geliyor sence?"
+✗ "Merhaba, kayıtlarıma göre az önce yansıma yaptınız."
+✗ "Sohbete hazırım, ne konuşmak istersiniz?"
 
-      Şimdi, bu kurallara göre sohbeti başlatan ilk cümleni kur:
-    `.trim();
+Şimdi doğal karşılamanı yaz:
+`.trim();
 
     const rawWarm = await AiService.invokeGemini(
       warmStartPrompt,
       config.AI_MODELS.RESPONSE,
-      { temperature: 0.7, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
+      { temperature: 0.75, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
       context.transactionId,
     );
 
-    // Sıcak başlangıçta da papağanlık kontrolü (güvenli try/catch)
-    let aiResponse = rawWarm;
-    try {
-      if (config.FEATURE_FLAGS.ANTIPARROT_ENABLED) {
-        aiResponse = await ensureNonParrotReply(
-          warmStartContext.aiReflection?.slice(0, 80) ?? "",
-          rawWarm,
-          { forbidPersonal: true },
-          context.transactionId,
-        );
-      }
-    } catch (_e) {
-      // AntiParrot hatasında fallback - raw yanıtla devam et
-      aiResponse = rawWarm || "Hazırım. Söylemek istediğin bir şey var mı?";
-      logger.warn(
-        "AntiParrot",
-        "Warm start AntiParrot hatası - fallback kullanılıyor",
-      );
-    }
+    // Use raw response directly
+    const aiResponse = rawWarm || "Hazırım. Az önceki konudan devam edelim mi?";
 
-    // İSTEMCİ DOĞRULAMA: Orchestrator cevabını gösteriyor mu kontrolü
-    return { aiResponse, usedMemory: null }; // Sıcak başlangıçta RAG hafızası yok
+    return { aiResponse, usedMemory: null };
   }
 
-  // 2. NORMAL SOHBET AKIŞI
+  // 2. NORMAL CONVERSATION FLOW
   if (!messages || messages.length === 0) {
     throw new ValidationError("Sohbet için mesaj gerekli.");
   }
+
   const userMessage = messages[messages.length - 1].text;
+
   // PII koruması için mesajı maskeleyelim
   const maskMessage = (s: string) => s.replace(/\S/g, "•").slice(0, 80);
+  logger.info("TextSession", `Processing message in context of user history`);
+
+  // 3. BUILD ENHANCED CONTEXT
+  const {
+    userDossier,
+    retrievedMemories = [],
+    ragForPrompt = "",
+    activityContext = "",
+    recentActivities = [],
+  } = await buildTextSessionContext(userId, userMessage, pendingSessionId);
+
   logger.info(
     "TextSession",
-    `Yeni mesaj alındı (mask): ${maskMessage(userMessage)}`,
+    `Context built - Activities: ${recentActivities.length}, Memories: ${retrievedMemories.length}`,
   );
 
-  // 3. BAĞLAMI OLUŞTUR (Yeni context.service'i çağır)
-  // Artık bütün veritabanı ve RAG mantığı burada, tek satırda.
-  const { userDossier, retrievedMemories = [], ragForPrompt = "" } =
-    await buildTextSessionContext(
-      userId,
-      userMessage,
-      pendingSessionId,
-    );
-  logger.info("TextSession", "Kullanıcı dosyası ve RAG hafızası çekildi.");
-
-  // 4. PROMPT'U OLUŞTUR (Yeni prompt.service'i çağır)
-  // --- küçük yardımcılar ---
-  function lexicalOverlap(a: string, b: string) {
-    const toSet = (s: string) =>
-      new Set(
-        s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ")
-          .split(/\s+/).filter((w) => w.length > 2),
-      );
-    const A = toSet(a), B = toSet(b);
-    let inter = 0;
-    A.forEach((w) => {
-      if (B.has(w)) inter++;
-    });
-    return inter / Math.max(1, A.size);
-  }
-  const isGreeting = /\b(merhaba|selam|hey|günaydın|iyi akşamlar|naber)\b/i
-    .test(userMessage);
-
-  // 1) vektör sonuçları üstünde hafif filtre
-  const filteredMemories = retrievedMemories.filter((m) =>
-    lexicalOverlap(userMessage, String(m.content)) >= 0.10
-  );
-
-  // 2) Kullanım kararı: selam değilse ve mesaj ≥2 kelimeyse
-  const canUse = !isGreeting && userMessage.trim().split(/\s+/).length >= 2;
-
-  // 3) Fallback: filtre boşsa top-1'i yine de kullan
-  const kept = canUse
-    ? (filteredMemories.length > 0
-      ? filteredMemories
-      : retrievedMemories.slice(0, 1))
-    : [];
-
-  const pastContext = ragForPrompt ||
-    (kept.length > 0 ? kept.map((m) => `- ${m.content}`).join("\n") : "Yok");
-
-  logger.info(
-    "RAG-guard",
-    `retrieved=${retrievedMemories.length}, kept=${kept.length}, filtered=${filteredMemories.length}, canUse=${canUse}, reason=${
-      filteredMemories.length > 0 ? "lexical" : "fallback_top1"
-    }`,
-  );
-
-  const shortTermMemory = messages.slice(0, -1).map((m) =>
-    `${m.sender === "user" ? "Danışan" : "Sen"}: ${m.text}`
+  // 4. BUILD CONVERSATION CONTEXT
+  const shortTermMemory = messages.slice(-6).map((m) =>
+    `${m.sender === "user" ? "Kullanıcı" : "Sen"}: ${m.text}`
   ).join("\n");
 
+  // Detect conversation patterns
   const lastAiMsg = messages.slice(0, -1).reverse().find((m) =>
     m.sender === "ai"
   );
   const lastAiEndedWithQuestion = !!lastAiMsg &&
     /[?؟]$/.test(lastAiMsg.text.trim());
-  const userLooksBored = /\b(sıkıldım|boşver|aman|off+|yeter|ne alaka)\b/i.test(
-    userMessage,
-  );
 
-  // Stil rotasyonu: transactionId ile deterministik stil modu
-  const tx = context.transactionId && context.transactionId.length > 0
-    ? context.transactionId
-    : "0";
-  const seed = tx.charCodeAt(0);
-  const styleMode = (seed + (messages?.length || 0)) % 3;
+  // Enhanced boredom detection with context
+  const userLooksBored =
+    /\b(sıkıldım|boşver|neyse|önemsiz|bilmiyorum|hmm+|ımm)\b/i.test(
+      userMessage,
+    );
+
+  // Build the prompt with enhanced context
+  const styleMode = (messages?.length || 0) % 3;
+
+  // RAG filtering for better relevance
+  const isGreeting = /\b(merhaba|selam|hey|günaydın|iyi akşamlar|naber)\b/i
+    .test(userMessage);
+  const canUseRag = !isGreeting && userMessage.trim().split(/\s+/).length >= 2;
+  const filteredMemories = canUseRag
+    ? retrievedMemories.filter((m) => {
+      const sim = m?.similarity ?? 0;
+      return sim > 0.7; // Use higher threshold for quality
+    })
+    : [];
+  const kept = canUseRag
+    ? (filteredMemories.length > 0
+      ? filteredMemories
+      : retrievedMemories.slice(0, 1))
+    : [];
 
   const masterPrompt = generateTextSessionPrompt({
     userDossier,
-    pastContext,
+    pastContext: ragForPrompt,
     shortTermMemory,
     userMessage,
     lastAiEndedWithQuestion,
     userLooksBored,
     styleMode,
+    activityContext,
   });
 
-  // 4. YAPAY ZEKAYI ÇAĞIR
+  // 5. YAPAY ZEKAYI ÇAĞIR
   logger.info("TextSession", "AI'dan cevap bekleniyor...");
   const rawAi = await AiService.invokeGemini(
     masterPrompt,
-    config.AI_MODELS.RESPONSE, // Hızlı modeli kullanmaya devam
+    config.AI_MODELS.RESPONSE,
     { temperature: 0.8, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
     context.transactionId,
     userMessage,
   );
 
-  // Emniyet katmanı: papağanlık varsa yeniden yazdır
-  // TEŞHİS: AntiParrot gerçekten çalışıyor mu?
-  const parrotCheck = looksParroty(userMessage, rawAi);
-  const clicheCheck = hasCliches(rawAi);
-  const needRewrite = parrotCheck || clicheCheck;
+  // Use raw response directly
+  const aiResponse = rawAi || "Not aldım. Buradan devam edelim mi?";
   logger.info(
-    "AntiParrot-check",
-    `need: ${needRewrite}, parrot: ${parrotCheck}, cliche: ${clicheCheck}, preview: ${
-      maskMessage(rawAi)
-    }`,
-  );
-
-  // AntiParrot için güvenli try/catch (bloklayıcı güvenlik)
-  let aiResponse = rawAi;
-  try {
-    if (config.FEATURE_FLAGS.ANTIPARROT_ENABLED) {
-      aiResponse = await ensureNonParrotReply(
-        userMessage,
-        rawAi,
-        { noQuestionTurn: lastAiEndedWithQuestion, forbidPersonal: true },
-        context.transactionId,
-      );
-    }
-  } catch (_e) {
-    // AntiParrot hatasında fallback - raw yanıtla devam et
-    aiResponse = rawAi || "Not aldım. Buradan devam edelim mi?";
-    logger.warn("AntiParrot", "AntiParrot hatası - fallback kullanılıyor");
-  }
-
-  logger.info(
-    "AntiParrot-result",
-    `rewritten: ${aiResponse !== rawAi}, preview: ${maskMessage(aiResponse)}`,
+    "TextSession",
+    `Response generated, preview: ${maskMessage(aiResponse)}`,
   );
 
   // 5. SONUCU DÖNDÜR
@@ -945,7 +891,7 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   const usedMemory = used
     ? {
       content: String(used.content ?? ""),
-      source_layer: String(used.source_layer ?? "unknown"),
+      source_layer: "cognitive_memories", // Default source layer
     }
     : null;
   logger.info("TextSession", "Cevap başarıyla üretildi.");
