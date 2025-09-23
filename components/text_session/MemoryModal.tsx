@@ -2,6 +2,7 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface MemoryModalProps {
   isVisible: boolean;
@@ -23,18 +24,19 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
 }) => {
   if (!memory) return null;
   
+  const { t } = useTranslation();
 
   // Source layer'a göre ikon ve başlık seç
   const getSourceInfo = (layer: string): SourceInfo => {
     switch (layer) {
       case 'content':
-        return { icon: 'document-text-outline', title: 'Metin Anısı' };
+        return { icon: 'document-text-outline', title: t('text_session.memory.content_title') };
       case 'sentiment':
-        return { icon: 'heart-outline', title: 'Duygu Anısı' };
+        return { icon: 'heart-outline', title: t('text_session.memory.sentiment_title') };
       case 'stylometry':
-        return { icon: 'analytics-outline', title: 'Analiz Anısı' };
+        return { icon: 'analytics-outline', title: t('text_session.memory.stylometry_title') };
       default:
-        return { icon: 'bulb-outline', title: 'Genel Anı' };
+        return { icon: 'bulb-outline', title: t('text_session.memory.generic_title') };
     }
   };
 
@@ -67,12 +69,12 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
           {/* Content */}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.memoryContainer}>
-              <Text style={styles.memoryLabel}>🧠 AI&apos;ın Hatırladığı Anı</Text>
+              <Text style={styles.memoryLabel}>{t('text_session.memory.header')}</Text>
               <Text style={styles.memoryContent}>{memory.content}</Text>
             </View>
 
             <View style={styles.infoContainer}>
-              <Text style={styles.infoLabel}>Bu anı, AI&apos;ın size daha kişisel ve anlamlı bir cevap verebilmesi için kullanıldı.</Text>
+              <Text style={styles.infoLabel}>{t('text_session.memory.footer')}</Text>
             </View>
           </ScrollView>
         </View>

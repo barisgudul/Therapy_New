@@ -15,12 +15,14 @@ import {
 import { Colors } from "../../../constants/Colors";
 import { therapyOptions } from "../../../constants/therapyOptions";
 import { TherapyOptionCard } from "../../../components/therapy/TherapyOptionCard";
+import { useTranslation } from "react-i18next";
 
 const FALLBACK_TINT = "#3E6B89";
 
 export default function TherapyOptionsScreen() {
   const router = useRouter();
   const { startConversationWith } = useLocalSearchParams<{ startConversationWith?: string }>();
+  const { t } = useTranslation();
   
   // Güvenli renk değeri
   const tintColor = Colors?.light?.tint || FALLBACK_TINT;
@@ -42,10 +44,10 @@ export default function TherapyOptionsScreen() {
         />
       </View>
       <Text style={styles.title}>
-        Kişisel Gelişim Yolculuğunuz
+        {t('therapy.options.hero_title')}
       </Text>
       <Text style={styles.subtitle}>
-        Size en uygun iletişim yöntemini seçin
+        {t('therapy.options.hero_subtitle')}
       </Text>
     </View>
   );
@@ -67,20 +69,32 @@ export default function TherapyOptionsScreen() {
               <Ionicons name="chevron-back" size={28} color={tintColor} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: tintColor }]}>
-              İletişim Yöntemleri
+              {t('therapy.options.header_title')}
             </Text>
             <View style={{ width: 44 }} />
           </View>
 
           <FlatList
             data={therapyOptions}
-            renderItem={({ item }) => (
-              <TherapyOptionCard
-                key={item.id}
-                item={item}
-                onPress={handleOptionPress}
-              />
-            )}
+            renderItem={({ item }) => {
+              const localized = {
+                ...item,
+                title: t(`therapy.options.${item.id}.title`),
+                description: t(`therapy.options.${item.id}.description`),
+                features: [
+                  t(`therapy.options.${item.id}.features.0`),
+                  t(`therapy.options.${item.id}.features.1`),
+                  t(`therapy.options.${item.id}.features.2`),
+                ],
+              };
+              return (
+                <TherapyOptionCard
+                  key={item.id}
+                  item={localized as any}
+                  onPress={handleOptionPress}
+                />
+              );
+            }}
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}

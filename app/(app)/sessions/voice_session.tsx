@@ -20,6 +20,7 @@ import { PremiumGate } from "../../../components/PremiumGate";
 import { Colors } from "../../../constants/Colors";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useVoiceSessionReducer } from "../../../hooks";
+import { useTranslation } from "react-i18next";
 
 export default function VoiceSessionScreen() {
     const { mood: _mood } = useLocalSearchParams<
@@ -28,6 +29,7 @@ export default function VoiceSessionScreen() {
     const router = useRouter();
     const colorScheme = useColorScheme();
     const isDark = colorScheme === "dark";
+    const { t } = useTranslation();
 
     // Feature Access Hook
     const { loading, refresh } = useFeatureAccess("voice_sessions");
@@ -210,7 +212,7 @@ export default function VoiceSessionScreen() {
                                                     : Colors.light.text,
                                             }]}
                                         >
-                                            Sesli Terapi
+                                            {t('voice_session.title')}
                                         </Text>
 
                                         <Animated.View

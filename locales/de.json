@@ -453,8 +453,7 @@
       "free_label": "Schalte dein Potenzial frei",
       "free_subtitle": "Erhalte unbegrenzten Zugang zu allen Funktionen"
     }
-  }
-  ,
+  },
   "about": {
     "header_title": "Was ist Gisbel?",
     "intro": {
@@ -506,5 +505,46 @@
         "description": "Chats, Journale und Traumanalysen an einem Ort; verfolge dein Wachstum."
       }
     }
+  },
+  "text_session": {
+    "header_title": "Chat",
+    "welcome_title": "Bereit, dich zu öffnen?",
+    "welcome_subtitle": "Deine Gedanken werden hier ohne Urteil gehört.",
+    "input_placeholder": "Teile, was dir durch den Kopf geht...",
+    "memory": {
+      "content_title": "Text-Erinnerung",
+      "sentiment_title": "Gefühls-Erinnerung",
+      "stylometry_title": "Analyse-Erinnerung",
+      "generic_title": "Allgemeine Erinnerung",
+      "header": "🧠 Von der KI genutzte Erinnerung",
+      "footer": "Diese Erinnerung wurde genutzt, damit die KI persönlicher und sinnvoller antworten kann."
+    }
+  },
+  "therapy": {
+    "options": {
+      "header_title": "Kommunikationsmethoden",
+      "hero_title": "Deine Reise der persönlichen Entwicklung",
+      "hero_subtitle": "Wähle die Kommunikationsform, die am besten zu dir passt",
+      "voice": {
+        "title": "Sprachchat",
+        "description": "Teile deine Gedanken per Stimme. Die KI kann dir helfen, emotionale Hinweise in deinem Ton zu erkennen.",
+        "features": ["Echtzeit-Feedback", "Natürlicher Fluss", "Raum für verbales Denken"]
+      },
+      "text": {
+        "title": "Textchat",
+        "description": "Erkunde deine Gedanken und Gefühle beim Schreiben. Die KI hilft dir, Muster und Themen in deinen Texten zu erkennen.",
+        "features": ["Asynchrone Kommunikation", "Tiefere Reflexion", "Dauerhafte Aufzeichnungen"]
+      }
+    }
+  },
+  "voice_session": {
+    "title": "Sprachtherapie"
+  },
+  "premium_gate": {
+    "premium_title": "Entfalte dein Potenzial",
+    "limit_title": "Du hast dein Limit erreicht",
+    "premium_description": "Diese Funktion ist exklusiv für unsere Premium- oder +Plus-Mitglieder, um deine Reise voll zu unterstützen.",
+    "limit_description": "Wechsle zu Premium, um diese Funktion weiter zu erkunden und alle Vorteile zu genießen.",
+    "view_plans": "Pläne ansehen"
   }
 }

@@ -508,4 +508,46 @@
       }
     }
   }
+  ,
+  "text_session": {
+    "header_title": "Sohbet",
+    "welcome_title": "İçini Dökmeye Hazır Mısın?",
+    "welcome_subtitle": "Düşüncelerin, yargılanmadan dinlenmek için burada.",
+    "input_placeholder": "Düşüncelerini paylaş...",
+    "memory": {
+      "content_title": "Metin Anısı",
+      "sentiment_title": "Duygu Anısı",
+      "stylometry_title": "Analiz Anısı",
+      "generic_title": "Genel Anı",
+      "header": "🧠 AI'ın Hatırladığı Anı",
+      "footer": "Bu anı, AI'ın sana daha kişisel ve anlamlı bir cevap verebilmesi için kullanıldı."
+    }
+  },
+  "therapy": {
+    "options": {
+      "header_title": "İletişim Yöntemleri",
+      "hero_title": "Kişisel Gelişim Yolculuğun",
+      "hero_subtitle": "Sana en uygun iletişim yöntemini seç",
+      "voice": {
+        "title": "Sesli Sohbet",
+        "description": "Düşüncelerini sesli olarak paylaş. Yapay zeka, ses tonundaki duygusal ipuçlarını anlamana yardımcı olabilir.",
+        "features": ["Anlık Geri Bildirim", "Doğal Akış", "Sesli Düşünme Alanı"]
+      },
+      "text": {
+        "title": "Yazılı Sohbet",
+        "description": "Düşüncelerini ve hissettiklerini yazarak keşfet. Yapay zeka, yazdıklarındaki kalıpları ve temaları görmene yardımcı olur.",
+        "features": ["Asenkron İletişim", "Derinlemesine Düşünme", "Kalıcı Kayıtlar"]
+      }
+    }
+  },
+  "voice_session": {
+    "title": "Sesli Terapi"
+  },
+  "premium_gate": {
+    "premium_title": "Potansiyelini Keşfet",
+    "limit_title": "Limitine Ulaştın",
+    "premium_description": "Bu özellik, yolculuğunda sana tam destek olmak için Premium veya +Plus üyelerimize özeldir.",
+    "limit_description": "Bu özelliği keşfetmeye devam etmek ve tüm ayrıcalıklardan yararlanmak için Premium'a geç.",
+    "view_plans": "Planları Görüntüle"
+  }
 }

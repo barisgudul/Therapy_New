@@ -719,10 +719,12 @@ export async function handleTextSession(context: InteractionContext): Promise<{
   usedMemory: { content: string; source_layer: string } | null;
 }> {
   const { logger, userId } = context;
-  const { messages, pendingSessionId } = context.initialEvent.data as {
-    messages?: { sender: "user" | "ai"; text: string }[];
-    pendingSessionId?: string | null;
-  };
+  const { messages, pendingSessionId, language } = context.initialEvent
+    .data as {
+      messages?: { sender: "user" | "ai"; text: string }[];
+      pendingSessionId?: string | null;
+      language?: string;
+    };
 
   // Enhanced logging for context tracking
   logger.info(
@@ -858,6 +860,10 @@ GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsa
       : retrievedMemories.slice(0, 1))
     : [];
 
+  const lang = ["tr", "en", "de"].includes(String(language))
+    ? String(language)
+    : "en";
+
   const masterPrompt = generateTextSessionPrompt({
     userDossier,
     pastContext: ragForPrompt,
@@ -867,7 +873,7 @@ GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsa
     userLooksBored,
     styleMode,
     activityContext,
-  });
+  }, lang);
 
   // 5. YAPAY ZEKAYI ÇAĞIR
   logger.info("TextSession", "AI'dan cevap bekleniyor...");

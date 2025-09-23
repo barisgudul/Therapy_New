@@ -19,6 +19,7 @@ import {
   useSubscription,
 } from '../hooks/useSubscription';
 import { UsageStats } from '../services/subscription.service';
+import { useTranslation } from 'react-i18next';
 
 // =================================================================
 // ANA BİLEŞEN
@@ -88,16 +89,15 @@ interface ElegantBlockerProps {
 
 function ElegantBlocker({ isPremiumOnly, onUpgrade }: ElegantBlockerProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   
   const title = isPremiumOnly
-    ? 'Potansiyelini Keşfet'
-    : 'Limitine Ulaştın';
+    ? t('premium_gate.premium_title')
+    : t('premium_gate.limit_title');
   const description = isPremiumOnly
-    ? 'Bu özellik, yolculuğunda sana tam destek olmak için Premium veya +Plus üyelerimize özeldir.'
-    : 'Bu özelliği keşfetmeye devam etmek ve tüm ayrıcalıklardan yararlanmak için Premium\'a geç.';
-  const buttonText = isPremiumOnly
-    ? "Planları Görüntüle"
-    : 'Planları Görüntüle';
+    ? t('premium_gate.premium_description')
+    : t('premium_gate.limit_description');
+  const buttonText = t('premium_gate.view_plans');
   const iconName = isPremiumOnly ? 'diamond-outline' : 'hourglass-outline';
   
   // subscription.tsx'ten renkler ve TypeScript hatasını çözen "as const"

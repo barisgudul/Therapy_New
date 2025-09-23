@@ -4,6 +4,7 @@ import { View, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
+import { useTranslation } from "react-i18next";
 
 interface InputBarProps {
   input: string;
@@ -20,6 +21,7 @@ export const InputBar = memo(forwardRef<TextInput, InputBarProps>(({
   isTyping,
   inputRef,
 }, ref) => {
+  const { t } = useTranslation();
   const handleFocus = () => {
     // Focus handling logic can be added here if needed
   };
@@ -29,7 +31,7 @@ export const InputBar = memo(forwardRef<TextInput, InputBarProps>(({
       <TextInput
         ref={ref || inputRef}
         style={styles.input}
-        placeholder="Düşüncelerini paylaş..."
+        placeholder={t("text_session.input_placeholder")}
         placeholderTextColor="#9CA3AF"
         value={input}
         onChangeText={onInputChange}

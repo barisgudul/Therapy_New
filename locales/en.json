@@ -507,4 +507,46 @@
       }
     }
   }
+  ,
+  "text_session": {
+    "header_title": "Chat",
+    "welcome_title": "Ready to Share What's Inside?",
+    "welcome_subtitle": "Your thoughts are here to be heard without judgment.",
+    "input_placeholder": "Share what's on your mind...",
+    "memory": {
+      "content_title": "Text Memory",
+      "sentiment_title": "Emotion Memory",
+      "stylometry_title": "Analysis Memory",
+      "generic_title": "General Memory",
+      "header": "🧠 Memory Used by AI",
+      "footer": "This memory was used so AI can respond more personally and meaningfully."
+    }
+  },
+  "therapy": {
+    "options": {
+      "header_title": "Communication Methods",
+      "hero_title": "Your Personal Growth Journey",
+      "hero_subtitle": "Choose the communication style that suits you best",
+      "voice": {
+        "title": "Voice Chat",
+        "description": "Share your thoughts by voice. AI can help you notice emotional cues in your tone.",
+        "features": ["Real-time Feedback", "Natural Flow", "Space for Verbal Thinking"]
+      },
+      "text": {
+        "title": "Text Chat",
+        "description": "Explore your thoughts and feelings by writing. AI helps you see patterns and themes in what you write.",
+        "features": ["Asynchronous Communication", "Deeper Reflection", "Persistent Records"]
+      }
+    }
+  },
+  "voice_session": {
+    "title": "Voice Therapy"
+  },
+  "premium_gate": {
+    "premium_title": "Unlock Your Potential",
+    "limit_title": "You've Reached Your Limit",
+    "premium_description": "This feature is exclusive to our Premium or +Plus members to fully support your journey.",
+    "limit_description": "Upgrade to Premium to keep exploring this feature and enjoy all privileges.",
+    "view_plans": "View Plans"
+  }
 }

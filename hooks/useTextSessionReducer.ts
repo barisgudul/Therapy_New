@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { Alert, BackHandler } from "react-native";
 import { supabase } from "../utils/supabase";
+import i18n from "../utils/i18n";
 
 export interface TextMessage {
     id?: string; // YENİ: Mesaj ID'si (benzersiz)
@@ -324,6 +325,7 @@ export function useTextSessionReducer({
                                         data: {
                                             messages: [],
                                             pendingSessionId: pendingSessionId,
+                                            language: i18n.language,
                                         },
                                     },
                                 },
@@ -406,7 +408,7 @@ export function useTextSessionReducer({
                     body: {
                         eventPayload: {
                             type: "text_session",
-                            data: requestBody, // Güncellenmiş body'yi kullan
+                            data: { ...requestBody, language: i18n.language }, // Güncellenmiş body'yi kullan
                         },
                     },
                     // ... headers aynı ...
@@ -469,6 +471,7 @@ export function useTextSessionReducer({
                     body: {
                         messages: state.messages,
                         eventId: event.id, // Olayın ID'sini yolluyoruz ki kaynak belli olsun.
+                        language: i18n.language,
                     },
                 }).catch((err) => {
                     // Bu hata kritik değil, sadece UI'ı etkilemez. Konsola logla.

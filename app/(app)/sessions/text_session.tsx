@@ -25,6 +25,7 @@ import { TypingIndicator } from "../../../components/text_session/TypingIndicato
 import { MessageBubble } from "../../../components/text_session/MessageBubble";
 import { InputBar } from "../../../components/text_session/InputBar";
 import { MemoryModal } from "../../../components/text_session/MemoryModal";
+import { useTranslation } from "react-i18next";
 
 // YENİ COMPONENT: SessionUI - Memo ile optimize edilmiş
 interface SessionUIProps {
@@ -51,6 +52,7 @@ const SessionUI = memo<SessionUIProps>(({
   const { messages, input, isTyping, error, isMemoryModalVisible, selectedMemory } = state;
 
   // Hoş Geldin Component'i
+  const { t } = useTranslation();
   const WelcomeComponent = () => (
     <View style={styles.welcomeContainer}>
       <View style={styles.welcomeIconContainer}>
@@ -67,9 +69,9 @@ const SessionUI = memo<SessionUIProps>(({
           />
         </LinearGradient>
       </View>
-      <Text style={styles.welcomeTitle}>İçini Dökmeye Hazır Mısın?</Text>
+      <Text style={styles.welcomeTitle}>{t("text_session.welcome_title")}</Text>
       <Text style={styles.welcomeSubtitle}>
-        Düşüncelerin, yargılanmadan dinlenmek için burada.
+        {t("text_session.welcome_subtitle")}
       </Text>
     </View>
   );
@@ -91,7 +93,7 @@ const SessionUI = memo<SessionUIProps>(({
                 color={isDark ? "#fff" : Colors.light.tint}
               />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Sohbet</Text>
+            <Text style={styles.headerTitle}>{t("text_session.header_title")}</Text>
             <View style={{ width: 44 }} />
           </View>
 
