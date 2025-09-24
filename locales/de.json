@@ -547,4 +547,53 @@
     "limit_description": "Wechsle zu Premium, um diese Funktion weiter zu erkunden und alle Vorteile zu genießen.",
     "view_plans": "Pläne ansehen"
   }
+  ,
+  "transcripts": {
+    "flow": {
+      "count": "{{count}} Eintrag/Einträge gefunden",
+      "empty": "Noch keine Einträge",
+      "text": {
+        "title": "Deine Texte",
+        "description": "Sieh deine Gedanken im Fluss der Worte.",
+        "features": {
+          "keywords": "Schlüsselwörter",
+          "sentiment": "Stimmungsanalyse",
+          "self_reflection": "Selbstreflexion"
+        }
+      },
+      "voice": {
+        "title": "Sprachsitzungen",
+        "description": "Kehre zum Kern der geäußerten Emotionen zurück.",
+        "features": {
+          "tone": "Ton-Analyse",
+          "insights": "Entdeckung von Einsichten",
+          "transcript": "Live-Transkript"
+        }
+      }
+    },
+    "menu": {
+      "intro_title": "Deine Innenwelt",
+      "intro_description": "Erkunde Reflexionen und Erkenntnisse aus deinen vergangenen Sitzungen."
+    },
+    "summary": {
+      "preparing": "Die Zusammenfassung dieser Sitzung wird vorbereitet…",
+      "view_button": "Zusammenfassung ansehen",
+      "modal_title": "Chat-Zusammenfassung",
+      "modal_subtitle": "Eine kurze Zusammenfassung dieser Sitzung",
+      "close_button": "Verstanden"
+    },
+    "serenity": {
+      "title": "Eine Vergangenheit zu entdecken",
+      "description": "Hier werden mit der Zeit deine Sitzungsaufzeichnungen präsentiert. Starte deine erste Sitzung, um dieses wertvolle Archiv aufzubauen.",
+      "cta": "Neue Sitzung starten"
+    },
+    "summaryList": {
+      "titles": {
+        "text_session": "Deine Texte",
+        "voice_session": "Deine Sprachaufnahmen",
+        "video_session": "Deine Sitzungen"
+      },
+      "default_title": "Vergangene Sitzungen"
+    }
+  }
 }

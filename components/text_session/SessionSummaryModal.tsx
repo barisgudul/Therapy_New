@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Modal from 'react-native-modal';
+import { useTranslation } from 'react-i18next';
 
 interface SessionSummaryModalProps {
   isVisible: boolean;
@@ -23,6 +24,7 @@ export default function SessionSummaryModal({
   title = 'Sohbet Özeti',
   subtitle = 'Bu görüşmeden çıkan kısa özet',
 }: SessionSummaryModalProps) {
+  const { t } = useTranslation();
   const shakeAnimation = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -70,18 +72,18 @@ export default function SessionSummaryModal({
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={styles.title}>{title || t('transcripts.summary.modal_title')}</Text>
+        <Text style={styles.subtitle}>{subtitle || t('transcripts.summary.modal_subtitle')}</Text>
 
         <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
-          <Text style={{ fontSize: 16, color: '#374151', lineHeight: 24 }}>{summaryText || 'Özet hazırlanıyor…'}</Text>
+          <Text style={{ fontSize: 16, color: '#374151', lineHeight: 24 }}>{summaryText || t('transcripts.summary.preparing')}</Text>
         </ScrollView>
 
         <View style={styles.buttonContainer}>
           <Animated.View style={[{ flex: 1 }, animatedStyle]}>
             <TouchableOpacity style={styles.button} onPress={onClose} activeOpacity={0.8}>
               <LinearGradient colors={MODAL_GRADIENT_COLORS} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.primaryButtonGradient}>
-                <Text style={[styles.buttonText, styles.primaryButtonText]}>Tamamdır</Text>
+                <Text style={[styles.buttonText, styles.primaryButtonText]}>{t('transcripts.summary.close_button')}</Text>
                 <Ionicons name="checkmark-circle-outline" size={20} color="#6B46C1" />
               </LinearGradient>
             </TouchableOpacity>

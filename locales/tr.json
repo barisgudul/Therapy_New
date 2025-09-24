@@ -549,5 +549,53 @@
     "premium_description": "Bu özellik, yolculuğunda sana tam destek olmak için Premium veya +Plus üyelerimize özeldir.",
     "limit_description": "Bu özelliği keşfetmeye devam etmek ve tüm ayrıcalıklardan yararlanmak için Premium'a geç.",
     "view_plans": "Planları Görüntüle"
+  },
+  "transcripts": {
+    "flow": {
+      "count": "{{count}} kayıt bulundu",
+      "empty": "Henüz kayıt yok",
+      "text": {
+        "title": "Yazılarınız",
+        "description": "Düşüncelerinizi kelimelerin akışında görün.",
+        "features": {
+          "keywords": "Anahtar Kelimeler",
+          "sentiment": "Duygu Analizi",
+          "self_reflection": "Öz-yansıtma"
+        }
+      },
+      "voice": {
+        "title": "Sesli Görüşmeler",
+        "description": "İfade ettiğiniz duyguların özüne dönün.",
+        "features": {
+          "tone": "Tonlama Analizi",
+          "insights": "İçgörü Keşfi",
+          "transcript": "Anlık Döküm"
+        }
+      }
+    },
+    "menu": {
+      "intro_title": "İç Dünyanız",
+      "intro_description": "Geçmiş görüşmelerinizdeki yansımaları ve içgörüleri keşfedin."
+    },
+    "summary": {
+      "preparing": "Bu seansın özeti hazırlanıyor…",
+      "view_button": "Özeti Gör",
+      "modal_title": "Sohbet Özeti",
+      "modal_subtitle": "Bu görüşmeden çıkan kısa özet",
+      "close_button": "Tamamdır"
+    },
+    "serenity": {
+      "title": "Keşfedilecek Bir Geçmiş",
+      "description": "Burada, zamanla biriken seans kayıtlarınız sergilenecek. İlk görüşmenizi yaparak bu değerli arşivi oluşturmaya başlayın.",
+      "cta": "Yeni Bir Görüşme Başlat"
+    },
+    "summaryList": {
+      "titles": {
+        "text_session": "Yazılarınız",
+        "voice_session": "Ses Kayıtlarınız",
+        "video_session": "Görüşmeleriniz"
+      },
+      "default_title": "Geçmiş Seanslar"
+    }
   }
 }

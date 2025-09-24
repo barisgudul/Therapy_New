@@ -549,4 +549,53 @@
     "limit_description": "Upgrade to Premium to keep exploring this feature and enjoy all privileges.",
     "view_plans": "View Plans"
   }
+  ,
+  "transcripts": {
+    "flow": {
+      "count": "{{count}} record(s) found",
+      "empty": "No records yet",
+      "text": {
+        "title": "Your Writings",
+        "description": "See your thoughts in the flow of words.",
+        "features": {
+          "keywords": "Keywords",
+          "sentiment": "Sentiment Analysis",
+          "self_reflection": "Self-reflection"
+        }
+      },
+      "voice": {
+        "title": "Voice Sessions",
+        "description": "Return to the essence of expressed emotions.",
+        "features": {
+          "tone": "Tone Analysis",
+          "insights": "Insight Discovery",
+          "transcript": "Live Transcript"
+        }
+      }
+    },
+    "menu": {
+      "intro_title": "Your Inner World",
+      "intro_description": "Explore reflections and insights from your past sessions."
+    },
+    "summary": {
+      "preparing": "The summary of this session is being prepared…",
+      "view_button": "View Summary",
+      "modal_title": "Chat Summary",
+      "modal_subtitle": "A short summary from this session",
+      "close_button": "Got it"
+    },
+    "serenity": {
+      "title": "A Past to Discover",
+      "description": "Your session records will be showcased here over time. Start your first session to begin building this valuable archive.",
+      "cta": "Start a New Session"
+    },
+    "summaryList": {
+      "titles": {
+        "text_session": "Your Writings",
+        "voice_session": "Your Voice Records",
+        "video_session": "Your Sessions"
+      },
+      "default_title": "Past Sessions"
+    }
+  }
 }

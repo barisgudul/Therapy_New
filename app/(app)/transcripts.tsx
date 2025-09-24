@@ -19,6 +19,7 @@ import {
 import { useTranscripts, SessionEvent } from '../../hooks/useTranscripts';
 import SessionSummaryModal from '../../components/text_session/SessionSummaryModal';
 import { getSummaryForSessionEvent } from '../../services/event.service';
+import { useTranslation } from 'react-i18next';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -99,6 +100,7 @@ const FlowCard: React.FC<{
     count: number;
     features: string[];
 }> = ({ icon, title, description, onPress, count, features }) => {
+    const { t } = useTranslation();
     return (
         <Pressable onPress={onPress} style={({ pressed }) => [styles.flowCard, { transform: [{ scale: pressed ? 0.985 : 1 }] }] }>
             <LinearGradient colors={theme.serenityCardBackground} style={styles.flowCardGradient}>
@@ -111,7 +113,7 @@ const FlowCard: React.FC<{
                     
                     <View style={styles.countContainer}>
                         <Ionicons name="file-tray-full-outline" size={16} color={theme.tint} />
-                        <Text style={styles.countText}>{count > 0 ? `${count} kayıt bulundu` : 'Henüz kayıt yok'}</Text>
+                        <Text style={styles.countText}>{count > 0 ? t('transcripts.flow.count', { count }) : t('transcripts.flow.empty')}</Text>
                     </View>
 
                     <View style={styles.featuresContainer}>
@@ -132,6 +134,7 @@ const FlowCard: React.FC<{
 
 // ---- SummaryCard BİLEŞENİ GÜNCELLENDİ ----
 const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelete: () => void; onShowSummary: (summary: string) => void; }> = ({ event, onPress, onDelete, onShowSummary }) => {
+  const { t, i18n } = useTranslation();
   const [freshSummary, setFreshSummary] = React.useState<string | null>(null);
   React.useEffect(() => {
     let isMounted = true;
@@ -147,9 +150,10 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelet
     return () => { isMounted = false; };
   }, [event.id]);
   const date = new Date(event.timestamp);
-  const formattedDate = date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const localeMap: Record<string, string> = { tr: 'tr-TR', en: 'en-US', de: 'de-DE' };
+  const formattedDate = date.toLocaleDateString(localeMap[i18n.language] || 'en-US', { day: '2-digit', month: 'long', year: 'numeric' });
   const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "";
-  const summaryText = freshSummary || event.summary || firstUserMessage || "Bu seansın özeti hazırlanıyor…";
+  const summaryText = freshSummary || event.summary || firstUserMessage || t('transcripts.summary.preparing');
   const preview = summaryText.replace(/^\s+|\s+$/g, '');
   const previewCompact = preview.length > 60 ? preview.substring(0, 60) + '…' : preview;
   const summaryTitle = previewCompact;
@@ -176,7 +180,7 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelet
             {/* YENİ: Özeti Gör butonu */}
             <View style={{ marginTop: 12, alignItems: 'flex-end' }}>
               <Pressable onPress={(e) => { e.stopPropagation(); onShowSummary(summaryText); }} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(93,161,217,0.1)' , transform: [{ scale: pressed ? 0.97 : 1 }] }]}> 
-                <Text style={{ color: theme.tint, fontWeight: '600' }}>Özeti Gör</Text>
+                <Text style={{ color: theme.tint, fontWeight: '600' }}>{t('transcripts.summary.view_button')}</Text>
               </Pressable>
             </View>
         </LinearGradient>
@@ -198,6 +202,7 @@ const _MessageBubble: React.FC<{ message: { sender: string; text: string } }> = 
 
 // ---- YENİ: AŞIRI ZARİF VE TERAPÖTİK SERENITY KARTI (SON VERSİYON) ----
 const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
+    const { t } = useTranslation();
     // 1. ANİMASYON DEĞERLERİNİ GÜNCELLE
     const leafTranslateY = React.useRef(new Animated.Value(60)).current; // Yaprak 60px aşağıdan başlayacak
     const contentFadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -258,14 +263,8 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
                 </Animated.View>
                 {/* 2. Metinler ve Buton (Sadece belirginleşme animasyonuna sahip) */}
                 <Animated.View style={{ opacity: contentFadeAnim, alignItems: 'center', width: '100%' }}>
-                    <Text style={styles.serenityTitle}>
-                      {/* YENİ: "Henüz keşfedilecek bir şey yok" teması */}
-                      Keşfedilecek Bir Geçmiş
-                    </Text>
-                    <Text style={styles.serenityDescription}>
-                      {/* YENİ: Geçmiş oluşturmanın önemini vurgulama */}
-                      Burada, zamanla biriken seans kayıtlarınız sergilenecek. İlk görüşmenizi yaparak bu değerli arşivi oluşturmaya başlayın.
-                    </Text>
+                    <Text style={styles.serenityTitle}>{t('transcripts.serenity.title')}</Text>
+                    <Text style={styles.serenityDescription}>{t('transcripts.serenity.description')}</Text>
                     <Pressable onPress={onPressCTA} style={({ pressed }) => [styles.serenityCtaWrapper, { transform: [{ scale: pressed ? 0.98 : 1 }] }] }>
                         <LinearGradient 
                             colors={theme.serenityCtaBackground} 
@@ -274,10 +273,7 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
                             end={{x:1, y:0.5}}
                         >
                             <Ionicons name="sparkles-outline" size={20} color={theme.serenityCtaText} style={{ opacity: 0.9 }} />
-                            <Text style={styles.serenityCtaText}>
-                              {/* YENİ: Gerçek duruma uygun eylem */}
-                              Yeni Bir Görüşme Başlat
-                            </Text>
+                            <Text style={styles.serenityCtaText}>{t('transcripts.serenity.cta')}</Text>
                         </LinearGradient>
                     </Pressable>
                 </Animated.View>
@@ -291,6 +287,7 @@ export default function PremiumHistoryScreen() {
   const { state, actions } = useTranscripts();
   const { isLoading, viewMode, allEvents, selectedSessionType } = state;
   const { handleSelectSessionType, handleDeleteEvent, handleNavigateToPremium, goBack, setViewModeToMenu } = actions;
+  const { t } = useTranslation();
 
   const [isSummaryModalVisible, setIsSummaryModalVisible] = React.useState(false);
   const [currentSummary, setCurrentSummary] = React.useState("");
@@ -322,28 +319,26 @@ export default function PremiumHistoryScreen() {
             <ScreenHeader title="" onBack={goBack} />
             <ScrollView contentContainerStyle={styles.menuContainer}>
               <View style={styles.introContainer}>
-                  <Text style={styles.introTitle}>İç Dünyanız</Text>
+                  <Text style={styles.introTitle}>{t('transcripts.menu.intro_title')}</Text>
                   {/* YENİ: Geçmişe dönük keşif teması */}
-                  <Text style={styles.introDescription}>
-                      Geçmiş görüşmelerinizdeki yansımaları ve içgörüleri keşfedin.
-                  </Text>
+                  <Text style={styles.introDescription}>{t('transcripts.menu.intro_description')}</Text>
               </View>
               <View style={styles.cardsFlowContainer}>
                   <FlowCard 
-                      title="Yazılarınız"
-                      description="Düşüncelerinizi kelimelerin akışında görün." 
+                      title={t('transcripts.flow.text.title')}
+                      description={t('transcripts.flow.text.description')} 
                       icon="chatbubble-ellipses-outline" 
                       onPress={() => handleSelectSessionType('text_session')} 
                       count={textSessionsCount}
-                      features={['Anahtar Kelimeler', 'Duygu Analizi', 'Öz-yansıtma']}
+                      features={[t('transcripts.flow.text.features.keywords'), t('transcripts.flow.text.features.sentiment'), t('transcripts.flow.text.features.self_reflection')]}
                   />
                   <FlowCard 
-                      title="Sesli Görüşmeler"
-                      description="İfade ettiğiniz duyguların özüne dönün." 
+                      title={t('transcripts.flow.voice.title')}
+                      description={t('transcripts.flow.voice.description')} 
                       icon="mic-outline" 
                       onPress={() => handleSelectSessionType('voice_session')} 
                       count={voiceSessionsCount}
-                      features={['Tonlama Analizi', 'İçgörü Keşfi', 'Anlık Döküm']}
+                      features={[t('transcripts.flow.voice.features.tone'), t('transcripts.flow.voice.features.insights'), t('transcripts.flow.voice.features.transcript')]}
                   />
                   {/* <FlowCard 
                       title="Görüntülü Seanslar"
@@ -361,11 +356,11 @@ export default function PremiumHistoryScreen() {
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
           .map((e) => e as SessionEvent);
         const sessionTitles = { 
-            text_session: "Yazılarınız", 
-            voice_session: "Ses Kayıtlarınız", 
-            // video_session: "Görüşmeleriniz" 
+            text_session: t('transcripts.summaryList.titles.text_session'), 
+            voice_session: t('transcripts.summaryList.titles.voice_session'), 
+            // video_session: t('transcripts.summaryList.titles.video_session') 
         };
-        const title = sessionTitles[selectedSessionType!] || "Geçmiş Seanslar";
+        const title = sessionTitles[selectedSessionType!] || t('transcripts.summaryList.default_title');
         return (
           <View style={{flex: 1}}>
             <ScreenHeader title={title} onBack={setViewModeToMenu} />
@@ -394,8 +389,8 @@ export default function PremiumHistoryScreen() {
     isVisible={isSummaryModalVisible}
     onClose={() => setIsSummaryModalVisible(false)}
     summaryText={currentSummary}
-    title="Sohbet Özeti"
-    subtitle="Bu görüşmeden çıkan kısa özet"
+    title={t('transcripts.summary.modal_title')}
+    subtitle={t('transcripts.summary.modal_subtitle')}
   />
   </LinearGradient> );
 }
