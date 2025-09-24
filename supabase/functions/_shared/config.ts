@@ -86,7 +86,7 @@ export const config = {
     // Text session yanıtları için tavan (warm start dahil)
     TEXT_SESSION_RESPONSE: getEnvAsNumber("LLM_MAX_OUT_TEXT_SESSION", 128),
     // Sohbet sonu özetleri için tavan (cognitive memories kaydı)
-    SESSION_SUMMARY: getEnvAsNumber("LLM_MAX_OUT_SESSION_SUMMARY", 256),
+    SESSION_SUMMARY: getEnvAsNumber("LLM_MAX_OUT_SESSION_SUMMARY", 128),
     // Onboarding insight için tavan (DETAYLI VE DEĞERLİ)
     ONBOARDING_INSIGHT: getEnvAsNumber("LLM_MAX_OUT_ONBOARDING_INSIGHT", 2048),
   } as const,

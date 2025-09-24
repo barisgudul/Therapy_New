@@ -22,9 +22,8 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
   memory, 
   onClose 
 }) => {
-  if (!memory) return null;
-  
   const { t } = useTranslation();
+  if (!memory) return null;
 
   // Source layer'a göre ikon ve başlık seç
   const getSourceInfo = (layer: string): SourceInfo => {

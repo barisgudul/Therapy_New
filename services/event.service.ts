@@ -395,11 +395,19 @@ export async function getSessionSummariesForEventIds(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Kullanıcı bulunamadı.");
 
+  // Özetler cognitive_memories tablosuna yazılıyor
+  // Eski kayıtlar 'text_session' event_type'ı ile kaydedilmiş olabilir.
+  // Bu yüzden her iki türü de kabul ediyoruz.
+  const SUMMARY_EVENT_TYPES = [
+    "text_session_summary",
+    "text_session",
+  ];
   const { data, error } = await supabase
-    .from("memories")
+    .from("cognitive_memories")
     .select("source_event_id, content, event_type")
     .in("source_event_id", eventIds)
-    .eq("event_type", "text_session_summary");
+    .in("event_type", SUMMARY_EVENT_TYPES)
+    .eq("user_id", user.id);
 
   if (error || !data) return {};
 
@@ -408,4 +416,68 @@ export async function getSessionSummariesForEventIds(
     map[row.source_event_id] = String(row.content);
   }
   return map;
+}
+
+// YENİ: Belirli bir text_session event'ine bağlı özeti getirir (session_end veya cognitive_memories üzerinden)
+export async function getSummaryForSessionEvent(
+  eventId: string,
+): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Kullanıcı bulunamadı.");
+
+  // 1) İlgili text_session event'inin zamanını al
+  const { data: textSession, error: tsErr } = await supabase
+    .from("events")
+    .select("created_at, type")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (tsErr) {
+    console.warn("Text session fetch hata:", tsErr);
+  }
+
+  // Güvenli: Önce doğrudan bu eventId ile kaydedilmiş bir özet var mı diye bak
+  // (geçmiş versiyon uyumu için). Eski kayıt tipi 'text_session' olabilir.
+  const SUMMARY_EVENT_TYPES = [
+    "text_session_summary",
+    "text_session",
+  ];
+  const { data: cmDirect } = await supabase
+    .from("cognitive_memories")
+    .select("content")
+    .eq("source_event_id", eventId)
+    .in("event_type", SUMMARY_EVENT_TYPES)
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+  if (cmDirect?.content) return String(cmDirect.content);
+
+  // 2) Normal yol: text_session'dan SONRAKİ ilk session_end'i bul
+  if (textSession?.created_at) {
+    const { data: nextSessionEnd, error: nseErr } = await supabase
+      .from("events")
+      .select("id, created_at")
+      .eq("user_id", user.id)
+      .eq("type", "session_end")
+      .gte("created_at", textSession.created_at)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (nseErr) {
+      console.warn("Next session_end fetch hata:", nseErr);
+    }
+    if (nextSessionEnd?.id) {
+      const { data: cmAfter } = await supabase
+        .from("cognitive_memories")
+        .select("content")
+        .eq("source_event_id", nextSessionEnd.id)
+        .in("event_type", SUMMARY_EVENT_TYPES)
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+      if (cmAfter?.content) return String(cmAfter.content);
+    }
+  }
+
+  return null;
 }

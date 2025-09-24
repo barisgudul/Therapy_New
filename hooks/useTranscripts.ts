@@ -132,11 +132,14 @@ export function useTranscripts() {
 
     // Navigation ve router fonksiyonlarını da döndür
     const goBack = useCallback(() => navigation.goBack(), [navigation]);
-    const navigateToSession = useCallback((eventId: string, mood?: string) => {
-        router.push(
-            `/sessions/text_session?eventId=${eventId}&mood=${mood || ""}`,
-        );
-    }, [router]);
+    const navigateToSession = useCallback(
+        (eventId: string, mood?: string, summary?: string | null) => {
+            const params = new URLSearchParams({ eventId, mood: mood || "" });
+            if (summary) params.set("summary", summary);
+            router.push(`/sessions/text_session?${params.toString()}`);
+        },
+        [router],
+    );
     const setViewModeToMenu = useCallback(
         () => dispatch({ type: "SET_VIEW_MODE", payload: "menu" }),
         [],
@@ -149,20 +152,43 @@ export function useTranscripts() {
                 try {
                     const eventsFromStorage = await getEventsForLast(365);
 
-                    // Sadece session_end (veya metin seansı) kaynaklarını topla
-                    const ids = eventsFromStorage
-                        .filter((e) => e.type === "session_end")
-                        .map((e) => e.id);
-
+                    // 1) session_end event'lerinin özetlerini al
+                    const sessionEndEvents = eventsFromStorage.filter(
+                        (e) => e.type === "session_end",
+                    );
+                    const sessionEndIds = sessionEndEvents.map((e) => e.id);
                     const summariesById = await getSessionSummariesForEventIds(
-                        ids,
+                        sessionEndIds,
                     );
 
-                    // Event'lere summary alanını ekle
-                    const withSummaries = eventsFromStorage.map((e) => ({
-                        ...e,
-                        summary: summariesById[e.id] || null,
-                    }));
+                    // 2) Hızlı arama için session_end'leri zamana göre sırala
+                    const sessionEndsSorted = [...sessionEndEvents].sort(
+                        (a, b) =>
+                            new Date(a.created_at).getTime() -
+                            new Date(b.created_at).getTime(),
+                    );
+
+                    // 3) Her text_session için, sonrasında gelen ilk session_end'in özetini bul
+                    const withSummaries = eventsFromStorage.map((e) => {
+                        // Varsayılan: kendi ID'si bir session_end ise doğrudan onu kullan
+                        let summary: string | null = summariesById[e.id] ||
+                            null;
+
+                        if (e.type === "text_session" && !summary) {
+                            const eTime = new Date(e.created_at).getTime();
+                            const nextEnd = sessionEndsSorted.find(
+                                (se) =>
+                                    new Date(se.created_at).getTime() >= eTime,
+                            );
+                            if (nextEnd) {
+                                summary = summariesById[nextEnd.id] || null;
+                            }
+                        }
+
+                        return { ...e, summary } as AppEvent & {
+                            summary?: string | null;
+                        };
+                    });
 
                     dispatch({
                         type: "FETCH_SUCCESS",

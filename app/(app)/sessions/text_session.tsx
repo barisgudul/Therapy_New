@@ -26,6 +26,7 @@ import { MessageBubble } from "../../../components/text_session/MessageBubble";
 import { InputBar } from "../../../components/text_session/InputBar";
 import { MemoryModal } from "../../../components/text_session/MemoryModal";
 import { useTranslation } from "react-i18next";
+// Processing overlay ve summary modal kaldırıldı
 
 // YENİ COMPONENT: SessionUI - Memo ile optimize edilmiş
 interface SessionUIProps {
@@ -186,6 +187,7 @@ export default function TextSessionScreen() {
     eventId: eventId,
     pendingSessionId,
     onSessionEnd: () => {
+      // Özet arka planda kaydedildi, kullanıcıyı ana sayfaya yönlendir
       router.replace("/");
     },
   });
@@ -194,6 +196,8 @@ export default function TextSessionScreen() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Özet ve overlay UI'ı kaldırıldı; seans bitince ana sayfaya dönülür
 
   return (
     <PremiumGate featureType="text_sessions">

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useReducer } from "react";
 import { Alert, BackHandler } from "react-native";
 import { supabase } from "../utils/supabase";
+import { getEventById } from "../services/event.service";
 import i18n from "../utils/i18n";
 
 export interface TextMessage {
@@ -280,7 +281,7 @@ interface UseTextSessionReducerProps {
     initialMood?: string;
     eventId?: string; // eventId artık opsiyonel bir prop
     pendingSessionId?: string; // Yeni parametre
-    onSessionEnd: () => void;
+    onSessionEnd: (summary?: string) => void;
 }
 
 interface UseTextSessionReducerReturn {
@@ -311,7 +312,44 @@ export function useTextSessionReducer({
         const initializeSession = async () => {
             dispatch({ type: "SET_STATUS", payload: "initializing" });
 
-            if (pendingSessionId) {
+            // 1) Geçmiş bir metin seansını devam ettirme (eventId)
+            if (eventId) {
+                try {
+                    const event = await getEventById(eventId);
+                    const historyMessages = Array.isArray(event?.data?.messages)
+                        ? (event!.data!.messages as {
+                            sender: "user" | "ai";
+                            text: string;
+                        }[])
+                        : [];
+
+                    const messages = historyMessages.map((m) => ({
+                        sender: m.sender,
+                        text: m.text,
+                    }));
+
+                    const transcript = messages
+                        .map((m) =>
+                            `${
+                                m.sender === "user"
+                                    ? "Kullanıcı"
+                                    : "AI"
+                            }: ${m.text}`
+                        )
+                        .join("\n");
+
+                    dispatch({
+                        type: "INITIALIZE_FROM_HISTORY",
+                        payload: { messages, transcript },
+                    });
+                    dispatch({ type: "SET_STATUS", payload: "idle" });
+                } catch (_e) {
+                    dispatch({
+                        type: "INITIALIZATION_ERROR",
+                        payload: "Geçmiş sohbet yüklenemedi.",
+                    });
+                }
+            } else if (pendingSessionId) {
                 try {
                     dispatch({ type: "SET_TYPING", payload: true }); // AI yazıyor...
 
@@ -442,7 +480,10 @@ export function useTextSessionReducer({
         dispatch({ type: "END_SESSION_START" });
 
         try {
-            if (state.messages.length >= 2) {
+            const hasUserMessage = state.messages.some((m) =>
+                m.sender === "user"
+            );
+            if (hasUserMessage) {
                 // 1. Önce bu biten seans için bir 'olay' kaydı oluştur.
                 // Önce kullanıcıyı almamız lazım.
                 const { data: { user } } = await supabase.auth.getUser();
@@ -451,6 +492,20 @@ export function useTextSessionReducer({
                         "Kullanıcı bulunamadı, seans sonlandırılamıyor.",
                     );
                 }
+                // 1.a Bu sohbeti text_session olarak kaydet (transcripts için)
+                {
+                    const { error: textSessionInsertError } = await supabase
+                        .from("events")
+                        .insert({
+                            user_id: user.id,
+                            type: "text_session",
+                            data: { messages: state.messages },
+                            mood: state.currentMood || null,
+                        });
+                    if (textSessionInsertError) {
+                        throw textSessionInsertError;
+                    }
+                }
 
                 const { data: event, error: eventError } = await supabase
                     .from("events")
@@ -458,29 +513,41 @@ export function useTextSessionReducer({
                         user_id: user.id, // BU SATIRI EKLE
                         type: "session_end",
                         data: { messageCount: state.messages.length },
-                        timestamp: new Date().toISOString(), // BU SATIRI EKLE
                     })
                     .select("id")
                     .single();
 
                 if (eventError) throw eventError;
 
-                // 2. Şimdi bu olayın ID'si ile birlikte hafıza işleme function'ını çağır.
-                // Bu "ateşle ve unut" çağrısıdır. Kullanıcı, işlemin bitmesini beklemez.
-                supabase.functions.invoke("process-session-memory", {
-                    body: {
-                        messages: state.messages,
-                        eventId: event.id, // Olayın ID'sini yolluyoruz ki kaynak belli olsun.
-                        language: i18n.language,
-                    },
-                }).catch((err) => {
-                    // Bu hata kritik değil, sadece UI'ı etkilemez. Konsola logla.
-                    console.error("Arka plan hafıza işleme hatası:", err);
-                });
+                // 2. Özet oluşturma function'ını çağır ve sonucu bekle
+                let summaryText: string | undefined;
+                try {
+                    const { data: summaryRes, error: summaryErr } =
+                        await supabase
+                            .functions.invoke("process-session-memory", {
+                                body: {
+                                    messages: state.messages,
+                                    eventId: event.id, // Olayın ID'sini yolluyoruz ki kaynak belli olsun.
+                                    language: i18n.language,
+                                    mood: state.currentMood || null,
+                                },
+                            });
+                    if (summaryErr) {
+                        throw summaryErr;
+                    }
+                    summaryText = String(summaryRes?.summary || "");
+                } catch (invokeErr) {
+                    console.error("Arka plan hafıza işleme hatası:", invokeErr);
+                }
+
+                // 3. Başarıyla sonlandır ve özet ile callback'i tetikle
+                dispatch({ type: "END_SESSION_SUCCESS" });
+                onSessionEnd(summaryText);
+                return; // Erken çıkış; aşağıdaki onSessionEnd tekrar çağrılmasın
             }
 
             dispatch({ type: "END_SESSION_SUCCESS" });
-            onSessionEnd(); // Kullanıcıyı hemen ekrandan çıkar.
+            onSessionEnd(); // Kullanıcı mesajı yoksa sadece çık
         } catch (error) {
             console.error("[endSession] Error:", error);
             dispatch({
@@ -489,26 +556,31 @@ export function useTextSessionReducer({
             });
             onSessionEnd();
         }
-    }, [state.isEnding, state.messages, onSessionEnd]); // <-- DOĞRU DEPENDENCY'LER
+    }, [state.isEnding, state.messages, state.currentMood, onSessionEnd]); // <-- DOĞRU DEPENDENCY'LER
 
     // Handle back press
     const handleBackPress = useCallback(() => {
         if (state.isEnding) return true;
+        const hasUserMessage = state.messages.some((m) => m.sender === "user");
+        if (!hasUserMessage) {
+            // Kullanıcı hiç yazmadıysa, varsayılan geri davranışını uygula
+            return false;
+        }
 
         Alert.alert(
-            "Seansı Sonlandır",
-            "Seansı sonlandırmak istediğinizden emin misiniz? Sohbetiniz kaydedilecek.",
+            "Sohbeti Sonlandır",
+            "Sohbeti sonlandırmak istediğinden emin misin?",
             [
                 { text: "İptal", style: "cancel" },
                 {
-                    text: "Sonlandır",
+                    text: "Sohbeti Sonlandır",
                     style: "destructive",
                     onPress: endSession,
                 },
             ],
         );
         return true;
-    }, [state.isEnding, endSession]); // <-- DOĞRU DEPENDENCY'LER
+    }, [state.isEnding, state.messages, endSession]);
 
     // YENİ: Hafıza modal fonksiyonları
     const openMemoryModal = useCallback((memory: TextMessage["memory"]) => {

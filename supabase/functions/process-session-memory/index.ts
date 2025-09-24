@@ -6,11 +6,22 @@ import * as AiService from "../_shared/ai.service.ts";
 import { config, LLM_LIMITS } from "../_shared/config.ts";
 
 const getSummaryPrompt = (transcript: string) =>
-  `Bu sohbet transkriptini analiz et ve özetle. Ana temaları, duyguları ve önemli noktaları çıkar. Özet, hafıza sisteminde saklanacak ve gelecekteki sohbetlerde kullanılacak. Transkript:
+  `Aşağıdaki sohbet transkriptinden kısa ve öz bir özet çıkar.
 
+Sıkı kurallar:
+- Sadece transkriptte açıkça geçen bilgilere dayan. Varsayım yapma, yeni bilgi uydurma.
+- Yanlış anlama/yanlış çıkarım olduysa (kullanıcı tarafından düzeltildiyse) bunu bir cümleyle belirt, taraf tutma.
+- Kısa ve nokta atışı yaz: en fazla 4 madde veya 3-5 cümle.
+- Tıbbi/teşhis dili kullanma, sakin ve analitik bir ton tercih et.
+
+Transkript:
 ${transcript}
 
-Özet:`;
+Çıktı formatı (dilden ödün verme):
+- Ana tema(lar): ...
+- Duygusal ton: ...
+- Önemli noktalar: ...
+- Kapanış: ...`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -48,11 +59,17 @@ serve(async (req) => {
     const summary = await AiService.invokeGemini(
       `${langHint[lang]}\n\n${getSummaryPrompt(transcript)}`,
       config.AI_MODELS.INTENT,
-      { maxOutputTokens: LLM_LIMITS.SESSION_SUMMARY },
+      { maxOutputTokens: LLM_LIMITS.SESSION_SUMMARY, temperature: 0.2 },
     );
     if (!summary || summary.trim().length < 10) {
       throw new Error("AI'dan geçerli özet alınamadı.");
     }
+
+    // Ek güvenlik: çıktı uzunluğunu karakter bazında sınırla (token sapmalarına karşı)
+    const MAX_SUMMARY_CHARS = 700; // ~128 token ≈ 500-700 karakter
+    const safeSummary = summary.length > MAX_SUMMARY_CHARS
+      ? `${summary.slice(0, MAX_SUMMARY_CHARS)}…`
+      : summary;
 
     // İŞTE KRİTİK DEĞİŞİKLİK BURADA!
     // Özeti doğrudan veritabanına kaydetmek yerine, asıl işi yapan 'process-memory' function'ını çağırıyoruz.
@@ -62,7 +79,7 @@ serve(async (req) => {
         body: {
           source_event_id: eventId,
           user_id: user.id,
-          content: summary,
+          content: safeSummary,
           event_time: new Date().toISOString(),
           event_type: "text_session_summary", // Tipini değiştirelim ki karışmasın
         },
@@ -79,9 +96,12 @@ serve(async (req) => {
       `✅ [Process-Session-Memory] Hafıza işleme, ${eventId} için başarıyla tetiklendi.`,
     );
 
-    return new Response(JSON.stringify({ success: true, summary }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: true, summary: safeSummary }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   } catch (error) {
     const errorMessage = error instanceof Error
       ? error.message

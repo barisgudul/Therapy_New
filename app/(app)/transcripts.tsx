@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 
 import { useTranscripts, SessionEvent } from '../../hooks/useTranscripts';
+import SessionSummaryModal from '../../components/text_session/SessionSummaryModal';
+import { getSummaryForSessionEvent } from '../../services/event.service';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -129,18 +131,33 @@ const FlowCard: React.FC<{
 };
 
 // ---- SummaryCard BİLEŞENİ GÜNCELLENDİ ----
-const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete: () => void; }> = ({ event, onPress, onDelete }) => {
+const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelete: () => void; onShowSummary: (summary: string) => void; }> = ({ event, onPress, onDelete, onShowSummary }) => {
+  const [freshSummary, setFreshSummary] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let isMounted = true;
+    // Kart mount olduğunda daima taze özeti çek
+    (async () => {
+      try {
+        const s = await getSummaryForSessionEvent(event.id);
+        if (isMounted) setFreshSummary(s ?? null);
+      } catch (_e) {
+        if (isMounted) setFreshSummary(null);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [event.id]);
   const date = new Date(event.timestamp);
   const formattedDate = date.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
   const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "";
-  const summaryText = event.summary || firstUserMessage || "Bu seansın özeti hazırlanıyor…";
-
-  const summaryTitle = summaryText.length > 25 ? summaryText.substring(0, 25) + '…' : summaryText;
+  const summaryText = freshSummary || event.summary || firstUserMessage || "Bu seansın özeti hazırlanıyor…";
+  const preview = summaryText.replace(/^\s+|\s+$/g, '');
+  const previewCompact = preview.length > 60 ? preview.substring(0, 60) + '…' : preview;
+  const summaryTitle = previewCompact;
   
   
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.summaryCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
+    <Pressable disabled={!onPress} onPress={onPress} style={({ pressed }) => [styles.summaryCard, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
         <LinearGradient colors={[theme.card, '#F9FBFF']} style={styles.summaryCardGradient}>
             <View style={styles.summaryHeader}>
                 <Ionicons name="calendar-outline" size={18} color={theme.tint} />
@@ -150,12 +167,18 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress: () => void; onDelete
 
             <Text style={styles.summaryTitle}>{summaryTitle}</Text>
             <Text style={styles.summaryText} numberOfLines={3}>
-                {summaryText}
+                {previewCompact}
             </Text>
             {/* YENİ: Silme butonu eklendi */}
             <Pressable onPress={onDelete} style={({ pressed }) => [styles.deleteButton, { transform: [{ scale: pressed ? 0.95 : 1 }] }] }>
                 <Ionicons name="trash-outline" size={22} color="#E53E3E" />
             </Pressable>
+            {/* YENİ: Özeti Gör butonu */}
+            <View style={{ marginTop: 12, alignItems: 'flex-end' }}>
+              <Pressable onPress={(e) => { e.stopPropagation(); onShowSummary(summaryText); }} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(93,161,217,0.1)' , transform: [{ scale: pressed ? 0.97 : 1 }] }]}> 
+                <Text style={{ color: theme.tint, fontWeight: '600' }}>Özeti Gör</Text>
+              </Pressable>
+            </View>
         </LinearGradient>
     </Pressable>
   );
@@ -267,8 +290,24 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
 export default function PremiumHistoryScreen() {
   const { state, actions } = useTranscripts();
   const { isLoading, viewMode, allEvents, selectedSessionType } = state;
-  const { handleSelectSessionType, handleDeleteEvent, handleNavigateToPremium, goBack, navigateToSession, setViewModeToMenu } = actions;
+  const { handleSelectSessionType, handleDeleteEvent, handleNavigateToPremium, goBack, setViewModeToMenu } = actions;
 
+  const [isSummaryModalVisible, setIsSummaryModalVisible] = React.useState(false);
+  const [currentSummary, setCurrentSummary] = React.useState("");
+  const onShowSummary = async (_summaryFromList: string, eventId?: string) => {
+    // Her zaman en güncel özeti DB'den çek
+    if (eventId) {
+      try {
+        const fresh = await getSummaryForSessionEvent(eventId);
+        setCurrentSummary(fresh || _summaryFromList || "");
+      } catch (_e) {
+        setCurrentSummary(_summaryFromList || "");
+      }
+    } else {
+      setCurrentSummary(_summaryFromList || "");
+    }
+    setIsSummaryModalVisible(true);
+  };
 
   const renderContent = () => {
     if (isLoading) { return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.tint} /></View>; }
@@ -335,12 +374,11 @@ export default function PremiumHistoryScreen() {
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.summaryListContainer}>
                 {filteredEvents.map(event => ( 
-                    // YENİ: onPress'i doğrudan router.push'a bağla
                     <SummaryCard 
                         key={event.id} 
                         event={event} 
-                        onPress={() => navigateToSession(event.id, event.mood)} 
                         onDelete={() => handleDeleteEvent(event.id)}
+                        onShowSummary={(s) => onShowSummary(s, event.id)}
                     /> 
                 ))}
               </ScrollView>
@@ -351,7 +389,15 @@ export default function PremiumHistoryScreen() {
 
     }
   };
-  return ( <LinearGradient colors={theme.serenityBackground} style={styles.screen}><View style={styles.container}>{renderContent()}</View></LinearGradient> );
+  return ( <LinearGradient colors={theme.serenityBackground} style={styles.screen}><View style={styles.container}>{renderContent()}</View>
+  <SessionSummaryModal
+    isVisible={isSummaryModalVisible}
+    onClose={() => setIsSummaryModalVisible(false)}
+    summaryText={currentSummary}
+    title="Sohbet Özeti"
+    subtitle="Bu görüşmeden çıkan kısa özet"
+  />
+  </LinearGradient> );
 }
 
 // ---- STİLLER (REFERANSLARA GÖRE) ----
