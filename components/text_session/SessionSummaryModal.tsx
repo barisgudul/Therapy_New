@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import Modal from 'react-native-modal';
 import { useTranslation } from 'react-i18next';
+import { renderMarkdownText } from '../../utils/markdownRenderer';
 
 interface SessionSummaryModalProps {
   isVisible: boolean;
@@ -76,7 +77,9 @@ export default function SessionSummaryModal({
         <Text style={styles.subtitle}>{subtitle || t('transcripts.summary.modal_subtitle')}</Text>
 
         <ScrollView style={styles.contentScrollView} showsVerticalScrollIndicator={false}>
-          <Text style={{ fontSize: 16, color: '#374151', lineHeight: 24 }}>{summaryText || t('transcripts.summary.preparing')}</Text>
+          <View>
+            {renderMarkdownText(summaryText || t('transcripts.summary.preparing'), '#5DA1D9')}
+          </View>
         </ScrollView>
 
         <View style={styles.buttonContainer}>

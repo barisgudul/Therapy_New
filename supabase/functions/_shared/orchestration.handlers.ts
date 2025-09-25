@@ -875,18 +875,37 @@ GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsa
     activityContext,
   }, lang);
 
-  // 5. YAPAY ZEKAYI ÇAĞIR
+  // 5. YAPAY ZEKAYI ÇAĞIR (GÜVENLİ FALLBACK İLE)
   logger.info("TextSession", "AI'dan cevap bekleniyor...");
-  const rawAi = await AiService.invokeGemini(
-    masterPrompt,
-    config.AI_MODELS.RESPONSE,
-    { temperature: 0.8, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
-    context.transactionId,
-    userMessage,
-  );
+  let rawAi: string | null = null;
+  try {
+    rawAi = await AiService.invokeGemini(
+      masterPrompt,
+      config.AI_MODELS.RESPONSE,
+      { temperature: 0.8, maxOutputTokens: LLM_LIMITS.TEXT_SESSION_RESPONSE },
+      context.transactionId,
+      userMessage,
+    );
+  } catch (e) {
+    logger.error("TextSession", "AI invoke failed, using fallback", e);
+  }
 
-  // Use raw response directly
-  const aiResponse = rawAi || "Not aldım. Buradan devam edelim mi?";
+  const fallbackByLang: Record<string, string> = {
+    tr: lastAiEndedWithQuestion
+      ? "Düşünceni merak ediyorum; oradan devam edelim mi?"
+      : "Seni duydum. Biraz daha açar mısın?",
+    en: lastAiEndedWithQuestion
+      ? "I'd love to hear your view; shall we continue from there?"
+      : "I hear you. Could you share a bit more?",
+    de: lastAiEndedWithQuestion
+      ? "Ich würde gern deine Sicht hören; machen wir dort weiter?"
+      : "Ich verstehe. Magst du etwas genauer erzählen?",
+  };
+
+  // Use raw response directly, else fallback
+  const aiResponse = (rawAi && rawAi.trim().length > 0)
+    ? rawAi
+    : (fallbackByLang[lang] || "Not aldım. Buradan devam edelim mi?");
   logger.info(
     "TextSession",
     `Response generated, preview: ${maskMessage(aiResponse)}`,

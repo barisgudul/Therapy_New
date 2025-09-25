@@ -395,18 +395,12 @@ export async function getSessionSummariesForEventIds(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Kullanıcı bulunamadı.");
 
-  // Özetler cognitive_memories tablosuna yazılıyor
-  // Eski kayıtlar 'text_session' event_type'ı ile kaydedilmiş olabilir.
-  // Bu yüzden her iki türü de kabul ediyoruz.
-  const SUMMARY_EVENT_TYPES = [
-    "text_session_summary",
-    "text_session",
-  ];
+  // Özetler cognitive_memories tablosunda 'text_session_summary' olarak tutulur
   const { data, error } = await supabase
     .from("cognitive_memories")
     .select("source_event_id, content, event_type")
     .in("source_event_id", eventIds)
-    .in("event_type", SUMMARY_EVENT_TYPES)
+    .eq("event_type", "text_session_summary")
     .eq("user_id", user.id);
 
   if (error || !data) return {};
@@ -421,45 +415,48 @@ export async function getSessionSummariesForEventIds(
 // YENİ: Belirli bir text_session event'ine bağlı özeti getirir (session_end veya cognitive_memories üzerinden)
 export async function getSummaryForSessionEvent(
   eventId: string,
+  createdAt?: string,
 ): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Kullanıcı bulunamadı.");
 
-  // 1) İlgili text_session event'inin zamanını al
-  const { data: textSession, error: tsErr } = await supabase
-    .from("events")
-    .select("created_at, type")
-    .eq("id", eventId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (tsErr) {
-    console.warn("Text session fetch hata:", tsErr);
+  // 1) İlgili text_session event'inin zamanını al (gerekirse)
+  let textSessionCreatedAt: string | null = createdAt ?? null;
+  if (!textSessionCreatedAt) {
+    const { data: textSession, error: tsErr } = await supabase
+      .from("events")
+      .select("created_at, type")
+      .eq("id", eventId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (tsErr) {
+      console.warn("Text session fetch hata:", tsErr);
+    }
+    textSessionCreatedAt = textSession?.created_at ?? null;
   }
 
-  // Güvenli: Önce doğrudan bu eventId ile kaydedilmiş bir özet var mı diye bak
-  // (geçmiş versiyon uyumu için). Eski kayıt tipi 'text_session' olabilir.
-  const SUMMARY_EVENT_TYPES = [
-    "text_session_summary",
-    "text_session",
-  ];
-  const { data: cmDirect } = await supabase
+  // Güvenli: Önce doğrudan bu eventId için 'text_session_summary' var mı bak
+  const { data: cmDirect, error: cmDirectErr } = await supabase
     .from("cognitive_memories")
     .select("content")
     .eq("source_event_id", eventId)
-    .in("event_type", SUMMARY_EVENT_TYPES)
+    .eq("event_type", "text_session_summary")
     .eq("user_id", user.id)
     .limit(1)
     .maybeSingle();
+  if (cmDirectErr) {
+    console.warn("cognitive_memories direct fetch hata:", cmDirectErr);
+  }
   if (cmDirect?.content) return String(cmDirect.content);
 
   // 2) Normal yol: text_session'dan SONRAKİ ilk session_end'i bul
-  if (textSession?.created_at) {
+  if (textSessionCreatedAt) {
     const { data: nextSessionEnd, error: nseErr } = await supabase
       .from("events")
       .select("id, created_at")
       .eq("user_id", user.id)
       .eq("type", "session_end")
-      .gte("created_at", textSession.created_at)
+      .gte("created_at", textSessionCreatedAt)
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
@@ -467,16 +464,42 @@ export async function getSummaryForSessionEvent(
       console.warn("Next session_end fetch hata:", nseErr);
     }
     if (nextSessionEnd?.id) {
-      const { data: cmAfter } = await supabase
+      const { data: cmAfter, error: cmAfterErr } = await supabase
         .from("cognitive_memories")
         .select("content")
         .eq("source_event_id", nextSessionEnd.id)
-        .in("event_type", SUMMARY_EVENT_TYPES)
+        .eq("event_type", "text_session_summary")
         .eq("user_id", user.id)
         .limit(1)
         .maybeSingle();
+      if (cmAfterErr) {
+        console.warn(
+          "cognitive_memories after session_end fetch hata:",
+          cmAfterErr,
+        );
+      }
       if (cmAfter?.content) return String(cmAfter.content);
     }
+
+    // 3) Ek güvenli fallback: Zaman penceresiyle ara (ilk gelen özet)
+    // Zaman penceresi: text_session'dan sonraki ilk 24 saat içinde gelen özet
+    const oneDayLater = new Date(
+      new Date(textSessionCreatedAt).getTime() + 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const { data: cmByTime, error: cmByTimeErr } = await supabase
+      .from("cognitive_memories")
+      .select("content, event_time")
+      .eq("user_id", user.id)
+      .eq("event_type", "text_session_summary")
+      .gte("event_time", textSessionCreatedAt)
+      .lte("event_time", oneDayLater)
+      .order("event_time", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (cmByTimeErr) {
+      console.warn("cognitive_memories time window fetch hata:", cmByTimeErr);
+    }
+    if (cmByTime?.content) return String(cmByTime.content);
   }
 
   return null;

@@ -26,16 +26,16 @@ export const config = {
    */
   AI_MODELS: {
     // Hızlı ve ucuz işler için (niyet analizi, basit cevaplar)
-    FAST: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
+    FAST: getEnv("AI_MODEL_FAST", "gemini-1.5-flash"),
 
     // Derin analiz ve karmaşık görevler için (rüya analizi, raporlama)
-    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-1.5-flash-latest"),
+    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-1.5-flash"),
 
     // Eskiden kullandığın "INTENT" ve "RESPONSE" anahtarlarını koruyoruz
     // ama artık daha genel olan "FAST" modelini kullanıyorlar.
     // Bu, eski kodun kırılmasını engeller ama yeni kodda "FAST" kullanmalısın.
-    INTENT: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
-    RESPONSE: getEnv("AI_MODEL_FAST", "gemini-1.5-flash-latest"),
+    INTENT: getEnv("AI_MODEL_FAST", "gemini-1.5-flash"),
+    RESPONSE: getEnv("AI_MODEL_FAST", "gemini-1.5-flash"),
   },
 
   /**

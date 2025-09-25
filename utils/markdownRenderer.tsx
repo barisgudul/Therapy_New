@@ -69,9 +69,28 @@ export const renderMarkdownText = (text: string, accentColor: string) => {
         }
 
         if (trimmed.startsWith("- ")) {
+          const bulletBody = trimmed.slice(2);
+          const parts = bulletBody.split(/(\*\*[^*]+?\*\*|\*[^*]+?\*)/g);
           return (
             <Text key={paragraphIndex} style={{ fontSize: 16, color: "#2D3748", lineHeight: 26, marginVertical: 4 }}>
-              • {trimmed.slice(2)}
+              <Text>• </Text>
+              {parts.map((part, index) => {
+                if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+                  return (
+                    <Text key={index} style={{ fontWeight: "700", color: "#1A202C" }}>
+                      {part.slice(2, -2)}
+                    </Text>
+                  );
+                }
+                if (part.startsWith("*") && part.endsWith("*") && part.length > 2 && !part.startsWith("**")) {
+                  return (
+                    <Text key={index} style={{ fontStyle: "italic" }}>
+                      {part.slice(1, -1)}
+                    </Text>
+                  );
+                }
+                return <Text key={index}>{part}</Text>;
+              })}
             </Text>
           );
         }

@@ -431,13 +431,18 @@ export function useTextSessionReducer({
         // ÖNEMLİ: dispatch'ten hemen sonra state güncellenmez.
         // Bu yüzden backend'e gönderirken en güncel halini elle oluşturmalıyız.
         const updatedMessages = [...state.messages, userMessage];
+        // Orchestrator'a giden payload'ı KESİN ŞEKİLDE beklenen forma indir (sender,text)
+        const sanitizedMessages = updatedMessages.map((m) => ({
+            sender: m.sender,
+            text: m.text,
+        }));
 
         try {
             // ... auth ve user kontrolü aynı ...
 
             const requestBody = {
-                messages: updatedMessages, // State'in eski hali yerine güncel diziyi yolla
-                pendingSessionId: null, // Yeni serbest sohbetlerde temiz başlat
+                messages: sanitizedMessages, // Sadece {sender,text}
+                pendingSessionId: null as string | null, // Yeni serbest sohbetlerde temiz başlat
             };
 
             const { data: aiReply, error } = await supabase.functions.invoke(
@@ -471,7 +476,7 @@ export function useTextSessionReducer({
         } finally {
             dispatch({ type: "SET_TYPING", payload: false });
         }
-    }, [state.input, state.isTyping, state.messages]); // <-- DOĞRU DEPENDENCY'LER BUNLAR
+    }, [state.input, state.isTyping, state.messages]);
 
     // End session logic with reducer
     const endSession = useCallback(async () => {
@@ -484,7 +489,7 @@ export function useTextSessionReducer({
                 m.sender === "user"
             );
             if (hasUserMessage) {
-                // 1. Önce bu biten seans için bir 'olay' kaydı oluştur.
+                // 1. Bu seans için kayıtları oluştur/güncelle
                 // Önce kullanıcıyı almamız lazım.
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
@@ -492,32 +497,64 @@ export function useTextSessionReducer({
                         "Kullanıcı bulunamadı, seans sonlandırılamıyor.",
                     );
                 }
-                // 1.a Bu sohbeti text_session olarak kaydet (transcripts için)
-                {
-                    const { error: textSessionInsertError } = await supabase
+                let sessionEndId: string | null = null;
+                if (eventId) {
+                    // Var olan text_session'ı güncelle
+                    const { error: tsUpdateErr } = await supabase
                         .from("events")
-                        .insert({
-                            user_id: user.id,
-                            type: "text_session",
+                        .update({
                             data: { messages: state.messages },
                             mood: state.currentMood || null,
-                        });
-                    if (textSessionInsertError) {
-                        throw textSessionInsertError;
+                        })
+                        .eq("id", eventId);
+                    if (tsUpdateErr) throw tsUpdateErr;
+
+                    // İlgili session_end'i bul (text_session'dan sonraki ilk kapanış)
+                    const { data: tsRow } = await supabase
+                        .from("events")
+                        .select("created_at")
+                        .eq("id", eventId)
+                        .maybeSingle();
+                    if (tsRow?.created_at) {
+                        const { data: se } = await supabase
+                            .from("events")
+                            .select("id, created_at")
+                            .eq("user_id", user.id)
+                            .eq("type", "session_end")
+                            .gte("created_at", tsRow.created_at)
+                            .order("created_at", { ascending: true })
+                            .limit(1)
+                            .maybeSingle();
+                        sessionEndId = se?.id ?? null;
                     }
+                } else {
+                    // İlk defa kapanış: yeni text_session ve bir session_end oluştur
+                    const { data: _tsInserted, error: tsInsertErr } =
+                        await supabase
+                            .from("events")
+                            .insert({
+                                user_id: user.id,
+                                type: "text_session",
+                                data: { messages: state.messages },
+                                mood: state.currentMood || null,
+                            })
+                            .select("id")
+                            .single();
+                    if (tsInsertErr) throw tsInsertErr;
+
+                    const { data: seInserted, error: seInsertErr } =
+                        await supabase
+                            .from("events")
+                            .insert({
+                                user_id: user.id,
+                                type: "session_end",
+                                data: { messageCount: state.messages.length },
+                            })
+                            .select("id")
+                            .single();
+                    if (seInsertErr) throw seInsertErr;
+                    sessionEndId = seInserted.id;
                 }
-
-                const { data: event, error: eventError } = await supabase
-                    .from("events")
-                    .insert({
-                        user_id: user.id, // BU SATIRI EKLE
-                        type: "session_end",
-                        data: { messageCount: state.messages.length },
-                    })
-                    .select("id")
-                    .single();
-
-                if (eventError) throw eventError;
 
                 // 2. Özet oluşturma function'ını çağır ve sonucu bekle
                 let summaryText: string | undefined;
@@ -527,7 +564,8 @@ export function useTextSessionReducer({
                             .functions.invoke("process-session-memory", {
                                 body: {
                                     messages: state.messages,
-                                    eventId: event.id, // Olayın ID'sini yolluyoruz ki kaynak belli olsun.
+                                    // Özet kaynağı: session_end id (liste kartı güncellensin)
+                                    eventId: sessionEndId,
                                     language: i18n.language,
                                     mood: state.currentMood || null,
                                 },
@@ -538,6 +576,29 @@ export function useTextSessionReducer({
                     summaryText = String(summaryRes?.summary || "");
                 } catch (invokeErr) {
                     console.error("Arka plan hafıza işleme hatası:", invokeErr);
+                }
+
+                // 2.b: Özeti session_end event'inin data'sına da yaz (UI hızlı okuma için)
+                try {
+                    if (summaryText && summaryText.length > 0 && sessionEndId) {
+                        const { error: updateErr } = await supabase
+                            .from("events")
+                            .update({
+                                data: {
+                                    messageCount: state.messages.length,
+                                    summary: summaryText,
+                                },
+                            })
+                            .eq("id", sessionEndId);
+                        if (updateErr) {
+                            console.warn(
+                                "session_end summary update failed",
+                                updateErr,
+                            );
+                        }
+                    }
+                } catch (e) {
+                    console.warn("session_end summary update exception", e);
                 }
 
                 // 3. Başarıyla sonlandır ve özet ile callback'i tetikle
@@ -556,7 +617,13 @@ export function useTextSessionReducer({
             });
             onSessionEnd();
         }
-    }, [state.isEnding, state.messages, state.currentMood, onSessionEnd]); // <-- DOĞRU DEPENDENCY'LER
+    }, [
+        state.isEnding,
+        state.messages,
+        state.currentMood,
+        onSessionEnd,
+        eventId,
+    ]);
 
     // Handle back press
     const handleBackPress = useCallback(() => {

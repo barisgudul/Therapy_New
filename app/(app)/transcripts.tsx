@@ -20,6 +20,7 @@ import { useTranscripts, SessionEvent } from '../../hooks/useTranscripts';
 import SessionSummaryModal from '../../components/text_session/SessionSummaryModal';
 import { getSummaryForSessionEvent } from '../../services/event.service';
 import { useTranslation } from 'react-i18next';
+import { renderMarkdownText } from '../../utils/markdownRenderer';
 
 // Android'de LayoutAnimation'ı etkinleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -136,27 +137,36 @@ const FlowCard: React.FC<{
 const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelete: () => void; onShowSummary: (summary: string) => void; }> = ({ event, onPress, onDelete, onShowSummary }) => {
   const { t, i18n } = useTranslation();
   const [freshSummary, setFreshSummary] = React.useState<string | null>(null);
+  const { id: eventId, created_at: eventCreatedAt } = event as unknown as { id: string; created_at?: string };
   React.useEffect(() => {
     let isMounted = true;
-    // Kart mount olduğunda daima taze özeti çek
     (async () => {
       try {
-        const s = await getSummaryForSessionEvent(event.id);
+        const s = await getSummaryForSessionEvent(eventId, eventCreatedAt);
         if (isMounted) setFreshSummary(s ?? null);
       } catch (_e) {
         if (isMounted) setFreshSummary(null);
       }
     })();
     return () => { isMounted = false; };
-  }, [event.id]);
+  }, [eventId, eventCreatedAt]);
   const date = new Date(event.timestamp);
   const localeMap: Record<string, string> = { tr: 'tr-TR', en: 'en-US', de: 'de-DE' };
   const formattedDate = date.toLocaleDateString(localeMap[i18n.language] || 'en-US', { day: '2-digit', month: 'long', year: 'numeric' });
-  const firstUserMessage = event.data.messages.find(m => m.sender === 'user')?.text || "";
-  const summaryText = freshSummary || event.summary || firstUserMessage || t('transcripts.summary.preparing');
+  const firstUserMessage = Array.isArray((event as any)?.data?.messages)
+    ? ((event as any).data.messages.find((m: { sender: string }) => m?.sender === 'user')?.text || "")
+    : "";
+  const dataSummary = typeof (event as any)?.data?.summary === 'string' ? (event as any).data.summary as string : null;
+  const summaryText = freshSummary || event.summary || dataSummary || firstUserMessage || t('transcripts.summary.preparing');
   const preview = summaryText.replace(/^\s+|\s+$/g, '');
-  const previewCompact = preview.length > 60 ? preview.substring(0, 60) + '…' : preview;
-  const summaryTitle = previewCompact;
+  const previewCompact = preview.length > 120 ? preview.substring(0, 120) + '…' : preview;
+  const summaryTitlePlain = preview
+    .replace(/\*\*/g, '') // bold işaretlerini kaldır
+    .replace(/^\s*-\s*/, '') // baştaki madde işaretini kaldır
+    .replace(/[\#_`]/g, ''); // kalan basit md karakterleri
+  const summaryTitle = summaryTitlePlain.length > 80
+    ? summaryTitlePlain.substring(0, 80) + '…'
+    : summaryTitlePlain;
   
   
 
@@ -170,9 +180,9 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelet
 
 
             <Text style={styles.summaryTitle}>{summaryTitle}</Text>
-            <Text style={styles.summaryText} numberOfLines={3}>
-                {previewCompact}
-            </Text>
+            <View style={{ marginTop: 4 }}>
+              {renderMarkdownText(previewCompact, theme.tint)}
+            </View>
             {/* YENİ: Silme butonu eklendi */}
             <Pressable onPress={onDelete} style={({ pressed }) => [styles.deleteButton, { transform: [{ scale: pressed ? 0.95 : 1 }] }] }>
                 <Ionicons name="trash-outline" size={22} color="#E53E3E" />
@@ -286,16 +296,16 @@ const SerenityCard: React.FC<{ onPressCTA: () => void }> = ({ onPressCTA }) => {
 export default function PremiumHistoryScreen() {
   const { state, actions } = useTranscripts();
   const { isLoading, viewMode, allEvents, selectedSessionType } = state;
-  const { handleSelectSessionType, handleDeleteEvent, handleNavigateToPremium, goBack, setViewModeToMenu } = actions;
+  const { handleSelectSessionType, handleDeleteEvent, handleNavigateToPremium, goBack, setViewModeToMenu, navigateToSession } = actions;
   const { t } = useTranslation();
 
   const [isSummaryModalVisible, setIsSummaryModalVisible] = React.useState(false);
   const [currentSummary, setCurrentSummary] = React.useState("");
-  const onShowSummary = async (_summaryFromList: string, eventId?: string) => {
+  const onShowSummary = async (_summaryFromList: string, eventId?: string, createdAt?: string) => {
     // Her zaman en güncel özeti DB'den çek
     if (eventId) {
       try {
-        const fresh = await getSummaryForSessionEvent(eventId);
+        const fresh = await getSummaryForSessionEvent(eventId, createdAt);
         setCurrentSummary(fresh || _summaryFromList || "");
       } catch (_e) {
         setCurrentSummary(_summaryFromList || "");
@@ -309,7 +319,7 @@ export default function PremiumHistoryScreen() {
   const renderContent = () => {
     if (isLoading) { return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={theme.tint} /></View>; }
 
-    const textSessionsCount = allEvents.filter(e => e.type === 'text_session').length;
+    const textSessionsCount = allEvents.filter(e => e.type === 'session_end').length;
     const voiceSessionsCount = allEvents.filter(e => e.type === 'voice_session').length;
 
     switch (viewMode) {
@@ -351,10 +361,19 @@ export default function PremiumHistoryScreen() {
           </>
         );
       case 'summaryList': {
-        const filteredEvents = allEvents
-          .filter(e => e.type === selectedSessionType)
+        const isTextSessionView = selectedSessionType === 'text_session';
+        const base = allEvents.filter(e => isTextSessionView ? e.type === 'session_end' : e.type === selectedSessionType);
+        const filteredEvents = base
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
           .map((e) => e as SessionEvent);
+        const findRelatedTextSessionId = (createdAt?: string) => {
+          if (!createdAt) return null;
+          const t = new Date(createdAt).getTime();
+          const candidates = allEvents
+            .filter(ev => ev.type === 'text_session' && new Date(ev.created_at).getTime() <= t)
+            .sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          return candidates.length > 0 ? candidates[0].id : null;
+        };
         const sessionTitles = { 
             text_session: t('transcripts.summaryList.titles.text_session'), 
             voice_session: t('transcripts.summaryList.titles.voice_session'), 
@@ -368,14 +387,21 @@ export default function PremiumHistoryScreen() {
                 <SerenityCard onPressCTA={handleNavigateToPremium} />
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.summaryListContainer}>
-                {filteredEvents.map(event => ( 
+                {filteredEvents.map(event => {
+                  const relatedId = isTextSessionView ? findRelatedTextSessionId((event as any).created_at) : event.id;
+                  const onPress = relatedId
+                    ? () => navigateToSession(relatedId!, event.mood, ((event as any)?.data?.summary as string) || event.summary || undefined)
+                    : undefined;
+                  return (
                     <SummaryCard 
-                        key={event.id} 
-                        event={event} 
-                        onDelete={() => handleDeleteEvent(event.id)}
-                        onShowSummary={(s) => onShowSummary(s, event.id)}
-                    /> 
-                ))}
+                      key={event.id} 
+                      event={event} 
+                      onPress={onPress}
+                      onDelete={() => handleDeleteEvent(event.id)}
+                      onShowSummary={(s) => onShowSummary(s, event.id, (event as any).created_at)}
+                    />
+                  );
+                })}
               </ScrollView>
             )}
           </View>

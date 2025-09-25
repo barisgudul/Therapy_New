@@ -73,8 +73,8 @@ export async function invokeGemini(
     return reply;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[invokeGemini] Hatası:", msg);
-    throw new ApiError("AI servisi şu anda kullanılamıyor.");
+    console.error("[invokeGemini] Orijinal hata:", err);
+    throw new ApiError(`AI servisi hatası: ${msg}`);
   }
 }
 

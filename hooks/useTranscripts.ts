@@ -9,6 +9,7 @@ import {
     EventType,
     getEventsForLast,
     getSessionSummariesForEventIds,
+    getSummaryForSessionEvent,
 } from "../services/event.service";
 
 export type ViewMode = "menu" | "summaryList";
@@ -152,8 +153,29 @@ export function useTranscripts() {
                 try {
                     const eventsFromStorage = await getEventsForLast(365);
 
+                    // 0) session_end'leri aynı gün içinde tek kayda indir (en yeni kalsın)
+                    const sessionEndsDesc = [...eventsFromStorage]
+                        .filter((e) => e.type === "session_end")
+                        .sort((a, b) =>
+                            new Date(b.created_at).getTime() -
+                            new Date(a.created_at).getTime()
+                        );
+                    const keepPerDay = new Set<string>();
+                    const keepIds = new Set<string>();
+                    for (const se of sessionEndsDesc) {
+                        const day =
+                            new Date(se.created_at).toISOString().split("T")[0];
+                        if (!keepPerDay.has(day)) {
+                            keepPerDay.add(day);
+                            keepIds.add(se.id);
+                        }
+                    }
+                    const dedupedEvents = eventsFromStorage.filter((e) =>
+                        e.type !== "session_end" || keepIds.has(e.id)
+                    );
+
                     // 1) session_end event'lerinin özetlerini al
-                    const sessionEndEvents = eventsFromStorage.filter(
+                    const sessionEndEvents = dedupedEvents.filter(
                         (e) => e.type === "session_end",
                     );
                     const sessionEndIds = sessionEndEvents.map((e) => e.id);
@@ -169,7 +191,7 @@ export function useTranscripts() {
                     );
 
                     // 3) Her text_session için, sonrasında gelen ilk session_end'in özetini bul
-                    const withSummaries = eventsFromStorage.map((e) => {
+                    const withSummaries = dedupedEvents.map((e) => {
                         // Varsayılan: kendi ID'si bir session_end ise doğrudan onu kullan
                         let summary: string | null = summariesById[e.id] ||
                             null;
@@ -190,9 +212,47 @@ export function useTranscripts() {
                         };
                     });
 
+                    // EK GÜÇLÜ FALLBACK: Her text_session için DB'den özeti paralel çek
+                    // (ilk yüklemede "Merhaba" fallback'ini önlemek için)
+                    const textSessions = withSummaries.filter(
+                        (e) => e.type === "text_session",
+                    );
+                    const parallelFetches = textSessions.map(async (ts) => {
+                        if (ts.summary && ts.summary.length > 0) {
+                            return [
+                                ts.id,
+                                ts.summary,
+                            ] as const;
+                        }
+                        try {
+                            const fresh = await getSummaryForSessionEvent(
+                                ts.id,
+                                ts.created_at,
+                            );
+                            return [ts.id, fresh || null] as const;
+                        } catch (_err) {
+                            return [ts.id, null] as const;
+                        }
+                    });
+                    const freshPairs = await Promise.all(parallelFetches);
+                    const freshMap: Record<string, string | null> = {};
+                    for (const [id, s] of freshPairs) freshMap[id] = s;
+
+                    const finalEvents = withSummaries.map((e) => {
+                        if (e.type === "text_session") {
+                            const s = freshMap[e.id];
+                            if (s && s.length > 0) {
+                                return { ...e, summary: s } as AppEvent & {
+                                    summary?: string | null;
+                                };
+                            }
+                        }
+                        return e;
+                    });
+
                     dispatch({
                         type: "FETCH_SUCCESS",
-                        payload: withSummaries,
+                        payload: finalEvents,
                     });
                 } catch (error) {
                     console.error("Events fetch error:", error);

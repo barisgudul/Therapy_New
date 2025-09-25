@@ -553,7 +553,7 @@
   "transcripts": {
     "flow": {
       "count": "{{count}} kayıt bulundu",
-      "empty": "Henüz kayıt yok",
+      "empty": "Henüz sohbet yok",
       "text": {
         "title": "Yazılarınız",
         "description": "Düşüncelerinizi kelimelerin akışında görün.",
@@ -564,7 +564,7 @@
         }
       },
       "voice": {
-        "title": "Sesli Görüşmeler",
+        "title": "Sesli Sohbetler",
         "description": "İfade ettiğiniz duyguların özüne dönün.",
         "features": {
           "tone": "Tonlama Analizi",
@@ -575,19 +575,19 @@
     },
     "menu": {
       "intro_title": "İç Dünyanız",
-      "intro_description": "Geçmiş görüşmelerinizdeki yansımaları ve içgörüleri keşfedin."
+      "intro_description": "Geçmiş sohbetlerinizdeki yansımaları ve içgörüleri keşfedin."
     },
     "summary": {
-      "preparing": "Bu seansın özeti hazırlanıyor…",
+      "preparing": "Bu sohbetin özeti hazırlanıyor…",
       "view_button": "Özeti Gör",
       "modal_title": "Sohbet Özeti",
-      "modal_subtitle": "Bu görüşmeden çıkan kısa özet",
+      "modal_subtitle": "Bu sohbetten çıkan kısa özet",
       "close_button": "Tamamdır"
     },
     "serenity": {
       "title": "Keşfedilecek Bir Geçmiş",
-      "description": "Burada, zamanla biriken seans kayıtlarınız sergilenecek. İlk görüşmenizi yaparak bu değerli arşivi oluşturmaya başlayın.",
-      "cta": "Yeni Bir Görüşme Başlat"
+      "description": "Burada, zamanla biriken sohbet kayıtlarınız sergilenecek. İlk sohbetinizi yaparak bu değerli arşivi oluşturmaya başlayın.",
+      "cta": "Yeni Bir Sohbet Başlat"
     },
     "summaryList": {
       "titles": {
@@ -595,7 +595,7 @@
         "voice_session": "Ses Kayıtlarınız",
         "video_session": "Görüşmeleriniz"
       },
-      "default_title": "Geçmiş Seanslar"
+      "default_title": "Geçmiş Sohbetler"
     }
   }
 }

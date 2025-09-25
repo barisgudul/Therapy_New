@@ -550,8 +550,8 @@
   ,
   "transcripts": {
     "flow": {
-      "count": "{{count}} Eintrag/Einträge gefunden",
-      "empty": "Noch keine Einträge",
+      "count": "{{count}} Unterhaltung(en) gefunden",
+      "empty": "Noch keine Unterhaltungen",
       "text": {
         "title": "Deine Texte",
         "description": "Sieh deine Gedanken im Fluss der Worte.",
@@ -562,7 +562,7 @@
         }
       },
       "voice": {
-        "title": "Sprachsitzungen",
+        "title": "Sprachchats",
         "description": "Kehre zum Kern der geäußerten Emotionen zurück.",
         "features": {
           "tone": "Ton-Analyse",
@@ -573,27 +573,27 @@
     },
     "menu": {
       "intro_title": "Deine Innenwelt",
-      "intro_description": "Erkunde Reflexionen und Erkenntnisse aus deinen vergangenen Sitzungen."
+      "intro_description": "Erkunde Reflexionen und Erkenntnisse aus deinen vergangenen Unterhaltungen."
     },
     "summary": {
-      "preparing": "Die Zusammenfassung dieser Sitzung wird vorbereitet…",
+      "preparing": "Die Zusammenfassung dieses Chats wird vorbereitet…",
       "view_button": "Zusammenfassung ansehen",
       "modal_title": "Chat-Zusammenfassung",
-      "modal_subtitle": "Eine kurze Zusammenfassung dieser Sitzung",
+      "modal_subtitle": "Eine kurze Zusammenfassung dieses Chats",
       "close_button": "Verstanden"
     },
     "serenity": {
       "title": "Eine Vergangenheit zu entdecken",
-      "description": "Hier werden mit der Zeit deine Sitzungsaufzeichnungen präsentiert. Starte deine erste Sitzung, um dieses wertvolle Archiv aufzubauen.",
-      "cta": "Neue Sitzung starten"
+      "description": "Hier werden mit der Zeit deine Chat-Aufzeichnungen präsentiert. Starte deinen ersten Chat, um dieses wertvolle Archiv aufzubauen.",
+      "cta": "Neuen Chat starten"
     },
     "summaryList": {
       "titles": {
         "text_session": "Deine Texte",
         "voice_session": "Deine Sprachaufnahmen",
-        "video_session": "Deine Sitzungen"
+        "video_session": "Deine Unterhaltungen"
       },
-      "default_title": "Vergangene Sitzungen"
+      "default_title": "Vergangene Unterhaltungen"
     }
   }
 }

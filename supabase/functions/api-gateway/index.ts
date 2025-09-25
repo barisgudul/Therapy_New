@@ -23,64 +23,107 @@ function normalizeGenConfig(cfg: Record<string, unknown> | undefined) {
   return copy;
 }
 
+// Güvenlik sınıflandırıcı model adaylarını sırayla dener; başarısız olursa SAFE'e düşer
 async function classifyTextForSafety(text: string): Promise<string> {
   if (!GEMINI_API_KEY_FOR_GATEWAY) {
     console.error(
       "KRİTİK HATA: GEMINI_API_KEY sunucu ortam değişkenlerinde bulunamadı!",
     );
-    return "level_3_high_alert";
+    // Model yoksa kullanıcıyı cezalandırma: güvenli varsay
+    return "level_0_safe";
   }
+
+  const getClassifierCandidates = (): string[] => {
+    const fromEnv = Deno.env.get("CLASSIFIER_MODEL");
+    const candidates = [
+      ...(fromEnv ? [fromEnv] : []),
+      "gemini-1.5-flash",
+      // Bazı projelerde -002 erişim izni olmayabilir; 001'e düş
+      "gemini-1.5-flash-001",
+      // Son çare olarak pro
+      "gemini-1.5-pro",
+    ];
+    // Aynı model iki kez eklenmesin
+    return Array.from(new Set(candidates));
+  };
+
+  const validClassifications = [
+    "level_0_safe",
+    "level_1_mild_concern",
+    "level_2_moderate_risk",
+    "level_3_high_alert",
+  ];
 
   const prompt =
     `Metni SADECE şu kategorilerden biriyle etiketle: ['level_0_safe', 'level_1_mild_concern', 'level_2_moderate_risk', 'level_3_high_alert']. METİN: "${text}" KATEGORİ:`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY_FOR_GATEWAY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.0, maxOutputTokens: 10 },
-        }),
-      },
-    );
+  let lastStatus: number | undefined;
+  let lastBody: string | undefined;
 
-    if (!res.ok) {
-      const errorBody = await res.text();
-      console.error(
-        `Güvenlik sınıflandırma API hatası: ${res.status} ${errorBody}`,
-      );
-      return "level_2_moderate_risk";
+  for (const model of getClassifierCandidates()) {
+    try {
+      const apiVersions = ["v1beta", "v1"];
+      const versionSucceeded = false; // değişmeyen bayrak
+      for (const apiVersion of apiVersions) {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${GEMINI_API_KEY_FOR_GATEWAY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.0, maxOutputTokens: 10 },
+            }),
+          },
+        );
+
+        if (!res.ok) {
+          lastStatus = res.status;
+          lastBody = await res.text();
+          // 404 NOT_FOUND ya da erişim yoksa bir sonraki versiyon/modele dene
+          if (
+            res.status === 404 ||
+            (lastBody &&
+              /NOT_FOUND|does not have access|Publisher Model/i.test(lastBody))
+          ) {
+            continue;
+          }
+          // Diğer hatalarda da bir sonraki versiyonu dene
+          continue;
+        }
+
+        const data = await res.json();
+        const raw: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+          "";
+        const classification = raw.trim().toLowerCase().replace(
+          /[^a-z0-9_]/g,
+          "",
+        );
+
+        if (validClassifications.includes(classification)) {
+          return classification;
+        }
+        // Beklenmedik çıktı: diğer versiyonu dene
+      }
+      // Versiyonlar sonuç vermediyse bir sonraki modele geç
+      if (!versionSucceeded) continue;
+    } catch (error: unknown) {
+      // Ağ hatası ya da zaman aşımı: sıradaki modele geç
+      lastStatus = undefined;
+      lastBody = getErrorMessage(error);
+      continue;
     }
-
-    const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    // 🔥 KRİTİK FIX 2: Güvenlik sınıflandırmasını sağlamlaştır
-    const classification = raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-    const validClassifications = [
-      "level_0_safe",
-      "level_1_mild_concern",
-      "level_2_moderate_risk",
-      "level_3_high_alert",
-    ];
-
-    if (validClassifications.includes(classification)) {
-      return classification;
-    }
-
-    console.warn(
-      `Beklenmedik sınıflandırma sonucu: '${classification}'. Riskli varsayılıyor.`,
-    );
-    return "level_2_moderate_risk";
-  } catch (error: unknown) { // 🔥 DÜZELTME 2: 'error' artık 'unknown' tipinde.
-    console.error(
-      "[API-GATEWAY] Güvenlik sınıflandırması ağ hatası:",
-      getErrorMessage(error),
-    );
-    return "level_2_moderate_risk";
   }
+
+  // Tüm denemeler başarısız: False positive uyarı basmak yerine güvenli varsay
+  if (lastStatus || lastBody) {
+    console.error(
+      `Güvenlik sınıflandırma denemeleri başarısız. Safe varsayıldı. Son durum: ${
+        lastStatus ?? "n/a"
+      } ${lastBody ?? ""}`,
+    );
+  }
+  return "level_0_safe";
 }
 
 // 🔥 DÜZELTME 3: GCP_SERVER_CONFIG için daha net bir tip tanımı yapıyoruz.
@@ -277,6 +320,89 @@ export async function handleApiGateway(req: Request): Promise<Response> {
     };
 
     let responseData: unknown;
+    const callGeminiGenerate = async (
+      prompt: string,
+      model: string,
+      configObj: Record<string, unknown> | undefined,
+      apiKey: string,
+    ): Promise<
+      { ok: boolean; data?: unknown; status?: number; bodyText?: string }
+    > => {
+      const generationConfig = normalizeGenConfig(configObj);
+      const apiVersions = ["v1beta", "v1"];
+      let lastStatus: number | undefined;
+      let lastBodyText: string | undefined;
+      let lastParsed: unknown = undefined;
+      for (const apiVersion of apiVersions) {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              ...(generationConfig && { generationConfig }),
+            }),
+          },
+        );
+        const status = res.status;
+        const bodyText = await res.text();
+        let parsed: unknown = undefined;
+        try {
+          parsed = JSON.parse(bodyText);
+        } catch (_e) {
+          // yanıt json değilse boşver
+        }
+        if (res.ok) {
+          return { ok: true, data: parsed, status, bodyText };
+        }
+        lastStatus = status;
+        lastBodyText = bodyText;
+        lastParsed = parsed;
+        // 404/erişim yoksa diğer API versiyonunda dene
+        if (
+          status === 404 ||
+          (bodyText &&
+            /NOT_FOUND|does not have access|Publisher Model/i.test(bodyText))
+        ) {
+          continue;
+        }
+        // Diğer hatalarda da diğer versiyona dene
+      }
+      return {
+        ok: false,
+        data: lastParsed,
+        status: lastStatus,
+        bodyText: lastBodyText,
+      };
+    };
+
+    const buildModelFallbacks = (requested: string | undefined): string[] => {
+      const candidates: string[] = [];
+      if (requested && requested.length > 0) {
+        candidates.push(requested);
+        // Eğer -002 ise -001 ve baz isimlere düş
+        if (/(\d+)$/.test(requested)) {
+          const base = requested.replace(/-(\d+)$/, "");
+          candidates.push(`${base}-001`);
+          candidates.push(base);
+        } else {
+          // Baz isim verilmişse 001 de dene
+          candidates.push(`${requested}-001`);
+        }
+      }
+      // Son çare olarak flash ve pro varyantları
+      candidates.push("gemini-1.5-flash");
+      candidates.push("gemini-1.5-flash-001");
+      candidates.push("gemini-1.5-pro");
+      candidates.push("gemini-1.5-pro-001");
+      // Daha geniş erişim için eski/alternatif adlar
+      candidates.push("gemini-1.0-pro");
+      candidates.push("gemini-pro");
+      candidates.push("gemini-1.5-flash-8b");
+      // Tekilleştir
+      return Array.from(new Set(candidates));
+    };
     switch (type) {
       case "gemini": {
         const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
@@ -288,29 +414,47 @@ export async function handleApiGateway(req: Request): Promise<Response> {
           `[API-Gateway][${transactionId}] Gemini generateContent start: ${payload.model}`,
         );
 
-        const generationConfig = normalizeGenConfig(payload.config);
+        const modelsToTry = buildModelFallbacks(String(payload.model || ""));
+        let lastStatus: number | undefined;
+        let lastBody: string | undefined;
+        let lastParsed: unknown = undefined;
+        let succeeded = false;
 
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${payload.model}:generateContent?key=${geminiApiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: payload.prompt }] }],
-              ...(generationConfig && { generationConfig }),
-            }),
-          },
-        );
-        responseData = await geminiRes.json();
-        if (!geminiRes.ok) {
-          throw new Error(
-            (responseData as { error?: { message?: string } })?.error
-              ?.message || "Gemini API hatası.",
+        for (const model of modelsToTry) {
+          const res = await callGeminiGenerate(
+            String(payload.prompt || ""),
+            model,
+            payload.config,
+            geminiApiKey,
           );
+          if (res.ok) {
+            responseData = res.data;
+            console.log(
+              `[API-Gateway][${transactionId}] Gemini generateContent success with model: ${model}.`,
+            );
+            succeeded = true;
+            break;
+          }
+          lastStatus = res.status;
+          lastBody = res.bodyText;
+          lastParsed = res.data;
+          // 404/erişim yoksa başka modele dene, diğer hatalarda da denemeye devam
+          if (
+            lastStatus === 404 ||
+            (lastBody &&
+              /NOT_FOUND|does not have access|Publisher Model/i.test(lastBody))
+          ) {
+            continue;
+          }
+          // Diğer hata kodları için de fallback denemeye devam ederiz
         }
-        console.log(
-          `[API-Gateway][${transactionId}] Gemini generateContent success.`,
-        );
+
+        if (!succeeded) {
+          const message =
+            (lastParsed as { error?: { message?: string } })?.error?.message ||
+            `Gemini API hatası. status=${lastStatus ?? "n/a"}`;
+          throw new Error(message);
+        }
         break;
       }
 
