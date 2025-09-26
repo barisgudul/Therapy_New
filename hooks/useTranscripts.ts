@@ -1,16 +1,16 @@
 // hooks/useTranscripts.ts
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router/";
-import { useCallback, useReducer } from "react";
-import { Alert } from "react-native";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
     AppEvent,
-    deleteEventById,
     EventType,
     getEventsForLast,
     getSessionSummariesForEventIds,
     getSummaryForSessionEvent,
 } from "../services/event.service";
+import { supabase } from "../utils/supabase";
+import { showDeleteConfirmation, showErrorDialog } from "../utils/dialog";
 
 export type ViewMode = "menu" | "summaryList";
 
@@ -44,7 +44,7 @@ type TranscriptsAction =
     | { type: "FETCH_ERROR" }
     | { type: "SELECT_SESSION_TYPE"; payload: EventType }
     | { type: "DELETE_EVENT"; payload: string }
-    | { type: "DELETE_EVENT_ERROR"; payload: string } // YENİ: Silme hatası için
+    | { type: "ADD_EVENT_BACK"; payload: AppEvent }
     | { type: "RESET_STATE" };
 
 // Initial state
@@ -109,14 +109,20 @@ function transcriptsReducer(
                 allEvents: state.allEvents.filter(
                     (event) => event.id !== action.payload,
                 ),
-                error: null, // Başarılı silme işleminde hatayı temizle
+                error: null,
             };
 
-        case "DELETE_EVENT_ERROR":
+        case "ADD_EVENT_BACK": {
+            const restoredEvents = [...state.allEvents, action.payload]
+                .sort((a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                );
             return {
                 ...state,
-                error: action.payload, // Hata mesajını state'e kaydet
+                allEvents: restoredEvents,
             };
+        }
 
         case "RESET_STATE":
             return initialState;
@@ -130,6 +136,7 @@ export function useTranscripts() {
     const navigation = useNavigation();
     const router = useRouter();
     const [state, dispatch] = useReducer(transcriptsReducer, initialState);
+    const eventsRef = useRef<AppEvent[]>(initialState.allEvents);
 
     // Navigation ve router fonksiyonlarını da döndür
     const goBack = useCallback(() => navigation.goBack(), [navigation]);
@@ -263,58 +270,57 @@ export function useTranscripts() {
         }, []),
     );
 
-    const handleSelectSessionType = (type: EventType) => {
+    useEffect(() => {
+        eventsRef.current = state.allEvents;
+    }, [state.allEvents]);
+
+    const handleSelectSessionType = useCallback((type: EventType) => {
         dispatch({ type: "SELECT_SESSION_TYPE", payload: type });
-    };
+    }, []);
 
     const handleNavigateToPremium = () => {
         router.replace("/therapy/therapy_options");
     };
 
-    const handleDeleteEvent = (eventId: string) => {
-        Alert.alert(
-            "Seansı Sil",
-            "Bu seans kaydını kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
-            [
-                {
-                    text: "Vazgeç",
-                    style: "cancel",
-                },
-                {
-                    text: "Sil",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await deleteEventById(eventId);
-                            dispatch({
-                                type: "DELETE_EVENT",
-                                payload: eventId,
-                            });
-                        } catch (_error) {
-                            // YENİ: Hata durumunu reducer'a bildir
-                            dispatch({
-                                type: "DELETE_EVENT_ERROR",
-                                payload: "Seans silinirken bir sorun oluştu.",
-                            });
-                            Alert.alert(
-                                "Hata",
-                                "Seans silinirken bir sorun oluştu.",
-                            );
-                        }
+    const handleDeleteEvent = useCallback((eventId: string) => {
+        const onConfirmDelete = async () => {
+            const snapshot = eventsRef.current.find((event) =>
+                event.id === eventId
+            );
+            if (!snapshot) return;
+
+            // Optimistic UI: kartı anında kaldır
+            dispatch({ type: "DELETE_EVENT", payload: eventId });
+
+            try {
+                const { error } = await supabase.functions.invoke(
+                    "delete-session-and-memories",
+                    {
+                        body: { event_id: eventId },
                     },
-                },
-            ],
-        );
-    };
+                );
+
+                if (error) throw error;
+            } catch (error) {
+                console.error(
+                    "Seans silinirken sunucu hatası:",
+                    error,
+                );
+                dispatch({
+                    type: "ADD_EVENT_BACK",
+                    payload: snapshot,
+                });
+                showErrorDialog(
+                    "Seans silinirken bir sorun oluştu. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.",
+                );
+            }
+        };
+
+        showDeleteConfirmation(onConfirmDelete);
+    }, []);
 
     return {
-        state: {
-            isLoading: state.isLoading,
-            viewMode: state.viewMode,
-            allEvents: state.allEvents,
-            selectedSessionType: state.selectedSessionType,
-            error: state.error, // YENİ: Hata durumunu da döndür
-        },
+        state,
         actions: {
             handleSelectSessionType,
             handleDeleteEvent,

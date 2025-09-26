@@ -1,6 +1,8 @@
 // jest.setup.js
 
-// React Native için temel mock'lar
+// React Native için temel mock'lar JEST-EXPO tarafından hallediliyor.
+// Bu bloğu çakışmayı önlemek için kaldırıyoruz.
+/*
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
   
@@ -35,6 +37,7 @@ jest.mock('react-native', () => {
     },
   };
 });
+*/
 
 // Reanimated için mock'lar
 jest.mock('react-native-reanimated', () => {
