@@ -122,6 +122,12 @@ export async function signInWithEmail(email: string, password: string) {
             password,
         });
         if (error) throw error;
+        if (data.session) {
+            console.log(
+                ">>>>>> BENİM JWT TOKEN'IM BU:",
+                data.session.access_token,
+            );
+        }
         return { session: data.session, error: null };
     } catch (error: unknown) {
         const errorMessage = error instanceof Error

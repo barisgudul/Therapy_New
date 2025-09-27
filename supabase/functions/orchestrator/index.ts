@@ -8,10 +8,26 @@ import type { EventPayload } from "../_shared/event.service.ts";
 import type { InteractionContext } from "../_shared/types/context.ts";
 import { isAppError } from "../_shared/errors.ts";
 import { LoggingService } from "../_shared/utils/LoggingService.ts";
+import { assertAndConsumeQuota, type FeatureKey } from "../_shared/quota.ts";
 
 function generateId(): string {
   // Deno'da crypto.randomUUID() standarttır ve daha güvenlidir.
   return crypto.randomUUID();
+}
+
+function mapEventTypeToFeature(type: string): FeatureKey | null {
+  switch (type) {
+    case "dream_analysis":
+      return "dream_analysis";
+    case "daily_reflection":
+      return "daily_reflection";
+    case "text_session":
+      return "text_sessions";
+    case "diary_entry":
+      return "diary_write";
+    default:
+      return null;
+  }
 }
 
 serve(async (req: Request) => {
@@ -32,6 +48,28 @@ serve(async (req: Request) => {
     if (!user) throw new Error("Kullanıcı doğrulanamadı.");
     if (!eventPayload || !eventPayload.type) {
       throw new Error("Geçersiz eventPayload.");
+    }
+
+    // BODYGUARD: Kota kontrolü (özelliğe göre)
+    const feature = mapEventTypeToFeature(eventPayload.type);
+    if (feature) {
+      try {
+        await assertAndConsumeQuota(adminClient, user.id, feature, 1);
+      } catch (quotaError) {
+        const status =
+          (quotaError as { status?: number } | undefined)?.status ?? 500;
+        const message = status === 402
+          ? "quota_exceeded"
+          : "internal_server_error";
+        return new Response(JSON.stringify({ error: message }), {
+          headers: {
+            ...cors(req),
+            "x-correlation-id": cid,
+            "Content-Type": "application/json",
+          },
+          status,
+        });
+      }
     }
 
     // CONTEXT OLUŞTURMA

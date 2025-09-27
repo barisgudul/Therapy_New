@@ -21,6 +21,7 @@ import { useAuth } from "../../context/Auth";
 import {
   useSubscription,
   useSubscriptionPlans,
+  useUpdateSubscription,
 } from "../../hooks/useSubscription";
 import { SubscriptionPlan } from "../../services/subscription.service";
 // Diğer importlarının yanına
@@ -57,78 +58,63 @@ export default function SubscriptionScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const router = useRouter();
-  const { planName, refresh: setSubscriptionPlan } = useSubscription();
-  const { plans, loading: plansLoading } = useSubscriptionPlans();
-  const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
+  // YENİ HOOK'LAR
+  const { planName, isLoading: subscriptionLoading } = useSubscription();
+  const { data: plans = [], isLoading: plansLoading } = useSubscriptionPlans();
+  const { mutate: upgradePlan, isPending: _isPending } = useUpdateSubscription();
+  const [updatingPlanId, setUpdatingPlanId] = useState<string | null>(null);
 
+  // YENİ handleUpgrade
   const handleUpgrade = (plan: SubscriptionPlan) => {
-    if (!user || isUpgrading) return;
-    setIsUpgrading(plan.id);
-    try {
-      // ARTIK HANGİ PLANA GEÇECEĞİNİ SÖYLÜYORUZ!
-      setSubscriptionPlan(plan.name as PlanName); // `PlanName` tipini import etmeyi unutma
+    if (!user || updatingPlanId) return;
 
-      Toast.show({
-        type: "success",
-        text1: t('settings.subscription.toast_success_title'),
-        text2: t('settings.subscription.toast_success_body', { planName: plan.name }),
-      });
-      // Kullanıcı aynı ekranda kalıp yeni planının "Mevcut Plan" olarak işaretlendiğini görecek
-    } catch (error) {
-      console.error(error); // Hata varsa logla!
-      Toast.show({ type: "error", text1: t('settings.subscription.toast_error_title'), text2: t('settings.subscription.toast_error_body') });
-    } finally {
-      setIsUpgrading(null);
-    }
+    setUpdatingPlanId(plan.id);
+
+    upgradePlan(plan.name as PlanName, {
+      onSuccess: () => {
+        Toast.show({
+          type: "success",
+          text1: t('settings.subscription.toast_success_title'),
+          text2: t('settings.subscription.toast_success_body', { planName: plan.name }),
+        });
+      },
+      onError: (error) => {
+        console.error("Plan yükseltme hatası:", error);
+        Toast.show({ type: "error", text1: t('settings.subscription.toast_error_title'), text2: t('settings.subscription.toast_error_body') });
+      },
+      onSettled: () => {
+        setUpdatingPlanId(null);
+      }
+    });
   };
   // ... handleUpgrade fonksiyonundan sonra ...
 
   const comparisonData = useMemo(() => {
-    if (plans.length === 0) return [];
+    // Statik karşılaştırma matrisi (veritabanında limit tablosu olduğu için plan nesnesinde yok)
+    const values: Record<string, { plus: string; premium: string; icon: keyof typeof Ionicons.glyphMap; name: string }> = {
+      text_sessions: { plus: "Sınırsız", premium: "Sınırsız", icon: "chatbubble-ellipses-outline", name: t('settings.subscription.feature_text_sessions') },
+      voice_sessions: { plus: "Evet", premium: "Evet", icon: "mic-outline", name: t('settings.subscription.feature_voice_sessions') },
+      dream_analysis: { plus: "Evet", premium: "Evet", icon: "moon-outline", name: t('settings.subscription.feature_dream_analysis') },
+      ai_reports: { plus: "❌", premium: "Evet", icon: "analytics-outline", name: t('settings.subscription.feature_ai_reports') },
+      therapist_selection: { plus: "❌", premium: "Tüm Terapistler", icon: "people-outline", name: t('settings.subscription.feature_therapist_selection') },
+      session_history: { plus: "Evet", premium: "Evet", icon: "time-outline", name: t('settings.subscription.feature_session_history') },
+      pdf_export: { plus: "❌", premium: "Evet", icon: "download-outline", name: t('settings.subscription.feature_pdf_export') },
+      priority_support: { plus: "❌", premium: "Evet", icon: "headset-outline", name: t('settings.subscription.feature_priority_support') },
+    };
 
-    const premiumPlan = plans.find((p) => p.name === "Premium");
-    const plusPlan = plans.find((p) => p.name === "+Plus");
-
-    if (!premiumPlan || !plusPlan) return [];
-
-    // Tüm özelliklerin bir listesini çıkaralım (varsayılan ikonlarla)
-    const allFeatureKeys = [
-      {
-        key: "text_sessions",
-        name: t('settings.subscription.feature_text_sessions'),
-        icon: "chatbubble-ellipses-outline" as const,
-      },
-      { key: "voice_sessions", name: t('settings.subscription.feature_voice_sessions'), icon: "mic-outline" as const },
-      { key: "dream_analysis", name: t('settings.subscription.feature_dream_analysis'), icon: "moon-outline" as const },
-      { key: "ai_reports", name: t('settings.subscription.feature_ai_reports'), icon: "analytics-outline" as const },
-      {
-        key: "therapist_selection",
-        name: t('settings.subscription.feature_therapist_selection'),
-        icon: "people-outline" as const,
-      },
-      { key: "session_history", name: t('settings.subscription.feature_session_history'), icon: "time-outline" as const },
-      { key: "pdf_export", name: t('settings.subscription.feature_pdf_export'), icon: "download-outline" as const },
-      {
-        key: "priority_support",
-        name: t('settings.subscription.feature_priority_support'),
-        icon: "headset-outline" as const,
-      },
-    ];
-
-    return allFeatureKeys.map((feature) => ({
-      feature: feature.name,
-      // Backend'den gelen 'features' objesinden değeri al, yoksa '❌' bas.
-      plus: String(plusPlan.features[feature.key] || "❌"),
-      premium: String(premiumPlan.features[feature.key] || "❌"),
-      icon: feature.icon, // Artık as const ile tanımlandı
+    return Object.keys(values).map((key) => ({
+      feature: values[key].name,
+      plus: values[key].plus,
+      premium: values[key].premium,
+      icon: values[key].icon,
     }));
-  }, [plans, t]); // Sadece planlar veya çeviri değiştiğinde yeniden hesapla
+  }, [t]);
   // DÜZELTİLDİ: Orijinal diziyi bozmuyor ve her render'da yeniden hesaplanmıyor.
   const sortedPlans = useMemo(() => {
     return [...plans].sort((a, b) => b.price - a.price);
   }, [plans]);
 
-  if (plansLoading) {
+  if (plansLoading || subscriptionLoading) {
     return (
       <LinearGradient
         colors={["#fdf2f8", "#eef2ff"]}
@@ -162,11 +148,11 @@ export default function SubscriptionScreen() {
           {sortedPlans.map((plan) => (
             <PlanCard
               key={plan.id}
-              plan={plan}
+              plan={{ id: plan.id, name: plan.name, price: plan.price }}
               // ARTIK DOĞRU YAPIYORSUN. DİNAMİK VERİYE GÖRE TEMA SEÇİYORSUN.
               theme={getThemeForPlan(plan.name)}
               isCurrent={planName === plan.name}
-              isLoading={isUpgrading === plan.id}
+              isLoading={updatingPlanId === plan.id}
               onUpgrade={() => handleUpgrade(plan)}
             />
           ))}

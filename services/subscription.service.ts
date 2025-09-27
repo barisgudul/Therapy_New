@@ -1,217 +1,152 @@
 // services/subscription.service.ts
 
-// Types
-import { supabase } from "../utils/supabase"; // Dosyanın en üstüne ekle
+import { supabase } from "../utils/supabase";
+import { PlanName } from "../store/subscriptionStore";
+
+// =================================================================
+// TİPLER
+// =================================================================
 
 export interface SubscriptionPlan {
     id: string;
     name: "Free" | "+Plus" | "Premium";
     price: number;
-    currency: string;
-    description?: string; // Planlar için açıklama alanı
-    features: Record<string, import("../types/json.ts").JsonValue>;
+    // features objesini burada tutmamıza gerek yok, o limit tablosunda.
 }
 
 export interface UserSubscription {
-    id: string;
     plan_id: string;
     name: "Free" | "+Plus" | "Premium";
-    status: "active" | "inactive" | "cancelled";
-    current_period_end: string;
-    created_at: string;
-    price: number;
-    currency: string;
-    features: Record<string, import("../types/json.ts").JsonValue>;
-    user_id: string;
 }
 
 export interface FeatureUsageResult {
     used_count: number;
     limit_count: number; // -1 for unlimited
     can_use: boolean;
+    period: "day" | "month";
 }
 
-// Mock Data (Normalde bu veritabanından gelir) - SİLİNDİ
+// Bütün özelliklerin bir listesi
+export const ALL_FEATURES = [
+    "text_sessions",
+    "voice_minutes", // Veritabanındaki ismin bu!
+    "dream_analysis",
+    "ai_reports",
+    "diary_write",
+    "daily_reflection",
+] as const;
+
+export type FeatureKey = typeof ALL_FEATURES[number];
+export type UsageStats = Record<FeatureKey, FeatureUsageResult>;
+
+// =================================================================
+// API FONKSİYONLARI - ARTIK %100 GERÇEK
+// =================================================================
 
 /**
- * Mevcut tüm abonelik planlarını getirir.
- * @returns {Promise<SubscriptionPlan[]>} Planların bir listesi.
+ * Mevcut tüm abonelik planlarını veritabanından getirir.
  */
 export async function getAllPlans(): Promise<SubscriptionPlan[]> {
     const { data, error } = await supabase.from("subscription_plans").select(
-        "*",
+        "id, name, price_usd",
     );
     if (error) {
-        throw new Error("Abonelik planları getirilemedi: " + error.message);
+        console.error("Abonelik planları getirilemedi:", error.message);
+        throw error;
     }
-    return data as SubscriptionPlan[];
+    // Gelen veriyi beklenen tipe dönüştür (price_usd -> price)
+    return data.map((plan) => ({
+        id: plan.id,
+        name: plan.name,
+        price: plan.price_usd,
+    })) as SubscriptionPlan[];
 }
-
-/**
- * Belirli bir planın detaylarını getirir
- */
-export async function getPlanById(
-    planId: string,
-): Promise<SubscriptionPlan | null> {
-    const { data, error } = await supabase.from("subscription_plans").select(
-        "*",
-    ).eq("id", planId).single();
-    if (error) {
-        console.error("Plan getirme hatası:", error.message);
-        return null;
-    }
-    return data as SubscriptionPlan | null;
-}
-
-export interface UsageStats {
-    diary_write: FeatureUsageResult;
-    daily_write: FeatureUsageResult;
-    dream_analysis: FeatureUsageResult;
-    dream_dialogue: FeatureUsageResult;
-    ai_reports: FeatureUsageResult;
-    text_sessions: FeatureUsageResult;
-    voice_sessions: FeatureUsageResult;
-    pdf_export: FeatureUsageResult;
-}
-
-// ARTIK GEREKLİ DEĞİL - getLimitsForPlan fonksiyonu silindi
 
 /**
  * Kullanıcının mevcut abonelik durumunu getirir.
  */
-export async function getSubscriptionForUser(
-    userId: string,
-): Promise<UserSubscription | null> {
+export async function getCurrentSubscription(): Promise<
+    UserSubscription | null
+> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    // Bu RPC, aktif planı veya yoksa 'Free' plan bilgilerini döner.
     const { data, error } = await supabase.rpc(
         "get_user_current_subscription",
-        { user_uuid: userId },
+        {
+            user_uuid: user.id,
+        },
     );
 
     if (error) {
         console.error("Kullanıcı aboneliği alınamadı:", error.message);
-        return null;
+        return null; // Hata durumunda null dön, UI çökmesin.
     }
 
-    if (!data || data.length === 0) {
-        return null;
-    }
-
-    // Gelen veriye sadece userId ekle ve doğrudan tipiyle döndür.
-    const subscriptionData = data[0];
-    return {
-        ...subscriptionData,
-        user_id: userId,
-    } as UserSubscription;
+    return data?.[0] as UserSubscription | null;
 }
 
 /**
- * Belirli bir özellik için kullanıcının kullanım istatistiklerini getirir.
+ * Kullanıcının TÜM özellikler için kullanım istatistiklerini getirir.
+ * Tek tek sormak yerine, tek seferde hepsini alacağız.
  */
-export async function getUsageStatsForUser(
-    userId: string,
-    feature: keyof UsageStats,
-): Promise<FeatureUsageResult> {
-    const { data, error } = await supabase.rpc("check_feature_usage", {
-        user_uuid: userId,
-        feature_name_base: feature,
-    });
+export async function getUsageStats(): Promise<UsageStats | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
-    if (error) {
-        console.error(
-            `${feature} için kullanım istatistiği hatası:`,
-            error.message,
-        );
-        return { used_count: 0, limit_count: 0, can_use: false };
-    }
-
-    // RPC'den gelen sonuç [ { can_use: true, used_count: 0, limit_count: -1 } ] formatındadır.
-    const result = data[0];
-    return {
-        used_count: result.used_count,
-        limit_count: result.limit_count,
-        can_use: result.can_use,
-    };
-}
-
-/**
- * Kullanıcının tüm özellikler için başlangıç kullanım istatistiklerini oluşturur.
- */
-export async function getInitialUsageStats(
-    userId: string,
-): Promise<UsageStats> {
-    const features: (keyof UsageStats)[] = [
-        "diary_write",
-        "daily_write",
-        "dream_analysis",
-        "dream_dialogue",
-        "ai_reports",
-        "text_sessions",
-        "voice_sessions",
-        "pdf_export",
-    ];
     const stats: Partial<UsageStats> = {};
+    const promises = ALL_FEATURES.map((feature) =>
+        supabase.rpc("check_feature_usage", {
+            user_uuid: user.id,
+            feature_name: feature,
+        })
+    );
 
-    for (const feature of features) {
-        stats[feature] = await getUsageStatsForUser(userId, feature);
+    const results = await Promise.all(promises);
+
+    for (let i = 0; i < ALL_FEATURES.length; i++) {
+        const feature = ALL_FEATURES[i];
+        const result = results[i];
+        if (result.error || !result.data?.[0]) {
+            console.error(
+                `${feature} için kullanım istatistiği hatası:`,
+                result.error?.message,
+            );
+            // Hata durumunda varsayılan olarak "kullanamaz" yap.
+            stats[feature] = {
+                used_count: 0,
+                limit_count: 0,
+                can_use: false,
+                period: "month",
+            };
+        } else {
+            stats[feature] = result.data[0];
+        }
     }
 
     return stats as UsageStats;
 }
 
 /**
- * Kullanıcının PDF export özelliğini kullanıp kullanamayacağını kontrol eder.
+ * Kullanıcının planını DEĞİŞTİRİR. Ödeme olmadığı için direkt RPC çağıracağız.
+ * Bunun için yeni bir RPC fonksiyonu yazmamız gerekiyor!
  */
-export async function canUsePDFExport(userId: string): Promise<boolean> {
-    const usage = await getUsageStatsForUser(userId, "pdf_export");
-    return usage.can_use;
-}
+export async function updateUserPlan(
+    newPlanName: PlanName,
+): Promise<{ success: boolean }> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Kullanıcı bulunamadı.");
 
-/**
- * Kullanıcının tüm terapistleri kullanıp kullanamayacağını kontrol eder.
- */
-export async function canUseAllTherapists(userId: string): Promise<boolean> {
-    const subscription = await getSubscriptionForUser(userId);
-    if (!subscription) return false;
-
-    // Premium kullanıcılar tüm terapistleri kullanabilir
-    return subscription.name === "Premium";
-}
-
-/**
- * Kullanıcının öncelikli destek hakkı olup olmadığını kontrol eder.
- */
-export async function hasPrioritySupport(userId: string): Promise<boolean> {
-    const subscription = await getSubscriptionForUser(userId);
-    if (!subscription) return false;
-
-    // Premium kullanıcılar öncelikli destek alır
-    return subscription.name === "Premium";
-}
-
-/**
- * Kullanıcının Premium üye olup olmadığını kontrol eder.
- */
-export async function isPremiumUser(userId: string): Promise<boolean> {
-    const subscription = await getSubscriptionForUser(userId);
-    if (!subscription) return false;
-
-    return subscription.name === "Premium";
-}
-
-// Bu bir test fonksiyonudur, production'da KULLANILMAMALIDIR.
-export const upgradeUserPlanForTesting = async (
-    userId: string,
-    newPlanName: "Free" | "+Plus" | "Premium",
-) => {
-    console.warn(
-        `!!!! [TEST API] Kullanıcı ${userId} planı ${newPlanName} olarak değiştiriliyor. BU BİR TESTTİR. !!!!`,
-    );
-    const { data, error } = await supabase.rpc("assign_plan_for_user", {
-        user_id_to_update: userId,
-        plan_name_to_assign: newPlanName,
+    const { error } = await supabase.rpc("assign_plan_to_user", {
+        p_user_id: user.id,
+        p_plan_name: newPlanName,
     });
 
-    if (error) throw new Error(`Test planı atama hatası: ${error.message}`);
+    if (error) {
+        console.error(`Plan değiştirme hatası: ${error.message}`);
+        throw error;
+    }
 
-    return { success: true, response: data };
-};
+    return { success: true };
+}

@@ -2,6 +2,7 @@
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { assertAndConsumeQuota } from "../_shared/quota.ts";
 
 // BURASI ÇOK ÖNEMLİ: O karmaşık beyin servislerini BURADA import edeceksin.
 // Frontend'in bu dosyalardan haberi bile olmayacak.
@@ -58,6 +59,21 @@ Deno.serve(async (req) => {
       throw new Error(`Yetkilendirme hatası: ${userError.message}`);
     }
     if (!user) throw new Error("Kullanıcı bulunamadı.");
+
+    // BODYGUARD: AI rapor üretmeden önce kota tüket
+    try {
+      await assertAndConsumeQuota(supabaseAdmin, user.id, "ai_reports", 1);
+    } catch (quotaError) {
+      const status = (quotaError as { status?: number } | undefined)?.status ??
+        500;
+      const message = status === 402
+        ? "quota_exceeded"
+        : "internal_server_error";
+      return new Response(JSON.stringify({ error: message }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status,
+      });
+    }
 
     // 2. DOĞRULAMA: Gelen paketin içini kontrol et.
     const body = await req.json();

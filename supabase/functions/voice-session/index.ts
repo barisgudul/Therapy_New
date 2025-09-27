@@ -6,6 +6,7 @@ import * as AiService from "../_shared/ai.service.ts";
 import * as RagService from "../_shared/rag.service.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
 import { config } from "../_shared/config.ts";
+import { assertAndConsumeQuota } from "../_shared/quota.ts";
 // RAG_CONFIG için geriye uyumluluk - artık config.RAG_PARAMS.DEFAULT kullanıyoruz
 
 // Loglama fonksiyonu
@@ -81,10 +82,75 @@ serve(async (req) => {
     }
 
     // Client'tan gelen body'den userId'yi okumayı SİL.
-    const { messages } = await req.json();
+    const body = await req.json();
+    const messages = (body as { messages?: unknown })?.messages as {
+      sender: string;
+      text: string;
+    }[] | undefined;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new Error("Geçersiz mesaj formatı");
+    }
+
+    // BODYGUARD: Kodu çalıştırmadan önce kotayı kontrol et ve tüket (dinamik dakika)
+    // Dakika belirleme stratejisi:
+    // 1) Header: x-voice-minutes
+    // 2) Body: voiceMinutes (sayı)
+    // 3) Body: durationSec / durationMs
+    // 4) Varsayılan: 1
+    const headerMinutes = Number(req.headers.get("x-voice-minutes") ?? "");
+    const bodyMinutes = Number(
+      (body as { voiceMinutes?: unknown })?.voiceMinutes ?? "",
+    );
+    const durationSec = Number(
+      (body as { durationSec?: unknown })?.durationSec ?? "",
+    );
+    const durationMs = Number(
+      (body as { durationMs?: unknown })?.durationMs ?? "",
+    );
+
+    const minutesFromSec = Number.isFinite(durationSec) && durationSec > 0
+      ? durationSec / 60
+      : NaN;
+    const minutesFromMs = Number.isFinite(durationMs) && durationMs > 0
+      ? durationMs / 60000
+      : NaN;
+
+    let voiceMinutesToConsume = [
+      headerMinutes,
+      bodyMinutes,
+      minutesFromSec,
+      minutesFromMs,
+    ]
+      .find((v) => Number.isFinite(v) && (v as number) > 0) as
+        | number
+        | undefined;
+
+    if (!Number.isFinite(voiceMinutesToConsume as number)) {
+      voiceMinutesToConsume = 1; // Koruyucu varsayılan
+    }
+
+    try {
+      await assertAndConsumeQuota(
+        adminClient,
+        userId,
+        "voice_minutes",
+        voiceMinutesToConsume as number,
+      );
+    } catch (quotaError) {
+      const status = (quotaError as { status?: number } | undefined)?.status ??
+        500;
+      const message = status === 402
+        ? "quota_exceeded"
+        : "internal_server_error";
+      return new Response(JSON.stringify({ error: message }), {
+        headers: {
+          ...cors(req),
+          "x-correlation-id": cid,
+          "Content-Type": "application/json",
+        },
+        status,
+      });
     }
 
     const userMessage = messages[messages.length - 1].text;
