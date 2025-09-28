@@ -134,6 +134,7 @@
   },
   "analysis": {
     "title": "Tiefenanalyse",
+    "title_emphasis": "Ihre persönlichen Einblicke",
     "subtitle": "Erste Eindrücke, Erkenntnisse und konkreter Plan",
     "processing_text": "Ihr Konto wird erstellt und Ihr erster Bericht wird vorbereitet...",
     "not_found": "Analyse nicht gefunden.",

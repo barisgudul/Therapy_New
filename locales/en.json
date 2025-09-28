@@ -134,6 +134,7 @@
   },
   "analysis": {
     "title": "Deep Analysis",
+    "title_emphasis": "Your Personal Insights",
     "subtitle": "Initial impressions, insights and concrete plan",
     "processing_text": "Your account is being created and your first report is being prepared...",
     "not_found": "Analysis not found.",

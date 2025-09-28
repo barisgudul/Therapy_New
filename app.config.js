@@ -44,6 +44,7 @@ export default {
       ],
       'expo-audio',
       'expo-localization',
+      'expo-secure-store',
     ],
 
     experiments: {

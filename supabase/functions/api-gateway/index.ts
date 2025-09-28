@@ -15,10 +15,21 @@ function getErrorMessage(error: unknown): string {
 function normalizeGenConfig(cfg: Record<string, unknown> | undefined) {
   if (!cfg) return undefined;
   const copy: Record<string, unknown> = { ...cfg };
-  // responseMimeType -> response_mime_type (snake_case)
+  // responseMimeType <-> response_mime_type (v1 vs v1beta farkları için ikisini de gönder)
   if (copy.responseMimeType && !copy.response_mime_type) {
     copy.response_mime_type = copy.responseMimeType;
-    delete copy.responseMimeType;
+  }
+  if (copy.response_mime_type && !copy.responseMimeType) {
+    copy.responseMimeType = copy.response_mime_type;
+  }
+  // maxOutputTokens sayı olsun ve güvenli aralıkta kalsın
+  if (typeof copy.maxOutputTokens === "string") {
+    const n = Number(copy.maxOutputTokens);
+    copy.maxOutputTokens = Number.isFinite(n) ? n : undefined;
+  }
+  if (typeof copy.maxOutputTokens === "number") {
+    const n = Math.max(1, Math.min(copy.maxOutputTokens as number, 1024));
+    copy.maxOutputTokens = n;
   }
   return copy;
 }
@@ -329,6 +340,15 @@ export async function handleApiGateway(req: Request): Promise<Response> {
       { ok: boolean; data?: unknown; status?: number; bodyText?: string }
     > => {
       const generationConfig = normalizeGenConfig(configObj);
+      // Bazı modeller response_mime_type desteklemediğinde 400 dönebiliyor.
+      // Bu durumda aynı isteği response_mime_type olmadan tekrar deneriz.
+      const generationConfigSansMime = generationConfig
+        ? Object.fromEntries(
+          Object.entries(generationConfig).filter(
+            ([k]) => k !== "response_mime_type" && k !== "responseMimeType",
+          ),
+        )
+        : undefined;
       const apiVersions = ["v1beta", "v1"];
       let lastStatus: number | undefined;
       let lastBodyText: string | undefined;
@@ -355,6 +375,47 @@ export async function handleApiGateway(req: Request): Promise<Response> {
         }
         if (res.ok) {
           return { ok: true, data: parsed, status, bodyText };
+        }
+
+        // MIME config'inden kaynaklı 400 hatası olabilir: ikinci şans (mime'siz)
+        if (
+          status === 400 && generationConfigSansMime &&
+          (bodyText.includes("response_mime_type") ||
+            bodyText.includes("responseMimeType") ||
+            bodyText.toLowerCase().includes("generationconfig"))
+        ) {
+          const res2 = await fetch(
+            `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: generationConfigSansMime,
+              }),
+            },
+          );
+          const status2 = res2.status;
+          const bodyText2 = await res2.text();
+          let parsed2: unknown = undefined;
+          try {
+            parsed2 = JSON.parse(bodyText2);
+          } catch (_e) {
+            // Yanıt JSON değilse parse etmeyi zorlamıyoruz
+          }
+          if (res2.ok) {
+            return {
+              ok: true,
+              data: parsed2,
+              status: status2,
+              bodyText: bodyText2,
+            };
+          }
+          // İkinci deneme de başarısızsa son hata olarak bunu sakla
+          lastStatus = status2;
+          lastBodyText = bodyText2;
+          lastParsed = parsed2;
+          continue; // sıradaki versiyonu dene
         }
         lastStatus = status;
         lastBodyText = bodyText;
@@ -450,8 +511,9 @@ export async function handleApiGateway(req: Request): Promise<Response> {
         }
 
         if (!succeeded) {
-          const message =
-            (lastParsed as { error?: { message?: string } })?.error?.message ||
+          const parsedMsg = (lastParsed as { error?: { message?: string } })
+            ?.error?.message;
+          const message = parsedMsg || lastBody ||
             `Gemini API hatası. status=${lastStatus ?? "n/a"}`;
           throw new Error(message);
         }

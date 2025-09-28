@@ -1,23 +1,30 @@
 // utils/supabase.ts
+
 import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
-import Constants from "expo-constants";
+import * as SecureStore from "expo-secure-store";
 
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl as string;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey as string;
+// SecureStore'u, Supabase'in beklediği arayüze (getItem, setItem, removeItem) uyumlu hale getir.
+const ExpoSecureStoreAdapter = {
+  getItem: (key: string) => {
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: (key: string, value: string) => {
+    SecureStore.setItemAsync(key, value);
+  },
+  removeItem: (key: string) => {
+    SecureStore.deleteItemAsync(key);
+  },
+};
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Supabase URL/Anon Key eksik (app.config.js → extra).");
-}
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // RN’de URL'i biz işleyeceğiz:
-    detectSessionInUrl: false,
-    // Token’lar oturumu tutsun:
-    persistSession: true,
+    storage: ExpoSecureStoreAdapter, // <-- İŞTE BU ÇOK ÖNEMLİ!
     autoRefreshToken: true,
-    // Mobil için PKCE önerilir:
-    flowType: "pkce",
+    persistSession: true,
+    detectSessionInUrl: false,
   },
 });

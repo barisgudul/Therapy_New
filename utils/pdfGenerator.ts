@@ -2,136 +2,189 @@
 
 import { Platform } from "react-native";
 import * as Sharing from "expo-sharing";
-// @ts-ignore: react-native-html-to-pdf kütüphanesinin tip tanımları eksik
+// @ts-ignore
 import RNHTMLtoPDF from "react-native-html-to-pdf";
 import Toast from "react-native-toast-message";
-import { AnalysisReportContent } from "../types/analysis";
+import { encode } from "js-base64"; // YENİ EKLEDİĞİMİZ KÜTÜPHANE
+import { useOnboardingStore } from "../store/onboardingStore";
 import { Colors } from "../constants/Colors";
 
-// Bu fonksiyon artık component'in içinde değil, saf bir yardımcı fonksiyon.
-const convertMarkdownToHTML = (markdown: string): string => {
-  const withNormalizedBullets = markdown.replace(/\s*•\s+/g, "\n• ").trim();
-  const html = withNormalizedBullets
-    .replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3 class="md-h3">$1</h3>')
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/^• (.*$)/gim, "<li>$1</li>")
-    .replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>")
-    .replace(/\n/g, "<br/>");
-  return html;
-};
+// === OTOMASYON MOTORU BAŞLIYOR ===
 
-const buildElegantHtml = (content: AnalysisReportContent): string => {
+// 1. İkonları bir kere çekip burada saklayacağız (Önbellek).
+const iconCache: Record<string, string> = {};
+const IONICONS_VERSION = "7.1.0"; // Kullandığın ionicons sürümünü buraya yazabilirsin.
+
+// 2. İkon adını alıp, onu CDN'den çeken ve Base64'e çeviren fonksiyon.
+async function getIconDataUri(iconName: string): Promise<string> {
+  // Önbellekte varsa, anında geri döndür.
+  if (iconCache[iconName]) {
+    return iconCache[iconName];
+  }
+
+  // CDN'den SVG'nin ham metnini çek.
+  const url =
+    `https://unpkg.com/ionicons@${IONICONS_VERSION}/dist/svg/${iconName}.svg`;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`İkon sunucudan çekilemedi: ${response.statusText}`);
+    }
+
+    const svgText = await response.text();
+
+    // Ham metni Base64'e çevir ve data URI formatına sok.
+    const dataUri = `data:image/svg+xml;base64,${encode(svgText)}`;
+
+    // Gelecekteki kullanımlar için önbelleğe kaydet.
+    iconCache[iconName] = dataUri;
+
+    return dataUri;
+  } catch (error) {
+    console.error(`İkon yüklenemedi: ${iconName}`, error);
+    return ""; // Hata durumunda boş string döndür ki PDF çökmesin.
+  }
+}
+
+// ===================================
+
+type InsightData = ReturnType<
+  typeof useOnboardingStore.getState
+>["onboardingInsight"];
+
+// HTML şablonu artık ikonları bir map olarak alacak.
+const buildAppQualityHtml = (
+  insight: InsightData,
+  nickname: string,
+  icons: Record<string, string>,
+): string => {
+  if (!insight) return "<h1>Analiz verisi bulunamadı.</h1>";
+
   const brandTint = Colors.light.tint;
-  const brandText = Colors.light.text;
+  const brandText = "#111827";
   const softText = Colors.light.softText;
   const cardBg = Colors.light.card;
-  const pageBg = Colors.light.background;
-  const accent = Colors.light.accent;
+  const pageBg = "#F7FAFF";
 
-  const coverGradientStart = "#E0ECFD";
-  const coverGradientEnd = "#F4E6FF";
+  const sections = [
+    { key: "pattern", title: "Düşünce Kalıbın", iconName: "bulb-outline" },
+    { key: "reframe", title: "Yeniden Çerçeve", iconName: "key-outline" },
+    {
+      key: "potential",
+      title: "Gizli Potansiyelin",
+      iconName: "sparkles-outline",
+    },
+    { key: "first_step", title: "İlk Adımın", iconName: "rocket-outline" },
+    { key: "micro_habit", title: "Mikro Alışkanlık", iconName: "leaf-outline" },
+    {
+      key: "success_metric",
+      title: "Başarı Ölçütü",
+      iconName: "trophy-outline",
+    },
+    {
+      key: "affirmation",
+      title: "Olumlama",
+      iconName: "shield-checkmark-outline",
+    },
+    { key: "plan_7d", title: "7 Günlük Plan", iconName: "calendar-outline" },
+  ];
 
-  const overviewHTML = convertMarkdownToHTML(
-    content.reportSections.overview || "",
-  );
-  const goldenThreadHTML = convertMarkdownToHTML(
-    content.reportSections.goldenThread || "",
-  );
-  const blindSpotHTML = convertMarkdownToHTML(
-    content.reportSections.blindSpot || "",
-  );
-
-  const readMinutes = content.derivedData?.readMinutes ?? 2;
-  const headingsCount = content.derivedData?.headingsCount ?? 6;
+  const createSectionCards = () => {
+    return sections
+      .map((section) => {
+        const text = insight[section.key as keyof InsightData];
+        const iconUri = icons[section.iconName];
+        if (text && iconUri) {
+          return `
+            <div class="card">
+              <div class="card-header">
+                <div class="icon-container">
+                  <img src="${iconUri}" class="icon" />
+                </div>
+                <h2 class="card-title">${section.title}</h2>
+              </div>
+              <p class="card-text">${text}</p>
+            </div>
+          `;
+        }
+        return "";
+      })
+      .join("");
+  };
 
   return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>${content.reportSections.mainTitle || "Kişisel Rapor"}</title>
-          <style>
-            :root { --brand-tint: ${brandTint}; --brand-text: ${brandText}; --soft-text: ${softText}; --card-bg: ${cardBg}; --page-bg: ${pageBg}; --accent: ${accent}; }
-            * { box-sizing: border-box; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-            body { margin: 0; background: var(--page-bg); color: var(--brand-text); font: 400 14px "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; letter-spacing: 0.1px; line-height: 1.6; }
-            .page { padding: 28px 28px 32px; }
-            .cover { background: linear-gradient(135deg, ${coverGradientStart}, ${coverGradientEnd}); border-radius: 28px; padding: 28px 24px; position: relative; overflow: hidden; border: 1px solid rgba(93, 161, 217, 0.20); }
-            .brand { display: flex; align-items: baseline; gap: 6px; font-weight: 800; letter-spacing: -0.3px; color: var(--brand-text); font-size: 18px; }
-            .brand .dot { color: var(--brand-tint); }
-            .title { margin: 8px 0 2px; font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
-            .subtitle { margin: 0; color: var(--soft-text); font-size: 13px; }
-            .stats { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
-            .chip { background: rgba(255,255,255,0.7); border: 1px solid rgba(93,161,217,0.2); color: var(--brand-text); padding: 6px 10px; border-radius: 999px; font-size: 12px; }
-            .section { background: var(--card-bg); border: 1px solid rgba(93,161,217,0.14); box-shadow: 0 10px 30px rgba(108, 99, 255, 0.06); border-radius: 24px; padding: 22px 20px; margin-top: 16px; }
-            .section h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--soft-text); font-weight: 700; letter-spacing: -0.2px; }
-            .section .content { font-size: 15px; color: var(--brand-text); line-height: 1.7; }
-            .content h2.md-h2 { color: var(--brand-tint); margin: 16px 0 10px 0; font-size: 18px; font-weight: 700; }
-            .content h3.md-h3 { color: var(--brand-tint); margin: 12px 0 8px 0; font-size: 16px; font-weight: 700; }
-            .content ul { margin: 8px 0 8px 16px; padding: 0; }
-            .content li { margin: 4px 0; }
-            .footer { text-align: center; color: var(--soft-text); font-size: 12px; margin-top: 18px; }
-            .brandmark { font-weight: 800; letter-spacing: -0.2px; }
-            @page { size: A4; margin: 0; }
-          </style>
-        </head>
-        <body>
-          <div class="page">
-            <div class="cover">
-              <div class="brand">Gisbel<span class="dot">.</span></div>
-              <div class="title">${
-    content.reportSections.mainTitle || "Kişisel Rapor"
-  }</div>
-              <p class="subtitle">Özet raporun indirildi. Aşağıda kişisel içgörün yer alıyor.</p>
-              <div class="stats">
-                <div class="chip">≈ ${readMinutes} dk okuma</div>
-                <div class="chip">${headingsCount} başlık</div>
-              </div>
-            </div>
-
-            ${
-    overviewHTML
-      ? `
-            <section class="section">
-              <h3>Genel Bakış</h3>
-              <div class="content">${overviewHTML}</div>
-            </section>`
-      : ""
-  }
-
-            ${
-    goldenThreadHTML
-      ? `
-            <section class="section">
-              <h3>Altın İp</h3>
-              <div class="content">${goldenThreadHTML}</div>
-            </section>`
-      : ""
-  }
-
-            ${
-    blindSpotHTML
-      ? `
-            <section class="section">
-              <h3>Kör Nokta</h3>
-              <div class="content">${blindSpotHTML}</div>
-            </section>`
-      : ""
-  }
-
-            <div class="footer">
-              <span class="brandmark">Gisbel<span class="dot">.</span></span> ile otomatik oluşturuldu
-            </div>
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Kişisel Raporun</title>
+        <style>
+          /* CSS stilleri bir önceki cevaptakiyle aynı, değişiklik yok */
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+          body { margin: 0; font-family: 'Inter', sans-serif; background-color: ${pageBg}; color: ${brandText}; -webkit-font-smoothing: antialiased; }
+          .page { padding: 40px 25px; }
+          .cover { background: linear-gradient(135deg, #E0ECFD, #F4E6FF); border-radius: 24px; padding: 30px; border: 1px solid rgba(0,0,0,0.05); }
+          .brand-name { font-weight: 700; font-size: 24px; color: ${brandTint}; }
+          .brand-name span { color: ${brandTint}; font-weight: 900; }
+          .cover-title { font-size: 32px; font-weight: 700; margin: 12px 0 8px; }
+          .cover-subtitle { font-size: 16px; color: ${softText}; margin: 0; line-height: 1.5; }
+          .card { background-color: ${cardBg}; border-radius: 24px; padding: 20px; margin-top: 20px; border: 1px solid rgba(0,0,0,0.07); box-shadow: 0 4px 15px rgba(0,0,0,0.04); }
+          .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+          .icon-container { width: 40px; height: 40px; border-radius: 20px; background: linear-gradient(135deg, #E0ECFD, #F4E6FF); display: flex; align-items-center; justify-content: center; flex-shrink: 0; }
+          .icon { width: 22px; height: 22px; }
+          .card-title { font-size: 16px; font-weight: 700; color: ${brandTint}; margin: 0; }
+          .card-text { font-size: 16px; color: #4A5568; line-height: 1.6; margin: 0; }
+          .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #909090; }
+        </style>
+      </head>
+      <body>
+        <div class="page">
+          <div class="cover">
+            <h1 class="brand-name">Gisbel<span>.</span></h1>
+            <h2 class="cover-title">${nickname}, Kişisel İçgörülerin</h2>
+            <p class="cover-subtitle">Bu rapor, verdiğin cevaplara özel olarak hazırlandı. Potansiyelini keşfetmek için ilk adımı attın.</p>
           </div>
-        </body>
-      </html>
-    `;
+          ${createSectionCards()}
+          <p class="footer">Gisbel. ile otomatik oluşturuldu</p>
+        </div>
+      </body>
+    </html>
+  `;
 };
 
-export const generatePdf = async (activeSummary: AnalysisReportContent) => {
+// Ana fonksiyonu da bu yeni akışa göre güncelliyoruz.
+export const generatePdf = async (insight: InsightData, nickname: string) => {
+  Toast.show({
+    type: "info",
+    text1: "PDF Raporu Hazırlanıyor...",
+    text2: "İkonlar indiriliyor, lütfen bekleyin.",
+  });
+
   try {
-    const htmlContent = buildElegantHtml(activeSummary);
+    // 1. İhtiyacımız olan tüm ikonların listesini çıkar.
+    const requiredIcons = [
+      "bulb-outline",
+      "key-outline",
+      "sparkles-outline",
+      "rocket-outline",
+      "leaf-outline",
+      "trophy-outline",
+      "shield-checkmark-outline",
+      "calendar-outline",
+    ];
+
+    // 2. Hepsini aynı anda, paralel olarak çek.
+    const iconPromises = requiredIcons.map((name) => getIconDataUri(name));
+    const iconDataUris = await Promise.all(iconPromises);
+
+    // 3. Gelen URI'leri, isimleriyle eşleşen bir haritaya dönüştür.
+    const iconsMap: Record<string, string> = {};
+    requiredIcons.forEach((name, index) => {
+      iconsMap[name] = iconDataUris[index];
+    });
+
+    // 4. HTML'i, artık hazır olan ikon verisiyle birlikte oluştur.
+    const htmlContent = buildAppQualityHtml(insight, nickname, iconsMap);
 
     const options = {
       html: htmlContent,
@@ -139,43 +192,27 @@ export const generatePdf = async (activeSummary: AnalysisReportContent) => {
         new Date().toISOString().split("T")[0]
       }`,
       directory: "Documents",
-      base64: false,
-      height: 842,
-      width: 595,
-      padding: 10,
     };
 
     const file = await RNHTMLtoPDF.convert(options);
 
     if (file.filePath) {
-      const fileUri = `file://${file.filePath}`;
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(fileUri, {
-          dialogTitle: "Raporunu Paylaş",
-          mimeType: "application/pdf",
-          UTI: Platform.OS === "ios" ? "com.adobe.pdf" : undefined,
-        });
-      } else {
-        Toast.show({
-          type: "success",
-          text1: "PDF Oluşturuldu",
-          text2: fileUri,
-        });
-      }
-    } else {
-      Toast.show({
-        type: "error",
-        text1: "PDF Yolu Bulunamadı",
-        text2: "Oluşturulan dosya yolu alınamadı.",
+      const fileUri = Platform.OS === "ios"
+        ? file.filePath
+        : `file://${file.filePath}`;
+      await Sharing.shareAsync(fileUri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Raporunu Paylaş",
       });
+    } else {
+      throw new Error("PDF dosya yolu oluşturulamadı.");
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error("PDF oluşturma hatası:", e);
     Toast.show({
       type: "error",
       text1: "PDF Oluşturulamadı",
-      text2: "PDF oluşturulurken bir hata oluştu.",
+      text2: e.message || "Bilinmeyen bir hata oluştu.",
     });
   }
 };

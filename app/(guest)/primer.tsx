@@ -2,7 +2,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router/";
 import React from "react";
-import { Image, Pressable, SafeAreaView, StyleSheet, Text, View, Platform } from "react-native";
+import { Image, Pressable, SafeAreaView, StyleSheet, Text, View, Platform, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Colors } from "../../constants/Colors";
@@ -34,6 +34,19 @@ export default function Primer() {
           space-between SAÇMALIĞINI BIRAKTIK.
         */}
         <View style={styles.pageWrapper}>
+          {/* === YENİ KISAYOL BUTONU BAŞLANGIÇ === */}
+          {/* __DEV__ global değişkeni, sadece geliştirme modunda true olur. */}
+          {/* Production build'de bu buton asla görünmez. */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={styles.devButton}
+              onPress={() => router.push('/(dev)/analysis-preview')}
+            >
+              <Text style={styles.devButtonText}>DEV: Analiz Sayfasına Git</Text>
+            </TouchableOpacity>
+          )}
+          {/* === YENİ KISAYOL BUTONU BİTİŞ === */}
+
           {/*
             ANA İÇERİK (HEADER VE KART). BU BÖLÜM flex: 1 ALARAK MEVCUT ALANI DOLDURUR
             VE İÇERİĞİ KENDİ İÇİNDE ORTALAR. BUTONLARI AŞAĞI İTER.
@@ -199,4 +212,21 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     opacity: 0.8,
   },
+
+  // === DEV BUTTON STYLES ===
+  devButton: {
+    position: 'absolute',
+    top: 60,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(255, 100, 100, 0.8)',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    zIndex: 9999, // Her şeyin üstünde görünsün
+  },
+  devButtonText: {
+    color: 'white',
+    fontWeight: '700',
+  }
 });
