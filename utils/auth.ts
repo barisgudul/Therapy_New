@@ -43,7 +43,7 @@ export async function signUpWithOnboardingData(
                 data: {
                     nickname: nickname.trim(),
                     onboarding_answers: answersArray,
-                    locale: i18n.language, // <<-- BU SATIRI EKLE
+                    locale: i18n.language,
                 },
             },
         });

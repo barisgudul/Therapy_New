@@ -101,8 +101,15 @@ export default function RegisterScreen() {
         }
     };
 
+    const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
+
     const goToNextStep = () => {
         setError(null); // Her denemede hatayı sıfırla
+        const trimmedEmail = email.trim();
+        if (!isValidEmail(trimmedEmail)) {
+            setError({ field: 'email', message: t("auth.error_invalid_email") });
+            return;
+        }
         if (password.length < 6) {
             setError({ field: 'password', message: t("auth.error_password_length") });
             return;

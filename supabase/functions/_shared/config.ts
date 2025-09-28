@@ -25,17 +25,17 @@ export const config = {
    * Yarın Gemini 2.0 çıktığında, sadece burayı değiştirmen yeterli olacak.
    */
   AI_MODELS: {
-    // Hızlı ve ucuz işler için (niyet analizi, basit cevaplar)
-    FAST: getEnv("AI_MODEL_FAST", "gemini-1.5-flash"),
+    // En düşük maliyetli modeller - RAG + güvenlik + çok tetik için optimize
+    FAST: getEnv("AI_MODEL_FAST", "gemini-2.5-flash-lite"),
 
-    // Derin analiz ve karmaşık görevler için (rüya analizi, raporlama)
-    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-1.5-flash"),
+    // Derin analiz için yedek model
+    ADVANCED: getEnv("AI_MODEL_ADVANCED", "gemini-2.0-flash-lite"),
 
     // Eskiden kullandığın "INTENT" ve "RESPONSE" anahtarlarını koruyoruz
     // ama artık daha genel olan "FAST" modelini kullanıyorlar.
     // Bu, eski kodun kırılmasını engeller ama yeni kodda "FAST" kullanmalısın.
-    INTENT: getEnv("AI_MODEL_FAST", "gemini-1.5-flash"),
-    RESPONSE: getEnv("AI_MODEL_FAST", "gemini-1.5-flash"),
+    INTENT: getEnv("AI_MODEL_FAST", "gemini-2.5-flash-lite"),
+    RESPONSE: getEnv("AI_MODEL_FAST", "gemini-2.5-flash-lite"),
   },
 
   /**

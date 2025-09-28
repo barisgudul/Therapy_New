@@ -452,15 +452,14 @@ export async function handleApiGateway(req: Request): Promise<Response> {
           candidates.push(`${requested}-001`);
         }
       }
-      // Son çare olarak flash ve pro varyantları
-      candidates.push("gemini-1.5-flash");
-      candidates.push("gemini-1.5-flash-001");
-      candidates.push("gemini-1.5-pro");
-      candidates.push("gemini-1.5-pro-001");
-      // Daha geniş erişim için eski/alternatif adlar
-      candidates.push("gemini-1.0-pro");
-      candidates.push("gemini-pro");
-      candidates.push("gemini-1.5-flash-8b");
+      // En düşük maliyetli model sırası (RAG + güvenlik + çok tetik senaryosu için optimize)
+      candidates.push(
+        "gemini-2.5-flash-lite", // 1. sıra – en ucuz
+        "gemini-2.0-flash-lite", // 2. sıra – stabil
+        "gemini-2.5-flash", // 3. sıra – aynı fiyat, biraz daha kaliteli
+        "gemini-2.0-flash", // 4. sıra – batch ile %50 indirim
+      );
+
       // Tekilleştir
       return Array.from(new Set(candidates));
     };
@@ -468,7 +467,22 @@ export async function handleApiGateway(req: Request): Promise<Response> {
       case "gemini": {
         const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
         if (!geminiApiKey) {
-          throw new Error("Sunucuda GEMINI_API_KEY sırrı bulunamadı!");
+          console.warn(
+            `[API-Gateway][${transactionId}] GEMINI_API_KEY bulunamadı, fallback yanıt üretilecek.`,
+          );
+          const wantsJson = Boolean(
+            payload?.config?.responseMimeType === "application/json" ||
+              payload?.config?.response_mime_type === "application/json",
+          );
+          const fallbackText = wantsJson
+            ? "{}"
+            : "AI service temporarily unavailable.";
+          responseData = {
+            candidates: [
+              { content: { parts: [{ text: fallbackText }] } },
+            ],
+          };
+          break;
         }
 
         console.log(
@@ -515,7 +529,23 @@ export async function handleApiGateway(req: Request): Promise<Response> {
             ?.error?.message;
           const message = parsedMsg || lastBody ||
             `Gemini API hatası. status=${lastStatus ?? "n/a"}`;
-          throw new Error(message);
+          console.warn(
+            `[API-Gateway][${transactionId}] Gemini generateContent tüm denemelerde başarısız. Hata bastırıldı ve fallback döndürülecek. Son mesaj: ${message}`,
+          );
+          // İstek JSON istiyorsa boş JSON döndür, aksi halde kısa metin döndür
+          const wantsJson = Boolean(
+            payload?.config?.responseMimeType === "application/json" ||
+              payload?.config?.response_mime_type === "application/json",
+          );
+          const fallbackText = wantsJson
+            ? "{}"
+            : "AI service temporarily unavailable.";
+          responseData = {
+            candidates: [
+              { content: { parts: [{ text: fallbackText }] } },
+            ],
+          };
+          break;
         }
         break;
       }

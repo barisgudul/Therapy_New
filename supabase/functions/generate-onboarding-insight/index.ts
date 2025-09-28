@@ -176,19 +176,37 @@ serve(async (req: Request) => {
     console.log("--- PROMPT GEMINI'YE GÖNDERİLİYOR --- \n", prompt);
     // ======================================================================
 
-    const response = await invokeGemini(prompt, config.AI_MODELS.FAST, {
-      temperature: 0.7,
-      maxOutputTokens: LLM_LIMITS.ONBOARDING_INSIGHT,
-    });
+    // Gemini çağrısını hataya dayanıklı yap: başarısız olursa fallback kullan
+    let response = "";
+    try {
+      response = await invokeGemini(
+        prompt,
+        config.AI_MODELS.FAST,
+        {
+          temperature: 0.7,
+          maxOutputTokens: LLM_LIMITS.ONBOARDING_INSIGHT,
+          responseMimeType: "application/json",
+        },
+        undefined,
+        `${safeA1} ${safeA2} ${safeA3}`,
+      );
+    } catch (aiErr) {
+      const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
+      console.warn(
+        `[${user.id}] Gemini çağrısı başarısız, fallback kullanılacak: ${msg}`,
+      );
+      // response boş bırakılır; aşağıda defaults devreye girecek
+    }
 
     let parsedResponse: OnboardingInsightResponse = {};
-    try {
-      parsedResponse = JSON.parse(response) as OnboardingInsightResponse;
-    } catch (_parseError) {
-      console.error(
-        `[${user.id}] Gemini'den gelen JSON parse edilemedi. Ham yanıt:`,
-        response,
-      );
+    if (response && response.trim().length > 0) {
+      try {
+        parsedResponse = JSON.parse(response) as OnboardingInsightResponse;
+      } catch (_parseError) {
+        console.warn(
+          `[${user.id}] Gemini yanıtı JSON değil/parselenemedi, fallback kullanılacak.`,
+        );
+      }
     }
 
     // ADIM 3: Fallback (yedek) metinlerini tüm yeni alanlar için ekle
@@ -250,6 +268,31 @@ serve(async (req: Request) => {
     };
 
     const d = defaultsByLang[lang];
+
+    // Geçerlilik kontrolü: AI yanıtı gerçekten üretildi mi?
+    const fieldNames = [
+      "pattern",
+      "reframe",
+      "potential",
+      "first_step",
+      "micro_habit",
+      "success_metric",
+      "affirmation",
+      "plan_7d",
+    ] as const;
+    type _FieldName = typeof fieldNames[number];
+    const hasAllFields = fieldNames.every((n) => {
+      const v = (parsedResponse as Record<string, unknown>)[n];
+      return typeof v === "string" && v.trim().length > 0;
+    });
+    const differsFromDefaults = fieldNames.some((n) => {
+      const v = (parsedResponse as Record<string, unknown>)[n];
+      const dv = (d as Record<string, string>)[n as string];
+      return typeof v === "string" && typeof dv === "string" &&
+        v.trim() !== dv.trim();
+    });
+    const shouldPersist = hasAllFields && differsFromDefaults;
+
     const safe = {
       pattern: parsedResponse.pattern || d.pattern,
       reframe: parsedResponse.reframe || d.reframe,
@@ -261,28 +304,39 @@ serve(async (req: Request) => {
       plan_7d: parsedResponse.plan_7d || d.plan_7d,
     };
 
-    // ... fonksiyonun geri kalanı (veritabanına yazma, cevap döndürme) aynı ...
-    const { data: existingVault, error: fetchError } = await supabaseClient
-      .from("user_vaults").select("vault_data").eq("user_id", user.id).single();
-    if (fetchError) {
-      console.error(`[${user.id}] Mevcut vault çekilemedi:`, fetchError);
-    }
-    const currentVaultData = existingVault?.vault_data || {};
-    const updatedVaultData = { ...currentVaultData, onboardingInsight: safe };
-    const { error: vaultError } = await supabaseClient.from("user_vaults")
-      .upsert({
-        user_id: user.id,
-        vault_data: updatedVaultData,
-        nickname: user.user_metadata?.nickname,
-      }, { onConflict: "user_id" });
-    if (vaultError) {
-      console.error(
-        `[${user.id}] User vault'a analiz kaydedilemedi:`,
-        vaultError,
+    // Persist akışı: SADECE gerçek AI çıktısı tam ise kaydet
+    if (shouldPersist) {
+      const { data: existingVault, error: fetchError } = await supabaseClient
+        .from("user_vaults").select("vault_data").eq("user_id", user.id)
+        .single();
+      if (fetchError) {
+        console.error(`[${user.id}] Mevcut vault çekilemedi:`, fetchError);
+      }
+      const currentVaultData = existingVault?.vault_data || {};
+      // Yalnızca AI'nın ürettiği tam yanıtı kaydet
+      const updatedVaultData = {
+        ...currentVaultData,
+        onboardingInsight: parsedResponse,
+      };
+      const { error: vaultError } = await supabaseClient.from("user_vaults")
+        .upsert({
+          user_id: user.id,
+          vault_data: updatedVaultData,
+          nickname: user.user_metadata?.nickname,
+        }, { onConflict: "user_id" });
+      if (vaultError) {
+        console.error(
+          `[${user.id}] User vault'a analiz kaydedilemedi:`,
+          vaultError,
+        );
+      } else {
+        console.log(`[${user.id}] Gerçek analiz vault'a kaydedildi.`);
+      }
+    } else {
+      console.warn(
+        `[${user.id}] AI yanıtı eksik veya fallback. Vault'a kaydedilmedi; sadece istemciye döndürülecek.`,
       );
-    } else {console.log(
-        `[${user.id}] Analiz başarıyla user_vaults'a kaydedildi`,
-      );}
+    }
     // ... analysis_reports ve process-memory kısımları da aynı kalabilir ...
 
     return new Response(JSON.stringify(safe), {
@@ -290,17 +344,31 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    // Beklenmedik bir hata olsa bile kullanıcı boş dönmesin: güvenli fallback
     const message = error instanceof Error ? error.message : String(error);
-    console.error("Onboarding insight generation fatal error:", message);
-    return new Response(
-      JSON.stringify({
-        error: "Analysis generation failed.",
-        details: message,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+    console.warn(
+      `Onboarding insight beklenmedik hata, güvenli fallback ile 200: ${message}`,
     );
+    const d = {
+      pattern:
+        "Zorluklar ve enerji seviyen arasında bir bağlantı görünüyor. Bu kalıbı anlamak, değişimin ilk adımıdır.",
+      reframe:
+        "Bu durumu bir engel olarak değil, neye gerçekten önem verdiğini gösteren bir pusula olarak görebilirsin.",
+      potential:
+        "Bu zorluğun içinde aynı zamanda bir büyüme fırsatı da saklı. Bu, dayanıklılığını keşfetmen için bir şans.",
+      first_step:
+        "Belirttiğin bu adım, başlamak için harika bir nokta. Küçük adımlar, en büyük yolculukları başlatır.",
+      micro_habit:
+        "Her güne başlarken 1 dakika boyunca sadece nefesine odaklan.",
+      success_metric:
+        "Bu hafta kaç gün 1 dakikalık nefes egzersizini tamamladığını işaretle.",
+      affirmation: "Her adımda daha da güçleniyorum.",
+      plan_7d:
+        "Bu hafta, belirlediğin küçük adımı en az 3 kez tekrarlamaya odaklan.",
+    } as OnboardingInsightResponse;
+    return new Response(JSON.stringify(d), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
