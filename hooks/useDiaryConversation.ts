@@ -83,6 +83,7 @@ export function useDiaryConversation() {
         setMessages([]);
         setCurrentQuestions([]);
         setCurrentInput("");
+        setIsModalVisible(false);
         setConversationState({ id: null, turn: 0 });
         setIsConversationDone(false);
         setActiveQuestion(null);
@@ -141,6 +142,7 @@ export function useDiaryConversation() {
         isModalVisible,
         isConversationDone,
         activeQuestion,
+        conversationState,
         isSubmitting: conversationMutation.isPending,
 
         // Handlers

@@ -1,22 +1,14 @@
 // hooks/__tests__/useTextSessionReducer.test.tsx
-import { renderHook, act } from '@testing-library/react-native';
+import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useTextSessionReducer } from '../useTextSessionReducer';
-
-// Mock supabase
-const mockInvoke = jest.fn();
-jest.mock('../../utils/supabase', () => ({
-  supabase: {
-    auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } } }),
-    },
-    functions: {
-      invoke: mockInvoke,
-    },
-  },
-}));
+import { supabase } from '../../utils/supabase';
 
 describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
@@ -30,9 +22,13 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       })
     );
 
+    // useEffect'in çalışıp state'i 'idle' yapmasını bekle
+    await waitFor(() => {
+      expect(result.current.state.status).toBe('idle');
+    });
+
     // Initial state check - artık boş başlıyor
     expect(result.current.state.messages).toHaveLength(0);
-    expect(result.current.state.status).toBe('welcoming');
 
     // Send a user message
     act(() => {
@@ -44,7 +40,7 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       aiResponse: 'Merhaba! Neden kendini iyi hissetmediğini anlatabilir misin?',
       usedMemory: null
     };
-    mockInvoke.mockResolvedValue({ data: mockAIResponse });
+    (supabase.functions.invoke as jest.Mock).mockResolvedValue({ data: mockAIResponse });
 
     // Send message
     await act(async () => {
@@ -52,7 +48,9 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
     });
 
     // Check synchronization - artık sadece User + AI Response
-    expect(result.current.state.messages).toHaveLength(2); // User + AI Response
+    await waitFor(() => {
+      expect(result.current.state.messages).toHaveLength(2); // User + AI Response
+    });
     expect(result.current.state.messages[0].sender).toBe('user');
     expect(result.current.state.messages[0].text).toContain('Merhaba, bugün kendimi iyi hissetmiyorum');
     expect(result.current.state.messages[1].sender).toBe('ai');
@@ -69,8 +67,8 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       })
     );
 
-    // First exchange
-    mockInvoke.mockResolvedValue({
+    // Her AI cevabı için mock'u ayarla
+    (supabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
       data: {
         aiResponse: 'İlk AI cevabı',
         usedMemory: null
@@ -85,8 +83,8 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       await result.current.sendMessage();
     });
 
-    // Second exchange
-    mockInvoke.mockResolvedValue({
+    // İkinci AI cevabı için mock'u ayarla
+    (supabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
       data: {
         aiResponse: 'İkinci AI cevabı',
         usedMemory: null
@@ -102,7 +100,9 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
     });
 
     // Check final state - artık 2 exchange = 4 mesaj
-    expect(result.current.state.messages).toHaveLength(4); // 2 exchanges
+    await waitFor(() => {
+      expect(result.current.state.messages).toHaveLength(4);
+    });
     expect(result.current.state.messages[0].sender).toBe('user');
     expect(result.current.state.messages[0].text).toContain('İlk kullanıcı mesajı');
     expect(result.current.state.messages[1].sender).toBe('ai');
@@ -123,7 +123,7 @@ describe('useTextSessionReducer - Transcript Senkronizasyonu', () => {
       })
     );
 
-    mockInvoke.mockResolvedValue({
+    (supabase.functions.invoke as jest.Mock).mockResolvedValue({
       data: {
         aiResponse: 'AI cevabı',
         usedMemory: null

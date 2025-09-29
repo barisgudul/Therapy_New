@@ -10,17 +10,9 @@ import {
     VaultData,
 } from "./vault.service";
 
-// Subscription Management API calls - Tüm import'ları tek satırda birleştir
+// Subscription Management API calls - Sadece kullanılan fonksiyonları import et
 import {
-    canUseAllTherapists as _canUseAllTherapists,
-    canUsePDFExport as _canUsePDFExport,
     getAllPlans as _getAllPlans,
-    getInitialUsageStats as _getInitialUsageStats,
-    getPlanById as _getPlanById, // 'type' keyword'ü ile bunun bir tip olduğunu belirtirsin
-    getSubscriptionForUser as _getSubscriptionForUser,
-    hasPrioritySupport as _hasPrioritySupport,
-    isPremiumUser as _isPremiumUser,
-    upgradeUserPlanForTesting as _upgradeUserPlanForTesting,
     type UsageStats,
 } from "./subscription.service";
 import type { AnalysisReport } from "../types/analysis";
@@ -74,29 +66,6 @@ export const incrementFeatureUsage = async (
     }
 };
 
-// YENİ: Kullanım hakkını iade etme fonksiyonu
-export const revertFeatureUsage = async (
-    feature: keyof UsageStats,
-): Promise<void> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // Şimdilik increment_feature_usage'ı -1 ile çağırıyoruz
-    // Daha sonra Supabase tarafında ayrı bir RPC fonksiyonu yazılacak
-    const { error } = await supabase.rpc("increment_feature_usage", {
-        user_uuid: user.id,
-        feature_name: feature, // feature_name_base yerine feature_name
-        increment_val: -1, // increment_value yerine increment_val, negatif değer ile iade
-    });
-
-    if (error) {
-        console.error(
-            `[USAGE] ${feature} kullanımı iade edilirken hata:`,
-            error.message,
-        );
-    }
-};
-
 export function logEvent(
     event: Omit<AppEvent, "id" | "user_id" | "timestamp" | "created_at">,
 ) {
@@ -107,69 +76,9 @@ export function updateUserVault(vaultData: VaultData) {
     return apiCall(_updateUserVault(vaultData));
 }
 
-// Subscription Management API Functions - Sarmalanmış versiyonlar
+// Subscription Management API Functions - Sadece kullanılan fonksiyonları export et
 export function getAllPlans() {
     return apiCall(_getAllPlans());
-}
-
-export function getPlanById(planId: string) {
-    return apiCall(_getPlanById(planId));
-}
-
-export function getSubscriptionForUser(userId: string) {
-    return apiCall(_getSubscriptionForUser(userId));
-}
-
-export function getUsageStatsForUser(userId: string, feature: string) {
-    const promise = (async () => {
-        const { data, error } = await supabase
-            .from("usage_stats")
-            .select("*")
-            .eq("user_id", userId)
-            .eq("feature", feature)
-            .maybeSingle(); // .single yerine .maybeSingle
-
-        if (error) throw error;
-
-        // Kayıt yoksa default değer döndür
-        return data || {
-            user_id: userId,
-            feature,
-            count: 0,
-            limit_count: 3,
-            used_count: 0,
-        };
-    })();
-
-    return apiCall(promise);
-}
-
-export function getInitialUsageStats(userId: string) {
-    return apiCall(_getInitialUsageStats(userId));
-}
-
-export function canUsePDFExport(userId: string) {
-    return apiCall(_canUsePDFExport(userId));
-}
-
-export function canUseAllTherapists(userId: string) {
-    return apiCall(_canUseAllTherapists(userId));
-}
-
-export function hasPrioritySupport(userId: string) {
-    return apiCall(_hasPrioritySupport(userId));
-}
-
-export function isPremiumUser(userId: string) {
-    return apiCall(_isPremiumUser(userId));
-}
-
-// Test-only functions
-export function upgradeUserPlanForTesting(
-    userId: string,
-    planName: "Free" | "+Plus" | "Premium",
-) {
-    return apiCall(_upgradeUserPlanForTesting(userId, planName));
 }
 
 // YENİ: En son kişisel raporu getirir

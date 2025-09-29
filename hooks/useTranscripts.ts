@@ -28,7 +28,7 @@ export interface SessionEvent extends Omit<AppEvent, "data"> {
 interface TranscriptsState {
     isLoading: boolean;
     viewMode: ViewMode;
-    allEvents: AppEvent[];
+    allEvents: (AppEvent & { summary?: string | null })[];
     selectedSessionType: EventType | null;
     error: string | null; // YENİ: Hata durumu için
 }

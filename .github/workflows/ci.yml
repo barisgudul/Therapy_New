@@ -1,32 +1,94 @@
-name: CI/CD Pipeline
+name: Uygulama CI
 
 on:
   push:
-    branches: ["**"]
+    branches:
+      - main # veya master, ana dalın neyse o
   pull_request:
-    branches: ["**"]
+    branches:
+      - main
 
 jobs:
-  test_backend:
-    name: Test Supabase Functions
+  # 1. Kod Kalitesi Kontrolü: Kodun temiz ve tutarlı mı?
+  lint:
+    name: Lint Kontrolü
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Kodu Çek (Checkout)
         uses: actions/checkout@v4
 
-      - name: Setup Deno
+      - name: Node.js Kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18" # Projendeki Node versiyonunu kullan
+
+      # npm cache'ini kullan ki her seferinde sıfırdan indirmesin, daha hızlı çalışsın
+      - name: Bağımlılıkları Cache'le
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      # npm ci, package-lock.json'a sadık kalarak temiz ve hızlı kurulum yapar
+      - name: Bağımlılıkları Yükle
+        run: npm ci
+
+      # package.json'daki lint script'ini çalıştırır
+      - name: Lint'i Çalıştır
+        run: npm run lint
+
+  # 2. Frontend Testleri: React Native hook'ları ve bileşenleri sağlam mı?
+  test_frontend:
+    name: Frontend Testleri
+    runs-on: ubuntu-latest
+    # Lint işi bitmeden başlamasın
+    needs: lint
+    steps:
+      - name: Kodu Çek (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Node.js Kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Bağımlılıkları Cache'le
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Bağımlılıkları Yükle
+        run: npm ci
+
+      # İşte o yazdığın bütün testler burada çalışacak!
+      - name: Frontend Testlerini Çalıştır
+        run: npm test
+
+  # 3. Backend Testleri: Supabase Edge Function'ları sağlam mı?
+  test_backend:
+    name: Supabase Fonksiyon Testleri
+    runs-on: ubuntu-latest
+    # Lint işi bitmeden başlamasın
+    needs: lint
+    steps:
+      - name: Kodu Çek (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Deno Kurulumu
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.x # Supabase bunu kullanıyor, inat etme.
+          deno-version: v1.x
 
-      - name: Cache Deno dependencies
+      - name: Deno Bağımlılıklarını Cache'le
         uses: actions/cache@v4
         with:
           path: ~/.deno
           key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
-      
-      - name: Verify Lockfile
-        run: deno task lock # Bu, lock dosyasını kontrol eder/oluşturur
-      
-      - name: Run Backend Tests
+
+      # deno.lock dosyasının güncel olduğundan emin ol
+      - name: Lock Dosyasını Doğrula
+        run: deno task lock
+
+      - name: Backend Testlerini Çalıştır
         run: deno task test

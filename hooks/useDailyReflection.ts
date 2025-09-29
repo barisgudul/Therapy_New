@@ -50,8 +50,13 @@ export function useDailyReflection() {
     const light1 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
     const light2 = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
-    const { can_use, loading, used_count, limit_count, refresh } =
-        useFeatureAccess("daily_write");
+    const {
+        can_use,
+        isLoading: loading,
+        used_count,
+        limit_count,
+        refetch: refresh,
+    } = useFeatureAccess("daily_reflection");
 
     useEffect(() => {
         if (user?.id) {
@@ -290,16 +295,6 @@ export function useDailyReflection() {
                 };
                 updateVault(newVault);
             }
-
-            setNote("");
-            setAiMessage("");
-            setDecisionLogId("");
-            setSatisfactionScore(null);
-            setConversationTheme(null);
-            setPendingSessionId(null);
-
-            // Kullanıcıyı index.tsx'e yönlendir
-            router.push("/");
         } catch (err) {
             Toast.show({
                 type: "error",
@@ -308,6 +303,17 @@ export function useDailyReflection() {
                     "Bir hata oldu ama yazdıklarını kaybetmedin, sonra tekrar dene.",
             });
             console.error("Vault/Log hatası:", getErrorMessage(err));
+        } finally {
+            // BU KISIM 'FINALLY' BLOĞUNDA OLMALI Kİ HER ZAMAN ÇALIŞSIN
+            setNote("");
+            setAiMessage("");
+            setDecisionLogId("");
+            setSatisfactionScore(null);
+            setConversationTheme(null);
+            setPendingSessionId(null);
+
+            // Kullanıcıyı index.tsx'e yönlendir - her durumda yapılmalı
+            router.push("/");
         }
     }
 
@@ -345,6 +351,10 @@ export function useDailyReflection() {
             setInputVisible,
             setAiMessage,
             setFeedbackVisible,
+            setDecisionLogId,
+            setSatisfactionScore,
+            setConversationTheme,
+            setPendingSessionId,
             animatePress,
             saveSession,
             closeFeedback,

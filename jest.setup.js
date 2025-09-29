@@ -1,43 +1,80 @@
 // jest.setup.js
 
-// React Native için temel mock'lar JEST-EXPO tarafından hallediliyor.
-// Bu bloğu çakışmayı önlemek için kaldırıyoruz.
-/*
+// AsyncStorage'ı mock'la
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+);
+
+// expo-localization'ı mock'la
+jest.mock('expo-localization', () => ({
+  getLocales: () => [{ languageTag: 'en-US', languageCode: 'en', textDirection: 'ltr', regionCode: 'US' }],
+  getCalendars: () => ['gregory'],
+}));
+
+// jest-expo'nun temel kurulumunu dahil et
+import 'jest-expo/src/preset/setup';
+
+// Global Supabase mock'u
+jest.mock('./utils/supabase', () => ({
+  supabase: {
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ 
+        data: { user: { id: 'test-user-id' } }, 
+        error: null 
+      }),
+    },
+    functions: {
+      invoke: jest.fn().mockResolvedValue({
+        data: {
+          aiResponse: 'Mock AI response',
+          usedMemory: null
+        },
+        error: null
+      }),
+    },
+    from: jest.fn(() => ({
+      update: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      }),
+      select: jest.fn().mockReturnValue({
+        eq: jest.fn(() => ({
+          maybeSingle: jest.fn().mockResolvedValue({ data: { created_at: new Date().toISOString() } }),
+          gte: jest.fn(() => ({
+            order: jest.fn(() => ({
+              limit: jest.fn(() => ({
+                maybeSingle: jest.fn().mockResolvedValue({ data: { id: 'session-end-123' } }),
+              })),
+            })),
+          })),
+        })),
+      }),
+      insert: jest.fn().mockReturnValue({
+        select: jest.fn(() => ({
+          single: jest.fn().mockResolvedValue({ data: { id: 'new-event-123' }, error: null }),
+        })),
+      }),
+      delete: jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ error: null }),
+      }),
+    })),
+  },
+}));
+
+// React Native BackHandler'ı mock'la
+jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter');
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
-  
-  return {
-    ...RN,
-    // Native modülleri taklit et
-    NativeModules: {
-      ...RN.NativeModules,
-      DevMenu: {
-        show: jest.fn(),
-        reload: jest.fn(),
-      },
-      Clipboard: {
-        setString: jest.fn(),
-        getString: jest.fn().mockResolvedValue(''),
-      },
-    },
-    
-    // BackHandler mock'u
-    BackHandler: {
-      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
-      removeEventListener: jest.fn(),
-    },
-    
-    // LayoutAnimation mock'u
-    LayoutAnimation: {
-      configureNext: jest.fn(),
-      create: jest.fn(),
-      easeInEaseOut: jest.fn(),
-      linear: jest.fn(),
-      spring: jest.fn(),
-    },
+
+  // BackHandler'ı mock'la
+  RN.BackHandler = {
+    addEventListener: jest.fn(() => ({
+      remove: jest.fn(),
+    })),
+    removeEventListener: jest.fn(),
   };
+
+  return RN;
 });
-*/
 
 // Reanimated için mock'lar
 jest.mock('react-native-reanimated', () => {

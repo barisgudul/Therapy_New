@@ -83,8 +83,11 @@ export function useUpdateSubscription() {
 
   return useMutation({
     mutationFn: (newPlan: PlanName) => updateUserPlan(newPlan),
-    onSuccess: () => {
-      // Plan değiştiğinde, ilgili verilerin yeniden çekilmesini tetikle.
+    onSuccess: () => { // onSettled yerine onSuccess kullan
+      queryClient.invalidateQueries({ queryKey: queryKeys.current });
+      queryClient.invalidateQueries({ queryKey: queryKeys.usage });
+    },
+    onError: () => { // Hata durumunda da invalidate et
       queryClient.invalidateQueries({ queryKey: queryKeys.current });
       queryClient.invalidateQueries({ queryKey: queryKeys.usage });
     },
