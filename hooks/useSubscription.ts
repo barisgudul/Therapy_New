@@ -1,5 +1,4 @@
 // hooks/useSubscription.ts
-import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   FeatureKey,

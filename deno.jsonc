@@ -8,18 +8,14 @@
     "fmt": "deno fmt supabase/functions/ services/"
   },
   "importMap": "./supabase/functions/import_map.json",
-  "nodeModulesDir": true,
+  "nodeModulesDir": "auto",
 
   // --- BU BLOKLAR EDİTÖRÜN İÇİN HAYATİ ---
   "lint": {
-    "files": {
-      // Sadece bu klasörleri umursa, gerisini görmezden gel
-      "include": ["supabase/functions/", "services/"]
-    }
+    // Sadece bu klasörleri umursa, gerisini görmezden gel
+    "include": ["supabase/functions/", "services/"]
   },
   "fmt": {
-    "files": {
-      "include": ["supabase/functions/", "services/"]
-    }
+    "include": ["supabase/functions/", "services/"]
   }
 }

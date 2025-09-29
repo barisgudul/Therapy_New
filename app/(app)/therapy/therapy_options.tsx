@@ -17,6 +17,16 @@ import { therapyOptions } from "../../../constants/therapyOptions";
 import { TherapyOptionCard } from "../../../components/therapy/TherapyOptionCard";
 import { useTranslation } from "react-i18next";
 
+interface LocalizedTherapyOption {
+  id: string;
+  title: string;
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  colors: readonly [string, string];
+  route: string;
+  features: string[];
+}
+
 const FALLBACK_TINT = "#3E6B89";
 
 export default function TherapyOptionsScreen() {
@@ -77,7 +87,7 @@ export default function TherapyOptionsScreen() {
           <FlatList
             data={therapyOptions}
             renderItem={({ item }) => {
-              const localized = {
+              const localized: LocalizedTherapyOption = {
                 ...item,
                 title: t(`therapy.options.${item.id}.title`),
                 description: t(`therapy.options.${item.id}.description`),
@@ -90,7 +100,7 @@ export default function TherapyOptionsScreen() {
               return (
                 <TherapyOptionCard
                   key={item.id}
-                  item={localized as any}
+                  item={localized}
                   onPress={handleOptionPress}
                 />
               );

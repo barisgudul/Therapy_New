@@ -153,10 +153,10 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelet
   const date = new Date(event.timestamp);
   const localeMap: Record<string, string> = { tr: 'tr-TR', en: 'en-US', de: 'de-DE' };
   const formattedDate = date.toLocaleDateString(localeMap[i18n.language] || 'en-US', { day: '2-digit', month: 'long', year: 'numeric' });
-  const firstUserMessage = Array.isArray((event as any)?.data?.messages)
-    ? ((event as any).data.messages.find((m: { sender: string }) => m?.sender === 'user')?.text || "")
+  const firstUserMessage = Array.isArray(event.data?.messages)
+    ? (event.data.messages.find((m: { sender: string }) => m?.sender === 'user')?.text || "")
     : "";
-  const dataSummary = typeof (event as any)?.data?.summary === 'string' ? (event as any).data.summary as string : null;
+  const dataSummary = typeof event.data?.summary === 'string' ? event.data.summary as string : null;
   const summaryText = freshSummary || event.summary || dataSummary || firstUserMessage || t('transcripts.summary.preparing');
   const preview = summaryText.replace(/^\s+|\s+$/g, '');
   const previewCompact = preview.length > 120 ? preview.substring(0, 120) + '…' : preview;
@@ -388,9 +388,9 @@ export default function PremiumHistoryScreen() {
             ) : (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.summaryListContainer}>
                 {filteredEvents.map(event => {
-                  const relatedId = isTextSessionView ? findRelatedTextSessionId((event as any).created_at) : event.id;
+                  const relatedId = isTextSessionView ? findRelatedTextSessionId(event.created_at) : event.id;
                   const onPress = relatedId
-                    ? () => navigateToSession(relatedId!, event.mood, ((event as any)?.data?.summary as string) || event.summary || undefined)
+                    ? () => navigateToSession(relatedId!, event.mood, (event.data?.summary as string) || event.summary || undefined)
                     : undefined;
                   return (
                     <SummaryCard 
@@ -398,7 +398,7 @@ export default function PremiumHistoryScreen() {
                       event={event} 
                       onPress={onPress}
                       onDelete={() => handleDeleteEvent(event.id)}
-                      onShowSummary={(s) => onShowSummary(s, event.id, (event as any).created_at)}
+                      onShowSummary={(s) => onShowSummary(s, event.id, event.created_at)}
                     />
                   );
                 })}

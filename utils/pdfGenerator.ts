@@ -2,7 +2,7 @@
 
 import { Platform } from "react-native";
 import * as Sharing from "expo-sharing";
-// @ts-ignore
+// @ts-ignore: react-native-html-to-pdf package has no TypeScript definitions
 import RNHTMLtoPDF from "react-native-html-to-pdf";
 import Toast from "react-native-toast-message";
 import { encode } from "js-base64"; // YENİ EKLEDİĞİMİZ KÜTÜPHANE
@@ -207,12 +207,15 @@ export const generatePdf = async (insight: InsightData, nickname: string) => {
     } else {
       throw new Error("PDF dosya yolu oluşturulamadı.");
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("PDF oluşturma hatası:", e);
+    const errorMessage = e instanceof Error
+      ? e.message
+      : "Bilinmeyen bir hata oluştu.";
     Toast.show({
       type: "error",
       text1: "PDF Oluşturulamadı",
-      text2: e.message || "Bilinmeyen bir hata oluştu.",
+      text2: errorMessage,
     });
   }
 };

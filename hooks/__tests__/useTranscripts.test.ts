@@ -17,7 +17,7 @@ jest.mock("@react-navigation/native", () => ({
     useNavigation: () => ({ goBack: jest.fn() }),
     useFocusEffect: (callback: () => void) => {
         const React = jest.requireActual("react");
-        React.useEffect(callback, []);
+        React.useEffect(callback);
     },
 }));
 jest.mock("expo-router", () => ({
@@ -65,7 +65,7 @@ describe("useTranscripts Hook - handleDeleteEvent", () => {
         await waitFor(() => expect(result.current.state.isLoading).toBe(false));
 
         // Act
-        await act(async () => {
+        await act(() => {
             result.current.actions.handleDeleteEvent("event-1");
         });
 
@@ -92,7 +92,7 @@ describe("useTranscripts Hook - handleDeleteEvent", () => {
         await waitFor(() => expect(result.current.state.isLoading).toBe(false));
 
         // Act
-        await act(async () => {
+        await act(() => {
             result.current.actions.handleDeleteEvent("event-1");
         });
 
@@ -114,7 +114,7 @@ describe("useTranscripts Hook - handleDeleteEvent", () => {
         await waitFor(() => expect(result.current.state.isLoading).toBe(false));
 
         // Act
-        await act(async () => {
+        await act(() => {
             result.current.actions.handleDeleteEvent("non-existent-id");
         });
 

@@ -27,7 +27,7 @@ function FeatureItem({ icon, title, description }: { icon: string; title: string
     <View style={styles.featuresItem}>
       {/* İKONLARI DAHA CANLI HALE GETİRDİM. AĞIR DÜZ RENK YERİNE GRADYAN KULLANDIM. */}
       <LinearGradient colors={GRADIENT_COLORS} style={styles.featuresIconContainer}>
-        <Ionicons name={icon as any} size={24} color={Colors.light.tint} />
+        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={24} color={Colors.light.tint} />
       </LinearGradient>
       <View style={styles.featuresContent}>
         <Text style={styles.featuresTitle}>{title}</Text>

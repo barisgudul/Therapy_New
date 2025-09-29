@@ -19,7 +19,7 @@ import i18n from "../../utils/i18n";
 
 // === YENİ COMPONENT: InsightCard ===
 interface InsightCardProps {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: string;
   title: string;
   text: string;
   index: number;
@@ -31,7 +31,7 @@ function InsightCard({ icon, title, text, index }: InsightCardProps) {
       <View style={styles.insightCard}>
         <View style={styles.insightHeader}>
           <LinearGradient colors={GRADIENT_COLORS} style={styles.insightIconContainer}>
-            <Ionicons name={icon} size={22} color={Colors.light.tint} />
+            <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={Colors.light.tint} />
           </LinearGradient>
           <Text style={styles.insightTitle}>{title}</Text>
         </View>
@@ -198,7 +198,7 @@ export default function Analysis() {
                 <InsightCard
                   key={section.title}
                   index={index}
-                  icon={section.icon as any}
+                  icon={section.icon}
                   title={section.title}
                   text={section.text!}
                 />
@@ -224,7 +224,7 @@ export default function Analysis() {
                 style={styles.buttonsPrimary}
               >
                 <Text style={styles.buttonsPrimaryText}>{t("analysis.cta.continue")}</Text>
-                <Ionicons name="arrow-forward-outline" size={20} color={"#FFFFFF"} />
+                <Ionicons name="arrow-forward-outline" size={20} color="#FFFFFF" />
               </LinearGradient>
             </Pressable>
 
