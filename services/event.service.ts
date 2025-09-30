@@ -6,7 +6,7 @@ import {
   DiaryEventsArraySchema,
 } from "../schemas/diary.schema";
 import type { z } from "zod";
-import { getUsageStatsForUser } from "./subscription.service"; // Üst kısma ekle
+import { getUsageStats } from "./subscription.service";
 import { extractContentFromEvent } from "../utils/event-helpers";
 
 export const EVENT_TYPES = [
@@ -211,8 +211,13 @@ export async function canUserWriteNewDiary(): Promise<
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Kullanıcı bulunamadı.");
 
-    const usage = await getUsageStatsForUser(user.id, "diary_write");
-    if (usage.can_use) {
+    const usageStats = await getUsageStats();
+    if (!usageStats) {
+      throw new Error("Kullanım istatistikleri alınamadı.");
+    }
+
+    const diaryUsage = usageStats.diary_write;
+    if (diaryUsage.can_use) {
       return { canWrite: true, message: "" };
     } else {
       return {

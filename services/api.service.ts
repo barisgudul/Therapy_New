@@ -30,22 +30,6 @@ export async function apiCall<T>(
     }
 }
 
-// ARKA PLAN GÖREVİ İÇİN YENİ FONKSİYON
-function _runInBackground<T>(_promise: Promise<T>, taskName: string): void {
-    _promise
-        .then(() =>
-            console.log(`✅ [BG_TASK] '${taskName}' başarıyla tamamlandı.`)
-        )
-        .catch((error: unknown) => {
-            const errorMessage = getErrorMessage(error);
-            console.error(
-                `⛔️ [BG_TASK_ERROR] '${taskName}' hatası:`,
-                errorMessage,
-                error,
-            );
-        });
-}
-
 export const incrementFeatureUsage = async (
     feature: keyof UsageStats,
 ): Promise<void> => {

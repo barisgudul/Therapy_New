@@ -1,5 +1,15 @@
 // jest.setup.js
 
+// Console.log'ları test sırasında sustur
+global.console = {
+  ...console,
+  log: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  info: jest.fn(),
+  debug: jest.fn(),
+};
+
 // AsyncStorage'ı mock'la
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
@@ -32,6 +42,7 @@ jest.mock('./utils/supabase', () => ({
         error: null
       }),
     },
+    rpc: jest.fn().mockResolvedValue({ error: null }),
     from: jest.fn(() => ({
       update: jest.fn().mockReturnValue({
         eq: jest.fn().mockResolvedValue({ error: null }),

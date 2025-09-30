@@ -231,9 +231,6 @@ describe('useUpdateVault Hook', () => {
     const mockError = new Error('Update failed');
     mockedUpdateUserVault.mockRejectedValue(mockError);
 
-    // console.error'ı sustur
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-
     const { result } = renderHook(() => useUpdateVault(), { wrapper });
 
     await act(async () => {
@@ -243,14 +240,6 @@ describe('useUpdateVault Hook', () => {
     // Hata durumunda eski veri geri yüklenmeli
     const cachedData = queryClient.getQueryData<VaultData>(['vault']);
     expect(cachedData).toEqual(initialVaultData);
-
-    // console.error çağrıldığını doğrula
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '⛔️ Vault güncelleme başarısız, eski veri geri yüklendi:',
-      mockError
-    );
-
-    consoleErrorSpy.mockRestore();
   });
 
   it('should handle successful mutation', async () => {

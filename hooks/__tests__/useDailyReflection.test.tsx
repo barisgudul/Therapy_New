@@ -235,9 +235,6 @@ describe('useDailyReflection Hook', () => {
   });
 
   it('should handle API validation errors correctly', async () => {
-    // Bu testin başında console.error'u sustur
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
     const validationError = { message: JSON.stringify({ error: 'Not boş olamaz', code: 'VALIDATION_ERROR' }) };
     mockedSupabaseInvoke.mockResolvedValue({ data: null, error: validationError });
 
@@ -259,15 +256,9 @@ describe('useDailyReflection Hook', () => {
         text2: 'Not boş olamaz',
       });
     });
-    
-    // Mock'u geri yükle
-    errorSpy.mockRestore();
   });
 
   it('should handle API errors and show an error toast', async () => {
-    // Testin başında console.error'u sustur
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
     const useEffectSpy = jest.spyOn(React, 'useEffect');
     useEffectSpy.mockImplementation(() => {});
 
@@ -301,8 +292,6 @@ describe('useDailyReflection Hook', () => {
     }, { timeout: 3000 });
 
     useEffectSpy.mockRestore();
-    // Testin sonunda mock'u geri yükle
-    errorSpy.mockRestore();
   });
 
   it('should handle network/unexpected errors', async () => {

@@ -56,7 +56,7 @@ export async function getUserVault(): Promise<VaultData | null> {
       last_daily_reflection_at
     `).eq("user_id", user.id).single();
 
-    if (error && error.code !== "PGRST116") throw error;
+    if (error && error.code !== "PGRST116") throw new Error(error.message);
 
     // Vault data yoksa null dön
     if (!data) return null;
@@ -128,7 +128,7 @@ export async function updateUserVault(newVaultData: VaultData): Promise<void> {
       .from("user_vaults")
       .upsert(updateData, { onConflict: "user_id" });
 
-    if (error) throw error;
+    if (error) throw new Error(error.message);
     if (isDev()) console.log("✅ [Vault] Güncellendi - Yeni sütunlar dahil.");
   } catch (error) {
     console.error("⛔️ Vault update hatası:", (error as Error).message);

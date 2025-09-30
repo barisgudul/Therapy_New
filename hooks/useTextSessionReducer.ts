@@ -79,7 +79,7 @@ type TextSessionAction =
     };
 
 // Initial state
-const initialState: TextSessionState = {
+export const initialState: TextSessionState = {
     messages: [], // Boş başlasın
     transcript: "", // Boş başlasın
     input: "",
@@ -95,7 +95,7 @@ const initialState: TextSessionState = {
 };
 
 // Reducer function
-function textSessionReducer(
+export function textSessionReducer(
     state: TextSessionState,
     action: TextSessionAction,
 ): TextSessionState {

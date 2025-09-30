@@ -3,6 +3,12 @@
 module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['./jest.setup.js'],
+  // Jest'e sadece .test.ts/.test.tsx dosyalarını test olarak görmesini söyle
+  // .mock.ts dosyalarını test olarak görmesin
+  testMatch: [
+    "**/__tests__/**/*.(test).[jt]s?(x)", 
+    "!**/__tests__/**/*.(mock).[jt]s?(x)"
+  ],
   transformIgnorePatterns: [
     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-router))',
   ],
