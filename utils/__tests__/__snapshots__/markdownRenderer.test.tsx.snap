@@ -1,0 +1,140 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`markdownRenderer.tsx - Markdown Renderer Snapshot Testing - Görsel Tutarlılık ✅ basit markdown için snapshot tutmalı 1`] = `
+<View>
+  <Text
+    style={
+      {
+        "color": "#1A202C",
+        "fontSize": 18,
+        "fontWeight": "700",
+        "marginBottom": 6,
+        "marginTop": 12,
+      }
+    }
+  >
+    Başlık
+Bu **kalın** metin
+  </Text>
+</View>
+`;
+
+exports[`markdownRenderer.tsx - Markdown Renderer Snapshot Testing - Görsel Tutarlılık ✅ kompleks markdown için snapshot tutmalı 1`] = `
+<View>
+  <Text
+    style={
+      {
+        "color": "#1A202C",
+        "fontSize": 18,
+        "fontWeight": "700",
+        "marginBottom": 6,
+        "marginTop": 12,
+      }
+    }
+  >
+    Ana Başlık
+  </Text>
+  <Text
+    style={
+      {
+        "color": "#2D3748",
+        "fontSize": 16,
+        "lineHeight": 26,
+        "marginVertical": 4,
+      }
+    }
+  >
+    <Text>
+      Bu 
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#1A202C",
+          "fontWeight": "700",
+        }
+      }
+    >
+      kalın
+    </Text>
+    <Text>
+       ve bu 
+    </Text>
+    <Text
+      style={
+        {
+          "fontStyle": "italic",
+        }
+      }
+    >
+      italik
+    </Text>
+    <Text>
+       metin.
+    </Text>
+  </Text>
+  <Text
+    style={
+      {
+        "color": "#2D3748",
+        "fontSize": 16,
+        "lineHeight": 26,
+        "marginVertical": 4,
+      }
+    }
+  >
+    <Text>
+      • 
+    </Text>
+    <Text>
+      İlk öğe
+- İkinci öğe
+    </Text>
+  </Text>
+  <Text
+    style={
+      {
+        "backgroundColor": "#F7FAFC",
+        "borderLeftColor": "#6366F1",
+        "borderLeftWidth": 4,
+        "borderRadius": 12,
+        "color": "#4A5568",
+        "fontSize": 14,
+        "fontStyle": "italic",
+        "lineHeight": 22,
+        "marginVertical": 8,
+        "padding": 15,
+      }
+    }
+  >
+    <Text>
+      💭 Düşünce 
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#2D3748",
+          "fontStyle": "normal",
+          "fontWeight": "700",
+        }
+      }
+    >
+      balonu
+    </Text>
+    <Text />
+  </Text>
+  <Text
+    style={
+      {
+        "color": "#1A202C",
+        "fontSize": 20,
+        "fontWeight": "700",
+        "marginBottom": 8,
+        "marginTop": 15,
+      }
+    }
+  >
+    Alt Başlık
+  </Text>
+</View>
+`;

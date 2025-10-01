@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1759257434693" clover="3.2.0">
-  <project timestamp="1759257434693" name="All files">
-    <metrics statements="898" coveredstatements="844" conditionals="518" coveredconditionals="408" methods="174" coveredmethods="159" elements="1590" coveredelements="1411" complexity="0" loc="898" ncloc="898" packages="6" files="23" classes="23"/>
+<coverage generated="1759328878598" clover="3.2.0">
+  <project timestamp="1759328878598" name="All files">
+    <metrics statements="1089" coveredstatements="1068" conditionals="627" coveredconditionals="539" methods="202" coveredmethods="199" elements="1918" coveredelements="1806" complexity="0" loc="1089" ncloc="1089" packages="6" files="28" classes="28"/>
     <package name="constants">
       <metrics statements="6" coveredstatements="6" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
       <file name="Colors.ts" path="/Users/baris/Desktop/Dev/Therapy_New/constants/Colors.ts">
@@ -18,7 +18,7 @@
       </file>
     </package>
     <package name="hooks">
-      <metrics statements="517" coveredstatements="493" conditionals="229" coveredconditionals="172" methods="108" coveredmethods="105"/>
+      <metrics statements="517" coveredstatements="507" conditionals="229" coveredconditionals="184" methods="108" coveredmethods="105"/>
       <file name="useDailyReflection.ts" path="/Users/baris/Desktop/Dev/Therapy_New/hooks/useDailyReflection.ts">
         <metrics statements="95" coveredstatements="92" conditionals="40" coveredconditionals="28" methods="12" coveredmethods="11"/>
         <line num="21" count="1" type="stmt"/>
@@ -298,147 +298,147 @@
         <line num="92" count="1" type="stmt"/>
       </file>
       <file name="useTextSessionReducer.ts" path="/Users/baris/Desktop/Dev/Therapy_New/hooks/useTextSessionReducer.ts">
-        <metrics statements="140" coveredstatements="126" conditionals="90" coveredconditionals="67" methods="19" coveredmethods="19"/>
+        <metrics statements="140" coveredstatements="140" conditionals="90" coveredconditionals="79" methods="19" coveredmethods="19"/>
         <line num="82" count="1" type="stmt"/>
-        <line num="102" count="112" type="cond" truecount="19" falsecount="4"/>
-        <line num="104" count="11" type="stmt"/>
-        <line num="107" count="7" type="stmt"/>
-        <line num="108" count="7" type="stmt"/>
-        <line num="119" count="5" type="stmt"/>
-        <line num="122" count="7" type="cond" truecount="2" falsecount="0"/>
-        <line num="129" count="2" type="stmt"/>
-        <line num="132" count="2" type="cond" truecount="1" falsecount="1"/>
+        <line num="102" count="191" type="cond" truecount="23" falsecount="0"/>
+        <line num="104" count="22" type="stmt"/>
+        <line num="107" count="13" type="stmt"/>
+        <line num="108" count="13" type="stmt"/>
+        <line num="119" count="9" type="stmt"/>
+        <line num="122" count="14" type="cond" truecount="2" falsecount="0"/>
+        <line num="129" count="3" type="stmt"/>
+        <line num="132" count="3" type="cond" truecount="1" falsecount="1"/>
         <line num="140" count="2" type="stmt"/>
         <line num="147" count="2" type="stmt"/>
-        <line num="154" count="12" type="stmt"/>
-        <line num="157" count="0" type="stmt"/>
-        <line num="160" count="0" type="stmt"/>
-        <line num="163" count="0" type="stmt"/>
-        <line num="166" count="30" type="stmt"/>
+        <line num="154" count="24" type="stmt"/>
+        <line num="157" count="1" type="stmt"/>
+        <line num="160" count="2" type="stmt"/>
+        <line num="163" count="2" type="stmt"/>
+        <line num="166" count="47" type="stmt"/>
         <line num="169" count="1" type="stmt"/>
-        <line num="180" count="10" type="stmt"/>
+        <line num="180" count="15" type="stmt"/>
         <line num="188" count="1" type="stmt"/>
         <line num="194" count="1" type="stmt"/>
-        <line num="202" count="5" type="stmt"/>
-        <line num="209" count="2" type="stmt"/>
-        <line num="218" count="1" type="cond" truecount="1" falsecount="1"/>
-        <line num="219" count="0" type="stmt"/>
+        <line num="202" count="8" type="stmt"/>
+        <line num="209" count="3" type="stmt"/>
+        <line num="218" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="219" count="1" type="stmt"/>
         <line num="222" count="1" type="stmt"/>
-        <line num="231" count="5" type="stmt"/>
+        <line num="231" count="9" type="stmt"/>
         <line num="246" count="1" type="stmt"/>
-        <line num="254" count="7" type="stmt"/>
-        <line num="261" count="6" type="stmt"/>
-        <line num="268" count="2" type="stmt"/>
-        <line num="276" count="0" type="stmt"/>
-        <line num="308" count="57" type="stmt"/>
-        <line num="311" count="57" type="stmt"/>
-        <line num="312" count="16" type="stmt"/>
-        <line num="313" count="16" type="stmt"/>
-        <line num="316" count="16" type="cond" truecount="2" falsecount="0"/>
-        <line num="317" count="5" type="stmt"/>
-        <line num="318" count="5" type="stmt"/>
-        <line num="319" count="4" type="cond" truecount="1" falsecount="1"/>
-        <line num="326" count="4" type="stmt"/>
-        <line num="331" count="4" type="stmt"/>
-        <line num="333" count="4" type="stmt"/>
-        <line num="341" count="4" type="stmt"/>
-        <line num="345" count="4" type="stmt"/>
+        <line num="254" count="11" type="stmt"/>
+        <line num="261" count="9" type="stmt"/>
+        <line num="268" count="3" type="stmt"/>
+        <line num="276" count="1" type="stmt"/>
+        <line num="308" count="91" type="stmt"/>
+        <line num="311" count="91" type="stmt"/>
+        <line num="312" count="24" type="stmt"/>
+        <line num="313" count="24" type="stmt"/>
+        <line num="316" count="24" type="cond" truecount="2" falsecount="0"/>
+        <line num="317" count="8" type="stmt"/>
+        <line num="318" count="8" type="stmt"/>
+        <line num="319" count="7" type="cond" truecount="1" falsecount="1"/>
+        <line num="326" count="7" type="stmt"/>
+        <line num="331" count="7" type="stmt"/>
+        <line num="333" count="7" type="stmt"/>
+        <line num="341" count="7" type="stmt"/>
+        <line num="345" count="7" type="stmt"/>
         <line num="347" count="1" type="stmt"/>
-        <line num="352" count="11" type="cond" truecount="2" falsecount="0"/>
-        <line num="353" count="1" type="stmt"/>
-        <line num="354" count="1" type="stmt"/>
-        <line num="356" count="1" type="stmt"/>
-        <line num="373" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="375" count="0" type="stmt"/>
-        <line num="379" count="0" type="stmt"/>
+        <line num="352" count="16" type="cond" truecount="2" falsecount="0"/>
+        <line num="353" count="2" type="stmt"/>
+        <line num="354" count="2" type="stmt"/>
+        <line num="356" count="2" type="stmt"/>
+        <line num="373" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="375" count="1" type="stmt"/>
+        <line num="379" count="1" type="stmt"/>
         <line num="381" count="1" type="stmt"/>
-        <line num="386" count="1" type="stmt"/>
-        <line num="390" count="10" type="stmt"/>
-        <line num="391" count="10" type="stmt"/>
-        <line num="394" count="16" type="cond" truecount="1" falsecount="1"/>
-        <line num="395" count="0" type="stmt"/>
-        <line num="399" count="16" type="stmt"/>
-        <line num="403" count="57" type="stmt"/>
-        <line num="404" count="6" type="stmt"/>
-        <line num="408" count="57" type="stmt"/>
-        <line num="409" count="5" type="stmt"/>
-        <line num="412" count="5" type="cond" truecount="3" falsecount="1"/>
-        <line num="416" count="5" type="stmt"/>
-        <line num="419" count="5" type="stmt"/>
-        <line num="427" count="5" type="stmt"/>
-        <line num="428" count="5" type="stmt"/>
-        <line num="429" count="5" type="stmt"/>
-        <line num="433" count="5" type="stmt"/>
-        <line num="435" count="7" type="stmt"/>
-        <line num="440" count="5" type="stmt"/>
-        <line num="443" count="5" type="stmt"/>
-        <line num="448" count="5" type="stmt"/>
-        <line num="461" count="4" type="cond" truecount="1" falsecount="1"/>
-        <line num="463" count="0" type="stmt"/>
-        <line num="467" count="4" type="stmt"/>
-        <line num="468" count="4" type="stmt"/>
-        <line num="470" count="1" type="stmt"/>
-        <line num="472" count="1" type="stmt"/>
-        <line num="477" count="5" type="stmt"/>
-        <line num="482" count="57" type="stmt"/>
-        <line num="483" count="6" type="cond" truecount="1" falsecount="1"/>
-        <line num="485" count="6" type="stmt"/>
-        <line num="487" count="6" type="stmt"/>
-        <line num="488" count="6" type="stmt"/>
-        <line num="489" count="5" type="stmt"/>
-        <line num="491" count="6" type="cond" truecount="2" falsecount="0"/>
-        <line num="494" count="5" type="stmt"/>
-        <line num="495" count="5" type="cond" truecount="1" falsecount="1"/>
-        <line num="496" count="0" type="stmt"/>
-        <line num="500" count="5" type="stmt"/>
-        <line num="501" count="5" type="cond" truecount="2" falsecount="0"/>
-        <line num="503" count="3" type="stmt"/>
-        <line num="510" count="3" type="cond" truecount="2" falsecount="0"/>
-        <line num="513" count="2" type="stmt"/>
-        <line num="518" count="2" type="cond" truecount="1" falsecount="1"/>
-        <line num="519" count="2" type="stmt"/>
-        <line num="528" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="386" count="2" type="stmt"/>
+        <line num="390" count="14" type="stmt"/>
+        <line num="391" count="14" type="stmt"/>
+        <line num="394" count="24" type="cond" truecount="2" falsecount="0"/>
+        <line num="395" count="1" type="stmt"/>
+        <line num="399" count="24" type="stmt"/>
+        <line num="403" count="91" type="stmt"/>
+        <line num="404" count="11" type="stmt"/>
+        <line num="408" count="91" type="stmt"/>
+        <line num="409" count="10" type="stmt"/>
+        <line num="412" count="10" type="cond" truecount="3" falsecount="1"/>
+        <line num="416" count="10" type="stmt"/>
+        <line num="419" count="10" type="stmt"/>
+        <line num="427" count="10" type="stmt"/>
+        <line num="428" count="10" type="stmt"/>
+        <line num="429" count="10" type="stmt"/>
+        <line num="433" count="10" type="stmt"/>
+        <line num="435" count="15" type="stmt"/>
+        <line num="440" count="10" type="stmt"/>
+        <line num="443" count="10" type="stmt"/>
+        <line num="448" count="10" type="stmt"/>
+        <line num="461" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="463" count="1" type="stmt"/>
+        <line num="467" count="8" type="stmt"/>
+        <line num="468" count="8" type="stmt"/>
+        <line num="470" count="2" type="stmt"/>
+        <line num="472" count="2" type="stmt"/>
+        <line num="477" count="10" type="stmt"/>
+        <line num="482" count="91" type="stmt"/>
+        <line num="483" count="11" type="cond" truecount="2" falsecount="0"/>
+        <line num="485" count="10" type="stmt"/>
+        <line num="487" count="10" type="stmt"/>
+        <line num="488" count="10" type="stmt"/>
+        <line num="489" count="9" type="stmt"/>
+        <line num="491" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="494" count="9" type="stmt"/>
+        <line num="495" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="496" count="1" type="stmt"/>
+        <line num="500" count="8" type="stmt"/>
+        <line num="501" count="8" type="cond" truecount="2" falsecount="0"/>
+        <line num="503" count="6" type="stmt"/>
+        <line num="510" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="513" count="5" type="stmt"/>
+        <line num="518" count="5" type="cond" truecount="1" falsecount="1"/>
+        <line num="519" count="5" type="stmt"/>
+        <line num="528" count="5" type="cond" truecount="2" falsecount="0"/>
         <line num="533" count="2" type="stmt"/>
         <line num="543" count="2" type="cond" truecount="1" falsecount="1"/>
         <line num="546" count="2" type="stmt"/>
         <line num="555" count="2" type="cond" truecount="1" falsecount="1"/>
         <line num="556" count="2" type="stmt"/>
-        <line num="561" count="4" type="stmt"/>
-        <line num="563" count="4" type="stmt"/>
-        <line num="573" count="2" type="cond" truecount="1" falsecount="1"/>
-        <line num="574" count="0" type="stmt"/>
-        <line num="576" count="2" type="cond" truecount="1" falsecount="1"/>
-        <line num="578" count="2" type="stmt"/>
-        <line num="582" count="4" type="stmt"/>
-        <line num="583" count="4" type="cond" truecount="5" falsecount="0"/>
-        <line num="584" count="1" type="stmt"/>
-        <line num="593" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="594" count="0" type="stmt"/>
-        <line num="601" count="1" type="stmt"/>
-        <line num="605" count="4" type="stmt"/>
-        <line num="606" count="4" type="stmt"/>
-        <line num="607" count="4" type="stmt"/>
+        <line num="561" count="7" type="stmt"/>
+        <line num="563" count="7" type="stmt"/>
+        <line num="573" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="574" count="1" type="stmt"/>
+        <line num="576" count="4" type="cond" truecount="1" falsecount="1"/>
+        <line num="578" count="3" type="stmt"/>
+        <line num="582" count="7" type="stmt"/>
+        <line num="583" count="7" type="cond" truecount="5" falsecount="0"/>
+        <line num="584" count="3" type="stmt"/>
+        <line num="593" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="594" count="1" type="stmt"/>
+        <line num="601" count="2" type="stmt"/>
+        <line num="605" count="7" type="stmt"/>
+        <line num="606" count="7" type="stmt"/>
+        <line num="607" count="7" type="stmt"/>
         <line num="610" count="1" type="stmt"/>
         <line num="611" count="1" type="stmt"/>
-        <line num="613" count="1" type="stmt"/>
-        <line num="614" count="1" type="stmt"/>
-        <line num="618" count="1" type="stmt"/>
-        <line num="629" count="57" type="stmt"/>
+        <line num="613" count="2" type="stmt"/>
+        <line num="614" count="2" type="stmt"/>
+        <line num="618" count="2" type="stmt"/>
+        <line num="629" count="91" type="stmt"/>
         <line num="630" count="2" type="cond" truecount="1" falsecount="1"/>
         <line num="631" count="2" type="stmt"/>
         <line num="632" count="2" type="cond" truecount="2" falsecount="0"/>
         <line num="634" count="1" type="stmt"/>
         <line num="637" count="1" type="stmt"/>
         <line num="649" count="1" type="stmt"/>
-        <line num="653" count="57" type="stmt"/>
+        <line num="653" count="91" type="stmt"/>
         <line num="654" count="1" type="stmt"/>
-        <line num="657" count="57" type="stmt"/>
+        <line num="657" count="91" type="stmt"/>
         <line num="658" count="1" type="stmt"/>
-        <line num="662" count="57" type="stmt"/>
-        <line num="663" count="35" type="stmt"/>
-        <line num="667" count="35" type="stmt"/>
-        <line num="668" count="35" type="stmt"/>
-        <line num="672" count="57" type="stmt"/>
+        <line num="662" count="91" type="stmt"/>
+        <line num="663" count="56" type="stmt"/>
+        <line num="667" count="56" type="stmt"/>
+        <line num="668" count="56" type="stmt"/>
+        <line num="672" count="91" type="stmt"/>
       </file>
       <file name="useTranscripts.ts" path="/Users/baris/Desktop/Dev/Therapy_New/hooks/useTranscripts.ts">
         <metrics statements="102" coveredstatements="96" conditionals="46" coveredconditionals="36" methods="26" coveredmethods="24"/>
@@ -549,7 +549,7 @@
         <metrics statements="15" coveredstatements="15" conditionals="2" coveredconditionals="1" methods="6" coveredmethods="6"/>
         <line num="9" count="1" type="stmt"/>
         <line num="14" count="1" type="stmt"/>
-        <line num="15" count="9" type="stmt"/>
+        <line num="15" count="8" type="stmt"/>
         <line num="27" count="1" type="stmt"/>
         <line num="28" count="12" type="stmt"/>
         <line num="30" count="12" type="stmt"/>
@@ -902,35 +902,103 @@
       </file>
     </package>
     <package name="utils">
-      <metrics statements="71" coveredstatements="47" conditionals="67" coveredconditionals="44" methods="21" coveredmethods="9"/>
+      <metrics statements="262" coveredstatements="257" conditionals="176" coveredconditionals="163" methods="49" coveredmethods="49"/>
+      <file name="auth.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/auth.ts">
+        <metrics statements="36" coveredstatements="34" conditionals="28" coveredconditionals="24" methods="5" coveredmethods="5"/>
+        <line num="8" count="1" type="stmt"/>
+        <line num="9" count="9" type="stmt"/>
+        <line num="10" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="11" count="2" type="stmt"/>
+        <line num="13" count="7" type="cond" truecount="4" falsecount="0"/>
+        <line num="14" count="3" type="stmt"/>
+        <line num="16" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="20" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="21" count="1" type="stmt"/>
+        <line num="23" count="2" type="stmt"/>
+        <line num="36" count="6" type="stmt"/>
+        <line num="37" count="6" type="stmt"/>
+        <line num="51" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="52" count="3" type="stmt"/>
+        <line num="55" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="57" count="1" type="stmt"/>
+        <line num="62" count="2" type="stmt"/>
+        <line num="64" count="4" type="cond" truecount="1" falsecount="1"/>
+        <line num="67" count="4" type="stmt"/>
+        <line num="75" count="8" type="stmt"/>
+        <line num="76" count="8" type="stmt"/>
+        <line num="80" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="81" count="3" type="stmt"/>
+        <line num="83" count="5" type="cond" truecount="1" falsecount="1"/>
+        <line num="86" count="5" type="stmt"/>
+        <line num="94" count="4" type="stmt"/>
+        <line num="95" count="4" type="stmt"/>
+        <line num="97" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="98" count="2" type="stmt"/>
+        <line num="101" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="102" count="1" type="stmt"/>
+        <line num="105" count="1" type="stmt"/>
+        <line num="107" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="110" count="0" type="stmt"/>
+        <line num="118" count="1" type="stmt"/>
+      </file>
+      <file name="color.utils.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/color.utils.ts">
+        <metrics statements="26" coveredstatements="26" conditionals="6" coveredconditionals="6" methods="4" coveredmethods="4"/>
+        <line num="5" count="13" type="cond" truecount="2" falsecount="0"/>
+        <line num="8" count="13" type="stmt"/>
+        <line num="9" count="13" type="stmt"/>
+        <line num="10" count="13" type="stmt"/>
+        <line num="11" count="13" type="stmt"/>
+        <line num="17" count="17" type="cond" truecount="2" falsecount="0"/>
+        <line num="19" count="13" type="stmt"/>
+        <line num="20" count="13" type="cond" truecount="2" falsecount="0"/>
+        <line num="21" count="5" type="stmt"/>
+        <line num="23" count="13" type="stmt"/>
+        <line num="24" count="13" type="stmt"/>
+        <line num="25" count="13" type="stmt"/>
+        <line num="28" count="4" type="stmt"/>
+        <line num="37" count="39" type="stmt"/>
+        <line num="38" count="13" type="stmt"/>
+        <line num="39" count="13" type="stmt"/>
+        <line num="40" count="13" type="stmt"/>
+        <line num="41" count="13" type="stmt"/>
+        <line num="42" count="13" type="stmt"/>
+        <line num="43" count="13" type="stmt"/>
+        <line num="44" count="13" type="stmt"/>
+        <line num="45" count="13" type="stmt"/>
+        <line num="46" count="13" type="stmt"/>
+        <line num="47" count="13" type="stmt"/>
+        <line num="48" count="13" type="stmt"/>
+        <line num="49" count="13" type="stmt"/>
+      </file>
       <file name="dev.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/dev.ts">
         <metrics statements="2" coveredstatements="2" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
         <line num="3" count="7" type="stmt"/>
         <line num="4" count="7" type="stmt"/>
       </file>
       <file name="errors.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/errors.ts">
-        <metrics statements="21" coveredstatements="9" conditionals="22" coveredconditionals="7" methods="14" coveredmethods="5"/>
-        <line num="9" count="2" type="stmt"/>
-        <line num="10" count="2" type="stmt"/>
-        <line num="20" count="1" type="cond" truecount="1" falsecount="1"/>
-        <line num="26" count="1" type="stmt"/>
-        <line num="32" count="0" type="stmt"/>
-        <line num="38" count="0" type="stmt"/>
-        <line num="44" count="0" type="stmt"/>
-        <line num="50" count="0" type="stmt"/>
-        <line num="56" count="0" type="stmt"/>
-        <line num="62" count="0" type="stmt"/>
-        <line num="68" count="0" type="stmt"/>
-        <line num="74" count="0" type="stmt"/>
-        <line num="80" count="10" type="stmt"/>
-        <line num="84" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="85" count="0" type="stmt"/>
-        <line num="87" count="0" type="stmt"/>
-        <line num="91" count="7" type="cond" truecount="2" falsecount="0"/>
-        <line num="92" count="2" type="stmt"/>
-        <line num="96" count="5" type="cond" truecount="4" falsecount="1"/>
-        <line num="97" count="5" type="stmt"/>
-        <line num="100" count="0" type="stmt"/>
+        <metrics statements="21" coveredstatements="21" conditionals="22" coveredconditionals="22" methods="14" coveredmethods="14"/>
+        <line num="9" count="26" type="stmt"/>
+        <line num="10" count="26" type="stmt"/>
+        <line num="20" count="7" type="cond" truecount="2" falsecount="0"/>
+        <line num="26" count="4" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="44" count="1" type="stmt"/>
+        <line num="50" count="1" type="stmt"/>
+        <line num="56" count="2" type="stmt"/>
+        <line num="62" count="1" type="stmt"/>
+        <line num="68" count="1" type="stmt"/>
+        <line num="74" count="1" type="stmt"/>
+        <line num="80" count="37" type="stmt"/>
+        <line num="84" count="8" type="cond" truecount="2" falsecount="0"/>
+        <line num="85" count="5" type="stmt"/>
+        <line num="87" count="3" type="stmt"/>
+        <line num="91" count="16" type="cond" truecount="2" falsecount="0"/>
+        <line num="92" count="4" type="stmt"/>
+        <line num="96" count="12" type="cond" truecount="5" falsecount="0"/>
+        <line num="97" count="7" type="stmt"/>
+        <line num="100" count="5" type="stmt"/>
       </file>
       <file name="event-helpers.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/event-helpers.ts">
         <metrics statements="19" coveredstatements="19" conditionals="33" coveredconditionals="31" methods="2" coveredmethods="2"/>
@@ -954,37 +1022,175 @@
         <line num="45" count="1" type="stmt"/>
         <line num="48" count="4" type="stmt"/>
       </file>
-      <file name="i18n.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/i18n.ts">
-        <metrics statements="29" coveredstatements="17" conditionals="12" coveredconditionals="6" methods="4" coveredmethods="1"/>
-        <line num="15" count="3" type="stmt"/>
-        <line num="17" count="3" type="stmt"/>
-        <line num="18" count="3" type="stmt"/>
-        <line num="21" count="3" type="stmt"/>
-        <line num="29" count="3" type="stmt"/>
-        <line num="30" count="3" type="stmt"/>
-        <line num="37" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="38" count="0" type="stmt"/>
-        <line num="43" count="0" type="stmt"/>
-        <line num="48" count="3" type="stmt"/>
-        <line num="49" count="3" type="stmt"/>
-        <line num="50" count="3" type="stmt"/>
-        <line num="52" count="3" type="stmt"/>
-        <line num="54" count="0" type="stmt"/>
-        <line num="57" count="3" type="cond" truecount="2" falsecount="2"/>
-        <line num="59" count="0" type="stmt"/>
-        <line num="62" count="3" type="stmt"/>
-        <line num="64" count="3" type="cond" truecount="4" falsecount="0"/>
+      <file name="gcpServices.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/gcpServices.ts">
+        <metrics statements="46" coveredstatements="46" conditionals="14" coveredconditionals="14" methods="5" coveredmethods="5"/>
+        <line num="9" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="10" count="8" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="15" count="1" type="stmt"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="17" count="1" type="stmt"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="20" count="1" type="stmt"/>
+        <line num="24" count="1" type="stmt"/>
+        <line num="25" count="6" type="stmt"/>
+        <line num="29" count="6" type="stmt"/>
+        <line num="30" count="6" type="stmt"/>
+        <line num="31" count="6" type="stmt"/>
+        <line num="32" count="5" type="stmt"/>
+        <line num="38" count="5" type="stmt"/>
+        <line num="40" count="5" type="stmt"/>
+        <line num="41" count="5" type="stmt"/>
+        <line num="45" count="5" type="stmt"/>
+        <line num="51" count="5" type="cond" truecount="2" falsecount="0"/>
+        <line num="52" count="1" type="stmt"/>
+        <line num="53" count="1" type="stmt"/>
+        <line num="56" count="4" type="cond" truecount="2" falsecount="0"/>
+        <line num="57" count="4" type="stmt"/>
+        <line num="63" count="4" type="stmt"/>
         <line num="65" count="2" type="stmt"/>
+        <line num="66" count="2" type="stmt"/>
+        <line num="70" count="1" type="stmt"/>
+        <line num="71" count="8" type="stmt"/>
+        <line num="75" count="8" type="stmt"/>
+        <line num="77" count="8" type="stmt"/>
+        <line num="79" count="8" type="stmt"/>
+        <line num="80" count="8" type="stmt"/>
+        <line num="84" count="8" type="stmt"/>
+        <line num="90" count="8" type="cond" truecount="2" falsecount="0"/>
+        <line num="91" count="1" type="stmt"/>
+        <line num="92" count="1" type="stmt"/>
+        <line num="95" count="7" type="cond" truecount="2" falsecount="0"/>
+        <line num="96" count="1" type="stmt"/>
+        <line num="97" count="1" type="stmt"/>
+        <line num="100" count="6" type="stmt"/>
+        <line num="101" count="6" type="stmt"/>
+        <line num="105" count="5" type="stmt"/>
+        <line num="106" count="5" type="stmt"/>
+        <line num="108" count="3" type="stmt"/>
+        <line num="109" count="3" type="stmt"/>
+      </file>
+      <file name="i18n.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/i18n.ts">
+        <metrics statements="29" coveredstatements="27" conditionals="12" coveredconditionals="10" methods="4" coveredmethods="4"/>
+        <line num="15" count="4" type="stmt"/>
+        <line num="17" count="4" type="stmt"/>
+        <line num="18" count="4" type="stmt"/>
+        <line num="21" count="4" type="stmt"/>
+        <line num="29" count="4" type="stmt"/>
+        <line num="30" count="4" type="stmt"/>
+        <line num="37" count="2" type="cond" truecount="2" falsecount="0"/>
+        <line num="38" count="1" type="stmt"/>
+        <line num="43" count="1" type="stmt"/>
+        <line num="48" count="4" type="stmt"/>
+        <line num="49" count="4" type="stmt"/>
+        <line num="50" count="4" type="stmt"/>
+        <line num="52" count="4" type="stmt"/>
+        <line num="54" count="0" type="stmt"/>
+        <line num="57" count="4" type="cond" truecount="2" falsecount="2"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="62" count="4" type="stmt"/>
+        <line num="64" count="4" type="cond" truecount="4" falsecount="0"/>
+        <line num="65" count="3" type="stmt"/>
         <line num="68" count="1" type="stmt"/>
-        <line num="74" count="3" type="stmt"/>
-        <line num="78" count="3" type="stmt"/>
-        <line num="79" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="80" count="0" type="stmt"/>
-        <line num="81" count="0" type="stmt"/>
-        <line num="85" count="0" type="stmt"/>
-        <line num="88" count="0" type="stmt"/>
-        <line num="89" count="0" type="stmt"/>
-        <line num="91" count="0" type="stmt"/>
+        <line num="74" count="4" type="stmt"/>
+        <line num="78" count="4" type="stmt"/>
+        <line num="79" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="80" count="1" type="stmt"/>
+        <line num="81" count="1" type="stmt"/>
+        <line num="85" count="2" type="stmt"/>
+        <line num="88" count="2" type="stmt"/>
+        <line num="89" count="2" type="stmt"/>
+        <line num="91" count="1" type="stmt"/>
+      </file>
+      <file name="markdownRenderer.tsx" path="/Users/baris/Desktop/Dev/Therapy_New/utils/markdownRenderer.tsx">
+        <metrics statements="34" coveredstatements="33" conditionals="45" coveredconditionals="40" methods="5" coveredmethods="5"/>
+        <line num="5" count="1" type="stmt"/>
+        <line num="6" count="35" type="cond" truecount="2" falsecount="0"/>
+        <line num="8" count="32" type="stmt"/>
+        <line num="10" count="32" type="stmt"/>
+        <line num="13" count="44" type="stmt"/>
+        <line num="14" count="44" type="cond" truecount="1" falsecount="1"/>
+        <line num="16" count="44" type="cond" truecount="2" falsecount="0"/>
+        <line num="17" count="7" type="stmt"/>
+        <line num="18" count="7" type="stmt"/>
+        <line num="35" count="13" type="cond" truecount="5" falsecount="0"/>
+        <line num="36" count="3" type="stmt"/>
+        <line num="42" count="10" type="cond" truecount="2" falsecount="4"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="49" count="10" type="stmt"/>
+        <line num="55" count="37" type="cond" truecount="2" falsecount="0"/>
+        <line num="56" count="6" type="stmt"/>
+        <line num="63" count="31" type="cond" truecount="2" falsecount="0"/>
+        <line num="64" count="3" type="stmt"/>
+        <line num="71" count="28" type="cond" truecount="2" falsecount="0"/>
+        <line num="72" count="6" type="stmt"/>
+        <line num="73" count="6" type="stmt"/>
+        <line num="74" count="6" type="stmt"/>
+        <line num="78" count="16" type="cond" truecount="5" falsecount="0"/>
+        <line num="79" count="3" type="stmt"/>
+        <line num="85" count="13" type="cond" truecount="6" falsecount="0"/>
+        <line num="86" count="2" type="stmt"/>
+        <line num="92" count="11" type="stmt"/>
+        <line num="98" count="22" type="stmt"/>
+        <line num="99" count="22" type="stmt"/>
+        <line num="102" count="48" type="cond" truecount="5" falsecount="0"/>
+        <line num="103" count="9" type="stmt"/>
+        <line num="105" count="39" type="cond" truecount="6" falsecount="0"/>
+        <line num="106" count="4" type="stmt"/>
+        <line num="108" count="35" type="stmt"/>
+      </file>
+      <file name="pdfGenerator.ts" path="/Users/baris/Desktop/Dev/Therapy_New/utils/pdfGenerator.ts">
+        <metrics statements="49" coveredstatements="49" conditionals="16" coveredconditionals="16" methods="9" coveredmethods="9"/>
+        <line num="15" count="1" type="stmt"/>
+        <line num="16" count="1" type="stmt"/>
+        <line num="19" count="1" type="stmt"/>
+        <line num="20" count="100" type="stmt"/>
+        <line num="26" count="140" type="cond" truecount="2" falsecount="0"/>
+        <line num="27" count="10" type="stmt"/>
+        <line num="32" count="130" type="stmt"/>
+        <line num="34" count="130" type="stmt"/>
+        <line num="35" count="120" type="cond" truecount="2" falsecount="0"/>
+        <line num="36" count="10" type="stmt"/>
+        <line num="39" count="110" type="stmt"/>
+        <line num="42" count="110" type="stmt"/>
+        <line num="45" count="110" type="stmt"/>
+        <line num="47" count="110" type="stmt"/>
+        <line num="57" count="1" type="stmt"/>
+        <line num="62" count="12" type="cond" truecount="2" falsecount="0"/>
+        <line num="64" count="11" type="stmt"/>
+        <line num="65" count="11" type="stmt"/>
+        <line num="66" count="11" type="stmt"/>
+        <line num="67" count="11" type="stmt"/>
+        <line num="68" count="11" type="stmt"/>
+        <line num="70" count="11" type="stmt"/>
+        <line num="103" count="11" type="stmt"/>
+        <line num="104" count="11" type="stmt"/>
+        <line num="106" count="110" type="stmt"/>
+        <line num="107" count="110" type="stmt"/>
+        <line num="108" count="110" type="cond" truecount="4" falsecount="0"/>
+        <line num="109" count="88" type="stmt"/>
+        <line num="121" count="22" type="stmt"/>
+        <line num="126" count="11" type="stmt"/>
+        <line num="167" count="1" type="stmt"/>
+        <line num="168" count="14" type="stmt"/>
+        <line num="174" count="14" type="stmt"/>
+        <line num="176" count="14" type="stmt"/>
+        <line num="190" count="140" type="stmt"/>
+        <line num="191" count="14" type="stmt"/>
+        <line num="194" count="12" type="stmt"/>
+        <line num="195" count="12" type="stmt"/>
+        <line num="196" count="120" type="stmt"/>
+        <line num="200" count="12" type="stmt"/>
+        <line num="202" count="12" type="stmt"/>
+        <line num="210" count="12" type="stmt"/>
+        <line num="212" count="10" type="cond" truecount="2" falsecount="0"/>
+        <line num="214" count="9" type="cond" truecount="2" falsecount="0"/>
+        <line num="217" count="9" type="stmt"/>
+        <line num="222" count="1" type="stmt"/>
+        <line num="225" count="6" type="stmt"/>
+        <line num="226" count="6" type="cond" truecount="2" falsecount="0"/>
+        <line num="229" count="6" type="stmt"/>
       </file>
     </package>
   </project>

@@ -15,6 +15,11 @@ import { Colors } from "../constants/Colors";
 const iconCache: Record<string, string> = {};
 const IONICONS_VERSION = "7.1.0"; // Kullandığın ionicons sürümünü buraya yazabilirsin.
 
+// Test amaçlı cache'i temizleme fonksiyonu
+export const __clearIconCache = () => {
+  Object.keys(iconCache).forEach((key) => delete iconCache[key]);
+};
+
 // 2. İkon adını alıp, onu CDN'den çeken ve Base64'e çeviren fonksiyon.
 async function getIconDataUri(iconName: string): Promise<string> {
   // Önbellekte varsa, anında geri döndür.
@@ -25,25 +30,21 @@ async function getIconDataUri(iconName: string): Promise<string> {
   // CDN'den SVG'nin ham metnini çek.
   const url =
     `https://unpkg.com/ionicons@${IONICONS_VERSION}/dist/svg/${iconName}.svg`;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`İkon sunucudan çekilemedi: ${response.statusText}`);
-    }
 
-    const svgText = await response.text();
-
-    // Ham metni Base64'e çevir ve data URI formatına sok.
-    const dataUri = `data:image/svg+xml;base64,${encode(svgText)}`;
-
-    // Gelecekteki kullanımlar için önbelleğe kaydet.
-    iconCache[iconName] = dataUri;
-
-    return dataUri;
-  } catch (error) {
-    console.error(`İkon yüklenemedi: ${iconName}`, error);
-    return ""; // Hata durumunda boş string döndür ki PDF çökmesin.
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`İkon sunucudan çekilemedi: ${response.statusText}`);
   }
+
+  const svgText = await response.text();
+
+  // Ham metni Base64'e çevir ve data URI formatına sok.
+  const dataUri = `data:image/svg+xml;base64,${encode(svgText)}`;
+
+  // Gelecekteki kullanımlar için önbelleğe kaydet.
+  iconCache[iconName] = dataUri;
+
+  return dataUri;
 }
 
 // ===================================
@@ -80,6 +81,16 @@ const buildAppQualityHtml = (
       key: "success_metric",
       title: "Başarı Ölçütü",
       iconName: "trophy-outline",
+    },
+    {
+      key: "roadblock",
+      title: "Engelin",
+      iconName: "close-circle-outline",
+    },
+    {
+      key: "support_system",
+      title: "Destek Sistemin",
+      iconName: "people-outline",
     },
     {
       key: "affirmation",
@@ -169,6 +180,8 @@ export const generatePdf = async (insight: InsightData, nickname: string) => {
       "rocket-outline",
       "leaf-outline",
       "trophy-outline",
+      "close-circle-outline",
+      "people-outline",
       "shield-checkmark-outline",
       "calendar-outline",
     ];
@@ -197,9 +210,10 @@ export const generatePdf = async (insight: InsightData, nickname: string) => {
     const file = await RNHTMLtoPDF.convert(options);
 
     if (file.filePath) {
-      const fileUri = Platform.OS === "ios"
-        ? file.filePath
-        : `file://${file.filePath}`;
+      // Platform.OS'u doğrudan kullan ki dinamik mock çalışsın
+      const fileUri = Platform.OS === "android"
+        ? `file://${file.filePath}`
+        : file.filePath;
       await Sharing.shareAsync(fileUri, {
         mimeType: "application/pdf",
         dialogTitle: "Raporunu Paylaş",

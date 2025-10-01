@@ -185,6 +185,77 @@ describe('useTextSessionReducer', () => {
             expect(newState.status).toBe('error');
             expect(newState.error).toBe('Sonlandırma hatası');
         });
+
+        it('SET_ENDING: isEnding değerini set etmeli', () => {
+            const newState = textSessionReducer(initialState, { type: 'SET_ENDING', payload: true });
+            expect(newState.isEnding).toBe(true);
+        });
+
+        it('SET_MOOD: currentMood değerini set etmeli', () => {
+            const newState = textSessionReducer(initialState, { type: 'SET_MOOD', payload: 'happy' });
+            expect(newState.currentMood).toBe('happy');
+        });
+
+        it('SET_INPUT: input değerini set etmeli', () => {
+            const newState = textSessionReducer(initialState, { type: 'SET_INPUT', payload: 'Yeni mesajım' });
+            expect(newState.input).toBe('Yeni mesajım');
+        });
+
+        it('SET_STATUS: status değerini set etmeli', () => {
+            const newState = textSessionReducer(initialState, { type: 'SET_STATUS', payload: 'loading' });
+            expect(newState.status).toBe('loading');
+        });
+
+        it('SEND_MESSAGE_START: isTyping zaten true ise state değişmemeli (kilit aktif)', () => {
+            const stateWithTyping: TextSessionState = { 
+                ...initialState, 
+                isTyping: true, 
+                input: 'Mesaj burada kalmalı' 
+            };
+            const newState = textSessionReducer(stateWithTyping, { type: 'SEND_MESSAGE_START' });
+            
+            // State hiç değişmemeli (kilit devreye girdi)
+            expect(newState).toBe(stateWithTyping);
+            expect(newState.input).toBe('Mesaj burada kalmalı');
+        });
+
+        it('INITIALIZE_NEW_SESSION: Boş session başlatmalı ve welcoming status\'u set etmeli', () => {
+            const stateWithData: TextSessionState = {
+                ...initialState,
+                messages: [{ sender: 'user', text: 'eski mesaj' }],
+                status: 'idle'
+            };
+            const newState = textSessionReducer(stateWithData, { type: 'INITIALIZE_NEW_SESSION' });
+            
+            expect(newState.messages).toHaveLength(0);
+            expect(newState.transcript).toBe('');
+            expect(newState.status).toBe('welcoming');
+        });
+
+        it('INITIALIZATION_ERROR: status\'u error yapmalı ve error mesajı set etmeli', () => {
+            const newState = textSessionReducer(initialState, { type: 'INITIALIZATION_ERROR', payload: 'Başlatma hatası' });
+            
+            expect(newState.status).toBe('error');
+            expect(newState.error).toBe('Başlatma hatası');
+        });
+
+        it('SET_ERROR: error değerini set etmeli', () => {
+            const newState = textSessionReducer(initialState, { type: 'SET_ERROR', payload: 'Test hatası' });
+            expect(newState.error).toBe('Test hatası');
+        });
+
+        it('SET_ERROR: null ile error\'u temizlemeli', () => {
+            const stateWithError: TextSessionState = { ...initialState, error: 'Eski hata' };
+            const newState = textSessionReducer(stateWithError, { type: 'SET_ERROR', payload: null });
+            expect(newState.error).toBeNull();
+        });
+
+        it('default case: Bilinmeyen action için state değişmemeli', () => {
+            const unknownAction = { type: 'UNKNOWN_ACTION' as any };
+            const newState = textSessionReducer(initialState, unknownAction);
+            
+            expect(newState).toBe(initialState);
+        });
     });
 
     // BÖLÜM 2: HOOK YAN ETKİLERİ TESTLERİ (RENDER GEREKTİRİR)
@@ -482,6 +553,30 @@ describe('useTextSessionReducer', () => {
             unmount(); // Test bittiğinde hook'u temizle
         });
 
+        it('pendingSessionId ile başlarken orchestrator başarılı olursa, AI mesajını eklemeli', async () => {
+            // ARRANGE
+            (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({ 
+                data: { aiResponse: 'Merhaba! Ben senin AI asistanınım.' }, 
+                error: null 
+            });
+
+            // ACT
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ 
+                pendingSessionId: 'pending-123', 
+                onSessionEnd: mockOnSessionEnd 
+            }));
+
+            // ASSERT
+            await waitFor(() => {
+                expect(result.current.state.status).toBe('idle');
+            });
+            expect(result.current.state.messages).toHaveLength(1);
+            expect(result.current.state.messages[0].sender).toBe('ai');
+            expect(result.current.state.messages[0].text).toBe('Merhaba! Ben senin AI asistanınım.');
+            
+            unmount();
+        });
+
         it('endSession, text_session update hatası verirse, yine de sonlanmalı', async () => {
             // ARRANGE
             const mockUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ error: new Error('Update Failed') }) });
@@ -597,6 +692,233 @@ describe('useTextSessionReducer', () => {
             expect(shouldPreventDefault).toBe(true);
             
             unmount(); // Test bittiğinde hook'u temizle
+        });
+
+        it('initialMood prop ile başlatılırsa SET_MOOD dispatch edilmeli', async () => {
+            // ARRANGE & ACT
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ 
+                initialMood: 'anxious', 
+                onSessionEnd: mockOnSessionEnd 
+            }));
+
+            // ASSERT
+            await waitFor(() => {
+                expect(result.current.state.currentMood).toBe('anxious');
+            });
+            
+            unmount();
+        });
+
+        it('endSession çağrıldığında, isEnding zaten true ise early return yapmalı', async () => {
+            // ARRANGE
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ onSessionEnd: mockOnSessionEnd }));
+            await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+            // isEnding'i manuel olarak true yap
+            act(() => {
+                result.current.state.isEnding = true;
+            });
+
+            // ACT
+            await act(async () => { await result.current.endSession(); });
+
+            // ASSERT
+            // Database işlemleri yapılmamalı (from çağrılmamalı)
+            expect(mockedSupabase.from).not.toHaveBeenCalled();
+            
+            unmount();
+        });
+
+        it('endSession, getUser başarısız olursa hata yakalamalı', async () => {
+            // ARRANGE
+            (mockedSupabase.auth.getUser as jest.Mock).mockResolvedValue({ data: { user: null } });
+            
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ onSessionEnd: mockOnSessionEnd }));
+            await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+            // Kullanıcı mesajı ekle
+            act(() => result.current.handleInputChange('Test mesajı'));
+            await act(async () => { await result.current.sendMessage(); });
+
+            // ACT
+            await act(async () => { await result.current.endSession(); });
+
+            // ASSERT
+            expect(result.current.state.status).toBe('error');
+            expect(result.current.state.error).toBe('Seans sonlandırılamadı');
+            expect(mockOnSessionEnd).toHaveBeenCalled();
+            
+            unmount();
+        });
+
+        it('sendMessage, API invoke error property ile hata verirse hatayı yakalamalı', async () => {
+            // ARRANGE
+            (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({ 
+                data: null, 
+                error: { message: 'API Error' } 
+            });
+
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ onSessionEnd: mockOnSessionEnd }));
+            await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+            act(() => result.current.handleInputChange('Test mesajı'));
+
+            // ACT
+            await act(async () => { await result.current.sendMessage(); });
+
+            // ASSERT
+            await waitFor(() => {
+                expect(result.current.state.messages).toHaveLength(1);
+            });
+            expect(result.current.state.messages[0].status).toBe('failed');
+            expect(result.current.state.error).toBe('Mesaj gönderilemedi');
+            
+            unmount();
+        });
+
+        it('endSession özet update hatası verirse console.warn çağırmalı', async () => {
+            const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+            
+            // ARRANGE
+            (mockedSupabase.functions.invoke as jest.Mock)
+                .mockResolvedValueOnce({ data: { aiResponse: 'AI cevabı' } })
+                .mockResolvedValueOnce({ data: { summary: 'Özet' } });
+                
+            const mockUpdateEq = jest.fn()
+                .mockResolvedValueOnce({ error: null }) // İlk update (text_session)
+                .mockRejectedValueOnce(new Error('Update Failed')); // İkinci update (summary)
+            const mockUpdate = jest.fn().mockReturnValue({ eq: mockUpdateEq });
+            
+            (mockedSupabase.from as jest.Mock).mockImplementation((tableName) => {
+                if (tableName === 'events') {
+                    return { 
+                        update: mockUpdate,
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        gte: jest.fn().mockReturnThis(),
+                        order: jest.fn().mockReturnThis(),
+                        limit: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({ data: { created_at: '2024-01-01T12:00:00Z', id: 'session-end-id' }, error: null }),
+                        insert: jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: jest.fn().mockResolvedValue({ data: { id: 'session-end-id' }, error: null }) }) })
+                    };
+                }
+                return {};
+            });
+
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ eventId: 'history-123', onSessionEnd: mockOnSessionEnd }));
+            await waitFor(() => expect(result.current.state.status).toBe('idle'));
+            
+            // ACT
+            act(() => result.current.handleInputChange('Yeni mesaj'));
+            await act(async () => { await result.current.sendMessage(); });
+            await act(async () => { await result.current.endSession(); });
+            
+            // ASSERT
+            await waitFor(() => {
+                expect(mockConsoleWarn).toHaveBeenCalledWith(
+                    'session_end summary update exception',
+                    expect.any(Error)
+                );
+            });
+            
+            mockConsoleWarn.mockRestore();
+            unmount();
+        });
+
+        it('endSession özet invoke error property ile hata verirse, console.error çağırmalı', async () => {
+            const mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
+            
+            // ARRANGE
+            (mockedSupabase.functions.invoke as jest.Mock)
+                .mockResolvedValueOnce({ data: { aiResponse: 'AI cevabı' } })
+                .mockResolvedValueOnce({ data: null, error: { message: 'Özet hatası' } }); // özet invoke error
+                
+            const mockUpdateEq = jest.fn().mockResolvedValue({ error: null });
+            const mockUpdate = jest.fn().mockReturnValue({ eq: mockUpdateEq });
+            
+            (mockedSupabase.from as jest.Mock).mockImplementation((tableName) => {
+                if (tableName === 'events') {
+                    return { 
+                        update: mockUpdate,
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        gte: jest.fn().mockReturnThis(),
+                        order: jest.fn().mockReturnThis(),
+                        limit: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({ data: { created_at: '2024-01-01T12:00:00Z', id: 'session-end-id' }, error: null }),
+                        insert: jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: jest.fn().mockResolvedValue({ data: { id: 'session-end-id' }, error: null }) }) })
+                    };
+                }
+                return {};
+            });
+
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ eventId: 'history-123', onSessionEnd: mockOnSessionEnd }));
+            await waitFor(() => expect(result.current.state.status).toBe('idle'));
+            
+            // ACT
+            act(() => result.current.handleInputChange('Yeni mesaj'));
+            await act(async () => { await result.current.sendMessage(); });
+            await act(async () => { await result.current.endSession(); });
+            
+            // ASSERT
+            await waitFor(() => {
+                expect(mockConsoleError).toHaveBeenCalledWith(
+                    'Arka plan hafıza işleme hatası:',
+                    expect.objectContaining({ message: 'Özet hatası' })
+                );
+            });
+            
+            mockConsoleError.mockRestore();
+            unmount();
+        });
+
+        it('endSession summary update error property ile hata verirse, console.warn çağırmalı', async () => {
+            const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+            
+            // ARRANGE
+            (mockedSupabase.functions.invoke as jest.Mock)
+                .mockResolvedValueOnce({ data: { aiResponse: 'AI cevabı' } })
+                .mockResolvedValueOnce({ data: { summary: 'Özet başarılı' } });
+                
+            const mockUpdateEq = jest.fn()
+                .mockResolvedValueOnce({ error: null }) // İlk update (text_session)
+                .mockResolvedValueOnce({ error: { message: 'Update Failed' } }); // İkinci update (summary) error property
+            const mockUpdate = jest.fn().mockReturnValue({ eq: mockUpdateEq });
+            
+            (mockedSupabase.from as jest.Mock).mockImplementation((tableName) => {
+                if (tableName === 'events') {
+                    return { 
+                        update: mockUpdate,
+                        select: jest.fn().mockReturnThis(),
+                        eq: jest.fn().mockReturnThis(),
+                        gte: jest.fn().mockReturnThis(),
+                        order: jest.fn().mockReturnThis(),
+                        limit: jest.fn().mockReturnThis(),
+                        maybeSingle: jest.fn().mockResolvedValue({ data: { created_at: '2024-01-01T12:00:00Z', id: 'session-end-id' }, error: null }),
+                        insert: jest.fn().mockReturnValue({ select: jest.fn().mockReturnValue({ single: jest.fn().mockResolvedValue({ data: { id: 'session-end-id' }, error: null }) }) })
+                    };
+                }
+                return {};
+            });
+
+            const { result, unmount } = renderHook(() => useTextSessionReducer({ eventId: 'history-123', onSessionEnd: mockOnSessionEnd }));
+            await waitFor(() => expect(result.current.state.status).toBe('idle'));
+            
+            // ACT
+            act(() => result.current.handleInputChange('Yeni mesaj'));
+            await act(async () => { await result.current.sendMessage(); });
+            await act(async () => { await result.current.endSession(); });
+            
+            // ASSERT
+            await waitFor(() => {
+                expect(mockConsoleWarn).toHaveBeenCalledWith(
+                    'session_end summary update failed',
+                    expect.objectContaining({ message: 'Update Failed' })
+                );
+            });
+            
+            mockConsoleWarn.mockRestore();
+            unmount();
         });
   });
 });
