@@ -1,8 +1,8 @@
 // supabase/functions/_shared/contexts/dream.context.service.ts
 
-import { supabase as adminClient } from "../supabase-admin.ts";
-import * as RagService from "../rag.service.ts";
-import * as AiService from "../ai.service.ts";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as RagService from "../services/rag.service.ts";
+import * as AiService from "../services/ai.service.ts";
 import { config } from "../config.ts";
 import { logRagInvocation } from "../utils/logging.service.ts";
 
@@ -16,28 +16,32 @@ export interface DreamAnalysisDossier {
 }
 
 // Bu fonksiyon, eskiden orchestration.handlers.ts içindeydi. Artık merkezi ve test edilebilir.
-async function prepareDreamAnalysisDossier(
+export async function prepareDreamAnalysisDossier(
+  supabaseClient: SupabaseClient,
   userId: string,
 ): Promise<DreamAnalysisDossier> {
   const results = await Promise.allSettled([
-    adminClient.from("user_vaults").select("vault_data").eq("user_id", userId)
+    supabaseClient.from("user_vaults").select("vault_data").eq(
+      "user_id",
+      userId,
+    )
       .single(),
-    adminClient
+    supabaseClient
       .from("user_traits")
       .select("confidence, anxiety_level, motivation, openness, neuroticism")
       .eq("user_id", userId)
       .maybeSingle(),
-    adminClient.from("events").select("type, created_at, data").eq(
+    supabaseClient.from("events").select("type, created_at, data").eq(
       "user_id",
       userId,
     )
       .order("created_at", { ascending: false }).limit(5),
-    adminClient.from("predicted_outcomes").select("title, description").eq(
+    supabaseClient.from("predicted_outcomes").select("title, description").eq(
       "user_id",
       userId,
     )
       .gt("expires_at", new Date().toISOString()),
-    adminClient.from("journey_logs").select("log_text").eq("user_id", userId)
+    supabaseClient.from("journey_logs").select("log_text").eq("user_id", userId)
       .order("created_at", { ascending: false }).limit(3),
   ]);
 
@@ -58,8 +62,15 @@ async function prepareDreamAnalysisDossier(
     ? results[4].value
     : { data: [], error: results[4].reason };
 
-  // Hataları logla ama sistemi durdurma
-  if (vaultResult.error) console.error("Vault çekilemedi:", vaultResult.error);
+  // Kritik veri eksikse hata fırlat
+  if (vaultResult.error) {
+    console.error("Vault çekilemedi:", vaultResult.error);
+    throw new Error(
+      `Kritik veri eksik: Vault bilgisi alınamadı - ${vaultResult.error}`,
+    );
+  }
+
+  // Diğer hataları logla ama sistemi durdurma
   if (traitsResult.error) {
     console.error("Traits çekilemedi:", traitsResult.error);
   }
@@ -117,7 +128,13 @@ async function prepareDreamAnalysisDossier(
 }
 
 // RAG bağlamını zenginleştirme fonksiyonu
-async function getEnhancedDreamRagContext(
+export async function getEnhancedDreamRagContext(
+  dependencies: {
+    supabaseClient: SupabaseClient;
+    aiService: typeof AiService;
+    ragService: typeof RagService;
+    logRagInvocation: typeof logRagInvocation;
+  },
   userId: string,
   dreamText: string,
   transactionId?: string,
@@ -125,12 +142,17 @@ async function getEnhancedDreamRagContext(
   try {
     const themePrompt =
       `Şu rüyanın 1-3 anahtar kelimelik temasını çıkar: "${dreamText}". Sadece temaları virgülle ayırarak yaz.`;
-    const themes = await AiService.invokeGemini(
+    const themes = await dependencies.aiService.invokeGemini(
+      dependencies.supabaseClient,
       themePrompt,
       config.AI_MODELS.FAST,
     );
     const enrichedQuery = `${dreamText} ${themes}`;
-    const retrievedMemories = await RagService.retrieveContext(
+    const retrievedMemories = await dependencies.ragService.retrieveContext(
+      {
+        supabaseClient: dependencies.supabaseClient,
+        aiService: dependencies.aiService,
+      },
       userId,
       enrichedQuery,
       {
@@ -141,7 +163,7 @@ async function getEnhancedDreamRagContext(
 
     // MİKROSKOP BURADA - loglama yap
     if (transactionId) {
-      await logRagInvocation(adminClient, {
+      await dependencies.logRagInvocation(dependencies.supabaseClient, {
         transaction_id: transactionId,
         user_id: userId,
         source_function: "dream_analysis",
@@ -159,7 +181,11 @@ async function getEnhancedDreamRagContext(
       e,
     );
     // Fallback: Sadece rüya metni ile arama yap
-    const retrievedMemories = await RagService.retrieveContext(
+    const retrievedMemories = await dependencies.ragService.retrieveContext(
+      {
+        supabaseClient: dependencies.supabaseClient,
+        aiService: dependencies.aiService,
+      },
       userId,
       dreamText,
       {
@@ -172,13 +198,24 @@ async function getEnhancedDreamRagContext(
 }
 
 export async function buildDreamAnalysisContext(
+  dependencies: {
+    supabaseClient: SupabaseClient;
+    aiService: typeof AiService;
+    ragService: typeof RagService;
+    logRagInvocation: typeof logRagInvocation;
+  },
   userId: string,
   dreamText: string,
   transactionId: string,
 ) {
   const [userDossier, ragContextString] = await Promise.all([
-    prepareDreamAnalysisDossier(userId),
-    getEnhancedDreamRagContext(userId, dreamText, transactionId),
+    prepareDreamAnalysisDossier(dependencies.supabaseClient, userId),
+    getEnhancedDreamRagContext(
+      dependencies,
+      userId,
+      dreamText,
+      transactionId,
+    ),
   ]);
 
   // ARTIK STRING'E ÇEVİRMEK YOK. HAM OBJEYİ DÖNDÜRÜYORUZ.

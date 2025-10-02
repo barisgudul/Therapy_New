@@ -3,7 +3,8 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
-import { BehavioralPatternAnalyzer } from "../_shared/behavioral-pattern-analyzer.service.ts";
+import { BehavioralPatternAnalyzer } from "../_shared/services/behavioral-pattern-analyzer.service.ts";
+import { invokeGemini } from "../_shared/ai.service.ts";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -33,7 +34,12 @@ serve(async (req: Request) => {
     }
 
     // Analiz servisini çağır
+    const dependencies = {
+      supabaseClient: adminClient,
+      aiService: { invokeGemini },
+    };
     const analysisResult = await BehavioralPatternAnalyzer.analyzePatterns(
+      dependencies,
       user.id,
       days,
     );

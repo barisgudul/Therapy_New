@@ -1,7 +1,8 @@
 // supabase/functions/_shared/contexts/dailyReflection.context.service.ts
 
-import { supabase as adminClient } from "../supabase-admin.ts";
-import * as RagService from "../rag.service.ts";
+import { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import * as RagService from "../services/rag.service.ts";
+import * as AiService from "../services/ai.service.ts";
 import { config } from "../config.ts";
 
 // Günlük yansıma için gerekli veri yapıları
@@ -12,7 +13,8 @@ export interface DailyReflectionDossier {
 }
 
 // Bu fonksiyon, eskiden orchestration.handlers.ts içindeydi. Artık merkezi ve test edilebilir.
-async function prepareDailyReflectionDossier(
+export async function prepareDailyReflectionDossier(
+  supabaseClient: SupabaseClient,
   userId: string,
 ): Promise<DailyReflectionDossier> {
   try {
@@ -22,12 +24,16 @@ async function prepareDailyReflectionDossier(
     const yesterdayISO = yesterday.toISOString().split("T")[0];
 
     // SADECE dünün daily_reflection'ını bul. Başka hiçbir şeye bakma.
-    const { data: yesterdayEvent, error: yesterdayError } = await adminClient
+    const yesterdayStart = `${yesterdayISO}T00:00:00.000Z`;
+    const yesterdayEnd = `${yesterdayISO}T23:59:59.999Z`;
+
+    const { data: yesterdayEvent, error: yesterdayError } = await supabaseClient
       .from("events")
       .select("mood, data") // Sadece mood ve data'yı çek
       .eq("user_id", userId)
       .eq("type", "daily_reflection")
-      .like("created_at", `${yesterdayISO}%`)
+      .gte("created_at", yesterdayStart)
+      .lt("created_at", yesterdayEnd)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -39,7 +45,7 @@ async function prepareDailyReflectionDossier(
     }
 
     // Kullanıcı adını vault'tan çek
-    const { data: vaultData, error: vaultError } = await adminClient
+    const { data: vaultData, error: vaultError } = await supabaseClient
       .from("user_vaults")
       .select("vault_data")
       .eq("user_id", userId)
@@ -66,12 +72,18 @@ async function prepareDailyReflectionDossier(
 
 // BU FONKSİYON, GÜNLÜK YANSIŞMA İÇİN GEREKLİ TÜM BİLGİYİ TOPLAYAN BEYİNDİR.
 export async function buildDailyReflectionContext(
+  supabaseClient: SupabaseClient,
+  ragService: typeof RagService,
   userId: string,
   todayNote: string,
 ) {
   const [dossier, retrievedMemories] = await Promise.all([
-    prepareDailyReflectionDossier(userId),
-    RagService.retrieveContext(
+    prepareDailyReflectionDossier(supabaseClient, userId),
+    ragService.retrieveContext(
+      {
+        supabaseClient: supabaseClient,
+        aiService: AiService,
+      },
       userId,
       todayNote, // Bugünün notuyla ilgili anıları ara
       {

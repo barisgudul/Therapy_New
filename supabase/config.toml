@@ -53,5 +53,3 @@ import_map = "./functions/reset-user-data/deno.json"
 verify_jwt = true
 import_map = "./functions/cancel-deletion/deno.json"
 
-# execute-scheduled-deletions fonksiyonu için özel bir ayar (schedule dışında) gerekmediğinden,
-# burada bir blok olmasına gerek yoktur. Zamanlama, deploy komutuyla belirtilecektir.

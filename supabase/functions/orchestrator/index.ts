@@ -3,12 +3,22 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { cors, corsHeaders as _corsHeaders } from "../_shared/cors.ts";
 import { supabase as adminClient } from "../_shared/supabase-admin.ts";
 import { getUserVault } from "../_shared/vault.service.ts";
-import { eventHandlers } from "../_shared/orchestration.handlers.ts";
-import type { EventPayload } from "../_shared/event.service.ts";
+import {
+  eventHandlers,
+  type HandlerDependencies,
+} from "../_shared/services/orchestration.handlers.ts";
+import type { EventPayload } from "../_shared/services/event.service.ts";
 import type { InteractionContext } from "../_shared/types/context.ts";
 import { isAppError } from "../_shared/errors.ts";
 import { LoggingService } from "../_shared/utils/LoggingService.ts";
 import { assertAndConsumeQuota, type FeatureKey } from "../_shared/quota.ts";
+import * as AiService from "../_shared/services/ai.service.ts";
+import * as VaultService from "../_shared/services/vault.service.ts";
+import * as RagService from "../_shared/services/rag.service.ts";
+import * as Context from "../_shared/contexts/session.context.builder.ts";
+import * as DailyReflectionContext from "../_shared/contexts/dailyReflection.context.service.ts";
+import * as DreamContext from "../_shared/contexts/dream.context.service.ts";
+import { logRagInvocation } from "../_shared/utils/logging.service.ts";
 
 function generateId(): string {
   // Deno'da crypto.randomUUID() standarttır ve daha güvenlidir.
@@ -97,6 +107,21 @@ serve(async (req: Request) => {
       derivedData: {},
     };
 
+    // DEPENDENCIES OLUŞTUR
+    const dependencies: HandlerDependencies = {
+      supabaseClient: adminClient,
+      aiService: AiService,
+      vaultService: VaultService,
+      ragService: RagService,
+      logRagInvocation,
+      contextBuilder: {
+        buildTextSessionContext: Context.buildTextSessionContext,
+        buildDailyReflectionContext:
+          DailyReflectionContext.buildDailyReflectionContext,
+        buildDreamAnalysisContext: DreamContext.buildDreamAnalysisContext,
+      },
+    };
+
     // DOĞRU HANDLER'I BUL VE ÇALIŞTIR
     const handler = eventHandlers[eventPayload.type] ||
       eventHandlers["default"];
@@ -104,7 +129,7 @@ serve(async (req: Request) => {
       throw new Error(`'${eventPayload.type}' için handler bulunamadı.`);
     }
 
-    const result = await handler(context);
+    const result = await handler(dependencies, context);
 
     // SON DİKİŞ: DÖNEN SONUCUN TİPİNİ KONTROL ET VE STANDARTLAŞTIR
     let responsePayload: unknown;
