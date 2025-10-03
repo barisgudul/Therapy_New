@@ -1,16 +1,20 @@
 // supabase/functions/update-satisfaction-score/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { supabase as adminClient } from "../_shared/supabase-admin.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 import { ValidationError } from "../_shared/errors.ts";
 import { LoggingService } from "../_shared/utils/LoggingService.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 interface UpdateSatisfactionRequest {
   log_id: string;
   score: number;
 }
 
-serve(async (req: Request) => {
+export async function handleUpdateSatisfaction(
+  req: Request,
+  providedClient?: SupabaseClient,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -22,6 +26,7 @@ serve(async (req: Request) => {
       throw new ValidationError("Yetkilendirme başlığı eksik");
     }
 
+    const adminClient = providedClient ?? getSupabaseAdmin();
     const jwt = authHeader.replace("Bearer ", "");
     const { data: { user } } = await adminClient.auth.getUser(jwt);
     if (!user) {
@@ -110,4 +115,6 @@ serve(async (req: Request) => {
       },
     );
   }
-});
+}
+
+serve((req: Request) => handleUpdateSatisfaction(req));

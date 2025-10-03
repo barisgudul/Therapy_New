@@ -8,7 +8,7 @@ function getErrorMessage(error: unknown): string {
     return String(error);
 }
 
-Deno.serve(async (req) => {
+async function handleDeleteSessionAndMemories(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -25,6 +25,11 @@ Deno.serve(async (req) => {
         const supabaseAdmin = createClient(
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                },
+            },
         );
 
         // KULLANICI KİMLİK DOĞRULAMA
@@ -133,4 +138,11 @@ Deno.serve(async (req) => {
             status: 500,
         });
     }
-});
+}
+
+export { handleDeleteSessionAndMemories };
+
+// Sunucuyu sadece dosya doğrudan çalıştırıldığında başlat
+if (import.meta.main) {
+    Deno.serve(handleDeleteSessionAndMemories);
+}

@@ -2,25 +2,39 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { cors, corsHeaders as _corsHeaders } from "../_shared/cors.ts";
 import { assertRateLimit } from "../_shared/rate-limit.ts";
-import * as AiService from "../_shared/ai.service.ts";
-import * as RagService from "../_shared/rag.service.ts";
-import { supabase as adminClient } from "../_shared/supabase-admin.ts";
+import * as AiService from "../_shared/services/ai.service.ts";
+import * as RagService from "../_shared/services/rag.service.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 import { config } from "../_shared/config.ts";
 import { assertAndConsumeQuota } from "../_shared/quota.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 // RAG_CONFIG için geriye uyumluluk - artık config.RAG_PARAMS.DEFAULT kullanıyoruz
 
+// Dependency injection interfaces
+interface VoiceSessionDependencies {
+  supabaseClient?: SupabaseClient;
+  aiService?: typeof AiService;
+  ragService?: typeof RagService;
+  assertRateLimit?: typeof assertRateLimit;
+  assertAndConsumeQuota?: typeof assertAndConsumeQuota;
+}
+
 // Loglama fonksiyonu
-async function logAiDecision(logData: {
-  transactionId: string;
-  userId: string;
-  intent: string;
-  ragQuery: string;
-  ragResults: unknown[];
-  finalPrompt: string;
-  finalResponse: string;
-  executionTimeMs: number;
-  success: boolean;
-}) {
+async function logAiDecision(
+  logData: {
+    transactionId: string;
+    userId: string;
+    intent: string;
+    ragQuery: string;
+    ragResults: unknown[];
+    finalPrompt: string;
+    finalResponse: string;
+    executionTimeMs: number;
+    success: boolean;
+  },
+  providedClient?: SupabaseClient,
+) {
+  const adminClient = providedClient ?? getSupabaseAdmin();
   const { error } = await adminClient.from("ai_logs").insert({
     transaction_id: logData.transactionId,
     user_id: logData.userId,
@@ -39,7 +53,10 @@ async function logAiDecision(logData: {
   }
 }
 
-serve(async (req) => {
+export async function handleVoiceSession(
+  req: Request,
+  dependencies?: VoiceSessionDependencies,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: { ...cors(req) } });
   }
@@ -56,6 +73,7 @@ serve(async (req) => {
     }
 
     const jwt = authHeader.replace("Bearer ", "");
+    const adminClient = dependencies?.supabaseClient ?? getSupabaseAdmin();
     const { data: { user }, error: authError } = await adminClient.auth.getUser(
       jwt,
     );
@@ -67,8 +85,9 @@ serve(async (req) => {
 
     // Basit rate limit (5 dk / 200 istek örneği)
     try {
+      const rateLimitFn = dependencies?.assertRateLimit ?? assertRateLimit;
       // @ts-ignore (tip uyarısı varsa)
-      await assertRateLimit(adminClient, userId, "voice_session", 200, 300);
+      await rateLimitFn(adminClient, userId, "voice_session", 200, 300);
     } catch (e) {
       const status = (e as Error & { status?: number }).status ?? 429;
       return new Response(JSON.stringify({ error: "rate_limited" }), {
@@ -131,7 +150,9 @@ serve(async (req) => {
     }
 
     try {
-      await assertAndConsumeQuota(
+      const quotaFn = dependencies?.assertAndConsumeQuota ??
+        assertAndConsumeQuota;
+      await quotaFn(
         adminClient,
         userId,
         "voice_minutes",
@@ -159,7 +180,9 @@ serve(async (req) => {
     const intentPrompt =
       `Bu mesajın niyetini şu kategorilerden biriyle etiketle: [Greeting, Question, DeepThought, Farewell, Trivial]. Cevabın SADECE JSON formatında olsun. Örnek: {"intent": "Question"}. Mesaj: "${userMessage}"`;
 
-    const rawIntent = await AiService.invokeGemini(
+    const aiService = dependencies?.aiService ?? AiService;
+    const rawIntent = await aiService.invokeGemini(
+      adminClient,
       intentPrompt,
       config.AI_MODELS.INTENT,
       { responseMimeType: "application/json" },
@@ -209,14 +232,20 @@ serve(async (req) => {
         `Kullanıcının şu konuşmasını dinle: "${userMessage}". Bu cümlenin arkasındaki asıl niyeti ve duyguyu yansıtan, hafıza veritabanında arama yapmak için kullanılabilecek ideal bir anı metni oluştur. Konuşma dili bazen daha dağınık ve anlık olabilir, bu yüzden cümlenin özünü yakala. Cevabın SADECE bu üretilen metin olsun.`;
 
       // 2. Hızlı ve ucuz bir modelle bu varsayımsal metni (gelişmiş sorguyu) üret.
-      const enhancedQuery = await AiService.invokeGemini(
+      const enhancedQuery = await aiService.invokeGemini(
+        adminClient,
         hydePrompt,
         config.AI_MODELS.INTENT, // Yine hızlı olanı kullan
         { temperature: 0.3 }, // Yaratıcılık değil, tutarlılık lazım
       );
 
       // 3. RAG servisini, kullanıcının ham mesajıyla değil, bu yeni ürettiğimiz zeki sorguyla çağır!
-      retrievedMemories = await RagService.retrieveContext(
+      const ragService = dependencies?.ragService ?? RagService;
+      retrievedMemories = await ragService.retrieveContext(
+        {
+          supabaseClient: adminClient,
+          aiService: aiService,
+        },
         userId,
         enhancedQuery, // BURASI DEĞİŞTİ!
         {
@@ -268,7 +297,8 @@ ${
         : ""
     }`;
 
-    const aiResponseText = await AiService.invokeGemini(
+    const aiResponseText = await aiService.invokeGemini(
+      adminClient,
       masterPrompt,
       config.AI_MODELS.RESPONSE,
       { temperature: 0.8 },
@@ -296,7 +326,7 @@ ${
         ),
         executionTimeMs: executionTime,
         success: true,
-      });
+      }, adminClient);
     } catch (logError) {
       console.error("Loglama hatası:", logError);
       // Loglama hatası ana işlemi etkilemesin
@@ -331,7 +361,7 @@ ${
         finalResponse: "",
         executionTimeMs: executionTime,
         success: false,
-      });
+      }, dependencies?.supabaseClient);
     } catch (logError) {
       console.error("Hata loglama hatası:", logError);
     }
@@ -345,4 +375,6 @@ ${
       status: 500,
     });
   }
-});
+}
+
+serve((req: Request) => handleVoiceSession(req));

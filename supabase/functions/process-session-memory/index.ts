@@ -1,8 +1,8 @@
 // supabase/functions/process-session-memory/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { supabase as adminClient } from "../_shared/supabase-admin.ts";
-import * as AiService from "../_shared/ai.service.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
+import * as AiService from "../_shared/services/ai.service.ts";
 import { config, LLM_LIMITS } from "../_shared/config.ts";
 
 const getSummaryPrompt = (transcript: string) =>
@@ -31,6 +31,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization")!;
     const jwt = authHeader.replace("Bearer ", "");
+    const adminClient = getSupabaseAdmin();
     const { data: { user } } = await adminClient.auth.getUser(jwt);
     if (!user) throw new Error("Kullanıcı doğrulanamadı.");
 
@@ -57,6 +58,7 @@ serve(async (req) => {
     };
 
     const summary = await AiService.invokeGemini(
+      adminClient,
       `${langHint[lang]}\n\n${getSummaryPrompt(transcript)}`,
       config.AI_MODELS.INTENT,
       { maxOutputTokens: LLM_LIMITS.SESSION_SUMMARY, temperature: 0.2 },

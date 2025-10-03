@@ -1,8 +1,8 @@
 // supabase/functions/orchestrator/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { cors, corsHeaders as _corsHeaders } from "../_shared/cors.ts";
-import { supabase as adminClient } from "../_shared/supabase-admin.ts";
-import { getUserVault } from "../_shared/vault.service.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
+import { getUserVault } from "../_shared/services/vault.service.ts";
 import {
   eventHandlers,
   type HandlerDependencies,
@@ -19,6 +19,25 @@ import * as Context from "../_shared/contexts/session.context.builder.ts";
 import * as DailyReflectionContext from "../_shared/contexts/dailyReflection.context.service.ts";
 import * as DreamContext from "../_shared/contexts/dream.context.service.ts";
 import { logRagInvocation } from "../_shared/utils/logging.service.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// Dependency injection interfaces
+interface OrchestratorDependencies {
+  supabaseClient?: SupabaseClient;
+  aiService?: typeof AiService;
+  vaultService?: typeof VaultService;
+  ragService?: typeof RagService;
+  contextBuilder?: {
+    buildTextSessionContext: typeof Context.buildTextSessionContext;
+    buildDailyReflectionContext:
+      typeof DailyReflectionContext.buildDailyReflectionContext;
+    buildDreamAnalysisContext: typeof DreamContext.buildDreamAnalysisContext;
+  };
+  logRagInvocation?: typeof logRagInvocation;
+  assertAndConsumeQuota?: typeof assertAndConsumeQuota;
+  getUserVault?: typeof getUserVault;
+  eventHandlers?: typeof eventHandlers;
+}
 
 function generateId(): string {
   // Deno'da crypto.randomUUID() standarttır ve daha güvenlidir.
@@ -40,7 +59,10 @@ function mapEventTypeToFeature(type: string): FeatureKey | null {
   }
 }
 
-serve(async (req: Request) => {
+export async function handleOrchestrator(
+  req: Request,
+  dependencies?: OrchestratorDependencies,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: { ...cors(req) } });
   }
@@ -52,6 +74,7 @@ serve(async (req: Request) => {
     const { eventPayload } = body as { eventPayload: EventPayload };
 
     // GÜVENLİK KONTROLÜ
+    const adminClient = dependencies?.supabaseClient ?? getSupabaseAdmin();
     const authHeader = req.headers.get("Authorization")!;
     const jwt = authHeader.replace("Bearer ", "");
     const { data: { user } } = await adminClient.auth.getUser(jwt);
@@ -64,13 +87,15 @@ serve(async (req: Request) => {
     const feature = mapEventTypeToFeature(eventPayload.type);
     if (feature) {
       try {
-        await assertAndConsumeQuota(adminClient, user.id, feature, 1);
+        const quotaFn = dependencies?.assertAndConsumeQuota ??
+          assertAndConsumeQuota;
+        await quotaFn(adminClient, user.id, feature, 1);
       } catch (quotaError) {
         const status =
           (quotaError as { status?: number } | undefined)?.status ?? 500;
         const message = status === 402
           ? "quota_exceeded"
-          : "internal_server_error";
+          : (quotaError as Error)?.message || "internal_server_error";
         return new Response(JSON.stringify({ error: message }), {
           headers: {
             ...cors(req),
@@ -91,7 +116,8 @@ serve(async (req: Request) => {
       eventType: eventPayload.type,
     });
 
-    const initialVault = await getUserVault(user.id, adminClient) ?? {};
+    const getUserVaultFn = dependencies?.getUserVault ?? getUserVault;
+    const initialVault = await getUserVaultFn(user.id, adminClient) ?? {};
     const context: InteractionContext = {
       transactionId,
       userId: user.id,
@@ -108,13 +134,13 @@ serve(async (req: Request) => {
     };
 
     // DEPENDENCIES OLUŞTUR
-    const dependencies: HandlerDependencies = {
+    const handlerDependencies: HandlerDependencies = {
       supabaseClient: adminClient,
-      aiService: AiService,
-      vaultService: VaultService,
-      ragService: RagService,
-      logRagInvocation,
-      contextBuilder: {
+      aiService: dependencies?.aiService ?? AiService,
+      vaultService: dependencies?.vaultService ?? VaultService,
+      ragService: dependencies?.ragService ?? RagService,
+      logRagInvocation: dependencies?.logRagInvocation ?? logRagInvocation,
+      contextBuilder: dependencies?.contextBuilder ?? {
         buildTextSessionContext: Context.buildTextSessionContext,
         buildDailyReflectionContext:
           DailyReflectionContext.buildDailyReflectionContext,
@@ -123,13 +149,13 @@ serve(async (req: Request) => {
     };
 
     // DOĞRU HANDLER'I BUL VE ÇALIŞTIR
-    const handler = eventHandlers[eventPayload.type] ||
-      eventHandlers["default"];
+    const handlers = dependencies?.eventHandlers ?? eventHandlers;
+    const handler = handlers[eventPayload.type] || handlers["default"];
     if (!handler) {
       throw new Error(`'${eventPayload.type}' için handler bulunamadı.`);
     }
 
-    const result = await handler(dependencies, context);
+    const result = await handler(handlerDependencies, context);
 
     // SON DİKİŞ: DÖNEN SONUCUN TİPİNİ KONTROL ET VE STANDARTLAŞTIR
     let responsePayload: unknown;
@@ -151,40 +177,27 @@ serve(async (req: Request) => {
       status: 200,
     });
   } catch (error) {
-    console.error(
-      "[Orchestrator] KRİTİK HATA:",
-      (error as Error)?.message,
-      error,
-    );
+    const message = (error as Error)?.message || "Bilinmeyen bir hata oluştu.";
+    console.error("[Orchestrator] KRİTİK HATA:", message, error);
 
-    let responseBody: { error: string; code: string };
-    let statusCode: number;
+    // Hatanın bizim özel hatamız olup olmadığını kontrol et
+    const isValidationError = isAppError(error);
 
-    // Hatanın bizim tanımladığımız özel bir hata olup olmadığını kontrol ediyoruz
-    if (isAppError(error)) {
-      responseBody = {
-        error: error.message,
-        code: error.code, // Hatanın etiketini (örn: "VALIDATION_ERROR") ekliyoruz
-      };
-      // Genellikle kullanıcıdan kaynaklı hatalar 400'dür.
-      statusCode = 400;
-    } else {
-      // Eğer bizim tanımlamadığımız, beklenmedik bir sistem hatasıysa
-      responseBody = {
-        error: "Sistemde beklenmedik bir sorun oluştu.",
-        code: "INTERNAL_SERVER_ERROR", // Genel sistem hatası etiketi
-      };
-      // Bu bizim suçumuz, sunucu hatası olarak 500 dönmeliyiz.
-      statusCode = 500;
-    }
-
-    return new Response(JSON.stringify(responseBody), {
-      headers: {
-        ...cors(req),
-        "x-correlation-id": cid,
-        "Content-Type": "application/json",
+    return new Response(
+      JSON.stringify({
+        error: message,
+        code: isValidationError ? error.code : "INTERNAL_SERVER_ERROR",
+      }),
+      {
+        headers: {
+          ...cors(req),
+          "x-correlation-id": cid,
+          "Content-Type": "application/json",
+        },
+        status: isValidationError ? 400 : 500, // Validation hataları için 400, diğer her şey için 500 dön
       },
-      status: statusCode,
-    });
+    );
   }
-});
+}
+
+serve((req: Request) => handleOrchestrator(req));

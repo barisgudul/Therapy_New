@@ -1,8 +1,12 @@
 // supabase/functions/process-memory/index.ts
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { embedContentsBatch, invokeGemini } from "../_shared/ai.service.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
+import {
+  embedContentsBatch,
+  invokeGemini,
+} from "../_shared/services/ai.service.ts";
 
 // Gelen isteğin neye benzemesi gerektiğini tanımlıyoruz.
 interface RequestBody {
@@ -21,7 +25,18 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-Deno.serve(async (req) => {
+// AI servisleri için interface
+interface AiServices {
+  invokeGemini: typeof invokeGemini;
+  embedContentsBatch: typeof embedContentsBatch;
+}
+
+// Test edilebilir ana fonksiyon
+async function handleProcessMemory(
+  req: Request,
+  providedClient?: SupabaseClient,
+  providedAiServices?: AiServices,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -33,10 +48,25 @@ Deno.serve(async (req) => {
       user_id,
       content,
       event_time,
-      mood, // ARTIK BÖYLE
-      event_type, // ARTIK BÖYLE
+      mood,
+      event_type,
       transaction_id,
     } = body;
+
+    // Gerekli alanları kontrol et
+    if (!source_event_id || !user_id || !content || !event_time) {
+      throw new Error(
+        "Gerekli alanlar eksik: source_event_id, user_id, content, event_time",
+      );
+    }
+
+    // Bağımlılıkları belirle - test için sahte olanları kullan veya gerçek olanları oluştur
+    const adminClient = providedClient ?? getSupabaseAdmin();
+
+    const aiServices = providedAiServices ?? {
+      invokeGemini,
+      embedContentsBatch,
+    };
 
     // 1. ZİHİNSEL DNA ANALİZİ (Duygu ve Stil)
     const analysisPrompt = `### GÖREV: METİN DNA ANALİZİ ###
@@ -52,7 +82,8 @@ Deno.serve(async (req) => {
     let sentiment_analysis: unknown = null;
     let stylometry_analysis: unknown = null;
     try {
-      const rawAnalysis = await invokeGemini(
+      const rawAnalysis = await aiServices.invokeGemini(
+        adminClient,
         analysisPrompt,
         "gemini-1.5-flash",
         {
@@ -90,7 +121,11 @@ Deno.serve(async (req) => {
     let sentimentEmbedding: number[] | null = null;
     let stylometryEmbedding: number[] | null = null;
     try {
-      const batchRes = await embedContentsBatch(batchTexts, transaction_id);
+      const batchRes = await aiServices.embedContentsBatch(
+        adminClient,
+        batchTexts,
+        transaction_id,
+      );
       if (batchRes.embeddings && batchRes.embeddings.length >= 3) {
         [contentEmbedding, sentimentEmbedding, stylometryEmbedding] = batchRes
           .embeddings as (number[] | null)[];
@@ -107,11 +142,6 @@ Deno.serve(async (req) => {
     }
 
     // 3. Veriyi cognitive_memories'e kaydet
-    const adminClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
     const { error: dbError } = await adminClient.from("cognitive_memories")
       .insert({
         user_id,
@@ -123,7 +153,7 @@ Deno.serve(async (req) => {
         content_embedding: contentEmbedding ?? null,
         sentiment_embedding: sentimentEmbedding ?? null,
         stylometry_embedding: stylometryEmbedding ?? null,
-        transaction_id,
+        transaction_id: transaction_id ?? null,
         mood: mood ?? null,
         event_type: event_type ?? null,
       });
@@ -137,7 +167,8 @@ Deno.serve(async (req) => {
           }] Event ${source_event_id} zaten işlenmiş. Atlanıyor.`,
         );
       } else {
-        throw dbError;
+        // Hata objesini değil, anlamlı bir Error objesi fırlat!
+        throw new Error(`Veritabanı hatası: ${dbError.message}`);
       }
     }
 
@@ -151,12 +182,9 @@ Deno.serve(async (req) => {
     console.error("[Process-Memory] KRİTİK HATA:", getErrorMessage(error));
     // Kalıcı log
     try {
-      const adminClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      );
+      const logClient = providedClient ?? getSupabaseAdmin();
       const payload = await req.text().catch(() => "");
-      await adminClient.from("system_logs").insert({
+      await logClient.from("system_logs").insert({
         function_name: "process-memory",
         log_level: "ERROR",
         message: getErrorMessage(error),
@@ -170,4 +198,12 @@ Deno.serve(async (req) => {
       status: 500,
     });
   }
-});
+}
+
+// Export the handler for testing
+export { handleProcessMemory };
+
+// Sunucuyu sadece dosya doğrudan çalıştırıldığında başlat
+if (import.meta.main) {
+  Deno.serve(async (req) => await handleProcessMemory(req));
+}

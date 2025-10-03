@@ -1,4 +1,5 @@
 // supabase/functions/api-gateway/index.test.ts
+
 // DÜZELTME: Import yollarını merkezi haritamıza göre kısaltıyoruz.
 import {
   assert,
@@ -6,13 +7,14 @@ import {
 } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
 
-Deno.test("API Gateway: Should call Gemini with correct parameters", async () => {
-  // Env değişkenlerini modül yüklenmeden önce ayarla
-  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "test-key");
-  Deno.env.set("GEMINI_API_KEY", "fake-gemini-key");
-  // Güvenlik kontrolünü AÇIK bırakarak daha gerçekçi test yapalım.
-  Deno.env.set("DISABLE_SAFETY_CHECKS", "false");
+// ORTAM DEĞİŞKENLERİNİ TÜM IMPORT'LARDAN SONRA, EN TEPEDE AYARLA!
+Deno.env.set("SUPABASE_URL", "http://localhost:54321");
+Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "test-key");
+Deno.env.set("GEMINI_API_KEY", "fake-gemini-key");
+// Güvenlik kontrolünü AÇIK bırakarak daha gerçekçi test yapalım.
+Deno.env.set("DISABLE_SAFETY_CHECKS", "false");
 
+Deno.test("API Gateway: Should call Gemini with correct parameters", async () => {
   // DÜZELTME: globalThis.fetch'in tip imzasına tam olarak uyum.
   const mockFetch = stub(
     globalThis,

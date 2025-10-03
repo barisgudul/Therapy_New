@@ -6,8 +6,8 @@ import { assertAndConsumeQuota } from "../_shared/quota.ts";
 
 // BURASI ÇOK ÖNEMLİ: O karmaşık beyin servislerini BURADA import edeceksin.
 // Frontend'in bu dosyalardan haberi bile olmayacak.
-import { generateElegantReport } from "../_shared/ai.service.ts";
-import { getUserVault } from "../_shared/vault.service.ts"; // Bunu import et
+import { generateElegantReport } from "../_shared/services/ai.service.ts";
+import { getUserVault } from "../_shared/services/vault.service.ts"; // Bunu import et
 import { logRagInvocation } from "../_shared/utils/logging.service.ts";
 
 // Gelen isteğin body'sinin neye benzemesi gerektiğini tanımlıyoruz.
@@ -36,7 +36,7 @@ function getAdaptiveRetrievalParams(
   }
 }
 
-Deno.serve(async (req) => {
+async function handleCreateAnalysisReport(req: Request): Promise<Response> {
   // Tarayıcıların ağlamaması için standart CORS ayarı.
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -51,6 +51,11 @@ Deno.serve(async (req) => {
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      {
+        auth: {
+          autoRefreshToken: false,
+        },
+      },
     );
 
     const { data: { user }, error: userError } = await supabaseAdmin.auth
@@ -180,6 +185,7 @@ Deno.serve(async (req) => {
 
     // ŞİMDİ O VERİYLE GERÇEK RAPORU OLUŞTUR (JSON paket)
     const reportPayload = await generateElegantReport(
+      { supabase: supabaseAdmin },
       vault || {},
       memories || [],
       days,
@@ -220,4 +226,11 @@ Deno.serve(async (req) => {
       status: 500,
     });
   }
-});
+}
+
+export { handleCreateAnalysisReport };
+
+// Sunucuyu sadece dosya doğrudan çalıştırıldığında başlat
+if (import.meta.main) {
+  Deno.serve(handleCreateAnalysisReport);
+}

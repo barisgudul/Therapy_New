@@ -3,7 +3,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { invokeGemini } from "../_shared/ai.service.ts";
+import { invokeGemini } from "../_shared/services/ai.service.ts";
 import { config, LLM_LIMITS } from "../_shared/config.ts";
 
 // ADIM 1: Arayüzü frontend ile eşleşecek şekilde genişlet
@@ -180,6 +180,7 @@ serve(async (req: Request) => {
     let response = "";
     try {
       response = await invokeGemini(
+        supabaseClient,
         prompt,
         config.AI_MODELS.FAST,
         {

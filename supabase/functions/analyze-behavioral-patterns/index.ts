@@ -2,11 +2,15 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { supabase as adminClient } from "../_shared/supabase-admin.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 import { BehavioralPatternAnalyzer } from "../_shared/services/behavioral-pattern-analyzer.service.ts";
-import { invokeGemini } from "../_shared/ai.service.ts";
+import { invokeGemini } from "../_shared/services/ai.service.ts";
 
-serve(async (req: Request) => {
+async function handleAnalyzeBehavioralPatterns(
+  req: Request,
+  // Test için dışarıdan client enjekte etme kapısı
+  providedAdminClient?: ReturnType<typeof getSupabaseAdmin>,
+): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -21,13 +25,14 @@ serve(async (req: Request) => {
       });
     }
 
+    const adminClient = providedAdminClient ?? getSupabaseAdmin(); // Client'ı burada al
     const jwt = authHeader.replace("Bearer ", "");
     const { data: { user } } = await adminClient.auth.getUser(jwt);
     if (!user) throw new Error("Kullanıcı doğrulanamadı.");
 
     const body = await req.json().catch(() => ({}));
     const days = body.periodDays ?? body.days ?? 7; // her iki adı da destekle
-    if (!days || typeof days !== "number") {
+    if (!days || typeof days !== "number" || days <= 0) {
       throw new Error(
         "Geçerli bir 'periodDays' veya 'days' parametresi gerekli.",
       );
@@ -36,7 +41,13 @@ serve(async (req: Request) => {
     // Analiz servisini çağır
     const dependencies = {
       supabaseClient: adminClient,
-      aiService: { invokeGemini },
+      aiService: {
+        invokeGemini: (
+          prompt: string,
+          model: string,
+          options?: { temperature?: number; maxOutputTokens?: number },
+        ) => invokeGemini(adminClient, prompt, model, options),
+      },
     };
     const analysisResult = await BehavioralPatternAnalyzer.analyzePatterns(
       dependencies,
@@ -64,4 +75,11 @@ serve(async (req: Request) => {
       status: 400,
     });
   }
-});
+}
+
+export { handleAnalyzeBehavioralPatterns };
+
+// Sunucuyu sadece dosya doğrudan çalıştırıldığında başlat
+if (import.meta.main) {
+  serve((req: Request) => handleAnalyzeBehavioralPatterns(req));
+}

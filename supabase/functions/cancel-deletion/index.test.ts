@@ -1,6 +1,11 @@
 // supabase/functions/cancel-deletion/index.test.ts
+
 import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { handleCancelDeletion } from "./index.ts";
+
+// ORTAM DEĞİŞKENLERİNİ TÜM IMPORT'LARDAN SONRA, EN TEPEDE AYARLA!
+Deno.env.set("SUPABASE_URL", "http://localhost:54321");
+Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "test-key");
 
 type UpdateUserArgs = { user_metadata: Record<string, unknown> };
 

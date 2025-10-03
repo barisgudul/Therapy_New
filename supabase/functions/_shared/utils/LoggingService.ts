@@ -1,5 +1,5 @@
 // supabase/functions/_shared/utils/LoggingService.ts
-import { supabase as adminClient } from "../supabase-admin.ts";
+import { getSupabaseAdmin } from "../supabase-admin.ts";
 
 export class LoggingService {
   private transactionId: string;
@@ -17,6 +17,7 @@ export class LoggingService {
     metadata?: object,
   ) {
     try {
+      const adminClient = getSupabaseAdmin();
       const { error } = await adminClient.from("app_logs").insert({
         transaction_id: this.transactionId,
         user_id: this.userId,

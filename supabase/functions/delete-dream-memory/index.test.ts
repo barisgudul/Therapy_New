@@ -1,7 +1,11 @@
 // supabase/functions/delete-dream-memory/index.test.ts
 
-import { assertEquals } from "std/assert/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { handleDeleteDreamMemory } from "./index.ts";
+
+// ORTAM DEĞİŞKENLERİNİ TÜM IMPORT'LARDAN SONRA, EN TEPEDE AYARLA!
+Deno.env.set("SUPABASE_URL", "http://localhost:54321");
+Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "test-key");
 
 Deno.test("Delete Dream Memory: Should delete memory and event by event_id", async () => {
   const calls: {
