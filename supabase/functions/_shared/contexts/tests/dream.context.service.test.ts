@@ -58,7 +58,23 @@ const _mockAiService = {
   invokeGemini: (_prompt: string, _model: string) => {
     return Promise.resolve("korku, yalnızlık");
   },
-  generateElegantReport: () => Promise.resolve({} as unknown),
+  generateElegantReport: () =>
+    Promise.resolve({
+      reportSections: {
+        mainTitle: "Test Report",
+        overview: "Test overview",
+        goldenThread: "Test golden thread",
+        blindSpot: "Test blind spot",
+      },
+      reportAnalogy: {
+        title: "Test Analogy",
+        text: "Test analogy text",
+      },
+      derivedData: {
+        readMinutes: 2,
+        headingsCount: 4,
+      },
+    }),
   embedContent: () => Promise.resolve({ embedding: [] } as unknown),
   embedContentsBatch: () => Promise.resolve({ embeddings: [] } as unknown),
 };
@@ -225,7 +241,23 @@ Deno.test("getEnhancedDreamRagContext - AI hatası durumunda basit RAG kullanmal
     invokeGemini: (_prompt: string, _model: string) => {
       return Promise.reject(new Error("AI servisi çalışmıyor"));
     },
-    generateElegantReport: () => Promise.resolve({} as unknown),
+    generateElegantReport: () =>
+      Promise.resolve({
+        reportSections: {
+          mainTitle: "Test Report",
+          overview: "Test overview",
+          goldenThread: "Test golden thread",
+          blindSpot: "Test blind spot",
+        },
+        reportAnalogy: {
+          title: "Test Analogy",
+          text: "Test analogy text",
+        },
+        derivedData: {
+          readMinutes: 2,
+          headingsCount: 4,
+        },
+      }),
     embedContent: () => Promise.resolve({ embedding: [] } as unknown),
     embedContentsBatch: () => Promise.resolve({ embeddings: [] } as unknown),
   };

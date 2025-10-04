@@ -5,10 +5,21 @@ import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
 import { handleAnalyzeBehavioralPatterns } from "./index.ts";
 import { BehavioralPatternAnalyzer } from "../_shared/services/behavioral-pattern-analyzer.service.ts";
+import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
 
 // ORTAM DEĞİŞKENLERİ EN TEPEDE
 Deno.env.set("SUPABASE_URL", "http://localhost:54321");
 Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", "test-key");
+
+// Mock Supabase client interface
+interface MockSupabaseClient {
+    auth: {
+        getUser: (jwt: string) => Promise<{
+            data: { user: { id: string } | null };
+            error: null;
+        }>;
+    };
+}
 
 Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
     await t.step(
@@ -47,7 +58,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
             };
 
             // 1. SAHTE SUPABASE CLIENT'INI OLUŞTUR
-            const mockSupabaseClient = {
+            const mockSupabaseClient: MockSupabaseClient = {
                 auth: {
                     getUser: () =>
                         Promise.resolve({
@@ -74,7 +85,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
                 // 3. SAHTE CLIENT'I FONKSİYONA PARAMETRE OLARAK VER
                 const response = await handleAnalyzeBehavioralPatterns(
                     request,
-                    mockSupabaseClient as any,
+                    mockSupabaseClient as ReturnType<typeof getSupabaseAdmin>,
                 );
 
                 assertEquals(response.status, 200);
@@ -87,7 +98,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
 
     await t.step("should return 400 when JWT is invalid", async () => {
         // SAHTE CLIENT'IN GETUSER METODUNU NULL USER DÖNDÜRECEK ŞEKİLDE AYARLA
-        const mockSupabaseClient = {
+        const mockSupabaseClient: MockSupabaseClient = {
             auth: {
                 getUser: () =>
                     Promise.resolve({ data: { user: null }, error: null }),
@@ -102,7 +113,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
 
         const response = await handleAnalyzeBehavioralPatterns(
             request,
-            mockSupabaseClient as any,
+            mockSupabaseClient as ReturnType<typeof getSupabaseAdmin>,
         );
 
         assertEquals(response.status, 400);
@@ -124,7 +135,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
     });
 
     await t.step("should return 400 when invalid days parameter", async () => {
-        const mockSupabaseClient = {
+        const mockSupabaseClient: MockSupabaseClient = {
             auth: {
                 getUser: () =>
                     Promise.resolve({
@@ -142,7 +153,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
 
         const response = await handleAnalyzeBehavioralPatterns(
             request,
-            mockSupabaseClient as any,
+            mockSupabaseClient as ReturnType<typeof getSupabaseAdmin>,
         );
 
         assertEquals(response.status, 400);
@@ -167,7 +178,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
     await t.step(
         "should handle analysis service failure gracefully",
         async () => {
-            const mockSupabaseClient = {
+            const mockSupabaseClient: MockSupabaseClient = {
                 auth: {
                     getUser: () =>
                         Promise.resolve({
@@ -193,7 +204,7 @@ Deno.test("Analyze Behavioral Patterns - Full Suite", async (t) => {
 
                 const response = await handleAnalyzeBehavioralPatterns(
                     request,
-                    mockSupabaseClient as any,
+                    mockSupabaseClient as ReturnType<typeof getSupabaseAdmin>,
                 );
 
                 assertEquals(response.status, 400);

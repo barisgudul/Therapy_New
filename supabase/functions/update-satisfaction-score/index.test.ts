@@ -35,10 +35,10 @@ Deno.test("Update Satisfaction Score - Full Suite", async (t) => {
             from: (table: string) => {
                 if (table === "ai_decision_log") {
                     return {
-                        update: (data: unknown) => ({
-                            eq: (field: string, value: string) => ({
-                                eq: (field2: string, value2: string) => ({
-                                    select: (fields: string) => ({
+                        update: (_data: unknown) => ({
+                            eq: (_field: string, _value: string) => ({
+                                eq: (_field2: string, _value2: string) => ({
+                                    select: (_fields: string) => ({
                                         single: () =>
                                             Promise.resolve({
                                                 data: { id: "log-123" },
@@ -289,10 +289,10 @@ Deno.test("Update Satisfaction Score - Full Suite", async (t) => {
             from: (table: string) => {
                 if (table === "ai_decision_log") {
                     return {
-                        update: (data: unknown) => ({
-                            eq: (field: string, value: string) => ({
-                                eq: (field2: string, value2: string) => ({
-                                    select: (fields: string) => ({
+                        update: (_data: unknown) => ({
+                            eq: (_field: string, _value: string) => ({
+                                eq: (_field2: string, _value2: string) => ({
+                                    select: (_fields: string) => ({
                                         single: () =>
                                             Promise.resolve({
                                                 data: null,
@@ -349,10 +349,10 @@ Deno.test("Update Satisfaction Score - Full Suite", async (t) => {
                 from: (table: string) => {
                     if (table === "ai_decision_log") {
                         return {
-                            update: (data: unknown) => ({
-                                eq: (field: string, value: string) => ({
-                                    eq: (field2: string, value2: string) => ({
-                                        select: (fields: string) => ({
+                            update: (_data: unknown) => ({
+                                eq: (_field: string, _value: string) => ({
+                                    eq: (_field2: string, _value2: string) => ({
+                                        select: (_fields: string) => ({
                                             single: () =>
                                                 Promise.resolve({
                                                     data: null, // log not found
@@ -444,10 +444,10 @@ Deno.test("Update Satisfaction Score - Full Suite", async (t) => {
             from: (table: string) => {
                 if (table === "ai_decision_log") {
                     return {
-                        update: (data: unknown) => ({
-                            eq: (field: string, value: string) => ({
-                                eq: (field2: string, value2: string) => ({
-                                    select: (fields: string) => ({
+                        update: (_data: unknown) => ({
+                            eq: (_field: string, _value: string) => ({
+                                eq: (_field2: string, _value2: string) => ({
+                                    select: (_fields: string) => ({
                                         single: () =>
                                             Promise.resolve({
                                                 data: { id: "log-123" },

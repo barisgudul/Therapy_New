@@ -5,8 +5,7 @@ import {
     assert,
     assertEquals,
 } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import { stub } from "https://deno.land/std@0.208.0/testing/mock.ts";
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+// Removed unused imports
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as AiService from "../_shared/services/ai.service.ts";
 
@@ -19,7 +18,10 @@ async function handleProcessSessionMemory(
     req: Request,
     options: {
         mockSupabaseClient?: SupabaseClient;
-        mockInvokeGemini?: (client: any, prompt: string) => Promise<string>;
+        mockInvokeGemini?: (
+            client: SupabaseClient,
+            prompt: string,
+        ) => Promise<string>;
     } = {},
 ): Promise<Response> {
     if (req.method === "OPTIONS") {
@@ -494,7 +496,7 @@ Deno.test("Process Session Memory - Full Suite", async (t) => {
             },
         } as unknown as SupabaseClient;
 
-        const mockInvokeGemini = (client: any, prompt: string) => {
+        const mockInvokeGemini = (_client: SupabaseClient, prompt: string) => {
             // Check if the prompt contains the correct language hint
             if (prompt.includes("Özetini tamamen Türkçe yaz")) {
                 return Promise.resolve("Bu Türkçe bir özet.");
@@ -615,7 +617,10 @@ Deno.test("Process Session Memory - Full Suite", async (t) => {
                 },
             } as unknown as SupabaseClient;
 
-            const mockInvokeGemini = (client: any, prompt: string) => {
+            const mockInvokeGemini = (
+                _client: SupabaseClient,
+                prompt: string,
+            ) => {
                 // Should default to English for unsupported language
                 if (prompt.includes("Write the summary entirely in English")) {
                     return Promise.resolve(
@@ -693,7 +698,7 @@ Deno.test("Process Session Memory - Full Suite", async (t) => {
             },
         } as unknown as SupabaseClient;
 
-        const mockInvokeGemini = (client: any, prompt: string) => {
+        const mockInvokeGemini = (_client: SupabaseClient, prompt: string) => {
             // Check if transcript format is correct
             if (
                 prompt.includes("Ben: Merhaba") &&
@@ -744,7 +749,18 @@ Deno.test("Process Session Memory - Full Suite", async (t) => {
                         }),
                 },
                 functions: {
-                    invoke: (functionName: string, options: any) => {
+                    invoke: (
+                        functionName: string,
+                        options: {
+                            body: {
+                                source_event_id: string;
+                                user_id: string;
+                                event_type: string;
+                                content: string;
+                                event_time: string;
+                            };
+                        },
+                    ) => {
                         // Verify correct function name and parameters
                         if (
                             functionName === "process-memory" &&

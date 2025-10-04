@@ -51,7 +51,7 @@ Deno.test("Voice Session - Full Suite", async (t) => {
                 invokeGemini: stub(
                     { invokeGemini: AiService.invokeGemini },
                     "invokeGemini",
-                    (client: SupabaseClient, prompt: string) => {
+                    (_client: SupabaseClient, prompt: string) => {
                         if (prompt.includes("niyetini şu kategorilerden")) {
                             return Promise.resolve('{"intent": "DeepThought"}');
                         } else if (
@@ -164,7 +164,7 @@ Deno.test("Voice Session - Full Suite", async (t) => {
             invokeGemini: stub(
                 { invokeGemini: AiService.invokeGemini },
                 "invokeGemini",
-                (client: SupabaseClient, prompt: string) => {
+                (_client: SupabaseClient, prompt: string) => {
                     if (prompt.includes("niyetini şu kategorilerden")) {
                         return Promise.resolve('{"intent": "Farewell"}');
                     } else {
@@ -306,7 +306,7 @@ Deno.test("Voice Session - Full Suite", async (t) => {
             "assertRateLimit",
             () => {
                 const error = new Error("Rate limit exceeded");
-                (error as any).status = 429;
+                (error as Error & { status: number }).status = 429;
                 throw error;
             },
         );
@@ -357,7 +357,7 @@ Deno.test("Voice Session - Full Suite", async (t) => {
             "assertAndConsumeQuota",
             () => {
                 const error = new Error("Quota exceeded");
-                (error as any).status = 402;
+                (error as Error & { status: number }).status = 402;
                 throw error;
             },
         );
@@ -623,7 +623,7 @@ Deno.test("Voice Session - Full Suite", async (t) => {
             invokeGemini: stub(
                 { invokeGemini: AiService.invokeGemini },
                 "invokeGemini",
-                (client: SupabaseClient, prompt: string) => {
+                (_client: SupabaseClient, prompt: string) => {
                     if (prompt.includes("niyetini şu kategorilerden")) {
                         return Promise.resolve('{"intent": "DeepThought"}');
                     } else if (
