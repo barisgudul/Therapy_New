@@ -291,14 +291,26 @@ describe('useTextSessionReducer', () => {
         });
 
         it('eventId ile başladığında, getEventById\'ı çağırmalı ve geçmişi yüklemeli', async () => {
-            const historyEvent = { data: { messages: [{ sender: 'user', text: 'eski mesaj' }] } };
+            // Hook, event.data.messages yapısını bekliyor
+            const historyEvent = { 
+                data: {
+                    messages: [{ sender: 'user', text: 'eski mesaj' }]
+                }
+            };
             mockedGetEventById.mockResolvedValue(historyEvent);
 
             const { result, unmount } = renderHook(() => useTextSessionReducer({ eventId: 'history-123', onSessionEnd: mockOnSessionEnd }));
 
+            // First wait for the service to be called
             await waitFor(() => {
-                 expect(mockedGetEventById).toHaveBeenCalledWith('history-123');
-            });
+                expect(mockedGetEventById).toHaveBeenCalledWith('history-123');
+            }, { timeout: 3000 });
+
+            // Then wait for messages to be populated
+            await waitFor(() => {
+                expect(result.current.state.messages.length).toBeGreaterThan(0);
+            }, { timeout: 3000 });
+            
             expect(result.current.state.messages).toHaveLength(1);
             expect(result.current.state.messages[0].text).toBe('eski mesaj');
             expect(result.current.state.status).toBe('idle');

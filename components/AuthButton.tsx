@@ -24,7 +24,7 @@ export const AuthButton = ({ text, onPress, isLoading = false, disabled = false 
         style={styles.button}
       >
         {isLoading ? (
-          <ActivityIndicator color={isDisabled ? '#A0AEC0' : Colors.light.tint} />
+          <ActivityIndicator testID="activity-indicator" color={isDisabled ? '#A0AEC0' : Colors.light.tint} />
         ) : (
           <Text style={isDisabled ? styles.disabledText : styles.text}>{text}</Text>
         )}

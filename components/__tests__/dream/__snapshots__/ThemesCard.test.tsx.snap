@@ -1,0 +1,140 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ThemesCard component doğru şekilde render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "scale": 1,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "scale": 0.9,
+    }
+  }
+  style={
+    [
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 24,
+        "borderWidth": 1,
+        "marginBottom": 24,
+        "padding": 24,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 200,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "marginBottom": 16,
+      }
+    }
+  >
+    <Text
+      allowFontScaling={false}
+      selectable={false}
+      style={
+        [
+          {
+            "color": "#5DA1D9",
+            "fontSize": 22,
+          },
+          undefined,
+          {
+            "fontFamily": "ionicons",
+            "fontStyle": "normal",
+            "fontWeight": "normal",
+          },
+          {},
+        ]
+      }
+    >
+      
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#EFEFEF",
+          "fontSize": 20,
+          "fontWeight": "600",
+          "marginLeft": 12,
+        }
+      }
+    >
+      dream.components.themes.title
+    </Text>
+  </View>
+  <View
+    style={
+      {
+        "flexDirection": "row",
+        "flexWrap": "wrap",
+        "gap": 10,
+      }
+    }
+  >
+    <View
+      style={
+        [
+          {
+            "backgroundColor": "rgba(93,161,217,0.2)",
+            "borderRadius": 20,
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          [MockFunction],
+        ]
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#5DA1D9",
+            "fontSize": 14,
+            "fontWeight": "500",
+          }
+        }
+      >
+        Test Tema 1
+      </Text>
+    </View>
+    <View
+      style={
+        [
+          {
+            "backgroundColor": "rgba(93,161,217,0.2)",
+            "borderRadius": 20,
+            "paddingHorizontal": 16,
+            "paddingVertical": 8,
+          },
+          [MockFunction],
+        ]
+      }
+    >
+      <Text
+        style={
+          {
+            "color": "#5DA1D9",
+            "fontSize": 14,
+            "fontWeight": "500",
+          }
+        }
+      >
+        Test Tema 2
+      </Text>
+    </View>
+  </View>
+</View>
+`;

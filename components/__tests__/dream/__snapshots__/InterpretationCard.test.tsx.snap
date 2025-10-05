@@ -1,0 +1,116 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`InterpretationCard component doğru şekilde render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "scale": 1,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "scale": 0.9,
+    }
+  }
+  style={
+    [
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 24,
+        "borderWidth": 1,
+        "marginBottom": 24,
+        "padding": 24,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 300,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "marginBottom": 16,
+      }
+    }
+  >
+    <Text
+      allowFontScaling={false}
+      selectable={false}
+      style={
+        [
+          {
+            "color": "#5DA1D9",
+            "fontSize": 24,
+          },
+          undefined,
+          {
+            "fontFamily": "ionicons",
+            "fontStyle": "normal",
+            "fontWeight": "normal",
+          },
+          {},
+        ]
+      }
+    >
+      
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#EFEFEF",
+          "fontSize": 20,
+          "fontWeight": "600",
+          "marginLeft": 12,
+        }
+      }
+    >
+      dream.components.interpretation.title
+    </Text>
+  </View>
+  <View
+    style={{}}
+  >
+    <View
+      style={
+        {
+          "alignItems": "flex-start",
+          "flexDirection": "row",
+          "flexWrap": "wrap",
+          "justifyContent": "flex-start",
+          "marginBottom": 10,
+          "marginTop": 10,
+          "width": "100%",
+        }
+      }
+    >
+      <Text
+        style={{}}
+      >
+        <Text
+          style={
+            [
+              {
+                "color": "#A9B4C8",
+                "fontSize": 16,
+                "lineHeight": 26,
+              },
+              {},
+            ]
+          }
+        >
+          Test interpretation
+        </Text>
+      </Text>
+    </View>
+  </View>
+</View>
+`;

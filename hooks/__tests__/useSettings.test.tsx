@@ -421,14 +421,9 @@ describe('useSettings Hook', () => {
   });
 
   it('should set isResetting to true during reset operation', async () => {
-    // Promise'i kontrol edilebilir hale getir - 100ms gecikme ekle
-    let _resolveOperation: (value?: unknown) => void;
+    // Promise'i hemen resolve et
     mockedSupabaseInvoke.mockImplementation(() => 
-      new Promise(resolve => {
-        _resolveOperation = resolve;
-        // İşlemi 100ms sonra tamamla - bu süre içinde state'i test edebiliriz
-        setTimeout(() => resolve({ error: null }), 100);
-      })
+      Promise.resolve({ error: null })
     );
     mockedSignOut.mockResolvedValue(undefined);
 

@@ -74,6 +74,7 @@ export default function Oracle({ dreamTheme, pastLink, blindSpot, goldenThread, 
 
     return (
         <MotiView
+            testID="oracle-container"
             style={styles.card}
             from={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}

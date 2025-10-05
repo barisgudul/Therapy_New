@@ -9,14 +9,12 @@ module.exports = {
     "**/__tests__/**/*.(test).[jt]s?(x)", 
     "!**/__tests__/**/*.(mock).[jt]s?(x)"
   ],
-  transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-router))',
-  ],
+   transformIgnorePatterns: [
+     'node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|expo-router|moti))',
+   ],
   moduleNameMapper: {
     // Bu kural jest-expo preset'inin expo-router'ı yanlış çözümlemesini engeller.
     '^expo-router$': '<rootDir>/test/__mocks__/expo-router.js',
     '^expo-router/': '<rootDir>/test/__mocks__/expo-router.js',
   },
 };
-
-

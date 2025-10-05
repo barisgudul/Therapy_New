@@ -1,0 +1,189 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Sigil tapAnimation prop'u ile render edilmelidir 1`] = `
+<View
+  style={
+    {
+      "alignItems": "center",
+      "height": 140,
+      "justifyContent": "center",
+      "width": 140,
+    }
+  }
+>
+  <View
+    style={
+      [
+        {
+          "position": "absolute",
+        },
+        {
+          "transform": [
+            {
+              "rotate": "0deg",
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <RNSVGSvgView
+      bbHeight={140}
+      bbWidth={140}
+      focusable={false}
+      height={140}
+      style={
+        [
+          {
+            "backgroundColor": "transparent",
+            "borderWidth": 0,
+          },
+          {
+            "flex": 0,
+            "height": 140,
+            "width": 140,
+          },
+        ]
+      }
+      width={140}
+    >
+      <RNSVGGroup
+        fill={
+          {
+            "payload": 4278190080,
+            "type": 0,
+          }
+        }
+      >
+        <RNSVGPath
+          d="M 70 25.199999999999996 L 29.679999999999993 105.84 L 110.32000000000001 105.84 Z"
+          fill={
+            {
+              "payload": 184549375,
+              "type": 0,
+            }
+          }
+          propList={
+            [
+              "fill",
+              "stroke",
+              "strokeWidth",
+            ]
+          }
+          stroke={
+            {
+              "payload": 4284326361,
+              "type": 0,
+            }
+          }
+          strokeWidth={1.4}
+        />
+      </RNSVGGroup>
+    </RNSVGSvgView>
+  </View>
+  <View
+    style={
+      [
+        {
+          "position": "absolute",
+        },
+        {
+          "transform": [
+            {
+              "rotate": "0deg",
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <RNSVGSvgView
+      bbHeight={140}
+      bbWidth={140}
+      focusable={false}
+      height={140}
+      style={
+        [
+          {
+            "backgroundColor": "transparent",
+            "borderWidth": 0,
+          },
+          {
+            "flex": 0,
+            "height": 140,
+            "width": 140,
+          },
+        ]
+      }
+      width={140}
+    >
+      <RNSVGGroup
+        fill={
+          {
+            "payload": 4278190080,
+            "type": 0,
+          }
+        }
+      >
+        <RNSVGPath
+          d="M 70 114.80000000000001 L 29.679999999999993 34.16 L 110.32000000000001 34.16 Z"
+          fill={
+            {
+              "payload": 184549375,
+              "type": 0,
+            }
+          }
+          propList={
+            [
+              "fill",
+              "stroke",
+              "strokeWidth",
+            ]
+          }
+          stroke={
+            {
+              "payload": 4284326361,
+              "type": 0,
+            }
+          }
+          strokeWidth={1.4}
+        />
+      </RNSVGGroup>
+    </RNSVGSvgView>
+  </View>
+  <View
+    style={
+      [
+        {
+          "alignItems": "center",
+          "bottom": 0,
+          "justifyContent": "center",
+          "left": 0,
+          "position": "absolute",
+          "right": 0,
+          "top": 0,
+        },
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "scale": 1,
+            },
+          ],
+        },
+      ]
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "#5DA1D9",
+          "borderRadius": 4,
+          "height": 8,
+          "width": 8,
+        }
+      }
+    />
+  </View>
+</View>
+`;

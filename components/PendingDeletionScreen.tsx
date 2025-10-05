@@ -42,7 +42,7 @@ export default function PendingDeletionScreen() {
                 </Text>
                 
                 {isLoading ? (
-                    <ActivityIndicator size="large" color={Colors.light.tint} style={styles.loader} />
+                    <ActivityIndicator testID="activity-indicator" size="large" color={Colors.light.tint} style={styles.loader} />
                 ) : (
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity onPress={handleCancel} style={styles.primaryButton}>

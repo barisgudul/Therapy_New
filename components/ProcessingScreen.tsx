@@ -21,7 +21,14 @@ export default function ProcessingScreen({ text, onComplete }: ProcessingScreenP
     // Sadece animasyonu tetikle ve bitince haber ver.
     const animationDuration = 1500;
     transitionProgress.value = withTiming(1, { duration: animationDuration });
-    setTimeout(onComplete, animationDuration);
+    
+    // Timer'ı değişkene atayarak cleanup için sakla
+    const timer = setTimeout(onComplete, animationDuration);
+    
+    // Critical: cleanup function - component unmount edildiğinde timer'ı temizle
+    return () => {
+      clearTimeout(timer);
+    };
   }, [onComplete, transitionProgress]);
 
   const animatedBackgroundStyle = useAnimatedStyle(() => ({

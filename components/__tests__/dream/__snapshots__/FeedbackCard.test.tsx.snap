@@ -1,0 +1,223 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`FeedbackCard component doğru şekilde render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "scale": 1,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "scale": 0.9,
+    }
+  }
+  style={
+    [
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 24,
+        "borderWidth": 1,
+        "marginTop": 8,
+        "padding": 24,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 600,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "marginBottom": 16,
+      }
+    }
+  >
+    <Text
+      allowFontScaling={false}
+      selectable={false}
+      style={
+        [
+          {
+            "color": "#5DA1D9",
+            "fontSize": 24,
+          },
+          undefined,
+          {
+            "fontFamily": "ionicons",
+            "fontStyle": "normal",
+            "fontWeight": "normal",
+          },
+          {},
+        ]
+      }
+    >
+      
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#EFEFEF",
+          "fontSize": 20,
+          "fontWeight": "600",
+          "marginLeft": 12,
+        }
+      }
+    >
+      dream.components.feedback.title
+    </Text>
+  </View>
+  <Text
+    style={
+      {
+        "color": "#A9B4C8",
+        "fontSize": 16,
+        "lineHeight": 24,
+        "textAlign": "center",
+      }
+    }
+  >
+    dream.components.feedback.question
+  </Text>
+  <View
+    style={
+      {
+        "flexDirection": "row",
+        "gap": 40,
+        "justifyContent": "center",
+        "marginTop": 20,
+      }
+    }
+  >
+    <View
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "backgroundColor": "rgba(255,255,255,0.1)",
+          "borderRadius": 30,
+          "opacity": 1,
+          "padding": 12,
+        }
+      }
+    >
+      <Text
+        allowFontScaling={false}
+        selectable={false}
+        style={
+          [
+            {
+              "color": "#34D399",
+              "fontSize": 24,
+            },
+            undefined,
+            {
+              "fontFamily": "ionicons",
+              "fontStyle": "normal",
+              "fontWeight": "normal",
+            },
+            {},
+          ]
+        }
+        testID="thumbs-up-outline"
+      >
+        
+      </Text>
+    </View>
+    <View
+      accessibilityState={
+        {
+          "busy": undefined,
+          "checked": undefined,
+          "disabled": undefined,
+          "expanded": undefined,
+          "selected": undefined,
+        }
+      }
+      accessibilityValue={
+        {
+          "max": undefined,
+          "min": undefined,
+          "now": undefined,
+          "text": undefined,
+        }
+      }
+      accessible={true}
+      collapsable={false}
+      focusable={true}
+      onClick={[Function]}
+      onResponderGrant={[Function]}
+      onResponderMove={[Function]}
+      onResponderRelease={[Function]}
+      onResponderTerminate={[Function]}
+      onResponderTerminationRequest={[Function]}
+      onStartShouldSetResponder={[Function]}
+      style={
+        {
+          "backgroundColor": "rgba(255,255,255,0.1)",
+          "borderRadius": 30,
+          "opacity": 1,
+          "padding": 12,
+        }
+      }
+    >
+      <Text
+        allowFontScaling={false}
+        selectable={false}
+        style={
+          [
+            {
+              "color": "#F87171",
+              "fontSize": 24,
+            },
+            undefined,
+            {
+              "fontFamily": "ionicons",
+              "fontStyle": "normal",
+              "fontWeight": "normal",
+            },
+            {},
+          ]
+        }
+        testID="thumbs-down-outline"
+      >
+        
+      </Text>
+    </View>
+  </View>
+</View>
+`;

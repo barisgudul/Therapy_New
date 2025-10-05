@@ -18,7 +18,7 @@ type AuthContextType = {
 };
 
 // Başlangıç değerlerini tanımla
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   isLoading: true,
@@ -161,7 +161,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   if (!authReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" testID="loading" />
       </View>
     );
   }

@@ -1,0 +1,583 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
+<View
+  style={
+    {
+      "paddingBottom": 40,
+      "paddingHorizontal": 20,
+      "paddingTop": 100,
+    }
+  }
+>
+  <View
+    animate={
+      {
+        "opacity": 1,
+        "translateY": 0,
+      }
+    }
+    from={
+      {
+        "opacity": 0,
+        "translateY": -10,
+      }
+    }
+    style={
+      [
+        {
+          "alignItems": "center",
+          "marginBottom": 30,
+        },
+        [MockFunction],
+      ]
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 4,
+          "width": "40%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 28,
+          "width": "80%",
+        }
+      }
+    />
+  </View>
+  <View
+    animate={
+      {
+        "opacity": 1,
+        "scale": 1,
+      }
+    }
+    from={
+      {
+        "opacity": 0,
+        "scale": 0.9,
+      }
+    }
+    style={
+      [
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.05)",
+          "borderColor": "rgba(255, 255, 255, 0.15)",
+          "borderRadius": 24,
+          "borderWidth": 1,
+          "marginBottom": 24,
+          "padding": 24,
+        },
+        [MockFunction],
+      ]
+    }
+    transition={
+      {
+        "delay": 100,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "marginBottom": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 12,
+            "height": 24,
+            "width": 24,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 20,
+            "marginLeft": 12,
+            "width": "60%",
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 8,
+          "width": "100%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 8,
+          "width": "100%",
+        }
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 16,
+            "marginBottom": 8,
+            "width": "100%",
+          },
+          {
+            "width": "60%",
+          },
+        ]
+      }
+    />
+  </View>
+  <View
+    animate={
+      {
+        "opacity": 1,
+        "scale": 1,
+      }
+    }
+    from={
+      {
+        "opacity": 0,
+        "scale": 0.9,
+      }
+    }
+    style={
+      [
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.05)",
+          "borderColor": "rgba(255, 255, 255, 0.15)",
+          "borderRadius": 24,
+          "borderWidth": 1,
+          "marginBottom": 24,
+          "padding": 24,
+        },
+        [MockFunction],
+      ]
+    }
+    transition={
+      {
+        "delay": 200,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "marginBottom": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 12,
+            "height": 24,
+            "width": 24,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 20,
+            "marginLeft": 12,
+            "width": "60%",
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "flexDirection": "row",
+          "flexWrap": "wrap",
+          "gap": 10,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 16,
+            "height": 32,
+            "width": 80,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 16,
+            "height": 32,
+            "width": 80,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 16,
+            "height": 32,
+            "width": 80,
+          }
+        }
+      />
+    </View>
+  </View>
+  <View
+    animate={
+      {
+        "opacity": 1,
+        "scale": 1,
+      }
+    }
+    from={
+      {
+        "opacity": 0,
+        "scale": 0.9,
+      }
+    }
+    style={
+      [
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.05)",
+          "borderColor": "rgba(255, 255, 255, 0.15)",
+          "borderRadius": 24,
+          "borderWidth": 1,
+          "marginBottom": 24,
+          "padding": 24,
+        },
+        [MockFunction],
+      ]
+    }
+    transition={
+      {
+        "delay": 300,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "marginBottom": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 12,
+            "height": 24,
+            "width": 24,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 20,
+            "marginLeft": 12,
+            "width": "60%",
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 8,
+          "width": "100%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 8,
+          "width": "100%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 8,
+          "width": "100%",
+        }
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 16,
+            "marginBottom": 8,
+            "width": "100%",
+          },
+          {
+            "width": "70%",
+          },
+        ]
+      }
+    />
+  </View>
+  <View
+    animate={
+      {
+        "opacity": 1,
+        "scale": 1,
+      }
+    }
+    from={
+      {
+        "opacity": 0,
+        "scale": 0.9,
+      }
+    }
+    style={
+      [
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.05)",
+          "borderColor": "rgba(255, 255, 255, 0.15)",
+          "borderRadius": 24,
+          "borderWidth": 1,
+          "marginBottom": 24,
+          "padding": 24,
+        },
+        [MockFunction],
+      ]
+    }
+    transition={
+      {
+        "delay": 400,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "marginBottom": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 12,
+            "height": 24,
+            "width": 24,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 20,
+            "marginLeft": 12,
+            "width": "60%",
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 16,
+          "marginBottom": 8,
+          "width": "100%",
+        }
+      }
+    />
+    <View
+      style={
+        [
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 16,
+            "marginBottom": 8,
+            "width": "100%",
+          },
+          {
+            "width": "80%",
+          },
+        ]
+      }
+    />
+  </View>
+  <View
+    animate={
+      {
+        "opacity": 1,
+        "scale": 1,
+      }
+    }
+    from={
+      {
+        "opacity": 0,
+        "scale": 0.9,
+      }
+    }
+    style={
+      [
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.05)",
+          "borderColor": "rgba(255, 255, 255, 0.15)",
+          "borderRadius": 24,
+          "borderWidth": 1,
+          "marginBottom": 24,
+          "padding": 24,
+        },
+        [MockFunction],
+      ]
+    }
+    transition={
+      {
+        "delay": 500,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "alignItems": "center",
+          "flexDirection": "row",
+          "marginBottom": 16,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 12,
+            "height": 24,
+            "width": 24,
+          }
+        }
+      />
+      <View
+        style={
+          {
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 4,
+            "height": 20,
+            "marginLeft": 12,
+            "width": "60%",
+          }
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "gap": 12,
+          "marginTop": 10,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignSelf": "flex-end",
+            "backgroundColor": "rgba(255, 255, 255, 0.1)",
+            "borderRadius": 22,
+            "height": 40,
+            "width": "60%",
+          }
+        }
+      />
+      <View
+        style={
+          [
+            {
+              "alignSelf": "flex-end",
+              "backgroundColor": "rgba(255, 255, 255, 0.1)",
+              "borderRadius": 22,
+              "height": 40,
+              "width": "60%",
+            },
+            {
+              "alignSelf": "flex-start",
+              "width": "70%",
+            },
+          ]
+        }
+      />
+    </View>
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 22,
+          "borderTopColor": "rgba(255, 255, 255, 0.15)",
+          "borderTopWidth": 1,
+          "height": 44,
+          "marginTop": 20,
+          "paddingTop": 16,
+        }
+      }
+    />
+  </View>
+</View>
+`;

@@ -1,0 +1,228 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CrossConnectionsCard component doğru şekilde render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "scale": 1,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "scale": 0.9,
+    }
+  }
+  style={
+    [
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 24,
+        "borderWidth": 1,
+        "marginBottom": 24,
+        "padding": 24,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 400,
+    }
+  }
+>
+  <View
+    style={
+      {
+        "alignItems": "center",
+        "flexDirection": "row",
+        "marginBottom": 20,
+      }
+    }
+  >
+    <Text
+      allowFontScaling={false}
+      selectable={false}
+      style={
+        [
+          {
+            "color": "#5DA1D9",
+            "fontSize": 24,
+          },
+          undefined,
+          {
+            "fontFamily": "ionicons",
+            "fontStyle": "normal",
+            "fontWeight": "normal",
+          },
+          {},
+        ]
+      }
+    >
+      
+    </Text>
+    <Text
+      style={
+        {
+          "color": "#EFEFEF",
+          "fontSize": 20,
+          "fontWeight": "600",
+          "marginLeft": 12,
+        }
+      }
+    >
+      dream.components.cross.title
+    </Text>
+  </View>
+  <View
+    style={
+      {
+        "gap": 24,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "borderBottomColor": "rgba(255, 255, 255, 0.15)",
+          "borderBottomWidth": 1,
+          "paddingBottom": 24,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "flex-start",
+            "flexDirection": "row",
+            "marginBottom": 8,
+          }
+        }
+      >
+        <Text
+          allowFontScaling={false}
+          selectable={false}
+          style={
+            [
+              {
+                "color": "#5DA1D9",
+                "fontSize": 20,
+              },
+              {
+                "marginRight": 10,
+                "marginTop": 3,
+              },
+              {
+                "fontFamily": "ionicons",
+                "fontStyle": "normal",
+                "fontWeight": "normal",
+              },
+              {},
+            ]
+          }
+        >
+          
+        </Text>
+        <Text
+          style={
+            {
+              "color": "#EFEFEF",
+              "flex": 1,
+              "fontSize": 17,
+              "fontWeight": "500",
+              "lineHeight": 25,
+            }
+          }
+        >
+          Test Bağlantı 1
+        </Text>
+      </View>
+      <Text
+        style={
+          {
+            "color": "#A9B4C8",
+            "fontSize": 15,
+            "fontStyle": "italic",
+            "lineHeight": 23,
+            "paddingLeft": 30,
+          }
+        }
+      >
+        Test Kanıt 1
+      </Text>
+    </View>
+    <View
+      style={
+        {
+          "borderBottomColor": "rgba(255, 255, 255, 0.15)",
+          "borderBottomWidth": 1,
+          "paddingBottom": 24,
+        }
+      }
+    >
+      <View
+        style={
+          {
+            "alignItems": "flex-start",
+            "flexDirection": "row",
+            "marginBottom": 8,
+          }
+        }
+      >
+        <Text
+          allowFontScaling={false}
+          selectable={false}
+          style={
+            [
+              {
+                "color": "#5DA1D9",
+                "fontSize": 20,
+              },
+              {
+                "marginRight": 10,
+                "marginTop": 3,
+              },
+              {
+                "fontFamily": "ionicons",
+                "fontStyle": "normal",
+                "fontWeight": "normal",
+              },
+              {},
+            ]
+          }
+        >
+          
+        </Text>
+        <Text
+          style={
+            {
+              "color": "#EFEFEF",
+              "flex": 1,
+              "fontSize": 17,
+              "fontWeight": "500",
+              "lineHeight": 25,
+            }
+          }
+        >
+          Test Bağlantı 2
+        </Text>
+      </View>
+      <Text
+        style={
+          {
+            "color": "#A9B4C8",
+            "fontSize": 15,
+            "fontStyle": "italic",
+            "lineHeight": 23,
+            "paddingLeft": 30,
+          }
+        }
+      >
+        Test Kanıt 2
+      </Text>
+    </View>
+  </View>
+</View>
+`;

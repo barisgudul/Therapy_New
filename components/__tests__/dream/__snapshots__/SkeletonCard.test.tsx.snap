@@ -1,0 +1,235 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SkeletonCard component doğru şekilde render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "translateY": 0,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "translateY": 50,
+    }
+  }
+  style={
+    [
+      {
+        "alignItems": "center",
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 16,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "marginBottom": 16,
+        "padding": 20,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 100,
+      "type": "timing",
+    }
+  }
+>
+  <View
+    style={
+      {
+        "flex": 1,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 20,
+          "marginBottom": 8,
+          "width": "80%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 14,
+          "width": "40%",
+        }
+      }
+    />
+  </View>
+  <View
+    style={
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "borderRadius": 11,
+        "height": 22,
+        "width": 22,
+      }
+    }
+  />
+</View>
+`;
+
+exports[`SkeletonCard varsayılan delay ile render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "translateY": 0,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "translateY": 50,
+    }
+  }
+  style={
+    [
+      {
+        "alignItems": "center",
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 16,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "marginBottom": 16,
+        "padding": 20,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 0,
+      "type": "timing",
+    }
+  }
+>
+  <View
+    style={
+      {
+        "flex": 1,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 20,
+          "marginBottom": 8,
+          "width": "80%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 14,
+          "width": "40%",
+        }
+      }
+    />
+  </View>
+  <View
+    style={
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "borderRadius": 11,
+        "height": 22,
+        "width": 22,
+      }
+    }
+  />
+</View>
+`;
+
+exports[`SkeletonCard özel delay ile render edilmelidir 1`] = `
+<View
+  animate={
+    {
+      "opacity": 1,
+      "translateY": 0,
+    }
+  }
+  from={
+    {
+      "opacity": 0,
+      "translateY": 50,
+    }
+  }
+  style={
+    [
+      {
+        "alignItems": "center",
+        "backgroundColor": "rgba(255, 255, 255, 0.05)",
+        "borderColor": "rgba(255, 255, 255, 0.15)",
+        "borderRadius": 16,
+        "borderWidth": 1,
+        "flexDirection": "row",
+        "marginBottom": 16,
+        "padding": 20,
+      },
+      [MockFunction],
+    ]
+  }
+  transition={
+    {
+      "delay": 200,
+      "type": "timing",
+    }
+  }
+>
+  <View
+    style={
+      {
+        "flex": 1,
+      }
+    }
+  >
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 20,
+          "marginBottom": 8,
+          "width": "80%",
+        }
+      }
+    />
+    <View
+      style={
+        {
+          "backgroundColor": "rgba(255, 255, 255, 0.1)",
+          "borderRadius": 4,
+          "height": 14,
+          "width": "40%",
+        }
+      }
+    />
+  </View>
+  <View
+    style={
+      {
+        "backgroundColor": "rgba(255, 255, 255, 0.1)",
+        "borderRadius": 11,
+        "height": 22,
+        "width": 22,
+      }
+    }
+  />
+</View>
+`;

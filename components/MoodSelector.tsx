@@ -30,7 +30,7 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
     const progress = useSharedValue(3);
     const scale = useSharedValue(1);
     const opacity = useSharedValue(0);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<number | null>(null);
 
     useEffect(() => {
         opacity.value = withTiming(1, { duration: 800 });
@@ -39,7 +39,7 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
                 withTiming(1.05, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
                 withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) })
             ), -1, true );
-    }, []);
+    }, [opacity, scale]);
 
     
     const handlePressIn = () => {
@@ -69,17 +69,19 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
     };
 
     const handleConfirm = () => {
-      const currentMoodLabel = MOOD_LEVELS[moodIndex].label;
+      const currentMoodLabel = MOOD_LEVELS[moodIndex]?.label || 'Nötr';
       onSave(currentMoodLabel);
     };
 
     // --- ANİMASYONLU STİLLER ---
     const animatedOrbStyle = useAnimatedStyle(() => {
         const inputRange = MOOD_LEVELS.map((_, i) => i);
+        const colors = MOOD_LEVELS.map(m => m.color);
+        const shadows = MOOD_LEVELS.map(m => m.shadow);
         return {
             transform: [{ scale: scale.value }],
-            backgroundColor: interpolateColor(progress.value, inputRange, MOOD_LEVELS.map(m => m.color)),
-            shadowColor: interpolateColor(progress.value, inputRange, MOOD_LEVELS.map(m => m.shadow)),
+            backgroundColor: interpolateColor(progress.value, inputRange, colors),
+            shadowColor: interpolateColor(progress.value, inputRange, shadows),
         };
     });
 
@@ -100,9 +102,9 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
             <Animated.View style={[styles.contentContainer, { opacity }]}> 
                 <View style={styles.header}>
                     <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.moodLabel}>{MOOD_LEVELS[moodIndex].label}</Text>
+                    <Text style={styles.moodLabel}>{MOOD_LEVELS[moodIndex]?.label || 'Nötr'}</Text>
                 </View>
-                <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut}>
+                <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} testID="mood-orb">
                     <Animated.View style={[styles.orb, animatedOrbStyle]}>
                         <LinearGradient 
                           colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']} 

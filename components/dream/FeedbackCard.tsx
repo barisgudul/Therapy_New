@@ -36,14 +36,14 @@ export default function FeedbackCard({ isSubmitting, feedbackSent, onSubmitFeedb
           <Text style={styles.cardText}>{t('dream.components.feedback.question')}</Text>
           <View style={styles.buttonContainer}>
             {isSubmitting ? (
-              <ActivityIndicator color={COSMIC_COLORS.accent} />
+              <ActivityIndicator testID="activity-indicator" color={COSMIC_COLORS.accent} />
             ) : (
               <>
                 <TouchableOpacity style={styles.feedbackButton} onPress={() => onSubmitFeedback(1)}>
-                  <Ionicons name="thumbs-up-outline" size={24} color="#34D399" />
+                  <Ionicons testID="thumbs-up-outline" name="thumbs-up-outline" size={24} color="#34D399" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.feedbackButton} onPress={() => onSubmitFeedback(-1)}>
-                  <Ionicons name="thumbs-down-outline" size={24} color="#F87171" />
+                  <Ionicons testID="thumbs-down-outline" name="thumbs-down-outline" size={24} color="#F87171" />
                 </TouchableOpacity>
               </>
             )}

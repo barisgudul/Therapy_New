@@ -41,13 +41,13 @@ export function PremiumGate({
   onUpgrade,
 }: PremiumGateProps) {
   const router = useRouter();
-  const { isPremium, loading: subscriptionLoading } = useSubscription();
+  const { isPremium, isLoading: subscriptionLoading } = useSubscription();
   const featureAccess = useFeatureAccess(featureType!);
 
   const handleUpgrade = onUpgrade ?? (() => router.push('/subscription'));
 
   // 1. Yükleme Durumu
-  if (subscriptionLoading || (featureType && featureAccess.loading)) {
+  if (subscriptionLoading || (featureType && featureAccess.isLoading)) {
     return (
       <LinearGradient
         colors={['#F4F6FF', '#FFFFFF']}
@@ -110,7 +110,7 @@ function ElegantBlocker({ isPremiumOnly, onUpgrade }: ElegantBlockerProps) {
 
   return (
     <LinearGradient colors={theme.gradient} style={styles.fullScreenContainer}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="premium-gate-back-button">
         <Ionicons name="close" size={28} color={theme.textColor} />
       </TouchableOpacity>
 

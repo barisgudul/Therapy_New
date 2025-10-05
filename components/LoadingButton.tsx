@@ -25,7 +25,7 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
       disabled={isLoading}
     >
       {isLoading ? (
-        <ActivityIndicator color="#FFFFFF" />
+        <ActivityIndicator testID="activity-indicator" color="#FFFFFF" />
       ) : (
         <Text style={styles.buttonText}>{text}</Text>
       )}

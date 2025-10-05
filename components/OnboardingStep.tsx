@@ -83,7 +83,7 @@ export default function OnboardingStep({
 
             {/* ALT BÖLÜM: Devam Butonu */}
             <View style={styles.actionsContainer}>
-              <Pressable onPress={() => onNextPress(text)} disabled={isButtonDisabled}>
+              <Pressable onPress={() => onNextPress(text)} disabled={isButtonDisabled} testID="onboarding-next-button">
                 <LinearGradient
                   colors={isButtonDisabled ? ["#E2E8F0", "#EDF2F7"] : GRADIENT_COLORS}
                   start={{ x: 0, y: 0 }}
