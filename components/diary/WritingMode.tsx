@@ -126,7 +126,7 @@ export const WritingMode: React.FC = () => {
                   <Ionicons name="document-text" size={24} color={Colors.light.tint} />
                   <Text style={styles.modalTitle}>{t('diary.writing.new_entry')}</Text>
                 </View>
-                <TouchableOpacity style={styles.modalCloseButton} onPress={handlers.closeModal}>
+                <TouchableOpacity testID="close-button" style={styles.modalCloseButton} onPress={handlers.closeModal}>
                   <Ionicons name="close" size={24} color={Colors.light.tint} />
                 </TouchableOpacity>
               </View>

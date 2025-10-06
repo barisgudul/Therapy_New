@@ -60,7 +60,7 @@ export const MemoryModal: React.FC<MemoryModalProps> = ({
               />
               <Text style={styles.title}>{sourceInfo.title}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity testID="close-button" onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={24} color="#9CA3AF" />
             </TouchableOpacity>
           </View>

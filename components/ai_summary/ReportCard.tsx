@@ -65,7 +65,7 @@ export default function ReportCard({ item, onPress, onDelete }: ReportCardProps)
           {createPreviewText(item.content) || t('ai_summary.no_overview')}
         </Text>
 
-        <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
+        <TouchableOpacity testID="delete-button" onPress={onDelete} style={styles.deleteButton}>
           <Ionicons name="trash-outline" size={20} color="#E53E3E" />
         </TouchableOpacity>
       </LinearGradient>

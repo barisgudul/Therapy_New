@@ -165,6 +165,7 @@ export default function FeedbackModal({
             </Text>
             <View style={styles.satisfactionButtons}>
               <TouchableOpacity
+                testID="dislike-button"
                 style={[
                   styles.satisfactionButton,
                   satisfactionScore === -1 && styles.satisfactionButtonActive
@@ -181,6 +182,7 @@ export default function FeedbackModal({
               </TouchableOpacity>
 
               <TouchableOpacity
+                testID="like-button"
                 style={[
                   styles.satisfactionButton,
                   satisfactionScore === 1 && styles.satisfactionButtonActive

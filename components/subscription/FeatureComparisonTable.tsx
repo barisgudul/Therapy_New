@@ -20,7 +20,7 @@ export default function FeatureComparisonTable({ comparisonData, themeColors }: 
     const color = plan === 'premium' ? premiumColor : plusColor;
     
     if (value === 'Sınırsız' || value === 'Evet' || value === 'Tüm Terapistler') {
-      return <Ionicons name="checkmark" size={28} color={color} style={{ fontWeight: 'bold', opacity: plan === 'premium' ? 1 : 0.7 }} />;
+      return <Ionicons name="checkmark" size={28} color={color} style={{ fontWeight: 'bold', opacity: plan === 'premium' ? 1 : 0.7 }} testID="ionicons-checkmark" />;
     }
     if (value === '❌') {
       return <Ionicons name="close-outline" size={28} color="#94A3B8" />;

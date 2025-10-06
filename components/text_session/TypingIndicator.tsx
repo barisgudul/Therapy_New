@@ -64,7 +64,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({ isVisible }) =
   if (!isVisible) return null;
 
   return (
-    <View style={[styles.bubble, styles.aiBubble, { flexDirection: "row", gap: 6 }]}>
+    <View testID="typing-indicator" style={[styles.bubble, styles.aiBubble, { flexDirection: "row", gap: 6 }]}>
       {[dot1, dot2, dot3].map((dot, i) => (
         <Animated.Text
           key={i}

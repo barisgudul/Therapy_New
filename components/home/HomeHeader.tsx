@@ -16,6 +16,7 @@ export const HomeHeader: React.FC<HomeHeaderProps> = ({ onSettingsPress }) => {
       </Text>
       <View style={styles.topButtons}>
         <TouchableOpacity
+          testID="settings-button"
           onPress={onSettingsPress}
           style={styles.settingButton}
         >

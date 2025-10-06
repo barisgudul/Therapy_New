@@ -40,7 +40,7 @@ export default function PlanCard({ plan, theme, isCurrent, isLoading, onUpgrade 
         style={[styles.upgradeButton, { borderColor: theme.borderColor }]}
       >
         {isLoading ? (
-          <ActivityIndicator color={theme.textColor} />
+          <ActivityIndicator testID="activity-indicator" color={theme.textColor} />
         ) : (
           <>
             <Text style={[styles.upgradeButtonText, { color: theme.textColor }]}>

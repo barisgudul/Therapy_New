@@ -9,7 +9,7 @@ import { useSubscription } from '../../hooks/useSubscription';
 
 export const FeaturedCard = () => {
     const { t } = useTranslation();
-    const { isPremium, planName, loading } = useSubscription();
+    const { isPremium, planName, isLoading: loading } = useSubscription();
     const router = useRouter();
 
     const cardMeta = isPremium ? {
@@ -27,7 +27,7 @@ export const FeaturedCard = () => {
     };
 
     if (loading) {
-        return <View style={[styles.featuredCard, styles.skeletonCard]}><ActivityIndicator /></View>;
+        return <View style={[styles.featuredCard, styles.skeletonCard]}><ActivityIndicator testID="activity-indicator" /></View>;
     }
 
     return (

@@ -23,11 +23,11 @@ export const DiaryView: React.FC = () => {
   return (
     <View style={[styles.diaryViewContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => handlers.exitView()} style={styles.backButton}>
+        <TouchableOpacity testID="back-button" onPress={() => handlers.exitView()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
         </TouchableOpacity>
         <Text style={styles.diaryViewTitle}>{t('diary.view.title')}</Text>
-        <TouchableOpacity style={styles.deleteButton} onPress={() => handlers.deleteDiary(state.selectedDiary!.id)}>
+        <TouchableOpacity testID="delete-button" style={styles.deleteButton} onPress={() => handlers.deleteDiary(state.selectedDiary!.id)}>
           <Ionicons name="trash-outline" size={24} color="#E53E3E" />
         </TouchableOpacity>
       </View>

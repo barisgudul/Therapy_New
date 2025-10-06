@@ -43,6 +43,7 @@ export const InputBar = memo(forwardRef<TextInput, InputBarProps>(({
         returnKeyType="default"
       />
       <TouchableOpacity
+        testID="send-button"
         onPress={onSend}
         style={[
           styles.sendButton,

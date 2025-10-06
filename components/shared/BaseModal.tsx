@@ -45,7 +45,7 @@ export function BaseModal({
         <View style={styles.contentContainer}>
           {/* MODAL HEADER (İKON, BAŞLIK, KAPATMA BUTONU) */}
           <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity testID="close-button" onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={22} color="#666" />
             </TouchableOpacity>
             <View style={styles.iconWrapper}>
