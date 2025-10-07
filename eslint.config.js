@@ -28,6 +28,9 @@ module.exports = defineConfig([
       // Bu iki kuralı 'off' yaparak ESLint'in Deno'ya karışmasını engelliyoruz.
       'import/no-unresolved': 'off',
       'import/extensions': 'off',
+      
+      // Test dosyalarında require() import'larını serbest bırak
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   

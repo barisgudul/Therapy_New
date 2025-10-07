@@ -75,6 +75,7 @@ export default function TherapyOptionsScreen() {
             <TouchableOpacity
               onPress={() => router.back()}
               style={styles.backButton}
+              testID="back-button"
             >
               <Ionicons name="chevron-back" size={28} color={tintColor} />
             </TouchableOpacity>

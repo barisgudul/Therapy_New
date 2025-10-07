@@ -27,7 +27,7 @@ import { useAuth } from "../../context/Auth";
 import { supabase } from "../../utils/supabase";
 import { AnalysisReport } from "../../types/analysis";
 
-export default function AISummaryScreen() {
+function AISummaryScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const { t, i18n } = useTranslation();
@@ -459,3 +459,5 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
 });
+
+export default AISummaryScreen;

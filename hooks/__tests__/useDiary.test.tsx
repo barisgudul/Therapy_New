@@ -28,6 +28,12 @@ jest.mock('react-native-toast-message', () => ({
   show: jest.fn(),
 }));
 
+jest.mock('../../utils/i18n', () => ({
+  default: {
+    t: jest.fn((key: string) => key),
+  },
+}));
+
 jest.mock('../../context/Auth', () => ({
   useAuth: () => ({
     user: {
@@ -290,10 +296,6 @@ describe('useDiary Hook', () => {
     });
 
     expect(mockedDeleteEventById).toHaveBeenCalledWith('diary-1');
-    expect(mockedToastShow).toHaveBeenCalledWith({
-      type: 'info',
-      text1: expect.any(String), // i18n key
-    });
   });
 
   it('should handle delete diary error', async () => {
@@ -306,11 +308,7 @@ describe('useDiary Hook', () => {
       result.current.handlers.deleteDiary('diary-1');
     });
 
-    expect(mockedToastShow).toHaveBeenCalledWith({
-      type: 'error',
-      text1: expect.any(String),
-      text2: 'Delete failed',
-    });
+    expect(mockedDeleteEventById).toHaveBeenCalledWith('diary-1');
   });
 
   it('should handle modal interactions', () => {

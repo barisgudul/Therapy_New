@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:coverage": "jest --coverage --detectOpenHandles"
+    "test:coverage": "jest --coverage --detectOpenHandles",
+    "test:app": "jest --testPathPattern=\"app/\\(app\\)\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",

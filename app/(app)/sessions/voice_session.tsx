@@ -33,7 +33,7 @@ export default function VoiceSessionScreen() {
   // Eğer veri hala yükleniyorsa, kullanıcıya boş ekran göstermek yerine bir yüklenme animasyonu göster.
   if (isLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loadingContainer} testID="loading-container">
         <ActivityIndicator size="large" color={Colors.light.tint} />
                             </View>
     );

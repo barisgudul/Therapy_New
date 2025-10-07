@@ -155,6 +155,7 @@ export default function DreamResultScreen() {
                     <TouchableOpacity
                         onPress={() => router.back()}
                         style={styles.backButton}
+                        testID="back-button"
                     >
                         <Ionicons
                             name="close-outline"
@@ -204,6 +205,7 @@ export default function DreamResultScreen() {
                 <TouchableOpacity
                     onPress={() => router.back()}
                     style={styles.backButton}
+                    testID="back-button"
                 >
                     <Ionicons
                         name="close-outline"

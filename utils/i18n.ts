@@ -92,4 +92,5 @@ export const changeLanguage = async (lng: string) => {
     }
 };
 
+export { changeLanguage };
 export default i18n;

@@ -171,8 +171,8 @@ export default function TextSessionScreen() {
 
   // Feature Access Hook
   const {
-    loading,
-    refresh,
+    isLoading: loading,
+    refetch: refresh,
   } = useFeatureAccess("text_sessions");
 
   // Main session logic hook - using useReducer for better state management
@@ -206,6 +206,7 @@ export default function TextSessionScreen() {
           <ActivityIndicator
             size="large"
             color={isDark ? "#fff" : Colors.light.tint}
+            testID="activity-indicator"
           />
         </View>
       ) : (

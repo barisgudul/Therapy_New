@@ -56,6 +56,7 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.flex}>
         <Animated.View
           style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
+          testID="home-screen"
         >
           <HomeHeader onSettingsPress={handleSettingsPress} />
 

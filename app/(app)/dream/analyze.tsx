@@ -124,7 +124,7 @@ export default function AnalyzeDreamScreen() {
         <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
           {/* Header'ı ScrollView'ın DIŞINA al, sabit kalsın */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
               <Ionicons name="chevron-back" size={28} color={COSMIC_COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -177,6 +177,7 @@ export default function AnalyzeDreamScreen() {
               disabled={!canSubmit}
               onPress={handleAnalyzePress}
               activeOpacity={0.8}
+              testID="analyze-button"
             >
               <LinearGradient
                 colors={!canSubmit ? COSMIC_COLORS.disabledGradient : COSMIC_COLORS.accentGradient}
@@ -185,7 +186,7 @@ export default function AnalyzeDreamScreen() {
                 style={styles.analyzeButton}
               >
                 {analyzeMutation.isPending ? (
-                  <ActivityIndicator color={COSMIC_COLORS.textPrimary} />
+                  <ActivityIndicator color={COSMIC_COLORS.textPrimary} testID="activity-indicator" />
                 ) : (
                   <Text style={styles.analyzeButtonText}>{t("dream.analyze.button_analyze")}</Text>
                 )}

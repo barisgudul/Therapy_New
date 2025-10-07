@@ -29,7 +29,14 @@ exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
           "alignItems": "center",
           "marginBottom": 30,
         },
-        [MockFunction],
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "translateY": -10,
+            },
+          ],
+        },
       ]
     }
   >
@@ -78,7 +85,14 @@ exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
           "marginBottom": 24,
           "padding": 24,
         },
-        [MockFunction],
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "scale": 0.9,
+            },
+          ],
+        },
       ]
     }
     transition={
@@ -180,7 +194,14 @@ exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
           "marginBottom": 24,
           "padding": 24,
         },
-        [MockFunction],
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "scale": 0.9,
+            },
+          ],
+        },
       ]
     }
     transition={
@@ -284,7 +305,14 @@ exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
           "marginBottom": 24,
           "padding": 24,
         },
-        [MockFunction],
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "scale": 0.9,
+            },
+          ],
+        },
       ]
     }
     transition={
@@ -397,7 +425,14 @@ exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
           "marginBottom": 24,
           "padding": 24,
         },
-        [MockFunction],
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "scale": 0.9,
+            },
+          ],
+        },
       ]
     }
     transition={
@@ -488,7 +523,14 @@ exports[`ResultSkeleton component doğru şekilde render edilmelidir 1`] = `
           "marginBottom": 24,
           "padding": 24,
         },
-        [MockFunction],
+        {
+          "opacity": 0,
+          "transform": [
+            {
+              "scale": 0.9,
+            },
+          ],
+        },
       ]
     }
     transition={

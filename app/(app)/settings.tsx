@@ -80,6 +80,7 @@ export default function SettingsScreen() {
                     <Pressable
                         onPress={() => router.back()}
                         style={styles.backButton}
+                        testID="back-button"
                     >
                         <Ionicons name="close" size={28} color="#1E293B" />
                     </Pressable>

@@ -26,7 +26,14 @@ exports[`SkeletonCard component doğru şekilde render edilmelidir 1`] = `
         "marginBottom": 16,
         "padding": 20,
       },
-      [MockFunction],
+      {
+        "opacity": 0,
+        "transform": [
+          {
+            "translateY": 50,
+          },
+        ],
+      },
     ]
   }
   transition={
@@ -104,7 +111,14 @@ exports[`SkeletonCard varsayılan delay ile render edilmelidir 1`] = `
         "marginBottom": 16,
         "padding": 20,
       },
-      [MockFunction],
+      {
+        "opacity": 0,
+        "transform": [
+          {
+            "translateY": 50,
+          },
+        ],
+      },
     ]
   }
   transition={
@@ -182,7 +196,14 @@ exports[`SkeletonCard özel delay ile render edilmelidir 1`] = `
         "marginBottom": 16,
         "padding": 20,
       },
-      [MockFunction],
+      {
+        "opacity": 0,
+        "transform": [
+          {
+            "translateY": 50,
+          },
+        ],
+      },
     ]
   }
   transition={

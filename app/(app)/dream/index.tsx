@@ -190,6 +190,7 @@ export default function DreamJournalScreen() {
         <TouchableOpacity
           onPress={() => handleDelete(item.id)}
           style={styles.deleteIcon}
+          testID="delete-button"
         >
           <Ionicons
             name="trash-bin-outline"
@@ -210,6 +211,7 @@ export default function DreamJournalScreen() {
           <TouchableOpacity
             onPress={() => router.back()}
             style={styles.backButton}
+            testID="back-button"
           >
             <Ionicons
               name="chevron-back"

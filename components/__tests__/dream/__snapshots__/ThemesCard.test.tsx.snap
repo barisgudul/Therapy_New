@@ -24,7 +24,14 @@ exports[`ThemesCard component doğru şekilde render edilmelidir 1`] = `
         "marginBottom": 24,
         "padding": 24,
       },
-      [MockFunction],
+      {
+        "opacity": 0,
+        "transform": [
+          {
+            "scale": 0.9,
+          },
+        ],
+      },
     ]
   }
   transition={
@@ -94,7 +101,7 @@ exports[`ThemesCard component doğru şekilde render edilmelidir 1`] = `
             "paddingHorizontal": 16,
             "paddingVertical": 8,
           },
-          [MockFunction],
+          {},
         ]
       }
     >
@@ -119,7 +126,7 @@ exports[`ThemesCard component doğru şekilde render edilmelidir 1`] = `
             "paddingHorizontal": 16,
             "paddingVertical": 8,
           },
-          [MockFunction],
+          {},
         ]
       }
     >

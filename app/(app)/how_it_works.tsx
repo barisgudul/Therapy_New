@@ -48,7 +48,7 @@ export default function HowItWorksScreen() {
     >
       <SafeAreaView style={styles.flex}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
             <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('about.header_title')}</Text>

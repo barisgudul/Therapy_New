@@ -24,7 +24,14 @@ exports[`FeedbackCard component doğru şekilde render edilmelidir 1`] = `
         "marginTop": 8,
         "padding": 24,
       },
-      [MockFunction],
+      {
+        "opacity": 0,
+        "transform": [
+          {
+            "scale": 0.9,
+          },
+        ],
+      },
     ]
   }
   transition={

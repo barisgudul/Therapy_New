@@ -135,4 +135,137 @@ global.console = {
   process.on('unhandledRejection', (reason) => {
     console.error('Unhandled Rejection:', reason);
   });
+
+  // App tests için ek mock'lar
+  jest.mock('react-native-error-boundary', () => ({
+    ErrorBoundary: ({ children }) => children,
+  }));
+
+  jest.mock('expo-blur', () => ({
+    BlurView: 'BlurView',
+  }));
+
+  jest.mock('@react-native-community/slider', () => 'Slider');
+
+  jest.mock('@miblanchard/react-native-slider', () => 'Slider');
+
+  jest.mock('react-native-reanimated', () => {
+    const Reanimated = require('react-native-reanimated/mock');
+    Reanimated.default.call = () => {};
+    return Reanimated;
+  });
+
+// Mock react-native-safe-area-context
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({
+    top: 44,
+    bottom: 34,
+    left: 0,
+    right: 0,
+  }),
+  SafeAreaProvider: ({ children }) => children,
+  SafeAreaView: ({ children }) => children,
+}));
+
+// Mock expo-audio
+jest.mock('expo-audio', () => ({
+  requestRecordingPermissionsAsync: jest.fn(),
+  setAudioModeAsync: jest.fn(),
+  useAudioPlayer: jest.fn(() => ({
+    play: jest.fn(),
+    pause: jest.fn(),
+    stop: jest.fn(),
+    unload: jest.fn(),
+    playing: false,
+    duration: 0,
+    currentTime: 0,
+  })),
+  useRecording: jest.fn(() => ({
+    start: jest.fn(),
+    stop: jest.fn(),
+    pause: jest.fn(),
+    resume: jest.fn(),
+    recording: false,
+    duration: 0,
+    uri: null,
+  })),
+}));
+
+// Mock react-i18next
+jest.mock('react-i18next', () => ({
+  initReactI18next: {
+    type: '3rdParty',
+    init: jest.fn(),
+  },
+  useTranslation: () => ({
+    t: (key) => key,
+    i18n: {
+      language: 'tr',
+      changeLanguage: jest.fn(),
+    },
+  }),
+}));
+
+// Mock i18n default export
+jest.mock('./utils/i18n', () => ({
+  __esModule: true,
+  default: {
+    t: (key) => key,
+    language: 'tr',
+    changeLanguage: jest.fn(),
+  },
+  SUPPORTED_LANGUAGES: ['tr', 'en', 'de'],
+  DEFAULT_LANGUAGE: 'en',
+  changeLanguage: jest.fn(),
+}));
+
+// Mock i18next initReactI18next
+jest.mock('i18next', () => ({
+  init: jest.fn(),
+  use: jest.fn(),
+  t: (key) => key,
+  language: 'tr',
+}));
+
+// Mock utils/i18n
+jest.mock('./utils/i18n', () => ({
+  initReactI18next: {
+    type: '3rdParty',
+    init: jest.fn(),
+  },
+}));
+
+// Mock expo-router
+jest.mock('expo-router', () => ({
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+    canGoBack: jest.fn(() => true),
+  })),
+  useLocalSearchParams: jest.fn(() => ({})),
+  router: {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+  },
+}));
+
+// Mock expo-router useRouter için mockReturnValue desteği
+const mockUseRouter = jest.fn(() => ({
+  push: jest.fn(),
+  back: jest.fn(),
+  replace: jest.fn(),
+  canGoBack: jest.fn(() => true),
+}));
+
+jest.doMock('expo-router', () => ({
+  useRouter: mockUseRouter,
+  useLocalSearchParams: jest.fn(() => ({})),
+  router: {
+    push: jest.fn(),
+    back: jest.fn(),
+    replace: jest.fn(),
+  },
+}));
   
