@@ -29,7 +29,7 @@ jest.mock('@tanstack/react-query', () => ({
 jest.mock('@shopify/flash-list', () => ({
   FlashList: ({ data, renderItem, ListEmptyComponent, ...props }: any) => {
     const React = require('react');
-    const { View, Text } = require('react-native');
+    const { View } = require('react-native');
     
     // Eğer data boşsa ListEmptyComponent'i render et
     if (!data || data.length === 0) {

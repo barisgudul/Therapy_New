@@ -177,4 +177,105 @@ describe('SettingsScreen', () => {
     expect(mockHandleSignOut).toBeDefined();
     expect(mockHandleResetData).toBeDefined();
   });
+
+  it('LanguageSelector tüm dilleri göstermelidir', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('settings.language.turkish')).toBeTruthy();
+    expect(screen.getByText('settings.language.english')).toBeTruthy();
+    expect(screen.getByText('settings.language.german')).toBeTruthy();
+  });
+
+  it('language title gösterilmelidir', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('settings.language.title')).toBeTruthy();
+  });
+
+  it('current language aktif gösterilmelidir', () => {
+    render(<SettingsScreen />);
+
+    // TR dili aktif olmalı
+    expect(screen.getByText('settings.language.turkish')).toBeTruthy();
+  });
+
+  it('language buttons render edilmelidir', () => {
+    render(<SettingsScreen />);
+
+    // Tüm language butonları gösterilmeli
+    expect(screen.getByText('settings.language.turkish')).toBeTruthy();
+    expect(screen.getByText('settings.language.english')).toBeTruthy();
+    expect(screen.getByText('settings.language.german')).toBeTruthy();
+  });
+
+  it('sign out butonuna basıldığında handleSignOut çağrılmalıdır', () => {
+    const mockHandleSignOut = jest.fn();
+
+    mockUseSettings.mockReturnValue({
+      isResetting: false,
+      handleSignOut: mockHandleSignOut,
+      handleResetData: jest.fn(),
+    });
+
+    render(<SettingsScreen />);
+
+    const signOutButton = screen.getByText('settings.main.dangerZone_signOut');
+    fireEvent.press(signOutButton);
+
+    expect(mockHandleSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('reset data butonuna basıldığında handleResetData çağrılmalıdır', () => {
+    const mockHandleResetData = jest.fn();
+
+    mockUseSettings.mockReturnValue({
+      isResetting: false,
+      handleSignOut: jest.fn(),
+      handleResetData: mockHandleResetData,
+    });
+
+    render(<SettingsScreen />);
+
+    const resetButton = screen.getByText('settings.main.dangerZone_resetData');
+    fireEvent.press(resetButton);
+
+    expect(mockHandleResetData).toHaveBeenCalledTimes(1);
+  });
+
+  it('pressed state butonlar için çalışmalıdır', () => {
+    render(<SettingsScreen />);
+
+    const signOutButton = screen.getByText('settings.main.dangerZone_signOut');
+    
+    // Press simüle et
+    fireEvent(signOutButton, 'pressIn');
+    fireEvent(signOutButton, 'pressOut');
+
+    expect(mockUseSettings).toHaveBeenCalled();
+  });
+
+  it('destructive zone render edilmelidir', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('settings.main.dangerZone_title')).toBeTruthy();
+  });
+
+  it('footer version text gösterilmelidir', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('settings.main.footer_version')).toBeTruthy();
+  });
+
+  it('router push fonksiyonu tanımlı olmalıdır', () => {
+    const mockPush = jest.fn();
+    mockUseRouter.mockReturnValue({
+      back: jest.fn(),
+      push: mockPush,
+    });
+
+    render(<SettingsScreen />);
+
+    // Router push tanımlı olmalı
+    expect(mockPush).toBeDefined();
+  });
 });

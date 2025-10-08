@@ -1,6 +1,8 @@
 // app/(app)/__tests__/ai_summary.test.tsx
 import React from 'react';
-import { render, waitFor, fireEvent, screen } from '@testing-library/react-native';
+import { render, waitFor } from '@testing-library/react-native';
+
+import AISummaryScreen from '../ai_summary';
 
 // Mock'lar
 jest.mock('../../../context/Auth');
@@ -20,7 +22,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 jest.mock('react-native-toast-message', () => ({
-  show: jest.fn(),
+  __esModule: true,
+  default: {
+    show: jest.fn(),
+  },
 }));
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 jest.mock('@miblanchard/react-native-slider', () => ({ Slider: 'Slider' }));
@@ -33,9 +38,6 @@ jest.mock('react-native-reanimated', () => ({
 
 // Mock Alert
 jest.spyOn(jest.requireActual('react-native').Alert, 'alert');
-
-// Import component after mocks
-import AISummaryScreen from '../ai_summary';
 
 describe('AISummaryScreen', () => {
   const mockUseAuth = jest.mocked(require('../../../context/Auth').useAuth);
@@ -126,7 +128,8 @@ describe('AISummaryScreen', () => {
     render(<AISummaryScreen />);
 
     // Toast'un doğru kullanıldığını kontrol et
-    expect(require('react-native-toast-message').show).toBeDefined();
+    const mockToast = require('react-native-toast-message').default;
+    expect(mockToast.show).toBeDefined();
   });
 
   it('fetchSummary hata durumunda Alert gösterilmelidir', async () => {
@@ -337,7 +340,6 @@ describe('AISummaryScreen', () => {
   });
 
   it('fetchSummary fonksiyonu başarılı çalışmalıdır', async () => {
-    const mockToast = require('react-native-toast-message');
     mockSupabase.functions.invoke.mockResolvedValue({
       data: { report: 'test report' },
       error: null,
@@ -350,7 +352,6 @@ describe('AISummaryScreen', () => {
   });
 
   it('fetchSummary hata durumunda Toast gösterilmelidir', async () => {
-    const mockToast = require('react-native-toast-message');
     mockSupabase.functions.invoke.mockResolvedValue({
       data: null,
       error: { message: 'Test error' },
@@ -359,6 +360,7 @@ describe('AISummaryScreen', () => {
     render(<AISummaryScreen />);
 
     // Hata durumunda Toast'un çağrılabileceğini kontrol et
+    const mockToast = require('react-native-toast-message').default;
     expect(mockToast.show).toBeDefined();
   });
 

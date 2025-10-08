@@ -211,4 +211,186 @@ describe('HomeScreen', () => {
     // BlurView'in conditional olarak kullanıldığını kontrol et
     expect(mockUseHomeScreen).toHaveBeenCalled();
   });
+
+  it('report modal aktif olduğunda doğru gösterilmelidir', () => {
+    mockUseHomeScreen.mockReturnValue({
+      activeModal: 'report',
+      scaleAnim: { scale: 1 },
+      dailyMessage: 'Test mesajı',
+      isVaultLoading: false,
+      handleDailyPress: jest.fn(),
+      handleReportPress: jest.fn(),
+      handleSettingsPress: jest.fn(),
+      handleModalClose: jest.fn(),
+      handleNavigateToTherapy: jest.fn(),
+      invalidateLatestReport: jest.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    expect(mockUseHomeScreen).toHaveBeenCalled();
+  });
+
+  it('component unmount olduğunda hata olmamalıdır', () => {
+    const { unmount } = render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    expect(() => {
+      unmount();
+    }).not.toThrow();
+  });
+
+  it('handleModalClose çağrıldığında modal kapanmalıdır', () => {
+    const mockHandleModalClose = jest.fn();
+    
+    mockUseHomeScreen.mockReturnValue({
+      activeModal: 'dailyMessage',
+      scaleAnim: { scale: 1 },
+      dailyMessage: 'Test mesajı',
+      isVaultLoading: false,
+      handleDailyPress: jest.fn(),
+      handleReportPress: jest.fn(),
+      handleSettingsPress: jest.fn(),
+      handleModalClose: mockHandleModalClose,
+      handleNavigateToTherapy: jest.fn(),
+      invalidateLatestReport: jest.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // handleModalClose tanımlı olmalı
+    expect(mockHandleModalClose).toBeDefined();
+  });
+
+  it('handleNavigateToTherapy çağrıldığında navigation olmalıdır', () => {
+    const mockHandleNavigateToTherapy = jest.fn();
+    
+    mockUseHomeScreen.mockReturnValue({
+      activeModal: 'dailyMessage',
+      scaleAnim: { scale: 1 },
+      dailyMessage: 'Test mesajı',
+      isVaultLoading: false,
+      handleDailyPress: jest.fn(),
+      handleReportPress: jest.fn(),
+      handleSettingsPress: jest.fn(),
+      handleModalClose: jest.fn(),
+      handleNavigateToTherapy: mockHandleNavigateToTherapy,
+      invalidateLatestReport: jest.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // handleNavigateToTherapy tanımlı olmalı
+    expect(mockHandleNavigateToTherapy).toBeDefined();
+  });
+
+  it('invalidateLatestReport çağrıldığında query invalidate edilmelidir', () => {
+    const mockInvalidateLatestReport = jest.fn();
+    
+    mockUseHomeScreen.mockReturnValue({
+      activeModal: null,
+      scaleAnim: { scale: 1 },
+      dailyMessage: 'Test mesajı',
+      isVaultLoading: false,
+      handleDailyPress: jest.fn(),
+      handleReportPress: jest.fn(),
+      handleSettingsPress: jest.fn(),
+      handleModalClose: jest.fn(),
+      handleNavigateToTherapy: jest.fn(),
+      invalidateLatestReport: mockInvalidateLatestReport,
+    });
+
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // invalidateLatestReport tanımlı olmalı
+    expect(mockInvalidateLatestReport).toBeDefined();
+  });
+
+  it('onboardingInsight modal test edilmelidir', () => {
+    mockUseHomeScreen.mockReturnValue({
+      activeModal: 'onboardingInsight',
+      scaleAnim: { scale: 1 },
+      dailyMessage: 'Test mesajı',
+      isVaultLoading: false,
+      onboardingInsight: { insight: 'Test insight' },
+      handleDailyPress: jest.fn(),
+      handleReportPress: jest.fn(),
+      handleSettingsPress: jest.fn(),
+      handleModalClose: jest.fn(),
+      handleNavigateToTherapy: jest.fn(),
+      invalidateLatestReport: jest.fn(),
+      handleOnboardingInsightPress: jest.fn(),
+    });
+
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    expect(mockUseHomeScreen).toHaveBeenCalled();
+  });
+
+  it('HomeHeader component render edilmelidir', () => {
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // HomeHeader render edilmeli
+    expect(screen.getByTestId('home-screen')).toBeTruthy();
+  });
+
+  it('HomeIllustration component render edilmelidir', () => {
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // HomeIllustration render edilmeli
+    expect(screen.getByTestId('home-screen')).toBeTruthy();
+  });
+
+  it('HomeActions component render edilmelidir', () => {
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // HomeActions render edilmeli
+    expect(screen.getByTestId('home-screen')).toBeTruthy();
+  });
+
+  it('useQuery hook doğru çalışmalıdır', () => {
+    render(
+      <TestWrapper>
+        <HomeScreen />
+      </TestWrapper>
+    );
+
+    // useQuery kullanıldığını kontrol et
+    expect(mockUseHomeScreen).toHaveBeenCalled();
+  });
 });

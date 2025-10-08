@@ -35,7 +35,6 @@ jest.mock('react-i18next', () => ({
 
 describe('DailyReflectionScreen', () => {
   const mockUseDailyReflection = jest.mocked(require('../../../hooks/useDailyReflection').useDailyReflection);
-  const mockHaptics = require('expo-haptics');
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -276,7 +275,6 @@ describe('DailyReflectionScreen', () => {
 
   it('kaydet butonuna basıldığında haptic feedback ve saveSession çağrılmalıdır', () => {
     const mockSaveSession = jest.fn();
-    const mockHaptics = jest.requireActual('expo-haptics');
     
     mockUseDailyReflection.mockReturnValue({
       state: {

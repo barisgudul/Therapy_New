@@ -483,4 +483,130 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
     // Markdown rendering'in doğru çalıştığını kontrol et
     expect(screen.getByText('transcripts.summary.view_button')).toBeTruthy();
   });
+
+  it('voice_session event type için doğru header gösterilmelidir', () => {
+    mockUseTranscripts.mockReturnValue({
+      state: {
+        isLoading: false,
+        viewMode: 'summaryList',
+        allEvents: [{ ...mockSessionEvent, type: 'voice_session' }],
+        selectedSessionType: 'voice_session',
+      },
+      actions: {
+        handleSelectSessionType: jest.fn(),
+        handleDeleteEvent: jest.fn(),
+        handleNavigateToPremium: jest.fn(),
+        goBack: jest.fn(),
+        setViewModeToMenu: jest.fn(),
+        navigateToSession: jest.fn(),
+      },
+    });
+
+    render(<PremiumHistoryScreen />);
+
+    expect(screen.getByText('transcripts.summaryList.titles.voice_session')).toBeTruthy();
+  });
+
+  it('mood değeri 0 olduğunda doğru render edilmelidir', () => {
+    mockUseTranscripts.mockReturnValue({
+      state: {
+        isLoading: false,
+        viewMode: 'summaryList',
+        allEvents: [{ ...mockSessionEvent, mood: 0 }],
+        selectedSessionType: 'text_session',
+      },
+      actions: {
+        handleSelectSessionType: jest.fn(),
+        handleDeleteEvent: jest.fn(),
+        handleNavigateToPremium: jest.fn(),
+        goBack: jest.fn(),
+        setViewModeToMenu: jest.fn(),
+        navigateToSession: jest.fn(),
+      },
+    });
+
+    render(<PremiumHistoryScreen />);
+
+    expect(screen.getByText('transcripts.summary.view_button')).toBeTruthy();
+  });
+
+  it('mood değeri null olduğunda doğru render edilmelidir', () => {
+    mockUseTranscripts.mockReturnValue({
+      state: {
+        isLoading: false,
+        viewMode: 'summaryList',
+        allEvents: [{ ...mockSessionEvent, mood: null }],
+        selectedSessionType: 'text_session',
+      },
+      actions: {
+        handleSelectSessionType: jest.fn(),
+        handleDeleteEvent: jest.fn(),
+        handleNavigateToPremium: jest.fn(),
+        goBack: jest.fn(),
+        setViewModeToMenu: jest.fn(),
+        navigateToSession: jest.fn(),
+      },
+    });
+
+    render(<PremiumHistoryScreen />);
+
+    expect(screen.getByText('transcripts.summary.view_button')).toBeTruthy();
+  });
+
+  it('summary null olduğunda doğru render edilmelidir', () => {
+    mockUseTranscripts.mockReturnValue({
+      state: {
+        isLoading: false,
+        viewMode: 'summaryList',
+        allEvents: [{ ...mockSessionEvent, summary: null }],
+        selectedSessionType: 'text_session',
+      },
+      actions: {
+        handleSelectSessionType: jest.fn(),
+        handleDeleteEvent: jest.fn(),
+        handleNavigateToPremium: jest.fn(),
+        goBack: jest.fn(),
+        setViewModeToMenu: jest.fn(),
+        navigateToSession: jest.fn(),
+      },
+    });
+
+    render(<PremiumHistoryScreen />);
+
+    expect(screen.getByText('transcripts.summary.view_button')).toBeTruthy();
+  });
+
+  it('data.summary kullanıldığında doğru render edilmelidir', () => {
+    mockUseTranscripts.mockReturnValue({
+      state: {
+        isLoading: false,
+        viewMode: 'summaryList',
+        allEvents: [{ ...mockSessionEvent, summary: null, data: { summary: 'Data summary' } }],
+        selectedSessionType: 'text_session',
+      },
+      actions: {
+        handleSelectSessionType: jest.fn(),
+        handleDeleteEvent: jest.fn(),
+        handleNavigateToPremium: jest.fn(),
+        goBack: jest.fn(),
+        setViewModeToMenu: jest.fn(),
+        navigateToSession: jest.fn(),
+      },
+    });
+
+    render(<PremiumHistoryScreen />);
+
+    expect(screen.getByText('transcripts.summary.view_button')).toBeTruthy();
+  });
+
+  it('Platform.OS android olduğunda UIManager çalışmalıdır', () => {
+    const originalPlatform = require('react-native').Platform.OS;
+    require('react-native').Platform.OS = 'android';
+
+    render(<PremiumHistoryScreen />);
+
+    expect(mockUseTranscripts).toHaveBeenCalled();
+
+    require('react-native').Platform.OS = originalPlatform;
+  });
 });

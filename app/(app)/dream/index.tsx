@@ -159,7 +159,7 @@ export default function DreamJournalScreen() {
         {t("dream.index.empty_subtext")}
       </Text>
     </View>
-  ), []);
+  ), [t]);
 
   const renderDreamCard = (
     { item, index }: { item: AppEvent; index: number },
