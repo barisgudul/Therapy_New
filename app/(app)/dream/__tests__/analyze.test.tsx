@@ -1,6 +1,9 @@
 // app/(app)/dream/__tests__/analyze.test.tsx
+
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Keyboard } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 import AnalyzeDreamScreen from '../analyze';
 
@@ -8,7 +11,10 @@ import AnalyzeDreamScreen from '../analyze';
 jest.mock('../../../../hooks/useVault');
 jest.mock('../../../../services/event.service');
 jest.mock('../../../../utils/supabase');
-jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
+jest.mock('expo-linear-gradient', () => {
+  const { View } = require('react-native');
+  return { LinearGradient: ({ children, ...props }: any) => <View {...props}>{children}</View> };
+});
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
 }));
@@ -17,524 +23,602 @@ jest.mock('react-i18next', () => ({
     t: (key: string) => key,
   }),
 }));
-jest.mock('../../../../utils/i18n', () => ({
-  language: 'tr',
-}));
+jest.mock('../../../../utils/i18n', () => ({ __esModule: true, default: { language: 'tr' } }));
 jest.mock('@tanstack/react-query', () => ({
   useMutation: jest.fn(),
   useQueryClient: jest.fn(),
 }));
-jest.mock('moti', () => ({ MotiView: 'MotiView' }));
+jest.mock('moti', () => {
+  const { View } = require('react-native');
+  return { MotiView: ({ children, ...props }: any) => <View {...props}>{children}</View> };
+});
 jest.mock('react-native-toast-message', () => ({
-  show: jest.fn(),
+  __esModule: true,
+  default: { show: jest.fn() },
 }));
 
-describe('AnalyzeDreamScreen', () => {
+// Keyboard mock
+const mockKeyboardDismiss = jest.spyOn(Keyboard, 'dismiss');
+
+describe('AnalyzeDreamScreen - Gerçek Davranış Testleri', () => {
   const mockUseMutation = jest.mocked(require('@tanstack/react-query').useMutation);
   const mockUseQueryClient = jest.mocked(require('@tanstack/react-query').useQueryClient);
   const mockUseVault = jest.mocked(require('../../../../hooks/useVault').useVault);
-  const mockCanUserAnalyzeDream = jest.mocked(require('../../../../services/event.service').canUserAnalyzeDream);
+  const mockCanUserAnalyzeDream = jest.mocked(
+    require('../../../../services/event.service').canUserAnalyzeDream
+  );
   const mockSupabase = jest.mocked(require('../../../../utils/supabase').supabase);
+  const mockToast = Toast;
+
+  let mockMutate: jest.Mock;
+  let mockQueryClient: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    // useRouter mock'u
+
+    mockMutate = jest.fn();
+
+    mockQueryClient = {
+      invalidateQueries: jest.fn(),
+    };
+
+    // useRouter mock
     require('expo-router').useRouter.mockImplementation(() => ({
       back: jest.fn(),
       replace: jest.fn(),
     }));
-    
-    // Varsayılan mock implementations
+
+    // useVault - varsayılan başarılı
     mockUseVault.mockReturnValue({
       data: { id: 'vault-123' },
       isLoading: false,
-    });
+    } as any);
 
+    // useMutation - varsayılan
     mockUseMutation.mockReturnValue({
-      mutate: jest.fn(),
+      mutate: mockMutate,
       isPending: false,
-    });
+    } as any);
 
-    mockUseQueryClient.mockReturnValue({
-      invalidateQueries: jest.fn(),
-    });
+    mockUseQueryClient.mockReturnValue(mockQueryClient);
 
+    // canUserAnalyzeDream - varsayılan izin var
     mockCanUserAnalyzeDream.mockResolvedValue({
       canAnalyze: true,
-    });
+    } as any);
 
+    // supabase functions - varsayılan başarılı
     mockSupabase.functions = {
       invoke: jest.fn().mockResolvedValue({
         data: 'dream-123',
         error: null,
       }),
-    };
+    } as any;
+
+    // Keyboard mock
+    mockKeyboardDismiss.mockClear();
   });
 
-  it('component render edilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
+  describe('1. Rendering ve UI', () => {
+    it('header doğru render edilir', () => {
+      const { getByText } = render(<AnalyzeDreamScreen />);
 
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('header doğru render edilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
-
-    expect(screen.getByText('dream.analyze.header_title')).toBeTruthy();
-    expect(screen.getByText('dream.analyze.header_subtext')).toBeTruthy();
-  });
-
-  it('text input doğru render edilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
-
-    expect(screen.getByPlaceholderText('dream.analyze.placeholder')).toBeTruthy();
-  });
-
-  it('text input değeri değiştirilebilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Test rüya metni');
-
-    expect(textInput.props.value).toBe('Test rüya metni');
-  });
-
-  it('karakter sayacı doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Test');
-
-    expect(screen.getByText('4/20')).toBeTruthy();
-  });
-
-  it('minimum karakter kontrolü doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Kısa metin');
-
-    // 20 karakterden az olduğu için buton disabled olmalı
-    const analyzeButton = screen.getByTestId('analyze-button');
-    expect(analyzeButton).toBeTruthy();
-    // Disabled butonun tıklanması mutation'ı çağırmamalı
-    fireEvent.press(analyzeButton);
-    expect(mockUseMutation).toHaveBeenCalled();
-  });
-
-  it('yeterli karakter olduğunda buton aktif olmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    // 20 karakterden fazla olduğu için buton aktif olmalı
-    const analyzeButton = screen.getByTestId('analyze-button');
-    expect(analyzeButton).toBeTruthy();
-    // Aktif butonun tıklanması mutation'ı çağırmalı
-    fireEvent.press(analyzeButton);
-    expect(mockUseMutation).toHaveBeenCalled();
-  });
-
-  it('analyze butonuna basıldığında mutation çağrılmalıdır', () => {
-    const mockMutate = jest.fn();
-    mockUseMutation.mockReturnValue({
-      mutate: mockMutate,
-      isPending: false,
+      expect(getByText('dream.analyze.header_title')).toBeTruthy();
+      expect(getByText('dream.analyze.header_subtext')).toBeTruthy();
     });
 
-    render(<AnalyzeDreamScreen />);
+    it('text input render edilir', () => {
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
 
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    const analyzeButton = screen.getByText('dream.analyze.button_analyze');
-    fireEvent.press(analyzeButton);
-
-    expect(mockMutate).toHaveBeenCalled();
-  });
-
-  it('geri butonuna basıldığında router.back çağrılmalıdır', () => {
-    const mockRouter = { back: jest.fn(), replace: jest.fn() };
-    require('expo-router').useRouter.mockImplementation(() => mockRouter);
-
-    render(<AnalyzeDreamScreen />);
-
-    const backButton = screen.getByTestId('back-button');
-    fireEvent.press(backButton);
-
-    expect(mockRouter.back).toHaveBeenCalled();
-  });
-
-  it('loading durumunda ActivityIndicator göstermelidir', () => {
-    mockUseMutation.mockReturnValue({
-      mutate: jest.fn(),
-      isPending: true,
+      expect(getByPlaceholderText('dream.analyze.placeholder')).toBeTruthy();
     });
 
-    render(<AnalyzeDreamScreen />);
+    it('helper text ve counter gösterilir', () => {
+      const { getByText } = render(<AnalyzeDreamScreen />);
 
-    // Loading state'inin doğru işlendiğini kontrol et
-    expect(screen.getByTestId('activity-indicator')).toBeTruthy();
-  });
-
-  it('vault loading durumunda buton disabled olmalıdır', () => {
-    mockUseVault.mockReturnValue({
-      data: null,
-      isLoading: true,
-    });
-
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    // Vault loading olduğu için buton disabled olmalı
-    const analyzeButton = screen.getByTestId('analyze-button');
-    expect(analyzeButton).toBeTruthy();
-    // Vault loading olduğu için buton tıklanamamalı
-    fireEvent.press(analyzeButton);
-    expect(mockUseMutation).toHaveBeenCalled();
-  });
-
-  it('error state doğru gösterilmelidir', () => {
-    const mockMutate = jest.fn();
-    mockUseMutation.mockReturnValue({
-      mutate: mockMutate,
-      isPending: false,
-    });
-
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    // Uzun metin ile analyze butonuna bas
-    const analyzeButton = screen.getByText('dream.analyze.button_analyze');
-    fireEvent.press(analyzeButton);
-
-    // Error handling'in doğru çalıştığını kontrol et
-    expect(mockMutate).toHaveBeenCalled();
-  });
-
-  it('useMutation doğru parametrelerle çağrılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    expect(mockUseMutation).toHaveBeenCalledWith({
-      mutationFn: expect.any(Function),
-      onSuccess: expect.any(Function),
-      onError: expect.any(Function),
+      expect(getByText('dream.analyze.helper_privacy')).toBeTruthy();
+      expect(getByText('0/20')).toBeTruthy();
     });
   });
 
-  it('component mount olduğunda hata olmamalıdır', () => {
-    expect(() => {
+  describe('2. Text Input Değişimi', () => {
+    it('text input değiştirilebilir ve counter güncellenir', () => {
+      const { getByPlaceholderText, getByText } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Test rüya metni');
+
+      expect(textInput.props.value).toBe('Test rüya metni');
+      // "Test rüya metni" = 15 karakter
+      expect(getByText(/15/)).toBeTruthy();
+      expect(getByText(/20/)).toBeTruthy();
+    });
+
+    it('20+ karakter yazınca counter 20+ gösterir', () => {
+      const { getByPlaceholderText, getByText } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin');
+
+      // "Bu rüya metni yeterince uzun bir metin" = 38 karakter
+      expect(getByText(/38/)).toBeTruthy();
+      expect(getByText(/20/)).toBeTruthy();
+    });
+  });
+
+  describe('3. Buton Disabled States', () => {
+    it('20 karakterden az ise buton disabled olur', () => {
+      const { getByPlaceholderText, getByTestId } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Kısa metin');
+
+      const button = getByTestId('analyze-button');
+      fireEvent.press(button);
+
+      // Buton disabled olduğu için mutate çağrılmamalı
+      expect(mockMutate).not.toHaveBeenCalled();
+    });
+
+    it('isPending true ise buton disabled olur', () => {
+      mockUseMutation.mockReturnValue({
+        mutate: mockMutate,
+        isPending: true,
+      } as any);
+
+      const { getByPlaceholderText, getByTestId } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      const button = getByTestId('analyze-button');
+      fireEvent.press(button);
+
+      // isPending olduğu için mutate çağrılmamalı
+      expect(mockMutate).not.toHaveBeenCalled();
+    });
+
+    it('vault loading ise buton disabled olur', () => {
+      mockUseVault.mockReturnValue({
+        data: null,
+        isLoading: true,
+      } as any);
+
+      const { getByPlaceholderText, getByTestId } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      const button = getByTestId('analyze-button');
+      fireEvent.press(button);
+
+      // Vault loading olduğu için mutate çağrılmamalı
+      expect(mockMutate).not.toHaveBeenCalled();
+    });
+
+    it('tüm koşullar sağlandığında buton aktif olur', () => {
+      const { getByPlaceholderText, getByTestId } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
+
+      const button = getByTestId('analyze-button');
+      fireEvent.press(button);
+
+      // Tüm koşullar sağlandığı için mutate çağrılmalı
+      expect(mockMutate).toHaveBeenCalled();
+    });
+  });
+
+  describe('4. Loading State', () => {
+    it('isPending true ise ActivityIndicator gösterilir', () => {
+      mockUseMutation.mockReturnValue({
+        mutate: mockMutate,
+        isPending: true,
+      } as any);
+
+      const { getByTestId } = render(<AnalyzeDreamScreen />);
+
+      expect(getByTestId('activity-indicator')).toBeTruthy();
+    });
+
+    it('isPending true ise text input disabled olur', () => {
+      mockUseMutation.mockReturnValue({
+        mutate: mockMutate,
+        isPending: true,
+      } as any);
+
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      expect(textInput.props.editable).toBe(false);
+    });
+  });
+
+  describe('5. Analyze Butonu - Mutation Tetikleme', () => {
+    it('analyze butonuna basınca Keyboard.dismiss çağrılır', () => {
+      const { getByPlaceholderText, getByText } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      const analyzeButton = getByText('dream.analyze.button_analyze');
+      fireEvent.press(analyzeButton);
+
+      expect(mockKeyboardDismiss).toHaveBeenCalled();
+    });
+
+    it('handleAnalyzePress setError(null) çağırır', () => {
+      const { getByPlaceholderText, getByText } = render(<AnalyzeDreamScreen />);
+
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      // Butona bas
+      const analyzeButton = getByText('dream.analyze.button_analyze');
+      fireEvent.press(analyzeButton);
+
+      // setError(null) çağrıldığı için mutation.mutate çağrılmış olmalı
+      expect(mockMutate).toHaveBeenCalled();
+      expect(mockKeyboardDismiss).toHaveBeenCalled();
+    });
+  });
+
+  describe('6. Mutation onSuccess', () => {
+    it('mutation başarılı olunca router.replace ve toast çağrılır', async () => {
+      const mockRouter = { back: jest.fn(), replace: jest.fn() };
+      require('expo-router').useRouter.mockImplementation(() => mockRouter);
+
+      // onSuccess callback'ini yakala
+      let onSuccessCallback: ((eventId: string) => void) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        onSuccessCallback = options.onSuccess;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
       render(<AnalyzeDreamScreen />);
-    }).not.toThrow();
-  });
 
-  it('LinearGradient component\'i kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
+      // onSuccess'i manuel olarak çağır
+      onSuccessCallback?.('dream-new-123');
 
-    // LinearGradient'in kullanıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
+      await waitFor(() => {
+        // Router.replace çağrıldı mı?
+        expect(mockRouter.replace).toHaveBeenCalledWith({
+          pathname: '/dream/result',
+          params: { id: 'dream-new-123' },
+        });
 
-  it('MotiView component\'i kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
+        // Toast gösterildi mi?
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'success',
+          text1: 'dream.analyze.toast_success_title',
+          text2: 'dream.analyze.toast_success_body',
+        });
 
-    // MotiView'in kullanıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('useTranslation hook\'u doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Translation hook'unun doğru çalıştığını kontrol et
-    expect(screen.getByText('dream.analyze.header_title')).toBeTruthy();
-  });
-
-  it('i18n.language doğru kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Language'in doğru kullanıldığını kontrol et
-    expect(screen.getByText('dream.analyze.header_title')).toBeTruthy();
-  });
-
-  it('COSMIC_COLORS constant\'ı doğru kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Colors'ın doğru kullanıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('stil objeleri doğru tanımlanmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Stil objelerinin doğru tanımlandığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('KeyboardAvoidingView doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // KeyboardAvoidingView'in doğru çalıştığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('ScrollView doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // ScrollView'in doğru çalıştığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('TextInput doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // TextInput'un doğru çalıştığını kontrol et
-    expect(screen.getByPlaceholderText('dream.analyze.placeholder')).toBeTruthy();
-  });
-
-  it('TouchableOpacity doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // TouchableOpacity'in doğru çalıştığını kontrol et
-    expect(screen.getByText('dream.analyze.button_analyze')).toBeTruthy();
-  });
-
-  it('Text component\'i kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Text'in kullanıldığını kontrol et
-    expect(screen.getByText('dream.analyze.header_title')).toBeTruthy();
-  });
-
-  it('View component\'i kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // View'in kullanıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('StyleSheet kullanılmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // StyleSheet'in kullanıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('useSafeAreaInsets doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // useSafeAreaInsets'in doğru çalıştığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('Platform.OS kontrolü doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Platform kontrolünün doğru çalıştığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('Keyboard.dismiss doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    const analyzeButton = screen.getByText('dream.analyze.button_analyze');
-    fireEvent.press(analyzeButton);
-
-    // Keyboard.dismiss'un çağrıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('canUserAnalyzeDream kontrolü doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    const analyzeButton = screen.getByText('dream.analyze.button_analyze');
-    fireEvent.press(analyzeButton);
-
-    // canUserAnalyzeDream'un çağrıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('supabase functions invoke doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
-
-    const analyzeButton = screen.getByText('dream.analyze.button_analyze');
-    fireEvent.press(analyzeButton);
-
-    // supabase functions invoke'un çağrıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('success durumunda router.replace çağrılmalıdır', () => {
-    const mockRouter = { back: jest.fn(), replace: jest.fn() };
-    require('expo-router').useRouter.mockImplementation(() => mockRouter);
-
-    const mockMutate = jest.fn();
-    mockUseMutation.mockReturnValue({
-      mutate: mockMutate,
-      isPending: false,
-    });
-
-    render(<AnalyzeDreamScreen />);
-
-    // Success durumunu simüle et
-    const mutationCall = mockUseMutation.mock.calls[0][0];
-    mutationCall.onSuccess('dream-123');
-
-    expect(mockRouter.replace).toHaveBeenCalledWith({
-      pathname: '/dream/result',
-      params: { id: 'dream-123' },
+        // Query invalidate edildi mi?
+        expect(mockQueryClient.invalidateQueries).toHaveBeenCalledWith({
+          queryKey: ['dreamEvents'],
+        });
+      });
     });
   });
 
-  it('error durumunda Toast gösterilmelidir', () => {
-    const mockMutate = jest.fn();
-    mockUseMutation.mockReturnValue({
-      mutate: mockMutate,
-      isPending: false,
+  describe('7. Mutation onError', () => {
+    it('normal hata olunca error toast gösterilir', async () => {
+      // onError callback'ini yakala
+      let onErrorCallback: ((e: Error) => void) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        onErrorCallback = options.onError;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
+      const { getByText } = render(<AnalyzeDreamScreen />);
+
+      const testError = new Error('Analiz başarısız oldu');
+      onErrorCallback?.(testError);
+
+      await waitFor(() => {
+        // Error state set edildi mi?
+        expect(getByText('Analiz başarısız oldu')).toBeTruthy();
+
+        // Error toast gösterildi mi?
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'error',
+          text1: 'dream.analyze.toast_error_title',
+          text2: 'Analiz başarısız oldu',
+        });
+      });
     });
 
-    render(<AnalyzeDreamScreen />);
+    it('limit hatası olunca info toast gösterilir', async () => {
+      // onError callback'ini yakala
+      let onErrorCallback: ((e: Error) => void) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        onErrorCallback = options.onError;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
 
-    // Error durumunu simüle et
-    const mutationCall = mockUseMutation.mock.calls[0][0];
-    mutationCall.onError(new Error('Test error'));
+      render(<AnalyzeDreamScreen />);
 
-    // Toast'un gösterildiğini kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
+      const limitError = new Error('Günlük limit aşıldı');
+      onErrorCallback?.(limitError);
 
-  it('limit error durumunda info Toast gösterilmelidir', () => {
-    const mockMutate = jest.fn();
-    mockUseMutation.mockReturnValue({
-      mutate: mockMutate,
-      isPending: false,
+      await waitFor(() => {
+        // Limit hatası için info toast gösterilmeli
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'info',
+          text1: 'dream.analyze.toast_limit_title',
+          text2: 'Günlük limit aşıldı',
+        });
+      });
     });
 
-    render(<AnalyzeDreamScreen />);
+    it('error message boş olsa bile fallback gösterilir', async () => {
+      // onError callback'ini yakala
+      let onErrorCallback: ((e: Error) => void) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        onErrorCallback = options.onError;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
 
-    // Limit error durumunu simüle et
-    const mutationCall = mockUseMutation.mock.calls[0][0];
-    mutationCall.onError(new Error('limit reached'));
+      render(<AnalyzeDreamScreen />);
 
-    // Info Toast'un gösterildiğini kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
+      const emptyError = new Error('');
+      onErrorCallback?.(emptyError);
 
-  it('Toast notifications doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
-
-    // Toast'un doğru kullanıldığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
-
-  it('query invalidation doğru çalışmalıdır', () => {
-    const mockInvalidateQueries = jest.fn();
-    mockUseQueryClient.mockReturnValue({
-      invalidateQueries: mockInvalidateQueries,
-    });
-
-    render(<AnalyzeDreamScreen />);
-
-    // Success durumunu simüle et
-    const mutationCall = mockUseMutation.mock.calls[0][0];
-    mutationCall.onSuccess('dream-123');
-
-    expect(mockInvalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['dreamEvents'],
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'error',
+          text1: 'dream.analyze.toast_error_title',
+          text2: 'dream.analyze.toast_error_body',
+        });
+      });
     });
   });
 
-  it('event payload doğru oluşturulmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
+  describe('8. Navigation', () => {
+    it('geri butonuna basılınca router.back çağrılır', () => {
+      const mockRouter = { back: jest.fn(), replace: jest.fn() };
+      require('expo-router').useRouter.mockImplementation(() => mockRouter);
 
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Test rüya metni');
+      const { getByTestId } = render(<AnalyzeDreamScreen />);
 
-    const analyzeButton = screen.getByText('dream.analyze.button_analyze');
-    fireEvent.press(analyzeButton);
+      const backButton = getByTestId('back-button');
+      fireEvent.press(backButton);
 
-    // Event payload'un doğru oluşturulduğunu kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
+      expect(mockRouter.back).toHaveBeenCalled();
+    });
   });
 
-  it('moon icon doğru render edilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
+  describe('9. useMutation Parameters', () => {
+    it('useMutation doğru parametrelerle çağrılır', () => {
+      render(<AnalyzeDreamScreen />);
 
-    // Moon icon'un render edildiğini kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
+      expect(mockUseMutation).toHaveBeenCalledWith({
+        mutationFn: expect.any(Function),
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      });
+    });
   });
 
-  it('helper text doğru gösterilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
+  describe('10. Edge Cases', () => {
+    it('vault data null olsa bile component çalışır', () => {
+      mockUseVault.mockReturnValue({
+        data: null,
+        isLoading: false,
+      } as any);
 
-    expect(screen.getByText('dream.analyze.helper_privacy')).toBeTruthy();
-  });
-
-  it('counter text doğru gösterilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
-
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Test');
-
-    expect(screen.getByText('4/20')).toBeTruthy();
-  });
-
-  it('error text doğru gösterilmelidir', () => {
-    const mockMutate = jest.fn();
-    mockUseMutation.mockReturnValue({
-      mutate: mockMutate,
-      isPending: false,
+      expect(() => {
+        render(<AnalyzeDreamScreen />);
+      }).not.toThrow();
     });
 
-    render(<AnalyzeDreamScreen />);
+    it('whitespace karakterler trim edilerek sayılır', () => {
+      const { getByPlaceholderText, getByText } = render(<AnalyzeDreamScreen />);
 
-    // Error state'i simüle et
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Test');
-    fireEvent.press(screen.getByText('dream.analyze.button_analyze'));
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, '     Boşluklu metin     ');
 
-    // Error text'in gösterildiğini kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
+      // trim sonrası 14 karakter ("Boşluklu metin")
+      expect(getByText(/14/)).toBeTruthy();
+      expect(getByText(/20/)).toBeTruthy();
+    });
   });
 
-  it('footer doğru render edilmelidir', () => {
-    render(<AnalyzeDreamScreen />);
+  describe('11. MutationFn - canUserAnalyzeDream Kontrolü', () => {
+    it('canAnalyze false ise error fırlatır', async () => {
+      mockCanUserAnalyzeDream.mockResolvedValue({
+        canAnalyze: false,
+      } as any);
 
-    // Footer'ın doğru render edildiğini kontrol et
-    expect(screen.getByText('dream.analyze.button_analyze')).toBeTruthy();
-  });
+      // mutationFn'i yakala ve direkt çağır
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
 
-  it('button gradient doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
+      render(<AnalyzeDreamScreen />);
 
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı ki analiz edilebilsin.');
+      // mutationFn'i çağır - error fırlatmalı
+      await expect(mutationFn?.()).rejects.toThrow('Günlük rüya analizi limitinize ulaştınız.');
+    });
 
-    // Button gradient'in doğru çalıştığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
-  });
+    it('20 karakterden az ise error fırlatır', async () => {
+      // mutationFn'i yakala
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
 
-  it('disabled gradient doğru çalışmalıdır', () => {
-    render(<AnalyzeDreamScreen />);
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
 
-    const textInput = screen.getByPlaceholderText('dream.analyze.placeholder');
-    fireEvent.changeText(textInput, 'Kısa');
+      // Kısa text yaz
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Kısa');
 
-    // Disabled gradient'in doğru çalıştığını kontrol et
-    expect(mockUseVault).toHaveBeenCalled();
+      // mutationFn'i çağır - error fırlatmalı
+      await expect(mutationFn?.()).rejects.toThrow('Lütfen rüyanızı biraz daha detaylı anlatın.');
+    });
+
+    it('supabase error varsa error fırlatır', async () => {
+      mockSupabase.functions.invoke = jest.fn().mockResolvedValue({
+        data: null,
+        error: new Error('Supabase error'),
+      }) as any;
+
+      // mutationFn'i yakala
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
+
+      // Yeterli text yaz
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      // mutationFn'i çağır - error fırlatmalı
+      await expect(mutationFn?.()).rejects.toThrow('Supabase error');
+    });
+
+    it('eventId dönemezse error fırlatır', async () => {
+      mockSupabase.functions.invoke = jest.fn().mockResolvedValue({
+        data: null,
+        error: null,
+      }) as any;
+
+      // mutationFn'i yakala
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
+
+      // Yeterli text yaz
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      // mutationFn'i çağır - error fırlatmalı
+      await expect(mutationFn?.()).rejects.toThrow('Analiz tamamlandı ama event ID alınamadı');
+    });
+
+    it('başarılı olunca eventId döner', async () => {
+      mockSupabase.functions.invoke = jest.fn().mockResolvedValue({
+        data: 'dream-success-123',
+        error: null,
+      }) as any;
+
+      // mutationFn'i yakala
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
+
+      // Yeterli text yaz
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      // mutationFn'i çağır - eventId dönmeli
+      const result = await mutationFn?.();
+      expect(result).toBe('dream-success-123');
+    });
+
+    it('data obje ise eventId field\'ından alır', async () => {
+      mockSupabase.functions.invoke = jest.fn().mockResolvedValue({
+        data: { eventId: 'dream-obj-123', otherField: 'test' },
+        error: null,
+      }) as any;
+
+      // mutationFn'i yakala
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
+
+      // Yeterli text yaz
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      // mutationFn'i çağır - eventId dönmeli
+      const result = await mutationFn?.();
+      expect(result).toBe('dream-obj-123');
+    });
+
+    it('supabase invoke doğru parametrelerle çağrılır', async () => {
+      // mutationFn'i yakala
+      let mutationFn: (() => Promise<string>) | undefined;
+      mockUseMutation.mockImplementation((options: any) => {
+        mutationFn = options.mutationFn;
+        return {
+          mutate: mockMutate,
+          isPending: false,
+        } as any;
+      });
+
+      const { getByPlaceholderText } = render(<AnalyzeDreamScreen />);
+
+      // Text yaz
+      const textInput = getByPlaceholderText('dream.analyze.placeholder');
+      fireEvent.changeText(textInput, 'Bu rüya metni yeterince uzun bir metin olmalı');
+
+      // mutationFn'i çağır
+      await mutationFn?.();
+
+      // supabase.functions.invoke doğru parametrelerle çağrıldı mı?
+      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('orchestrator', {
+        body: {
+          eventPayload: {
+            type: 'dream_analysis',
+            data: {
+              dreamText: 'Bu rüya metni yeterince uzun bir metin olmalı',
+              language: 'tr',
+            },
+          },
+        },
+      });
+    });
   });
 });

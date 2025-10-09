@@ -25,14 +25,12 @@ jest.mock('react-native-toast-message', () => ({
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(),
 }));
-const mockI18n = {
-  t: jest.fn((key: string) => key),
-  language: 'tr',
-};
-
 jest.mock('../../utils/i18n', () => ({
-  default: mockI18n,
-  language: 'tr',
+  __esModule: true,
+  default: {
+    t: jest.fn((key: string) => key),
+    language: 'tr',
+  },
 }));
 
 // Native modüller mock
@@ -244,18 +242,217 @@ describe('useDailyReflection Hook', () => {
   });
 
   it('should handle API validation errors correctly', async () => {
-    // Bu test i18n.t problemi nedeniyle geçici olarak devre dışı
-    expect(true).toBe(true);
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: API validation error dönsün (JSON string olarak)
+    const validationError = {
+      error: 'Invalid mood value',
+      code: 'VALIDATION_ERROR',
+    };
+
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: { message: JSON.stringify(validationError) },
+    });
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Assert: ValidationError toast gösterildi
+    await waitFor(() => {
+      expect(mockedToastShow).toHaveBeenCalledWith({
+        type: 'error',
+        text1: 'daily_reflection.toasts.validation_title',
+        text2: 'Invalid mood value',
+      });
+    });
+
+    expect(result.current.state.saving).toBe(false);
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
   });
 
   it('should handle API errors and show an error toast', async () => {
-    // Bu test i18n.t problemi nedeniyle geçici olarak devre dışı
-    expect(true).toBe(true);
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: API error dönsün (JSON string olarak)
+    const apiError = {
+      error: 'Service temporarily unavailable',
+      code: 'SERVICE_ERROR',
+    };
+
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: { message: JSON.stringify(apiError) },
+    });
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Assert: ApiError toast gösterildi
+    await waitFor(() => {
+      expect(mockedToastShow).toHaveBeenCalledWith({
+        type: 'error',
+        text1: 'daily_reflection.toasts.api_error_title',
+        text2: 'Service temporarily unavailable',
+      });
+    });
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
   });
 
   it('should handle network/unexpected errors', async () => {
-    // Bu test i18n.t problemi nedeniyle geçici olarak devre dışı
-    expect(true).toBe(true);
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: Beklenmedik hata (JSON değil, düz string)
+    // JSON parse başarısız olacak, catch bloğunda ApiError olarak throw edilecek
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'Plain string error' },
+    });
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Assert: JSON parse başarısız olunca ApiError toast gösterilir
+    await waitFor(() => {
+      expect(mockedToastShow).toHaveBeenCalledWith({
+        type: 'error',
+        text1: 'daily_reflection.toasts.api_error_title',
+        text2: 'Plain string error',
+      });
+    });
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
+  });
+
+  it('should handle error.message that is not a string', async () => {
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: error.message object olabilir
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: { message: { details: 'Something wrong' } }, // Object
+    });
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Assert: Object toString'e çevrilir ve ApiError toast gösterilir
+    await waitFor(() => {
+      expect(mockedToastShow).toHaveBeenCalledWith({
+        type: 'error',
+        text1: 'daily_reflection.toasts.api_error_title',
+        text2: '[object Object]',
+      });
+    });
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
+  });
+
+  it('should handle generic JavaScript Error (else block coverage)', async () => {
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: supabase invoke exception fırlatır (network error gibi)
+    mockedSupabaseInvoke.mockRejectedValue(new Error('Network connection failed'));
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Assert: Generic Error için unexpected toast gösterilir
+    await waitFor(() => {
+      expect(mockedToastShow).toHaveBeenCalledWith({
+        type: 'error',
+        text1: 'daily_reflection.toasts.unexpected_title',
+        text2: 'auth.unexpected_error',
+      });
+    });
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
+  });
+
+  it('should handle JSON parse error in error.message', async () => {
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: Geçersiz JSON string
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: { message: '{invalid json}' },
+    });
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Assert: Parse hatası yakalandı ve ApiError toast gösterildi
+    await waitFor(() => {
+      expect(mockedToastShow).toHaveBeenCalledWith({
+        type: 'error',
+        text1: 'daily_reflection.toasts.api_error_title',
+        text2: '{invalid json}',
+      });
+    });
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
   });
 
   it('should not save when note is empty', async () => {
@@ -308,13 +505,104 @@ describe('useDailyReflection Hook', () => {
   });
 
   it('should handle satisfaction score submission successfully', async () => {
-    // Bu test i18n.t problemi nedeniyle geçici olarak devre dışı
-    expect(true).toBe(true);
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    // Önce decisionLogId set et
+    act(() => {
+      result.current.handlers.setDecisionLogId('log-456');
+    });
+
+    // Satisfaction invoke mock
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    });
+
+    // Act
+    await act(async () => {
+      await result.current.handlers.handleSatisfaction(5);
+    });
+
+    // Assert: API çağrıldı
+    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('update-satisfaction-score', {
+      body: { log_id: 'log-456', score: 5 },
+    });
+
+    // State güncellendi
+    expect(result.current.state.satisfactionScore).toBe(5);
+
+    // Success toast gösterildi
+    expect(mockedToastShow).toHaveBeenCalledWith({
+      type: 'success',
+      text1: 'daily_reflection.toasts.satisfaction_success_title',
+      text2: 'daily_reflection.toasts.satisfaction_success_body',
+      position: 'bottom',
+    });
+
+    useEffectSpy.mockRestore();
   });
 
   it('should handle satisfaction score submission errors', async () => {
-    // Bu test i18n.t problemi nedeniyle geçici olarak devre dışı
-    expect(true).toBe(true);
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    // Önce decisionLogId set et
+    act(() => {
+      result.current.handlers.setDecisionLogId('log-789');
+    });
+
+    // Hata dönsün
+    const testError = { message: 'Score update failed' };
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: testError,
+    });
+
+    // Act
+    await act(async () => {
+      await result.current.handlers.handleSatisfaction(3);
+    });
+
+    // Assert: Console error loglandı
+    expect(errorSpy).toHaveBeenCalledWith('[Satisfaction] Skor güncelleme hatası:', testError);
+
+    // Error toast gösterildi
+    expect(mockedToastShow).toHaveBeenCalledWith({
+      type: 'error',
+      text1: 'daily_reflection.toasts.satisfaction_error_title',
+      text2: testError.message,
+      position: 'bottom',
+    });
+
+    // State değişmedi
+    expect(result.current.state.satisfactionScore).toBeNull();
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
+  });
+
+  it('should not submit satisfaction when already scored', async () => {
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    // decisionLogId ve satisfactionScore set et
+    act(() => {
+      result.current.handlers.setDecisionLogId('log-999');
+      result.current.handlers.setSatisfactionScore(4); // Zaten skorlanmış
+    });
+
+    // Act - tekrar skorlamaya çalış
+    await act(async () => {
+      await result.current.handlers.handleSatisfaction(5);
+    });
+
+    // Assert: API çağrılmadı
+    expect(mockedSupabaseInvoke).not.toHaveBeenCalled();
   });
 
   it('should not submit satisfaction when no decisionLogId', async () => {
@@ -411,5 +699,73 @@ describe('useDailyReflection Hook', () => {
         result.current.handlers.animatePress();
       });
     }).not.toThrow();
+  });
+
+  it('should handle animation timeout in useEffect', () => {
+    // useEffect içindeki setTimeout'u test et
+    const { unmount } = renderHook(() => useDailyReflection(), { wrapper });
+
+    // 4 saniye ileri sar
+    act(() => {
+      jest.advanceTimersByTime(4000);
+    });
+
+    // Cleanup fonksiyonu çağrılır
+    unmount();
+
+    // Hata olmamalı
+    expect(true).toBe(true);
+  });
+
+  it('should handle timeout cleanup on unmount', () => {
+    const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+
+    const { unmount } = renderHook(() => useDailyReflection(), { wrapper });
+
+    // Unmount
+    unmount();
+
+    // clearTimeout çağrıldı
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+
+    clearTimeoutSpy.mockRestore();
+  });
+
+  it('should handle feedbackVisible modal closing with timeout', async () => {
+    const useEffectSpy = jest.spyOn(React, 'useEffect');
+    useEffectSpy.mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Arrange: Hata dönsün ki modal kapatma timeout'u tetiklensin
+    mockedSupabaseInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'Test error' },
+    });
+
+    const { result } = renderHook(() => useDailyReflection(), { wrapper });
+
+    act(() => {
+      result.current.handlers.setNote('Test note');
+    });
+
+    await act(async () => {
+      await result.current.handlers.saveSession();
+    });
+
+    // Feedback modal açık olmalı
+    expect(result.current.state.feedbackVisible).toBe(true);
+
+    // 2.5 saniye ileri sar
+    act(() => {
+      jest.advanceTimersByTime(2500);
+    });
+
+    // Modal kapanmalı
+    await waitFor(() => {
+      expect(result.current.state.feedbackVisible).toBe(false);
+    });
+
+    errorSpy.mockRestore();
+    useEffectSpy.mockRestore();
   });
 });

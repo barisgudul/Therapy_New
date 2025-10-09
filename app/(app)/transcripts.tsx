@@ -189,7 +189,7 @@ const SummaryCard: React.FC<{ event: SessionEvent; onPress?: () => void; onDelet
             </Pressable>
             {/* YENİ: Özeti Gör butonu */}
             <View style={{ marginTop: 12, alignItems: 'flex-end' }}>
-              <Pressable onPress={(e) => { e.stopPropagation(); onShowSummary(summaryText); }} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(93,161,217,0.1)' , transform: [{ scale: pressed ? 0.97 : 1 }] }]}> 
+              <Pressable onPress={(e) => { e?.stopPropagation?.(); onShowSummary(summaryText); }} style={({ pressed }) => [{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(93,161,217,0.1)' , transform: [{ scale: pressed ? 0.97 : 1 }] }]}> 
                 <Text style={{ color: theme.tint, fontWeight: '600' }}>{t('transcripts.summary.view_button')}</Text>
               </Pressable>
             </View>

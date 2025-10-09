@@ -612,4 +612,53 @@ describe('useTranscripts Hook', () => {
     // Events ref'i güncel olmalı
     expect(result.current.state.allEvents).toHaveLength(1);
   });
+
+  it('should handle fetch error gracefully', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    // getEventsForLast hata fırlatır
+    mockedGetEventsForLast.mockRejectedValue(new Error('Network error'));
+
+    const { result } = renderHook(() => useTranscripts(), { wrapper });
+
+    await triggerFocusEffect();
+
+    // FETCH_ERROR action dispatch edildi
+    await waitFor(() => {
+      expect(result.current.state.isLoading).toBe(false);
+    });
+
+    expect(result.current.state.error).toBe('Veriler yüklenirken bir sorun oluştu.');
+    expect(consoleErrorSpy).toHaveBeenCalledWith('Events fetch error:', expect.any(Error));
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('should handle getSessionSummariesForEventIds error', async () => {
+    const mockEvents: AppEvent[] = [
+      {
+        id: 'session-end-1',
+        type: 'session_end',
+        timestamp: Date.now(),
+        created_at: new Date().toISOString(),
+        data: { messages: [] },
+        mood: null,
+        user_id: 'test-user',
+      },
+    ];
+
+    mockedGetEventsForLast.mockResolvedValue(mockEvents);
+    mockedGetSessionSummariesForEventIds.mockRejectedValue(new Error('Summary fetch failed'));
+
+    const { result } = renderHook(() => useTranscripts(), { wrapper });
+
+    await triggerFocusEffect();
+
+    // Hata yakalandı ve FETCH_ERROR dispatch edildi
+    await waitFor(() => {
+      expect(result.current.state.isLoading).toBe(false);
+    });
+
+    expect(result.current.state.error).toBe('Veriler yüklenirken bir sorun oluştu.');
+  });
 });

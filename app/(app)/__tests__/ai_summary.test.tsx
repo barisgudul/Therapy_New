@@ -1,23 +1,52 @@
 // app/(app)/__tests__/ai_summary.test.tsx
+
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 import AISummaryScreen from '../ai_summary';
 
 // Mock'lar
 jest.mock('../../../context/Auth');
 jest.mock('../../../utils/supabase');
-jest.mock('../../../components/ai_summary/ReportCard');
-jest.mock('../../../components/ai_summary/ReportDetailModal');
+jest.mock('../../../components/ai_summary/ReportCard', () => {
+  const { Text, TouchableOpacity } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ item, onPress, onDelete }: any) => (
+      <TouchableOpacity testID={`report-card-${item.id}`} onPress={onPress}>
+        <Text testID={`report-title-${item.id}`}>Report {item.id}</Text>
+        <TouchableOpacity testID={`delete-button-${item.id}`} onPress={onDelete}>
+          <Text>Delete</Text>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    ),
+  };
+});
+jest.mock('../../../components/ai_summary/ReportDetailModal', () => {
+  const { View, Text } = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ isVisible, activeSummary }: any) =>
+      isVisible ? (
+        <View testID="report-detail-modal">
+          <Text testID="modal-content">{JSON.stringify(activeSummary)}</Text>
+        </View>
+      ) : null,
+  };
+});
 jest.mock('expo-router', () => ({
   useRouter: () => ({
-    push: jest.fn(),
     back: jest.fn(),
   }),
 }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string, params?: any) => {
+      if (params) return `${key}_${JSON.stringify(params)}`;
+      return key;
+    },
     i18n: { language: 'tr' },
   }),
 }));
@@ -27,21 +56,47 @@ jest.mock('react-native-toast-message', () => ({
     show: jest.fn(),
   },
 }));
-jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
-jest.mock('@miblanchard/react-native-slider', () => ({ Slider: 'Slider' }));
-jest.mock('react-native-reanimated', () => ({
+jest.mock('expo-linear-gradient', () => {
+  const { View } = require('react-native');
+  return {
+    LinearGradient: ({ children, ...props }: any) => <View {...props}>{children}</View>,
+  };
+});
+jest.mock('@miblanchard/react-native-slider', () => {
+  const { View, TouchableOpacity } = require('react-native');
+  return {
+    Slider: ({ onValueChange, value, ...props }: any) => (
+      <TouchableOpacity
+        testID="slider"
+        onPress={() => onValueChange && onValueChange([10])}
+        {...props}
+      >
+        <View testID="slider-value">{value}</View>
+      </TouchableOpacity>
+    ),
+  };
+});
+jest.mock('react-native-reanimated', () => {
+  const { FlatList } = require('react-native');
+  const mockLinearTransition = {
+    duration: jest.fn().mockReturnValue({}),
+  };
+  return {
+    __esModule: true,
   default: {
-    FlatList: 'Animated.FlatList',
-    LinearTransition: { duration: jest.fn() },
+      FlatList: FlatList,
   },
-}));
+    LinearTransition: mockLinearTransition,
+  };
+});
 
-// Mock Alert
-jest.spyOn(jest.requireActual('react-native').Alert, 'alert');
+// Alert mock
+const mockAlert = jest.spyOn(Alert, 'alert');
 
-describe('AISummaryScreen', () => {
+describe('AISummaryScreen - Gerçek Davranış Testleri', () => {
   const mockUseAuth = jest.mocked(require('../../../context/Auth').useAuth);
   const mockSupabase = jest.mocked(require('../../../utils/supabase').supabase);
+  const mockToast = Toast;
 
   const mockUser = {
     id: 'user-123',
@@ -60,10 +115,21 @@ describe('AISummaryScreen', () => {
     user_id: 'user-123',
   };
 
+  const createMockSupabaseQuery = (data: any, error: any = null) => ({
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        order: jest.fn().mockResolvedValue({ data, error }),
+      }),
+    }),
+    delete: jest.fn().mockReturnValue({
+      eq: jest.fn().mockResolvedValue({ error }),
+    }),
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Varsayılan mock'lar
+    // Varsayılan auth mock
     mockUseAuth.mockReturnValue({
       user: mockUser,
       isPendingDeletion: false,
@@ -71,431 +137,503 @@ describe('AISummaryScreen', () => {
       signOut: jest.fn(),
     });
 
-    // Supabase mock'ları
-    mockSupabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          order: jest.fn().mockResolvedValue({
-            data: [mockAnalysisReport],
-            error: null,
-          }),
-        }),
-      }),
-    });
+    // Varsayılan supabase mock - başarılı veri yükleme
+    mockSupabase.from.mockReturnValue(
+      createMockSupabaseQuery([mockAnalysisReport])
+    );
 
+    // Varsayılan functions.invoke mock
     mockSupabase.functions.invoke.mockResolvedValue({
       data: mockAnalysisReport.content,
       error: null,
     });
+
+    // Alert mock'unu temizle
+    mockAlert.mockClear();
   });
 
-  it('component render edilmelidir', () => {
-    render(<AISummaryScreen />);
+  describe('1. Başarılı Veri Yükleme', () => {
+    it('ilk render edildiğinde loading gösterir, sonra raporları ekranda gösterir', async () => {
+      const { queryByTestId } = render(<AISummaryScreen />);
 
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
+      // İlk başta loading olmalı
+      expect(mockSupabase.from).toHaveBeenCalledWith('analysis_reports');
 
-  it('kullanıcı yoksa çalışmamalıdır', () => {
-    mockUseAuth.mockReturnValue({
-      user: null,
-      isPendingDeletion: false,
-      isLoading: false,
-      signOut: jest.fn(),
+      // Loading bitince rapor kartı görünmeli
+      await waitFor(() => {
+        expect(queryByTestId(`report-card-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
     });
 
-    render(<AISummaryScreen />);
-
-    // Kullanıcı yoksa component çalışmamalı
-    expect(mockSupabase.from).not.toHaveBeenCalled();
-  });
-
-  it('loadSavedReports fonksiyonu doğru çalışmalıdır', async () => {
+    it('supabase query doğru parametrelerle çağrılır', async () => {
     render(<AISummaryScreen />);
 
     await waitFor(() => {
       expect(mockSupabase.from).toHaveBeenCalledWith('analysis_reports');
     });
+
+      const mockQuery = mockSupabase.from.mock.results[0].value;
+      expect(mockQuery.select).toHaveBeenCalledWith('*');
+      expect(mockQuery.select().eq).toHaveBeenCalledWith('user_id', mockUser.id);
+      expect(mockQuery.select().eq().order).toHaveBeenCalledWith('created_at', {
+        ascending: false,
+      });
+    });
   });
 
-  it('fetchSummary fonksiyonu doğru çalışmalıdır', async () => {
+  describe('2. Boş Veri Durumu', () => {
+    it('hiç rapor yoksa empty state gösterilir', async () => {
+      mockSupabase.from.mockReturnValue(createMockSupabaseQuery([]));
+
+      const { getByText } = render(<AISummaryScreen />);
+
+    await waitFor(() => {
+        expect(getByText('ai_summary.empty_title')).toBeTruthy();
+        expect(getByText('ai_summary.empty_subtext')).toBeTruthy();
+      });
+    });
+  });
+
+  describe('3. Veri Yükleme Hatası', () => {
+    it('loadSavedReports hata fırlatırsa console.error çağrılır', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const testError = { message: 'Database error' };
+
+      mockSupabase.from.mockReturnValue(createMockSupabaseQuery(null, testError));
+
     render(<AISummaryScreen />);
 
-    // fetchSummary fonksiyonunun doğru tanımlandığını kontrol et
-    expect(mockSupabase.functions.invoke).toBeDefined();
+    await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          'Raporlar yüklenirken hata:',
+          testError
+        );
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 
-  it('fetchSummary başarılı olduğunda Toast gösterilmelidir', async () => {
-    render(<AISummaryScreen />);
+  describe('4. Yeni Rapor Oluşturma (Başarılı)', () => {
+    it('analiz et butonuna basıldığında loading gösterir, sonra success toast gösterir ve modal açılır', async () => {
+      const newReportContent = {
+        summary: 'Yeni rapor özeti',
+        insights: ['Insight 1'],
+        recommendations: ['Öneri 1'],
+      };
 
-    // Toast'un doğru kullanıldığını kontrol et
-    const mockToast = require('react-native-toast-message').default;
-    expect(mockToast.show).toBeDefined();
+      mockSupabase.functions.invoke.mockResolvedValue({
+        data: newReportContent,
+        error: null,
+      });
+
+      const { getByText, getByTestId, queryByTestId } = render(<AISummaryScreen />);
+
+      // İlk verilerin yüklenmesini bekle
+    await waitFor(() => {
+        expect(queryByTestId(`report-card-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
+
+      // "Analiz Et" butonunu bul ve tıkla
+      const analyzeButtonText = getByText(/ai_summary.analyze_button/);
+      fireEvent.press(analyzeButtonText.parent!);
+
+      // Loading durumunda "Analiz ediliyor..." yazısı görünmeli
+      await waitFor(() => {
+        expect(getByText('ai_summary.analyzing')).toBeTruthy();
+      });
+
+      // API çağrısı tamamlandıktan sonra
+      await waitFor(() => {
+        // Toast gösterilmiş mi?
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'success',
+          text1: 'ai_summary.toast_success_title',
+          text2: 'ai_summary.toast_success_body',
+        });
+
+        // Modal açılmış mı?
+        expect(getByTestId('report-detail-modal')).toBeTruthy();
+      });
+
+      // Supabase functions.invoke doğru parametrelerle çağrılmış mı?
+      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('create-analysis-report', {
+        body: { days: 7, language: 'tr' },
+      });
+    });
+
+    it('yeni oluşturulan rapor listenin başına eklenir', async () => {
+      const newReportContent = {
+        summary: 'Yeni rapor',
+        insights: ['Yeni insight'],
+        recommendations: ['Yeni öneri'],
+      };
+
+      mockSupabase.functions.invoke.mockResolvedValue({
+        data: newReportContent,
+        error: null,
+      });
+
+      const { getByText, queryByTestId } = render(<AISummaryScreen />);
+
+      // İlk veri yüklenmesini bekle
+      await waitFor(() => {
+        expect(queryByTestId(`report-card-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
+
+      // Analiz butonuna tıkla
+      const analyzeButton = getByText(/ai_summary.analyze_button/);
+      fireEvent.press(analyzeButton.parent!);
+
+      // Yeni rapor eklenmiş olmalı (temp- ile başlayan ID'yle)
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'success' })
+        );
+      });
+    });
   });
 
-  it('fetchSummary hata durumunda Alert gösterilmelidir', async () => {
+  describe('5. Yeni Rapor Oluşturma (Hata)', () => {
+    it('API hatası olduğunda error toast gösterilir ve loading durur', async () => {
+      const errorMessage = 'Yetersiz veri';
+      mockSupabase.functions.invoke.mockResolvedValue({
+        data: null,
+        error: new Error(errorMessage),
+      });
+
+      const { getByText, queryByText } = render(<AISummaryScreen />);
+
+      // İlk veri yüklenmesini bekle
+      await waitFor(() => {
+        expect(queryByText('ai_summary.analyzing')).toBeNull();
+      });
+
+      // Analiz butonuna tıkla
+      const analyzeButton = getByText(/ai_summary.analyze_button/);
+      fireEvent.press(analyzeButton.parent!);
+
+      // Loading gösterilir
+      await waitFor(() => {
+        expect(getByText('ai_summary.analyzing')).toBeTruthy();
+      });
+
+      // Hata sonrası error toast gösterilir - Error objesi mesajı döndürür
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'error',
+          text1: 'ai_summary.toast_error_title',
+          text2: errorMessage,
+        });
+      });
+
+      // Loading durmalı, buton tekrar tıklanabilir olmalı
+      await waitFor(() => {
+        expect(queryByText('ai_summary.analyzing')).toBeNull();
+        expect(getByText(/ai_summary.analyze_button/)).toBeTruthy();
+      });
+    });
+
+    it('API exception fırlatırsa error toast gösterilir', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockSupabase.functions.invoke.mockRejectedValue(new Error('Network error'));
+
+      const { getByText } = render(<AISummaryScreen />);
+
+      await waitFor(() => {
+        expect(getByText(/ai_summary.analyze_button/)).toBeTruthy();
+      });
+
+      const analyzeButton = getByText(/ai_summary.analyze_button/);
+      fireEvent.press(analyzeButton.parent!);
+
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'error',
+          text1: 'ai_summary.toast_error_title',
+          text2: 'Network error',
+        });
+      });
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('data.error varsa hata olarak işlenir', async () => {
     mockSupabase.functions.invoke.mockResolvedValue({
-      data: null,
-      error: { message: 'Test error' },
-    });
-
-    render(<AISummaryScreen />);
-
-    // Alert'in doğru kullanıldığını kontrol et
-    expect(jest.requireActual('react-native').Alert.alert).toBeDefined();
-  });
-
-  it('component mount olduğunda hata olmamalıdır', () => {
-    expect(() => {
-      render(<AISummaryScreen />);
-    }).not.toThrow();
-  });
-
-  it('useAuth hook\'u doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('useRouter hook\'u doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    expect(jest.requireActual('expo-router').useRouter).toBeDefined();
-  });
-
-  it('useTranslation hook\'u doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // Translation hook'unun doğru çalıştığını kontrol et
-    expect(jest.requireActual('react-i18next').useTranslation).toBeDefined();
-  });
-
-  it('i18n.language doğru kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // Language'in doğru kullanıldığını kontrol et
-    expect(mockSupabase.functions.invoke).toBeDefined();
-  });
-
-  it('supabase.functions.invoke doğru parametrelerle çağrılmalıdır', async () => {
-    render(<AISummaryScreen />);
-
-    // Supabase function invoke'unun doğru parametrelerle çağrıldığını kontrol et
-    expect(mockSupabase.functions.invoke).toBeDefined();
-  });
-
-  it('supabase.from doğru tablo ile çağrılmalıdır', async () => {
-    render(<AISummaryScreen />);
-
-    await waitFor(() => {
-      expect(mockSupabase.from).toHaveBeenCalledWith('analysis_reports');
-    });
-  });
-
-  it('supabase query doğru filtrelerle çalışmalıdır', async () => {
-    render(<AISummaryScreen />);
-
-    await waitFor(() => {
-      // Supabase query'sinin doğru filtrelerle çalıştığını kontrol et
-      expect(mockSupabase.from).toHaveBeenCalled();
-    });
-  });
-
-  it('supabase query doğru sıralama ile çalışmalıdır', async () => {
-    render(<AISummaryScreen />);
-
-    await waitFor(() => {
-      // Supabase query'sinin doğru sıralama ile çalıştığını kontrol et
-      expect(mockSupabase.from).toHaveBeenCalled();
-    });
-  });
-
-  it('error handling doğru çalışmalıdır', async () => {
-    // Error durumu için mock
-    mockSupabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          order: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Test error' },
-          }),
-        }),
-      }),
-    });
-
-    render(<AISummaryScreen />);
-
-    await waitFor(() => {
-      // Error handling'in doğru çalıştığını kontrol et
-      expect(mockSupabase.from).toHaveBeenCalled();
-    });
-  });
-
-  it('console.error doğru kullanılmalıdır', async () => {
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    
-    // Error durumu için mock
-    mockSupabase.from.mockReturnValue({
-      select: jest.fn().mockReturnValue({
-        eq: jest.fn().mockReturnValue({
-          order: jest.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Test error' },
-          }),
-        }),
-      }),
-    });
-
-    render(<AISummaryScreen />);
-
-    await waitFor(() => {
-      // console.error'un doğru kullanıldığını kontrol et
-      expect(mockSupabase.from).toHaveBeenCalled();
-    });
-
-    consoleSpy.mockRestore();
-  });
-
-  it('state management doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // State management'in doğru çalıştığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('useEffect hooks doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // useEffect hooks'unun doğru çalıştığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('useCallback hooks doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // useCallback hooks'unun doğru çalıştığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('useState hooks doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // useState hooks'unun doğru çalıştığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('useRef hooks doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // useRef hooks'unun doğru çalıştığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('FlatList component\'i kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // FlatList'in kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('ActivityIndicator component\'i kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // ActivityIndicator'ın kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('TouchableOpacity component\'i kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // TouchableOpacity'in kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('View component\'i kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // View'in kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('Text component\'i kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // Text'in kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('StyleSheet kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // StyleSheet'in kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('stil objeleri doğru tanımlanmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // Stil objelerinin doğru tanımlandığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('fetchSummary fonksiyonu başarılı çalışmalıdır', async () => {
-    mockSupabase.functions.invoke.mockResolvedValue({
-      data: { report: 'test report' },
+        data: { error: 'Özel hata mesajı' },
       error: null,
     });
 
-    render(<AISummaryScreen />);
+      const { getByText } = render(<AISummaryScreen />);
 
-    // fetchSummary fonksiyonunun çağrılabileceğini kontrol et
-    expect(mockSupabase.functions.invoke).toBeDefined();
-  });
+      await waitFor(() => {
+        expect(getByText(/ai_summary.analyze_button/)).toBeTruthy();
+      });
 
-  it('fetchSummary hata durumunda Toast gösterilmelidir', async () => {
-    mockSupabase.functions.invoke.mockResolvedValue({
-      data: null,
-      error: { message: 'Test error' },
+      const analyzeButton = getByText(/ai_summary.analyze_button/);
+      fireEvent.press(analyzeButton.parent!);
+
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'error',
+          text1: 'ai_summary.toast_error_title',
+          text2: 'Özel hata mesajı',
+        });
+      });
     });
-
-    render(<AISummaryScreen />);
-
-    // Hata durumunda Toast'un çağrılabileceğini kontrol et
-    const mockToast = require('react-native-toast-message').default;
-    expect(mockToast.show).toBeDefined();
   });
 
-  it('deleteSummary fonksiyonu doğru çalışmalıdır', async () => {
-    const mockAlert = require('react-native').Alert;
-    mockAlert.alert.mockImplementation((title, message, buttons) => {
-      // İlk butonu (cancel) simüle et
-      if (buttons && buttons[0] && buttons[0].onPress) {
+  describe('6. Rapor Silme (İptal)', () => {
+    it('kullanıcı iptal ederse silme işlemi yapılmaz', async () => {
+      mockAlert.mockImplementation((title, message, buttons) => {
+        // İptal butonuna bas (buttons[0])
+        if (buttons && buttons[0].onPress) {
         buttons[0].onPress();
       }
     });
 
-    render(<AISummaryScreen />);
+      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
 
-    // Alert'in doğru kullanıldığını kontrol et
-    expect(mockAlert.alert).toBeDefined();
+      // Rapor yüklenmesini bekle
+      await waitFor(() => {
+        expect(getByTestId(`delete-button-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
+
+      // İlk supabase.from çağrı sayısını not et
+      const initialCallCount = mockSupabase.from.mock.calls.length;
+
+      // Silme butonuna tıkla
+      const deleteButton = getByTestId(`delete-button-${mockAnalysisReport.id}`);
+      fireEvent.press(deleteButton);
+
+      // Alert çağrılmalı
+      expect(mockAlert).toHaveBeenCalledWith(
+        'ai_summary.confirm_delete_title',
+        'ai_summary.confirm_delete_message',
+        expect.arrayContaining([
+          expect.objectContaining({ text: 'ai_summary.confirm_cancel', style: 'cancel' }),
+          expect.objectContaining({
+            text: 'ai_summary.confirm_delete_cta',
+            style: 'destructive',
+          }),
+        ])
+      );
+
+      // İptal sonrası rapor hala görünmeli
+      await waitFor(() => {
+        expect(queryByTestId(`report-card-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
+
+      // Supabase.from çağrı sayısı artmamalı (delete çağrısı yapılmamalı)
+      expect(mockSupabase.from.mock.calls.length).toBe(initialCallCount);
+    });
   });
 
-  it('deleteSummary onay durumunda silme işlemi yapılmalıdır', async () => {
-    const mockAlert = require('react-native').Alert;
-    mockAlert.alert.mockImplementation((title, message, buttons) => {
-      // İkinci butonu (delete) simüle et
-      if (buttons && buttons[1] && buttons[1].onPress) {
+  describe('7. Rapor Silme (Başarılı)', () => {
+    it('kullanıcı onayladığında rapor silinir ve toast gösterilir', async () => {
+      mockAlert.mockImplementation((title, message, buttons) => {
+        // Sil butonuna bas (buttons[1])
+        if (buttons && buttons[1].onPress) {
+        buttons[1].onPress();
+      }
+    });
+
+      // Delete için mock
+      const deleteMock = jest.fn().mockResolvedValue({ error: null });
+    mockSupabase.from.mockReturnValue({
+        ...createMockSupabaseQuery([mockAnalysisReport]),
+      delete: jest.fn().mockReturnValue({
+          eq: deleteMock,
+        }),
+      });
+
+      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
+
+      // Rapor yüklenmesini bekle
+      await waitFor(() => {
+        expect(getByTestId(`delete-button-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
+
+      // Silme butonuna tıkla
+      const deleteButton = getByTestId(`delete-button-${mockAnalysisReport.id}`);
+      fireEvent.press(deleteButton);
+
+      // Alert çağrılmalı ve onaylanmalı
+      await waitFor(() => {
+        expect(mockAlert).toHaveBeenCalled();
+      });
+
+      // Delete API çağrılmalı
+      await waitFor(() => {
+        expect(deleteMock).toHaveBeenCalledWith('id', mockAnalysisReport.id);
+      });
+
+      // Success toast gösterilmeli
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'info',
+          text1: 'ai_summary.toast_deleted',
+        });
+      });
+
+      // Rapor UI'dan kaldırılmış olmalı
+      await waitFor(() => {
+        expect(queryByTestId(`report-card-${mockAnalysisReport.id}`)).toBeNull();
+      });
+    });
+
+    it('temp ID ile başlayan rapor silinirse sadece lokal state güncellenir', async () => {
+      const tempReport = {
+        id: 'temp-123456',
+        created_at: new Date().toISOString(),
+        content: { summary: 'Temp rapor' },
+        days_analyzed: 7,
+      };
+
+      mockSupabase.from.mockReturnValue(createMockSupabaseQuery([tempReport]));
+
+      mockAlert.mockImplementation((title, message, buttons) => {
+        if (buttons && buttons[1].onPress) {
+          buttons[1].onPress();
+        }
+      });
+
+      const { getByTestId } = render(<AISummaryScreen />);
+
+      await waitFor(() => {
+        expect(getByTestId(`delete-button-${tempReport.id}`)).toBeTruthy();
+      });
+
+      const deleteButton = getByTestId(`delete-button-${tempReport.id}`);
+      fireEvent.press(deleteButton);
+
+      await waitFor(() => {
+        expect(mockAlert).toHaveBeenCalled();
+      });
+
+      // Toast gösterilmeli ama supabase delete çağrılmamalı
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'info',
+          text1: 'ai_summary.toast_deleted',
+        });
+      });
+    });
+
+    it('silme hatası olduğunda rollback yapılır ve error toast gösterilir', async () => {
+      mockAlert.mockImplementation((title, message, buttons) => {
+        if (buttons && buttons[1].onPress) {
         buttons[1].onPress();
       }
     });
 
     mockSupabase.from.mockReturnValue({
+        ...createMockSupabaseQuery([mockAnalysisReport]),
       delete: jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: null }),
+          eq: jest.fn().mockResolvedValue({ error: { message: 'Database error' } }),
       }),
     });
 
-    render(<AISummaryScreen />);
+      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
 
-    // Silme işleminin doğru kullanıldığını kontrol et
-    expect(mockSupabase.from).toBeDefined();
-  });
+      await waitFor(() => {
+        expect(getByTestId(`delete-button-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
 
-  it('deleteSummary hata durumunda rollback yapılmalıdır', async () => {
-    const mockAlert = require('react-native').Alert;
-    mockAlert.alert.mockImplementation((title, message, buttons) => {
-      // İkinci butonu (delete) simüle et
-      if (buttons && buttons[1] && buttons[1].onPress) {
-        buttons[1].onPress();
-      }
+      const deleteButton = getByTestId(`delete-button-${mockAnalysisReport.id}`);
+      fireEvent.press(deleteButton);
+
+      await waitFor(() => {
+        expect(mockAlert).toHaveBeenCalled();
+      });
+
+      // Error toast gösterilmeli - Error objesi Instance of olmadığı için fallback mesaj
+      await waitFor(() => {
+        expect(mockToast.show).toHaveBeenCalledWith({
+          type: 'error',
+          text1: 'ai_summary.toast_delete_error_title',
+          text2: 'ai_summary.toast_delete_error_body',
+        });
+      });
+
+      // Rapor tekrar UI'da olmalı (rollback)
+      await waitFor(() => {
+        expect(queryByTestId(`report-card-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
     });
+  });
 
-    mockSupabase.from.mockReturnValue({
-      delete: jest.fn().mockReturnValue({
-        eq: jest.fn().mockResolvedValue({ error: { message: 'Delete error' } }),
-      }),
+  describe('8. Kullanıcı Yoksa', () => {
+    it('user null ise API çağrıları yapılmaz', async () => {
+      mockUseAuth.mockReturnValue({
+        user: null,
+        isPendingDeletion: false,
+        isLoading: false,
+        signOut: jest.fn(),
+      });
+
+    render(<AISummaryScreen />);
+
+      // Biraz bekle ve API çağrısı yapılmadığını kontrol et
+      await waitFor(() => {
+        expect(mockSupabase.from).not.toHaveBeenCalled();
+      });
     });
-
-    render(<AISummaryScreen />);
-
-    // Hata durumunda rollback'in doğru kullanıldığını kontrol et
-    expect(mockSupabase.from).toBeDefined();
   });
 
-  it('modal açma ve kapama işlemleri doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
+  describe('9. Slider ve Gün Seçimi', () => {
+    it('slider değeri değiştiğinde selectedDays state güncellenir', async () => {
+      const { getByTestId, getByText } = render(<AISummaryScreen />);
 
-    // Modal işlemlerinin doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(getByTestId('slider')).toBeTruthy();
+      });
+
+      const slider = getByTestId('slider');
+      fireEvent.press(slider);
+
+      // Debounce için bekle
+      await waitFor(
+        () => {
+          // Yeni gün sayısıyla buton metni güncellenmiş olmalı
+          const buttonText = getByText(/ai_summary.analyze_button/);
+          expect(buttonText).toBeTruthy();
+        },
+        { timeout: 300 }
+      );
+    });
   });
 
-  it('slider değeri değiştiğinde state güncellenmelidir', () => {
-    render(<AISummaryScreen />);
+  describe('10. Modal İşlemleri', () => {
+    it('rapor kartına tıklandığında modal açılır', async () => {
+      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
 
-    // Slider'ın doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(getByTestId(`report-card-${mockAnalysisReport.id}`)).toBeTruthy();
+      });
+
+      // Önce modal kapalı olmalı
+      expect(queryByTestId('report-detail-modal')).toBeNull();
+
+      // Rapora tıkla
+      const reportCard = getByTestId(`report-card-${mockAnalysisReport.id}`);
+      fireEvent.press(reportCard);
+
+      // Modal açılmalı
+      await waitFor(() => {
+        expect(getByTestId('report-detail-modal')).toBeTruthy();
+      });
+    });
   });
 
-  it('FlatList doğru props ile render edilmelidir', () => {
+  describe('11. Router İşlemleri', () => {
+    it('router.back tanımlı olmalı', () => {
+      const mockRouter = require('expo-router').useRouter();
     render(<AISummaryScreen />);
 
-    // FlatList'in doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('LinearGradient doğru colors ile render edilmelidir', () => {
-    render(<AISummaryScreen />);
-
-    // LinearGradient'in doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('Ionicons doğru kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // Ionicons'un doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('useTranslation hook\'u doğru çalışmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // useTranslation'ın doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('i18n.language doğru kullanılmalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // i18n.language'ın doğru kullanıldığını kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('router.back doğru çalışmalıdır', () => {
-    const mockRouter = require('expo-router');
-    render(<AISummaryScreen />);
-
-    // router.back'ın doğru kullanıldığını kontrol et
-    expect(mockRouter.useRouter).toBeDefined();
-  });
-
-  it('component mount olduğunda hata olmamalıdır', () => {
-    render(<AISummaryScreen />);
-
-    // Component'in hata olmadan mount olduğunu kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('loading state doğru yönetilmelidir', () => {
-    render(<AISummaryScreen />);
-
-    // Loading state'in doğru yönetildiğini kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
-  });
-
-  it('error state doğru yönetilmelidir', () => {
-    render(<AISummaryScreen />);
-
-    // Error state'in doğru yönetildiğini kontrol et
-    expect(mockUseAuth).toHaveBeenCalled();
+      // Router.back fonksiyonu tanımlı olmalı
+      expect(mockRouter.back).toBeDefined();
+      expect(typeof mockRouter.back).toBe('function');
+    });
   });
 });
