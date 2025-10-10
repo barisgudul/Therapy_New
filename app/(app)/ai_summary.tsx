@@ -168,7 +168,7 @@ function AISummaryScreen() {
       end={{ x: 1, y: 1 }}
       style={styles.container}
     >
-      <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.back} testID="back-button">
         <Ionicons name="chevron-back" size={28} color={Colors.light.tint} />
       </TouchableOpacity>
 

@@ -31,9 +31,17 @@ jest.mock('../../../components/diary/WritingMode', () => {
   };
 });
 
+// ErrorBoundary mock'u - onError'ı yakalayacağız
+let mockOnErrorHandler: ((error: Error, stackTrace: string) => void) | null = null;
 jest.mock('react-native-error-boundary', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => children,
+  default: ({ children, onError }: { children: React.ReactNode; onError?: (error: Error, stackTrace: string) => void }) => {
+    // onError handler'ını sakla ki testte kullanabilelim
+    if (onError) {
+      mockOnErrorHandler = onError;
+    }
+    return children;
+  },
 }));
 
 jest.mock('../../../components/shared/ErrorFallbackUI', () => {
@@ -152,26 +160,27 @@ describe('DiaryScreen', () => {
     }).not.toThrow();
   });
 
-  it('errorHandler fonksiyonu error ve stackTrace log yapmalıdır', () => {
+  it('errorHandler fonksiyonu error ve stackTrace log yapmalıdır (Satır 27-29)', () => {
+    // console.error'ı spy'la
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     
-    // DiaryScreen'i render et ve errorHandler'ı simüle et
-    const testError = new Error('Test error');
-    const testStack = 'Test stack trace';
-    
-    // Component'i render et
+    // Component'i render et - bu sırada mockOnErrorHandler atanacak
+    mockOnErrorHandler = null; // Reset
     render(<DiaryScreen />);
     
-    // ErrorBoundary mock'undan errorHandler'ı çağır
-    const ErrorBoundaryMock = require('react-native-error-boundary').default;
-    if (ErrorBoundaryMock.mock && ErrorBoundaryMock.mock.calls.length > 0) {
-      const errorBoundaryProps = ErrorBoundaryMock.mock.calls[0][0];
-      if (errorBoundaryProps.onError) {
-        errorBoundaryProps.onError(testError, testStack);
-        
-        // console.error çağrılmalı
-        expect(consoleSpy).toHaveBeenCalledWith('ErrorBoundary yakaladı:', testError, testStack);
-      }
+    // onError callback'i yakalandı mı?
+    expect(mockOnErrorHandler).toBeDefined();
+    expect(mockOnErrorHandler).not.toBeNull();
+    
+    if (mockOnErrorHandler) {
+      const testError = new Error('Test error');
+      const testStack = 'Test stack trace';
+      
+      // errorHandler'ı çağır
+      mockOnErrorHandler(testError, testStack);
+      
+      // console.error çağrılmalı
+      expect(consoleSpy).toHaveBeenCalledWith('ErrorBoundary yakaladı:', testError, testStack);
     }
     
     consoleSpy.mockRestore();

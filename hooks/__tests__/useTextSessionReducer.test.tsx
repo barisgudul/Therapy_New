@@ -933,4 +933,551 @@ describe('useTextSessionReducer', () => {
             unmount();
         });
   });
+
+  // ============================================
+  // KRİTİK: ERROR HANDLING VE UNCOVERED SATIRLAR
+  // ============================================
+
+  describe('💥 Başlatma (Initialization) Hata Senaryoları', () => {
+    it('eventId ile başlarken getEventById hata verirse, durumu error yapmalı (Satır 319-334)', async () => {
+      // getEventById'yi reject edecek şekilde mock'la
+      mockedGetEventById.mockRejectedValueOnce(new Error('Event bulunamadı'));
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ eventId: 'nonexistent-event', onSessionEnd: mockOnSessionEnd })
+      );
+
+      // Initialization error bekleniyor
+      await waitFor(() => {
+        expect(result.current.state.status).toBe('error');
+        expect(result.current.state.error).toBe('Geçmiş sohbet yüklenemedi.');
+      });
+    });
+
+    it('pendingSessionId ile başlarken orchestrator hata verirse, durumu error yapmalı', async () => {
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Orchestrator hatası' }
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ pendingSessionId: 'pending-123', onSessionEnd: mockOnSessionEnd })
+      );
+
+      // Error durumunu bekle
+      await waitFor(() => {
+        expect(result.current.state.status).toBe('error');
+      }, { timeout: 3000 });
+    });
+
+    it('Hiçbir prop olmadan başladığında, yeni ve boş bir session açmalı', async () => {
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      // İlk durum idle olmalı, mesajlar boş olmalı
+      await waitFor(() => {
+        expect(result.current.state.status).toBe('idle');
+        expect(result.current.state.messages).toEqual([]);
+      });
+    });
+  });
+
+  describe('💥 Mesaj Gönderme (sendMessage) Hata Durumları', () => {
+    it('supabase.functions.invoke reddettiğinde, ilgili mesajın status\'ünü "failed" yapmalı (Satır 373)', async () => {
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Orchestrator patladı' }
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Test mesajı'));
+      await act(async () => {
+        await result.current.sendMessage();
+      });
+
+      // Mesajın status'u "failed" olmalı
+      await waitFor(() => {
+        const userMessage = result.current.state.messages.find(m => m.sender === 'user');
+        expect(userMessage?.status).toBe('failed');
+        expect(result.current.state.isTyping).toBe(false);
+      });
+    });
+
+    it('supabase.functions.invoke data:null döndüğünde mesaj failed olmalı', async () => {
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Boş data' }
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      act(() => result.current.handleInputChange('Başarısız mesaj'));
+      await act(async () => {
+        await result.current.sendMessage();
+      });
+
+      await waitFor(() => {
+        const failedMessage = result.current.state.messages.find(m => m.status === 'failed');
+        expect(failedMessage).toBeTruthy();
+      });
+    });
+  });
+
+  describe('💥 Oturumu Sonlandırma (endSession) Tüm Hata Akışları', () => {
+    it('Mevcut session (eventId var) sonlandırırken "update" metodunu çağırmalı', async () => {
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: null, error: null })
+      });
+
+      (mockedSupabase.from as jest.Mock).mockImplementation((tableName) => {
+        if (tableName === 'events') {
+          return {
+            update: mockUpdate,
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            gte: jest.fn().mockReturnThis(),
+            order: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            maybeSingle: jest.fn().mockResolvedValue({ data: { created_at: '2024-01-01', id: 'se-123' }, error: null }),
+          };
+        }
+        return {};
+      });
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'Cevap' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ eventId: 'existing-123', onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Test'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      // Session'ı sonlandır
+      await act(async () => { await result.current.endSession(); });
+
+      // update metodunun çağrıldığını doğrula
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ messages: expect.any(Array) }),
+          })
+        );
+      });
+    });
+
+    it('Yeni session sonlandırırken iki kere "insert" çağırmalı (text_session + session_end)', async () => {
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: { id: 'new-id' }, error: null })
+        })
+      });
+
+      (mockedSupabase.from as jest.Mock).mockImplementation((tableName) => {
+        if (tableName === 'events') {
+          return { insert: mockInsert };
+        }
+        return {};
+      });
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'Cevap' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('İlk mesaj'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      // Session'ı sonlandır
+      await act(async () => { await result.current.endSession(); });
+
+      // insert 2 kere çağrılmalı: text_session ve session_end için
+      await waitFor(() => {
+        expect(mockInsert).toHaveBeenCalledTimes(2);
+        
+        // İlk çağrı: text_session
+        expect(mockInsert).toHaveBeenNthCalledWith(1, expect.objectContaining({
+          type: 'text_session',
+        }));
+        
+        // İkinci çağrı: session_end
+        expect(mockInsert).toHaveBeenNthCalledWith(2, expect.objectContaining({
+          type: 'session_end',
+        }));
+      });
+    });
+
+    it('Özetleme fonksiyonu (process-session-memory) patlarsa, console.error loglamalı ama akışa devam etmeli (Satır 518)', async () => {
+      const mockConsoleError = jest.spyOn(console, 'error').mockImplementation();
+      
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: { id: 'new-id' }, error: null })
+        })
+      });
+
+      (mockedSupabase.from as jest.Mock).mockImplementation(() => ({
+        insert: mockInsert,
+      }));
+
+      // Orchestrator başarılı ama process-session-memory hatalı
+      (mockedSupabase.functions.invoke as jest.Mock)
+        .mockResolvedValueOnce({ data: { aiResponse: 'Cevap' }, error: null }) // sendMessage için
+        .mockResolvedValueOnce({ data: null, error: { message: 'Özetleme hatası' } }); // process-session-memory için
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      act(() => result.current.handleInputChange('Mesaj'));
+      await act(async () => { await result.current.sendMessage(); });
+      await act(async () => { await result.current.endSession(); });
+
+      // console.error çağrıldığını ve onSessionEnd'in özetsiz çağrıldığını doğrula
+      await waitFor(() => {
+        expect(mockConsoleError).toHaveBeenCalledWith(
+          'Arka plan hafıza işleme hatası:',
+          expect.anything() // Error veya error objesi olabilir
+        );
+        expect(mockOnSessionEnd).toHaveBeenCalled();
+      });
+
+      mockConsoleError.mockRestore();
+    });
+
+    it('session_end özet yazılırken hata olursa, console.warn loglamalı (Satır 593-597)', async () => {
+      const mockConsoleWarn = jest.spyOn(console, 'warn').mockImplementation();
+      
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: { id: 'se-id' }, error: null })
+        })
+      });
+
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ data: null, error: { message: 'Update hatası' } })
+      });
+
+      (mockedSupabase.from as jest.Mock).mockImplementation(() => ({
+        insert: mockInsert,
+        update: mockUpdate,
+      }));
+
+      (mockedSupabase.functions.invoke as jest.Mock)
+        .mockResolvedValueOnce({ data: { aiResponse: 'Cevap' }, error: null })
+        .mockResolvedValueOnce({ data: { summary: 'Özet metni' }, error: null });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      act(() => result.current.handleInputChange('Test'));
+      await act(async () => { await result.current.sendMessage(); });
+      await act(async () => { await result.current.endSession(); });
+
+      // console.warn çağrılmalı
+      await waitFor(() => {
+        expect(mockConsoleWarn).toHaveBeenCalledWith(
+          'session_end summary update failed',
+          expect.objectContaining({ message: 'Update hatası' })
+        );
+      });
+
+      mockConsoleWarn.mockRestore();
+    });
+
+    it('Ana try-catch bloğunda hata olursa, status "error" yapmalı ve onSessionEnd çağırmalı (Satır 612-618)', async () => {
+      // getUser hata verecek şekilde mock'la
+      (mockedSupabase.auth.getUser as jest.Mock).mockResolvedValueOnce({
+        data: { user: null },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Test mesajı'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      // endSession çağır - user null olduğu için hata fırlatacak
+      await act(async () => { await result.current.endSession(); });
+
+      // Ana catch bloğu çalışmalı
+      await waitFor(() => {
+        expect(result.current.state.status).toBe('error');
+        expect(result.current.state.error).toBe('Seans sonlandırılamadı');
+        expect(mockOnSessionEnd).toHaveBeenCalled();
+      });
+    });
+
+    it('endSession içinde text_session insert hatası olursa error state ve onSessionEnd çağrılmalı', async () => {
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: null, error: { message: 'Insert failed' } })
+        })
+      });
+
+      (mockedSupabase.from as jest.Mock).mockImplementation(() => ({
+        insert: mockInsert,
+      }));
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'Cevap' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      act(() => result.current.handleInputChange('Mesaj'));
+      await act(async () => { await result.current.sendMessage(); });
+      await act(async () => { await result.current.endSession(); });
+
+      // Error state ve callback çağrısını doğrula
+      await waitFor(() => {
+        expect(result.current.state.status).toBe('error');
+        expect(mockOnSessionEnd).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('🔙 Geri Tuşu Davranışı (handleBackPress) - Satır 629-650', () => {
+    it('Kullanıcı hiç mesaj yazmadıysa false dönmeli ve Alert göstermemeli', async () => {
+      mockAlert.mockClear();
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // handleBackPress çağır
+      const shouldPreventBack = result.current.handleBackPress();
+
+      // false dönmeli (varsayılan geri davranışı)
+      expect(shouldPreventBack).toBe(false);
+      
+      // Alert gösterilmemeli
+      expect(mockAlert).not.toHaveBeenCalled();
+    });
+
+    it('Kullanıcı mesaj yazdıysa true dönmeli ve Alert göstermeli', async () => {
+      // Alert mock'u temizle ve yeniden ayarla
+      const { Alert } = require('react-native');
+      Alert.alert = jest.fn();
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'AI cevabı' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Kullanıcı mesajı'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      await waitFor(() => {
+        const userMsg = result.current.state.messages.find(m => m.sender === 'user');
+        expect(userMsg).toBeTruthy();
+      });
+
+      // handleBackPress çağır
+      const shouldPreventBack = result.current.handleBackPress();
+
+      // true dönmeli
+      expect(shouldPreventBack).toBe(true);
+      
+      // Alert gösterilmeli
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Sohbeti Sonlandır',
+        'Sohbeti sonlandırmak istediğinden emin misin?',
+        expect.any(Array)
+      );
+    });
+
+    it('Alert\'te "İptal" seçilirse endSession çağrılmamalı', async () => {
+      // Alert'i "İptal" butonu çağıracak şekilde mock'la
+      const { Alert } = require('react-native');
+      Alert.alert = jest.fn((title, message, buttons) => {
+        const cancelButton = buttons?.find((b: any) => b.style === 'cancel');
+        if (cancelButton?.onPress) {
+          cancelButton.onPress();
+        }
+      });
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'Cevap' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Test'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      // handleBackPress çağır
+      result.current.handleBackPress();
+
+      // İptal seçildiği için endSession çağrılmamalı
+      expect(mockOnSessionEnd).not.toHaveBeenCalled();
+      expect(result.current.state.status).not.toBe('ended');
+    });
+
+    it('Alert\'te "Sohbeti Sonlandır" seçilirse endSession çağrılmalı', async () => {
+      // Alert'i "Sohbeti Sonlandır" butonu çağıracak şekilde mock'la
+      const { Alert } = require('react-native');
+      Alert.alert = jest.fn((title, message, buttons) => {
+        const destructiveButton = buttons?.find((b: any) => b.style === 'destructive');
+        if (destructiveButton?.onPress) {
+          destructiveButton.onPress();
+        }
+      });
+
+      const mockInsert = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({ data: { id: 'new-id' }, error: null })
+        })
+      });
+
+      (mockedSupabase.from as jest.Mock).mockImplementation(() => ({
+        insert: mockInsert,
+      }));
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'Cevap' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Mesaj'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      // handleBackPress çağır
+      result.current.handleBackPress();
+
+      // Destructive button tıklandı, endSession çağrılmalı
+      await waitFor(() => {
+        expect(mockOnSessionEnd).toHaveBeenCalled();
+      }, { timeout: 3000 });
+    });
+
+    it('isEnding true ise handleBackPress true dönmeli (geri engellenmeli)', async () => {
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Manuel olarak isEnding state'ini true yap
+      act(() => {
+        result.current.state.isEnding = true;
+      });
+
+      const shouldPreventBack = result.current.handleBackPress();
+
+      // true dönmeli (back engellenmeli)
+      expect(shouldPreventBack).toBe(true);
+    });
+  });
+
+  describe('💥 Supabase Auth Hata Durumları', () => {
+    it('supabase.auth.getUser başarısız olursa endSession hata verip durmalı (Satır 494-498)', async () => {
+      (mockedSupabase.auth.getUser as jest.Mock).mockResolvedValueOnce({
+        data: { user: null },
+        error: null
+      });
+
+      (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
+        data: { aiResponse: 'Cevap' },
+        error: null
+      });
+
+      const mockOnSessionEnd = jest.fn();
+      const { result } = renderHook(() =>
+        useTextSessionReducer({ onSessionEnd: mockOnSessionEnd })
+      );
+
+      await waitFor(() => expect(result.current.state.status).toBe('idle'));
+
+      // Mesaj gönder
+      act(() => result.current.handleInputChange('Test'));
+      await act(async () => { await result.current.sendMessage(); });
+
+      // endSession çağır - user null hatası fırlatacak
+      await act(async () => { await result.current.endSession(); });
+
+      // Error state olmalı
+      await waitFor(() => {
+        expect(result.current.state.status).toBe('error');
+        expect(result.current.state.error).toBe('Seans sonlandırılamadı');
+      });
+    });
+  });
 });

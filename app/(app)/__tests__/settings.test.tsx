@@ -13,13 +13,17 @@ jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(),
 }));
+// i18n mock'unu global olarak tanımlayalım ki testlerde erişebilelim
+const mockChangeLanguage = jest.fn();
+const mockI18n = {
+  language: 'tr',
+  changeLanguage: mockChangeLanguage,
+};
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
-    i18n: {
-      language: 'tr',
-      changeLanguage: jest.fn(),
-    },
+    i18n: mockI18n,
   }),
 }));
 
@@ -30,6 +34,7 @@ describe('SettingsScreen', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockChangeLanguage.mockClear();
     
     // Varsayılan mock'lar
     mockUseAuth.mockReturnValue({
@@ -277,5 +282,84 @@ describe('SettingsScreen', () => {
 
     // Router push tanımlı olmalı
     expect(mockPush).toBeDefined();
+  });
+
+  // ============================================
+  // CALLBACK FONKSİYONLARI - GERÇEK ÇALIŞTIRMA!
+  // ============================================
+  describe('🎯 Inline Callback Fonksiyonları - Gerçek Tıklama Testleri', () => {
+    it('Dil butonuna basıldığında i18n.changeLanguage çağrılmalıdır (Satır 44)', () => {
+      render(<SettingsScreen />);
+
+      // İngilizce diline tıkla
+      const englishButton = screen.getByText('settings.language.english');
+      fireEvent.press(englishButton);
+
+      expect(mockChangeLanguage).toHaveBeenCalledWith('en');
+
+      // Almanca diline tıkla
+      const germanButton = screen.getByText('settings.language.german');
+      fireEvent.press(germanButton);
+
+      expect(mockChangeLanguage).toHaveBeenCalledWith('de');
+
+      // Türkçe diline tıkla
+      const turkishButton = screen.getByText('settings.language.turkish');
+      fireEvent.press(turkishButton);
+
+      expect(mockChangeLanguage).toHaveBeenCalledWith('tr');
+    });
+
+    it('Profile kartına basıldığında router.push("/(settings)/profile") çağrılmalıdır (Satır 98)', () => {
+      const mockPush = jest.fn();
+      mockUseRouter.mockReturnValue({
+        back: jest.fn(),
+        push: mockPush,
+      });
+
+      // SettingsCard mock'unu gerçek davranışla değiştir
+      const SettingsCard = require('../../../components/settings/SettingsCard').SettingsCard;
+      jest.mocked(SettingsCard).mockImplementation(({ onPress, label }: any) => {
+        const { Pressable, Text } = require('react-native');
+        return (
+          <Pressable onPress={onPress} testID={`settings-card-${label}`}>
+            <Text>{label}</Text>
+          </Pressable>
+        );
+      });
+
+      render(<SettingsScreen />);
+
+      const profileCard = screen.getByTestId('settings-card-settings.main.editProfile');
+      fireEvent.press(profileCard);
+
+      expect(mockPush).toHaveBeenCalledWith('/(settings)/profile');
+    });
+
+    it('Security kartına basıldığında router.push("/(settings)/security") çağrılmalıdır (Satır 103)', () => {
+      const mockPush = jest.fn();
+      mockUseRouter.mockReturnValue({
+        back: jest.fn(),
+        push: mockPush,
+      });
+
+      // SettingsCard mock'unu gerçek davranışla değiştir
+      const SettingsCard = require('../../../components/settings/SettingsCard').SettingsCard;
+      jest.mocked(SettingsCard).mockImplementation(({ onPress, label }: any) => {
+        const { Pressable, Text } = require('react-native');
+        return (
+          <Pressable onPress={onPress} testID={`settings-card-${label}`}>
+            <Text>{label}</Text>
+          </Pressable>
+        );
+      });
+
+      render(<SettingsScreen />);
+
+      const securityCard = screen.getByTestId('settings-card-settings.main.security');
+      fireEvent.press(securityCard);
+
+      expect(mockPush).toHaveBeenCalledWith('/(settings)/security');
+    });
   });
 });
