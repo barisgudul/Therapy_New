@@ -89,13 +89,26 @@ export async function buildTextSessionContext(
   // Build activity context
   const activityContext = buildActivityContext(recentActivities);
 
-  // Format RAG results for prompt
-  const ragForPrompt = filteredMemories.length > 0
+  // Format RAG results for prompt - Enhanced fallback strategy
+  let ragForPrompt: string;
+  const filteredMemoriesContent = filteredMemories.length > 0
     ? filteredMemories
       .slice(0, 4)
       .map((m, i) => `[${i + 1}] ${String(m.content).slice(0, 150)}`)
       .join("\n")
-    : activityContext; // Use activity context if no RAG results
+    : null;
+
+  if (filteredMemoriesContent) {
+    // Primary: Use filtered memories
+    ragForPrompt = filteredMemoriesContent;
+  } else if (activityContext) {
+    // Fallback: Use enriched activity context when RAG fails
+    // This provides more dynamic context than just a static summary
+    ragForPrompt = `📋 Kullanıcının son aktiviteleri:\n${activityContext}`;
+  } else {
+    // Last resort: No context available
+    ragForPrompt = "Henüz kayıtlı bağlam yok";
+  }
 
   return {
     userDossier,

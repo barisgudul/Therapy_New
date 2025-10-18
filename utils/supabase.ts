@@ -3,7 +3,6 @@
 import "react-native-url-polyfill/auto";
 import { createClient } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
-import process from "node:process";
 
 // SecureStore'u, Supabase'in beklediği arayüze (getItem, setItem, removeItem) uyumlu hale getir.
 const ExpoSecureStoreAdapter = {

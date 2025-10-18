@@ -1,6 +1,6 @@
 // app/(app)/__tests__/index.test.tsx
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react-native";
+import { render, screen} from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 

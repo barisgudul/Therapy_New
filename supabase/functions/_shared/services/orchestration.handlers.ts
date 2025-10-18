@@ -887,11 +887,17 @@ GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsa
   const lastAiEndedWithQuestion = !!lastAiMsg &&
     /[?؟]$/.test(lastAiMsg.text.trim());
 
-  // Enhanced boredom detection with context
+  // Enhanced boredom detection with context and stuck pattern detection
+  // Detect if user is stuck: 2+ consecutive messages with ≤2 words
+  const isStuck = messages.length > 3 &&
+    messages.slice(-2).every((m) =>
+      m.sender === "user" && m.text.trim().split(/\s+/).length <= 2
+    );
+
   const userLooksBored =
     /\b(sıkıldım|boşver|neyse|önemsiz|bilmiyorum|hmm+|ımm)\b/i.test(
       userMessage,
-    );
+    ) || isStuck; // Also trigger RE_ENGAGE if user seems stuck
 
   // Build the prompt with enhanced context
   const styleMode = (messages?.length || 0) % 3;
