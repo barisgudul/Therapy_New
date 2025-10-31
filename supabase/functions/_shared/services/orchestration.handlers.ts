@@ -19,6 +19,7 @@ import * as DreamPrompts from "../prompts/dreamAnalysis.prompt.ts";
 import * as DiaryPrompts from "../prompts/diary.prompt.ts";
 import * as RagService from "./rag.service.ts";
 import { logRagInvocation } from "../utils/logging.service.ts";
+import * as DreamService from "./dream.service.ts";
 
 // --- BAĞIMLILIK PAKETİ TİPİ ---
 // Tüm handler'ların ihtiyaç duyduğu her şeyi burada topluyoruz.
@@ -129,13 +130,13 @@ type DiaryResponse = {
 
 /**
  * RÜYA ANALİZİ HANDLER
+ * Artık merkezi DreamService'i kullanıyor.
  */
 export async function handleDreamAnalysis(
   dependencies: HandlerDependencies,
   context: InteractionContext,
 ): Promise<{ eventId: string }> {
-  const { supabaseClient, aiService, contextBuilder, logRagInvocation } =
-    dependencies;
+  const { supabaseClient } = dependencies;
   const { logger, userId, transactionId } = context;
 
   // Idempotency kontrolü - transactionId olmadan upsert faydasız
@@ -151,127 +152,17 @@ export async function handleDreamAnalysis(
     language?: string;
   };
 
-  if (
-    !dreamText || typeof dreamText !== "string" || dreamText.trim().length < 10
-  ) {
-    throw new ValidationError("Analiz için yetersiz rüya metni.");
-  }
-
-  logger.info("DreamAnalysis", "İşlem başlıyor.");
-
-  // 1. BAĞLAMI OLUŞTUR
-  const { userDossier, ragContext } = await contextBuilder
-    .buildDreamAnalysisContext(
-      { supabaseClient, aiService, ragService: RagService, logRagInvocation },
-      userId,
-      dreamText,
-      transactionId,
-    );
-  logger.info("DreamAnalysis", "Bağlam oluşturuldu.");
-
-  // 2. PROMPT'U OLUŞTUR
-  const masterPrompt = DreamPrompts.generateDreamAnalysisPrompt({
-    userDossier,
-    ragContext,
-    dreamText,
-  }, language ?? "en");
-
-  // 3. AI'YI ÇAĞIR
-  const rawResponse = await aiService.invokeGemini(
+  // Merkezi servisi kullan
+  const result = await DreamService.analyzeDream({
     supabaseClient,
-    masterPrompt,
-    config.AI_MODELS.ADVANCED,
-    {
-      responseMimeType: "application/json",
-      maxOutputTokens: LLM_LIMITS.DREAM_ANALYSIS,
-    },
+    userId,
+    dreamText: dreamText || "",
     transactionId,
-  );
-  logger.info("DreamAnalysis", "AI yanıtı alındı.");
+    language: language ?? "en",
+    logger,
+  });
 
-  // 4. SONUCU DOĞRULA VE KAYDET (ARTIK PLACEHOLDER DEĞİL)
-  const analysisData = safeParseJsonBlock<
-    z.infer<typeof DreamAnalysisResultSchema>
-  >(rawResponse);
-  if (
-    !analysisData || !DreamAnalysisResultSchema.safeParse(analysisData).success
-  ) {
-    throw new ValidationError("Yapay zeka tutarsız bir analiz üretti.");
-  }
-
-  const { data: inserted, error: insertError } = await supabaseClient
-    .from("events")
-    .upsert({
-      user_id: userId,
-      transaction_id: context.transactionId, // 🔒 idempotent anahtar
-      type: "dream_analysis",
-      timestamp: new Date().toISOString(),
-      data: {
-        dreamText,
-        analysis: analysisData,
-        dialogue: [],
-        language: language ?? "en",
-      },
-    }, { onConflict: "user_id,transaction_id" })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    throw new DatabaseError(`Event kaydedilemedi: ${insertError.message}`);
-  }
-
-  const newEventId = inserted.id;
-
-  // AI KARARINI LOGLA
-  try {
-    const confidence = calculateConnectionConfidence(
-      analysisData,
-      JSON.stringify(userDossier), // String'e çevir
-    );
-    await supabaseClient.from("ai_decision_log").insert({
-      user_id: userId,
-      decision_context: `Rüya metni: "${dreamText.substring(0, 200)}..."`,
-      decision_made:
-        `Başlık: ${analysisData.title}. Özet: ${analysisData.summary}`,
-      reasoning: JSON.stringify(analysisData.crossConnections),
-      execution_result: { success: true, eventId: newEventId },
-      confidence_level: confidence,
-      decision_category: "dream_analysis",
-      complexity_level: "complex",
-    });
-    logger.info(
-      "DreamAnalysis",
-      `AI kararı başarıyla loglandı. Güven: ${(confidence * 100).toFixed(0)}%`,
-    );
-  } catch (logError) {
-    logger.error("DreamAnalysis", "AI karar loglama hatası", logError);
-  }
-
-  // HAFIZA KAYDI YAP - simetrik error kontrolü
-  const { error: pmError } = await supabaseClient.functions.invoke(
-    "process-memory",
-    {
-      body: {
-        source_event_id: newEventId,
-        user_id: userId,
-        content: dreamText,
-        event_time: new Date().toISOString(),
-        mood: null,
-        event_type: "dream_analysis",
-        transaction_id: transactionId,
-      },
-    },
-  );
-
-  if (pmError) {
-    logger.error("DreamAnalysis", "process-memory invoke hatası", pmError);
-    // Akışı bozma; logla ve devam et.
-  }
-
-  // Not: Kullanıcının talebiyle vault'a yedek yazım kaldırıldı.
-
-  logger.info("DreamAnalysis", `İşlem tamamlandı. Event ID: ${newEventId}`);
-  return { eventId: newEventId };
+  return { eventId: result.eventId };
 }
 
 /**
@@ -995,7 +886,7 @@ export const eventHandlers: Record<
     context: InteractionContext,
   ) => Promise<unknown>
 > = {
-  "dream_analysis": handleDreamAnalysis,
+  // "dream_analysis": handleDreamAnalysis, // Artık unified-ai-gateway üzerinden dream-analysis-handler'a yönlendiriliyor
   "daily_reflection": handleDailyReflection,
   // Diğer tüm event'ler için varsayılan bir handler
   "text_session": handleTextSession, // YENİ: Özel text_session handler'ı

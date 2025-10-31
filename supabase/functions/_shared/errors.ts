@@ -93,3 +93,36 @@ export function getErrorMessage(error: unknown): string {
 
     return "Bilinmeyen bir hata oluştu.";
 }
+
+/**
+ * Tüm fonksiyonların kullanacağı standart hata yanıtı oluşturur.
+ * Bu fonksiyon, hata kodunu, mesajını ve transaction ID'yi içeren tutarlı bir yanıt döndürür.
+ */
+export function createErrorResponse(
+    req: Request,
+    error: unknown,
+    transactionId: string,
+    corsHeaders: Record<string, string>,
+): Response {
+    const isValidationError = error instanceof ValidationError;
+    const message = getErrorMessage(error);
+    const code = isAppError(error) ? error.code : "INTERNAL_SERVER_ERROR";
+    const status = isValidationError ? 400 : 500;
+
+    console.error(`[${transactionId}] Hata:`, message, error);
+
+    return new Response(
+        JSON.stringify({
+            error: message,
+            code,
+            transactionId,
+        }),
+        {
+            status,
+            headers: {
+                ...corsHeaders,
+                "Content-Type": "application/json",
+            },
+        },
+    );
+}

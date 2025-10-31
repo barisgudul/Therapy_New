@@ -446,7 +446,7 @@ export function useTextSessionReducer({
             };
 
             const { data: aiReply, error } = await supabase.functions.invoke(
-                "orchestrator",
+                "unified-ai-gateway",
                 {
                     body: {
                         eventPayload: {

@@ -61,7 +61,7 @@ export default function AnalyzeDreamScreen() {
       // processUserEvent'in dönüş tipi muhtemelen ConversationResponse (veya başka bir tip) olarak tanımlı.
       // Bunu çözmek için, dönen değerin eventId'sini açıkça çekiyoruz.
 
-      const { data, error } = await supabase.functions.invoke("orchestrator", {
+      const { data, error } = await supabase.functions.invoke("unified-ai-gateway", {
         body: { eventPayload },
       });
       

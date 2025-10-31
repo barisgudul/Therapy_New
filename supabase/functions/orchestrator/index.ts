@@ -46,8 +46,8 @@ function generateId(): string {
 
 function mapEventTypeToFeature(type: string): FeatureKey | null {
   switch (type) {
-    case "dream_analysis":
-      return "dream_analysis";
+    // case "dream_analysis":
+    //   return "dream_analysis"; // Artık unified-ai-gateway üzerinden dream-analysis-handler'a yönlendiriliyor
     case "daily_reflection":
       return "daily_reflection";
     case "text_session":
@@ -144,7 +144,7 @@ export async function handleOrchestrator(
         buildTextSessionContext: Context.buildTextSessionContext,
         buildDailyReflectionContext:
           DailyReflectionContext.buildDailyReflectionContext,
-        buildDreamAnalysisContext: DreamContext.buildDreamAnalysisContext,
+        buildDreamAnalysisContext: DreamContext.buildDreamAnalysisContext, // Diğer handler'lar kullanabilir, sadece eventHandlers'dan kaldırıldı
       },
     };
 
@@ -161,7 +161,8 @@ export async function handleOrchestrator(
     let responsePayload: unknown;
 
     if (typeof result === "string") {
-      // RÜYA ANALİZİ vb. için string ise eventId olarak sarmala
+      // RÜYA ANALİZİ artık unified-ai-gateway üzerinden dream-analysis-handler'a yönlendiriliyor
+      // Ancak diğer string dönen handler'lar için hala geçerli
       responsePayload = { eventId: result };
     } else {
       // GÜNLÜK GİBİ KOMPLEKS OBJE DÖNEN DURUMLAR İÇİN: zaten obje olanı olduğu gibi kullan.

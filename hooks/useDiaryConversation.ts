@@ -35,7 +35,7 @@ export function useDiaryConversation() {
             payload: { text: string; convoId: string | null; turn: number },
         ) => {
             const { data, error } = await supabase.functions.invoke(
-                "orchestrator",
+                "unified-ai-gateway",
                 {
                     body: {
                         eventPayload: {

@@ -129,10 +129,10 @@ export function useDailyReflection() {
         setFeedbackVisible(true);
 
         try {
-            // ADIM 2: Ana işlemi (orchestrator'ı çağırmak) yap.
+            // ADIM 2: Ana işlemi (unified-ai-gateway'i çağırmak) yap.
             const todayMood = MOOD_LEVELS[Math.round(moodValue)].label;
             const { data, error } = await supabase.functions.invoke(
-                "orchestrator",
+                "unified-ai-gateway",
                 {
                     body: {
                         eventPayload: {
