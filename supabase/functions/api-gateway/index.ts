@@ -1,4 +1,5 @@
 // supabase/functions/api-gateway/index.ts
+import { Sentry } from "../_shared/sentry.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const GEMINI_API_KEY_FOR_GATEWAY = Deno.env.get("GEMINI_API_KEY");
@@ -626,6 +627,7 @@ export async function handleApiGateway(req: Request): Promise<Response> {
       status: 200,
     });
   } catch (error: unknown) {
+    Sentry.captureException(error);
     return new Response(JSON.stringify({ error: getErrorMessage(error) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 400,

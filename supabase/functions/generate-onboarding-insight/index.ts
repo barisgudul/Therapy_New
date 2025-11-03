@@ -1,4 +1,5 @@
 // supabase/functions/generate-onboarding-insight/index.ts - NİHAİ VE TAM VERSİYON
+import { Sentry } from "../_shared/sentry.ts";
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -345,6 +346,7 @@ serve(async (req: Request) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    Sentry.captureException(error);
     // Beklenmedik bir hata olsa bile kullanıcı boş dönmesin: güvenli fallback
     const message = error instanceof Error ? error.message : String(error);
     console.warn(

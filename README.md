@@ -69,3 +69,15 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+### State Management Kuralları
+
+- Sunucu durumu (fetch/cache/mutation): TanStack Query. Tüm network istekleri `services/api.service.ts` üzerinden yapılır.
+- Karmaşık istemci durumu (çoklu bileşeni etkileyen, sık güncellenen): Zustand. Örnek: `store/textSessionStore.ts`.
+- Basit/seyrek değişen global değerler (tema, dil, auth referansı): React Context.
+
+### Edge Functions – AI Ayrık Uçlar
+
+- `analyze-dream`, `summarize-session`, `generate-report` fonksiyonları Supabase Edge üzerinde çalışır.
+- Ortak modüller: `supabase/functions/_shared/{auth.ts,cors.ts,gemini-client.ts}`.
+- İstemci çağrıları: `services/api.service.ts` → `callAnalyzeDream`, `callSummarizeSession`, `callGenerateReport`.

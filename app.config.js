@@ -4,7 +4,8 @@ import process from "node:process";
 export default {
   expo: {
     name: 'Gisbel',                                 // DEĞİŞTİ
-    slug: 'gisbel',                                 // DEĞİŞTİ
+    slug: 'therapynew',    
+    owner: "barisgudul",                     
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/logo.png',
@@ -55,8 +56,8 @@ export default {
       eas: {
         projectId: "56e80492-e055-42f0-b974-5007f88c7a8c"
       },
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     },
   },
 };

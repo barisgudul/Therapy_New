@@ -1,4 +1,5 @@
 // supabase/functions/orchestrator/index.ts
+import { Sentry } from "../_shared/sentry.ts";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { cors, corsHeaders as _corsHeaders } from "../_shared/cors.ts";
 import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
@@ -178,6 +179,7 @@ export async function handleOrchestrator(
       status: 200,
     });
   } catch (error) {
+    Sentry.captureException(error);
     const message = (error as Error)?.message || "Bilinmeyen bir hata oluştu.";
     console.error("[Orchestrator] KRİTİK HATA:", message, error);
 

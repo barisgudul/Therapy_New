@@ -1,6 +1,5 @@
 // types/env.d.ts
-declare module '@env' {
-  export const GEMINI_API_KEY: string;
-  // Diğer .env değişkenlerinizi buraya ekleyin
-  // export const API_URL: string;
+declare module "@env" {
+  export const EXPO_PUBLIC_SUPABASE_URL: string;
+  export const EXPO_PUBLIC_SUPABASE_ANON_KEY: string;
 }

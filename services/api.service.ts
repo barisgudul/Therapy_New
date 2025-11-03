@@ -65,6 +65,61 @@ export function getAllPlans() {
     return apiCall(_getAllPlans());
 }
 
+// Edge Functions — AI Ayrık Uçlar
+export function callAnalyzeDream(dreamText: string, language?: string) {
+    const promise = (async (): Promise<{ analysis: string }> => {
+        const { data, error } = await supabase.functions.invoke(
+            "analyze-dream",
+            {
+                body: {
+                    dreamText,
+                    language,
+                    transactionId: crypto.randomUUID(),
+                },
+            },
+        );
+        if (error) throw new Error(error.message);
+        return (typeof data === "string" ? JSON.parse(data) : data) as {
+            analysis: string;
+        };
+    })();
+    return apiCall(promise);
+}
+
+export function callSummarizeSession(sessionText: string, language?: string) {
+    const promise = (async (): Promise<{ summary: string }> => {
+        const { data, error } = await supabase.functions.invoke(
+            "summarize-session",
+            {
+                body: {
+                    sessionText,
+                    language,
+                    transactionId: crypto.randomUUID(),
+                },
+            },
+        );
+        if (error) throw new Error(error.message);
+        return (typeof data === "string" ? JSON.parse(data) : data) as {
+            summary: string;
+        };
+    })();
+    return apiCall(promise);
+}
+
+export function callGenerateReport(days: number, language?: string) {
+    const promise = (async () => {
+        const { data, error } = await supabase.functions.invoke(
+            "generate-report",
+            {
+                body: { days, language },
+            },
+        );
+        if (error) throw new Error(error.message);
+        return typeof data === "string" ? JSON.parse(data) : data;
+    })();
+    return apiCall(promise);
+}
+
 // YENİ: En son kişisel raporu getirir
 export function getLatestAnalysisReport() {
     const promise = (async (): Promise<AnalysisReport | null> => {

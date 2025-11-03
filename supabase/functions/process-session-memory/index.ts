@@ -1,4 +1,5 @@
 // supabase/functions/process-session-memory/index.ts
+import { Sentry } from "../_shared/sentry.ts";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getSupabaseAdmin } from "../_shared/supabase-admin.ts";
@@ -105,6 +106,7 @@ serve(async (req) => {
       },
     );
   } catch (error) {
+    Sentry.captureException(error);
     const errorMessage = error instanceof Error
       ? error.message
       : "Unknown error";

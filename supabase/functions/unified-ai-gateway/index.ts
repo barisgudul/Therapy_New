@@ -1,4 +1,5 @@
 // supabase/functions/unified-ai-gateway/index.ts
+import { Sentry } from "../_shared/sentry.ts";
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import {
   createSupabaseClient,
@@ -198,6 +199,7 @@ serve(async (req: Request) => {
       },
     });
   } catch (error: unknown) {
+    Sentry.captureException(error);
     // Hata loglama (eğer user bilgisi varsa)
     try {
       const supabase = createSupabaseClient(req);
