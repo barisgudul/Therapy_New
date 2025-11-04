@@ -608,7 +608,7 @@ describe('AnalyzeDreamScreen - Gerçek Davranış Testleri', () => {
       await mutationFn?.();
 
       // supabase.functions.invoke doğru parametrelerle çağrıldı mı?
-      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('orchestrator', {
+      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('unified-ai-gateway', {
         body: {
           eventPayload: {
             type: 'dream_analysis',

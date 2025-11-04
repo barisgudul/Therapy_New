@@ -211,7 +211,7 @@ export function useVoiceSessionReducer(
                         },
                     };
 
-                    await supabase.functions.invoke("orchestrator", {
+                    await supabase.functions.invoke("unified-ai-gateway", {
                         body: { eventPayload: sessionEndPayload },
                     });
                 }

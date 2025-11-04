@@ -330,7 +330,7 @@ describe('useTextSessionReducer', () => {
     });
 
             // API'nin çağrıldığını doğrula
-            expect(mockedSupabase.functions.invoke).toHaveBeenCalledWith('orchestrator', expect.anything());
+            expect(mockedSupabase.functions.invoke).toHaveBeenCalledWith('unified-ai-gateway', expect.anything());
 
             // API cevabı geldikten sonraki durumu bekle ve kontrol et
     await waitFor(() => {
@@ -345,7 +345,7 @@ describe('useTextSessionReducer', () => {
         });
 
         it('API hatası durumunda mesajın durumunu "failed" olarak güncellemelidir', async () => {
-            const apiError = new Error('Orchestrator patladı');
+            const apiError = new Error('unified-ai-gateway patladı');
             (mockedSupabase.functions.invoke as jest.Mock).mockRejectedValue(apiError);
 
             const { result, unmount } = renderHook(() => useTextSessionReducer({ onSessionEnd: mockOnSessionEnd }));
@@ -549,9 +549,9 @@ describe('useTextSessionReducer', () => {
             unmount(); // Test bittiğinde hook'u temizle
         });
 
-        it('pendingSessionId ile başlarken orchestrator hata verirse, durumu error yapmalı', async () => {
+        it('pendingSessionId ile başlarken unified-ai-gateway hata verirse, durumu error yapmalı', async () => {
             // ARRANGE
-            (mockedSupabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('Orchestrator hatası'));
+            (mockedSupabase.functions.invoke as jest.Mock).mockRejectedValue(new Error('unified-ai-gateway hatası'));
 
             // ACT
             const { result, unmount } = renderHook(() => useTextSessionReducer({ pendingSessionId: 'pending-123', onSessionEnd: mockOnSessionEnd }));
@@ -565,7 +565,7 @@ describe('useTextSessionReducer', () => {
             unmount(); // Test bittiğinde hook'u temizle
         });
 
-        it('pendingSessionId ile başlarken orchestrator başarılı olursa, AI mesajını eklemeli', async () => {
+        it('pendingSessionId ile başlarken unified-ai-gateway başarılı olursa, AI mesajını eklemeli', async () => {
             // ARRANGE
             (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({ 
                 data: { aiResponse: 'Merhaba! Ben senin AI asistanınım.' }, 
@@ -955,10 +955,10 @@ describe('useTextSessionReducer', () => {
       });
     });
 
-    it('pendingSessionId ile başlarken orchestrator hata verirse, durumu error yapmalı', async () => {
+    it('pendingSessionId ile başlarken unified-ai-gateway hata verirse, durumu error yapmalı', async () => {
       (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
         data: null,
-        error: { message: 'Orchestrator hatası' }
+        error: { message: 'unified-ai-gateway hatası' }
       });
 
       const mockOnSessionEnd = jest.fn();
@@ -990,7 +990,7 @@ describe('useTextSessionReducer', () => {
     it('supabase.functions.invoke reddettiğinde, ilgili mesajın status\'ünü "failed" yapmalı (Satır 373)', async () => {
       (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValueOnce({
         data: null,
-        error: { message: 'Orchestrator patladı' }
+        error: { message: 'unified-ai-gateway patladı' }
       });
 
       const mockOnSessionEnd = jest.fn();
@@ -1151,7 +1151,7 @@ describe('useTextSessionReducer', () => {
         insert: mockInsert,
       }));
 
-      // Orchestrator başarılı ama process-session-memory hatalı
+      // unified-ai-gateway başarılı ama process-session-memory hatalı
       (mockedSupabase.functions.invoke as jest.Mock)
         .mockResolvedValueOnce({ data: { aiResponse: 'Cevap' }, error: null }) // sendMessage için
         .mockResolvedValueOnce({ data: null, error: { message: 'Özetleme hatası' } }); // process-session-memory için

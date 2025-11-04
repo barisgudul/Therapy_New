@@ -78,7 +78,7 @@ jobs:
       - name: Deno Kurulumu
         uses: denoland/setup-deno@v1
         with:
-          deno-version: v1.x
+          deno-version: v2.x
 
       - name: Deno Bağımlılıklarını Cache'le
         uses: actions/cache@v4

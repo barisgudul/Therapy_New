@@ -118,7 +118,7 @@ describe('useDiaryConversation Hook', () => {
       result.current.submitAnswer();
     });
 
-    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('orchestrator', {
+    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('unified-ai-gateway', {
       body: {
         eventPayload: {
           type: 'diary_entry',
@@ -162,7 +162,7 @@ describe('useDiaryConversation Hook', () => {
       result.current.submitAnswer();
     });
 
-    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('orchestrator', {
+    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('unified-ai-gateway', {
       body: {
         eventPayload: {
           type: 'diary_entry',
@@ -329,7 +329,7 @@ describe('useDiaryConversation Hook', () => {
 
     // Toast.show'un çağrıldığını kontrol et - React Query'nin onError callback'i test ortamında çalışmayabilir
     // Bu yüzden sadece API çağrısının yapıldığını ve state'in doğru güncellendiğini test ediyoruz
-    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('orchestrator', {
+    expect(mockedSupabaseInvoke).toHaveBeenCalledWith('unified-ai-gateway', {
       body: {
         eventPayload: {
           type: 'diary_entry',

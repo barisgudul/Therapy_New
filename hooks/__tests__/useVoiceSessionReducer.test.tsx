@@ -412,7 +412,7 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
   });
 
   describe('7. endSession - Session Sonlandırma', () => {
-    it('mesajlar varsa orchestrator invoke edilir', async () => {
+    it('mesajlar varsa unified-ai-gateway invoke edilir', async () => {
       const { result } = renderHook(() =>
         useVoiceSessionReducer({ onSessionEnd: mockOnSessionEnd })
       );
@@ -436,8 +436,8 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
         await result.current.actions.endSession();
       });
 
-      // Orchestrator çağrıldı
-      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('orchestrator', {
+      // unified-ai-gateway çağrıldı
+      expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('unified-ai-gateway', {
         body: {
           eventPayload: expect.objectContaining({
             type: 'voice_session',
@@ -454,7 +454,7 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
       expect(mockOnSessionEnd).toHaveBeenCalled();
     });
 
-    it('mesajlar 1 veya daha azsa orchestrator invoke edilmez', async () => {
+    it('mesajlar 1 veya daha azsa unified-ai-gateway invoke edilmez', async () => {
       const { result } = renderHook(() =>
         useVoiceSessionReducer({ onSessionEnd: mockOnSessionEnd })
       );
@@ -466,17 +466,17 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
         await result.current.actions.endSession();
       });
 
-      // Orchestrator çağrılmadı (voice-session çağrısı var ama orchestrator yok)
-      const orchestratorCalls = (mockSupabase.functions.invoke as jest.Mock).mock.calls.filter(
-        call => call[0] === 'orchestrator'
+      // unified-ai-gateway çağrılmadı (voice-session çağrısı var ama unified-ai-gateway yok)
+      const gatewayCalls = (mockSupabase.functions.invoke as jest.Mock).mock.calls.filter(
+        call => call[0] === 'unified-ai-gateway'
       );
-      expect(orchestratorCalls).toHaveLength(0);
+      expect(gatewayCalls).toHaveLength(0);
 
       // Ama onSessionEnd yine çağrıldı
       expect(mockOnSessionEnd).toHaveBeenCalled();
     });
 
-    it('user yoksa orchestrator invoke edilmez', async () => {
+    it('user yoksa unified-ai-gateway invoke edilmez', async () => {
       mockSupabase.auth.getUser = jest.fn().mockResolvedValue({
         data: { user: null },
         error: null,
@@ -504,11 +504,11 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
         await result.current.actions.endSession();
       });
 
-      // Orchestrator çağrılmadı
-      const orchestratorCalls = (mockSupabase.functions.invoke as jest.Mock).mock.calls.filter(
-        call => call[0] === 'orchestrator'
+      // unified-ai-gateway çağrılmadı
+      const gatewayCalls = (mockSupabase.functions.invoke as jest.Mock).mock.calls.filter(
+        call => call[0] === 'unified-ai-gateway'
       );
-      expect(orchestratorCalls).toHaveLength(0);
+      expect(gatewayCalls).toHaveLength(0);
 
       // onSessionEnd yine çağrıldı
       expect(mockOnSessionEnd).toHaveBeenCalled();
@@ -517,10 +517,10 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
     it('endSession hatası console.error ile loglanır', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      const testError = new Error('Orchestrator error');
+      const testError = new Error('unified-ai-gateway error');
       mockSupabase.functions.invoke = jest.fn()
         .mockResolvedValueOnce({ data: { aiResponse: 'Test' }, error: null }) // voice-session
-        .mockRejectedValueOnce(testError); // orchestrator
+        .mockRejectedValueOnce(testError); // unified-ai-gateway
 
       const { result } = renderHook(() =>
         useVoiceSessionReducer({ onSessionEnd: mockOnSessionEnd })
