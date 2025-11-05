@@ -734,7 +734,7 @@ describe('AISummaryScreen - Gerçek Davranış Testleri', () => {
         order: jest.fn().mockResolvedValue({ data: [mockReport], error: null }),
       } as any);
 
-      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
+      const { getByTestId } = render(<AISummaryScreen />);
 
       await waitFor(() => {
         expect(getByTestId('report-card-report-1')).toBeTruthy();
@@ -825,7 +825,7 @@ describe('AISummaryScreen - Gerçek Davranış Testleri', () => {
         order: jest.fn().mockResolvedValue({ data: [mockReport], error: null }),
       } as any);
 
-      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
+      const { getByTestId } = render(<AISummaryScreen />);
 
       await waitFor(() => {
         expect(getByTestId('report-card-report-1')).toBeTruthy();

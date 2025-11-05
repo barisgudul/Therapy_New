@@ -135,7 +135,7 @@ describe('DreamResultScreen - Gerçek Davranış Testleri', () => {
   const mockUseQuery = jest.mocked(require('@tanstack/react-query').useQuery);
   const mockUseMutation = jest.mocked(require('@tanstack/react-query').useMutation);
   const mockUseQueryClient = jest.mocked(require('@tanstack/react-query').useQueryClient);
-  const mockUseRouter = jest.mocked(require('expo-router').useRouter);
+  const _mockUseRouter = jest.mocked(require('expo-router').useRouter);
   const mockSupabase = jest.mocked(require('../../../../utils/supabase').supabase);
   const mockToast = Toast;
 

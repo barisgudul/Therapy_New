@@ -74,7 +74,7 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('veri yüklendikten sonra loading kaybolur', async () => {
-      const { queryByTestId, getByText } = render(<SecurityDashboardScreen />);
+      const { getByText } = render(<SecurityDashboardScreen />);
 
       await waitFor(() => {
         expect(getByText('settings.security.title')).toBeTruthy();

@@ -644,7 +644,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // FlowCard component'ini bul
       const Pressable = require('react-native').Pressable;
@@ -686,7 +686,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       const Pressable = require('react-native').Pressable;
       const pressables = UNSAFE_root.findAllByType(Pressable);
@@ -726,7 +726,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root, getByText } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard'ın render edilmesini bekle
       await waitFor(() => {
@@ -773,7 +773,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // ScreenHeader içindeki back butonunu bul (chevron-back ikonu)
       const TouchableOpacity = require('react-native').TouchableOpacity;
@@ -827,7 +827,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard'ın render edilmesini bekle
       await waitFor(() => {
@@ -861,7 +861,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       const mockHandleDeleteEvent = jest.fn();
 
       // İlk durum: menu
-      const { UNSAFE_root, rerender, getByText } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root, rerender } = render(<PremiumHistoryScreen />);
 
       // Text session'a gir
       mockUseTranscripts.mockReturnValue({
@@ -976,7 +976,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // API çağrısı başarılı bir özet dönecek şekilde mock'la
       mockGetSummary.mockResolvedValue('API\'den gelen taze özet.');
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // Butonu bul ve tıkla
       const viewSummaryButton = await screen.findByText('transcripts.summary.view_button');
@@ -1049,7 +1049,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
       mockGetSummary.mockResolvedValue('Özet metni');
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // Modal'ı aç
       const viewSummaryButton = await screen.findByText('transcripts.summary.view_button');
@@ -1162,7 +1162,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard'ın render edilmesini bekle
       await waitFor(() => {
@@ -1428,7 +1428,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard render edilmeli
       expect(screen.getByText('Son özet')).toBeTruthy();
@@ -1467,7 +1467,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard bulunmalı
       const summaryText = screen.getByText('Tıklanamaz özet');
