@@ -1,5 +1,5 @@
 // components/__tests__/home/HomeActions.test.tsx
-/* eslint-disable @typescript-eslint/no-require-imports */
+
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { HomeActions } from '../../home/HomeActions';
@@ -22,7 +22,7 @@ describe('HomeActions', () => {
 
   it('tüm action butonlarını gösterir', () => {
     render(<HomeActions {...baseProps} />);
-    
+
     expect(screen.getByText('home.actions.daily_mood')).toBeTruthy();
     expect(screen.getByText('home.actions.diary')).toBeTruthy();
     expect(screen.getByText('home.actions.dream_analysis')).toBeTruthy();

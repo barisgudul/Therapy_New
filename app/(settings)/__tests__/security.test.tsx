@@ -64,7 +64,7 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
     it('ilk render edildiğinde loading gösterilir', () => {
       // getUser'ı sonsuz beklemede tut
       mockSupabase.auth.getUser = jest.fn().mockImplementation(
-        () => new Promise(() => {})
+        () => new Promise(() => { })
       );
 
       const { UNSAFE_getByType } = render(<SecurityDashboardScreen />);
@@ -100,8 +100,8 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('getUser hatası olunca console.error çağrılır', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
       mockSupabase.auth.getUser = jest.fn().mockRejectedValue(new Error('Auth failed'));
 
       render(<SecurityDashboardScreen />);
@@ -331,9 +331,9 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
       // Close button Ionicons name="close" olan Pressable
       const Pressable = require('react-native').Pressable;
       const Ionicons = require('@expo/vector-icons').Ionicons;
-      
+
       const pressables = UNSAFE_root.findAllByType(Pressable);
-      
+
       // Close butonunu bul (header'da, close ikonu içeren)
       const closeButton = pressables.find(p => {
         try {
@@ -345,7 +345,7 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
       });
 
       expect(closeButton).toBeTruthy();
-      
+
       // Butona bas
       fireEvent.press(closeButton!);
 
@@ -385,13 +385,13 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('SessionCard component doğru render edilir', async () => {
-      const { getByText, getAllByText } = render(<SecurityDashboardScreen />);
+      const { getByText } = render(<SecurityDashboardScreen />);
 
       await waitFor(() => {
         // SessionCard içeriği - bu textler SessionCard içinde render ediliyor
         // device, location, lastSeen, active text ve sign out butonu
         expect(getByText('settings.security.sign_out')).toBeTruthy();
-        
+
         // current_location ve now da render edilmeli
         // Ama bunlar SessionCard içinde birleşik bir Text içinde olabilir
         // Bu yüzden component'in render edildiğini sign_out butonundan anlıyoruz
@@ -545,8 +545,8 @@ describe('SecurityDashboardScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('getUser hatası olduğunda loading durumu sona erer', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
       mockSupabase.auth.getUser = jest.fn().mockRejectedValue(new Error('Auth failed'));
 
       const { getByText } = render(<SecurityDashboardScreen />);

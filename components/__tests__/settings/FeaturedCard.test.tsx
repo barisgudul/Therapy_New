@@ -1,5 +1,5 @@
 // components/__tests__/settings/FeaturedCard.test.tsx
-/* eslint-disable @typescript-eslint/no-require-imports */
+
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react-native';
 import { FeaturedCard } from '../../settings/FeaturedCard';
@@ -68,7 +68,7 @@ describe('FeaturedCard', () => {
     const { useRouter } = require('expo-router');
     const { useSubscription } = require('../../../hooks/useSubscription');
     const mockPush = jest.fn();
-    
+
     useRouter.mockImplementation(() => ({ push: mockPush }));
     useSubscription.mockImplementation(() => ({
       isPremium: false,

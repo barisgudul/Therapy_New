@@ -2,16 +2,16 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import Sigil from '../../dream/Sigil';
-import { useSharedValue } from 'react-native-reanimated';
+
 
 // Mock reanimated
 jest.mock('react-native-reanimated', () => {
   const Reanimated = require('react-native-reanimated/mock');
   Reanimated.useSharedValue = jest.fn((initial) => ({ value: initial }));
   Reanimated.useAnimatedStyle = jest.fn((callback) => callback());
-  Reanimated.withRepeat = jest.fn((animation, iterations, reverse) => animation);
-  Reanimated.withTiming = jest.fn((value, config) => value);
-  Reanimated.interpolate = jest.fn((value, inputRange, outputRange) => value);
+  Reanimated.withRepeat = jest.fn((animation, _iterations, _reverse) => animation);
+  Reanimated.withTiming = jest.fn((value, _config) => value);
+  Reanimated.interpolate = jest.fn((value, _inputRange, _outputRange) => value);
   Reanimated.Easing = {
     inOut: jest.fn(() => jest.fn()),
     ease: jest.fn(),

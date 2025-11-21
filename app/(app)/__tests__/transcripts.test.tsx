@@ -44,7 +44,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Varsayılan mock state
     mockUseTranscripts.mockReturnValue({
       state: {
@@ -139,7 +139,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
     // FlowCard component'ini bul - Pressable içinde title text'i olan
     const Pressable = require('react-native').Pressable;
     const pressables = UNSAFE_root.findAllByType(Pressable);
-    
+
     // Text session FlowCard'ını bul
     const textSessionCard = pressables.find(p => {
       try {
@@ -328,7 +328,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
     const textSession1 = { ...mockSessionEvent, type: 'session_end', id: 'text-1' };
     const textSession2 = { ...mockSessionEvent, type: 'session_end', id: 'text-2' };
     const voiceSession = { ...mockSessionEvent, type: 'voice_session', id: 'voice-1' };
-    
+
     mockUseTranscripts.mockReturnValue({
       state: {
         isLoading: false,
@@ -375,7 +375,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
   it('event filtering doğru çalışmalıdır', () => {
     const textSessionEvent = { ...mockSessionEvent, type: 'session_end' };
     const voiceSessionEvent = { ...mockSessionEvent, type: 'voice_session', id: 'voice-123' };
-    
+
     mockUseTranscripts.mockReturnValue({
       state: {
         isLoading: false,
@@ -402,7 +402,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
   it('event sorting doğru çalışmalıdır', () => {
     const olderEvent = { ...mockSessionEvent, timestamp: '2024-01-01T10:00:00Z' };
     const newerEvent = { ...mockSessionEvent, id: 'newer-123', timestamp: '2024-01-02T10:00:00Z' };
-    
+
     mockUseTranscripts.mockReturnValue({
       state: {
         isLoading: false,
@@ -644,12 +644,12 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // FlowCard component'ini bul
       const Pressable = require('react-native').Pressable;
       const pressables = UNSAFE_root.findAllByType(Pressable);
-      
+
       const textSessionCard = pressables.find(p => {
         try {
           const texts = p.findAllByType(require('react-native').Text);
@@ -686,11 +686,11 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       const Pressable = require('react-native').Pressable;
       const pressables = UNSAFE_root.findAllByType(Pressable);
-      
+
       const voiceSessionCard = pressables.find(p => {
         try {
           const texts = p.findAllByType(require('react-native').Text);
@@ -726,7 +726,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard'ın render edilmesini bekle
       await waitFor(() => {
@@ -737,14 +737,14 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // SummaryCard içindeki trash-outline ikonunu bul
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const allIonicons = UNSAFE_root.findAllByType(Ionicons);
-      
+
       const trashIcon = allIonicons.find(icon => icon.props.name === 'trash-outline');
       expect(trashIcon).toBeTruthy();
-      
+
       // Trash icon'un parent Pressable'ını bul
       const deleteButton = trashIcon?.parent;
       expect(deleteButton).toBeTruthy();
-      
+
       fireEvent.press(deleteButton!);
 
       // handleDeleteEvent doğru event.id ile çağrıldı
@@ -773,14 +773,14 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // ScreenHeader içindeki back butonunu bul (chevron-back ikonu)
       const TouchableOpacity = require('react-native').TouchableOpacity;
       const Ionicons = require('@expo/vector-icons').Ionicons;
-      
+
       const touchables = UNSAFE_root.findAllByType(TouchableOpacity);
-      
+
       const backButton = touchables.find(t => {
         try {
           const icons = t.findAllByType(Ionicons);
@@ -802,7 +802,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         ...mockSessionEvent,
         created_at: '2024-01-01T10:00:00Z',
       };
-      
+
       const textSessionEvent = {
         id: 'text-session-123',
         type: 'text_session',
@@ -827,7 +827,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // SummaryCard'ın render edilmesini bekle
       await waitFor(() => {
@@ -838,7 +838,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // SummaryCard'ın ana Pressable'ını bul (disabled=false olan)
       const Pressable = require('react-native').Pressable;
       const pressables = UNSAFE_root.findAllByType(Pressable);
-      
+
       // En dıştaki SummaryCard Pressable'ını bul (onPress var ve disabled değil)
       const summaryCard = pressables.find(p => {
         // disabled olmayan ve onPress'i olan büyük Pressable
@@ -847,7 +847,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
       expect(summaryCard).toBeTruthy();
       fireEvent.press(summaryCard!);
-      
+
       // navigateToSession çağrıldı mı kontrol et
       await waitFor(() => {
         expect(mockNavigateToSession).toHaveBeenCalled();
@@ -861,7 +861,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       const mockHandleDeleteEvent = jest.fn();
 
       // İlk durum: menu
-      const { UNSAFE_root: _UNSAFE_root, rerender } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root, rerender } = render(<PremiumHistoryScreen />);
 
       // Text session'a gir
       mockUseTranscripts.mockReturnValue({
@@ -885,7 +885,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
       const Pressable = require('react-native').Pressable;
       const pressables = UNSAFE_root.findAllByType(Pressable);
-      
+
       const textSessionCard = pressables.find(p => {
         try {
           const texts = p.findAllByType(require('react-native').Text);
@@ -929,14 +929,14 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // Silme butonunu bul ve bas
       const Ionicons = require('@expo/vector-icons').Ionicons;
       const allIonicons = UNSAFE_root.findAllByType(Ionicons);
-      
+
       // İlk trash icon'u bul (ilk SummaryCard'ın delete butonu)
       const trashIcon = allIonicons.find(icon => icon.props.name === 'trash-outline');
-      
+
       if (trashIcon) {
         const deleteButton = trashIcon.parent;
         fireEvent.press(deleteButton!);
-        
+
         await waitFor(() => {
           expect(mockHandleDeleteEvent).toHaveBeenCalledWith('event-123');
         });
@@ -976,12 +976,12 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // API çağrısı başarılı bir özet dönecek şekilde mock'la
       mockGetSummary.mockResolvedValue('API\'den gelen taze özet.');
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      render(<PremiumHistoryScreen />);
 
       // Butonu bul ve tıkla
       const viewSummaryButton = await screen.findByText('transcripts.summary.view_button');
       expect(viewSummaryButton).toBeTruthy();
-      
+
       fireEvent.press(viewSummaryButton);
 
       // API'nin çağrıldığını doğrula
@@ -1012,7 +1012,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       mockGetSummary.mockRejectedValue(new Error('API Hatası'));
 
       render(<PremiumHistoryScreen />);
-      
+
       const viewSummaryButton = await screen.findByText('transcripts.summary.view_button');
       fireEvent.press(viewSummaryButton);
 
@@ -1049,7 +1049,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
       mockGetSummary.mockResolvedValue('Özet metni');
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      const { UNSAFE_root } = render(<PremiumHistoryScreen />);
 
       // Modal'ı aç
       const viewSummaryButton = await screen.findByText('transcripts.summary.view_button');
@@ -1062,14 +1062,14 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // SessionSummaryModal'ın mock component'ini bul
       const SessionSummaryModal = require('../../../components/text_session/SessionSummaryModal').default;
       const modalInstances = UNSAFE_root.findAllByType(SessionSummaryModal);
-      
+
       expect(modalInstances.length).toBeGreaterThan(0);
-      
+
       // Modal'ı kapat (onClose callback'ini çağır)
       const modal = modalInstances[0];
       if (modal.props.onClose) {
         modal.props.onClose();
-        
+
         // Modal'ın kapandığını doğrula (isVisible prop'u false olmalı)
         await waitFor(() => {
           const updatedModal = UNSAFE_root.findAllByType(SessionSummaryModal)[0];
@@ -1162,7 +1162,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      render(<PremiumHistoryScreen />);
 
       // SummaryCard'ın render edilmesini bekle
       await waitFor(() => {
@@ -1235,10 +1235,10 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       // karmaşık bir test gerektirir. Code coverage'ı görmek için
       // transcripts.tsx'in başında Platform.OS === 'android' kontrolü var.
       // Bu satır coverage raporunda görünecek.
-      
+
       const RN = require('react-native');
       expect(RN.Platform.OS).toBeDefined();
-      
+
       // UIManager'ın varlığını kontrol et
       if (RN.Platform.OS === 'android' && RN.UIManager.setLayoutAnimationEnabledExperimental) {
         expect(typeof RN.UIManager.setLayoutAnimationEnabledExperimental).toBe('function');
@@ -1252,7 +1252,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
   describe('🔙 ScreenHeader onBack Prop Testi (Satır 70-74)', () => {
     it('goBack fonksiyonu mevcut olduğunda header\'da geri butonu gösterilmelidir', () => {
       const mockGoBack = jest.fn();
-      
+
       mockUseTranscripts.mockReturnValue({
         state: {
           isLoading: false,
@@ -1274,7 +1274,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
       // Header'ın render edildiğini doğrula
       expect(screen.getByText('transcripts.menu.intro_title')).toBeTruthy();
-      
+
       // onBack prop'u ScreenHeader'a verilmiş mi kontrol et (dolaylı)
       // ScreenHeader, onBack varsa back button render eder
       expect(mockGoBack).toBeDefined();
@@ -1338,7 +1338,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       const path = require('path');
       const transcriptsPath = path.join(__dirname, '../transcripts.tsx');
       const content = fs.readFileSync(transcriptsPath, 'utf8');
-      
+
       // else branch kodunu doğrula
       expect(content).toContain('} else {');
       expect(content).toContain('setCurrentSummary(_summaryFromList || "")');
@@ -1379,7 +1379,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
 
       // SummaryCard render edilmeli ama onPress undefined olacak
       expect(screen.getByText('Yalnız özet')).toBeTruthy();
-      
+
       // candidates.length === 0 branch'i çalıştı
     });
 
@@ -1428,7 +1428,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      render(<PremiumHistoryScreen />);
 
       // SummaryCard render edilmeli
       expect(screen.getByText('Son özet')).toBeTruthy();
@@ -1467,7 +1467,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
         },
       });
 
-      const { UNSAFE_root: _UNSAFE_root } = render(<PremiumHistoryScreen />);
+      render(<PremiumHistoryScreen />);
 
       // SummaryCard bulunmalı
       const summaryText = screen.getByText('Tıklanamaz özet');
@@ -1488,7 +1488,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       const path = require('path');
       const transcriptsPath = path.join(__dirname, '../transcripts.tsx');
       const content = fs.readFileSync(transcriptsPath, 'utf8');
-      
+
       // _MessageBubble kodunun varlığını doğrula
       expect(content).toContain('_MessageBubble');
       expect(content).toContain('message.sender === \'ai\'');
@@ -1502,7 +1502,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
       const path = require('path');
       const transcriptsPath = path.join(__dirname, '../transcripts.tsx');
       const content = fs.readFileSync(transcriptsPath, 'utf8');
-      
+
       // _SelectionCard kodunun varlığını doğrula (kullanılmasa bile coverage için)
       expect(content).toContain('_SelectionCard');
       expect(content).toContain('pressed ? 0.98 : 1');
@@ -1513,7 +1513,7 @@ describe('PremiumHistoryScreen (Transcripts)', () => {
   describe('💥 FlowCard count > 0 branch - Satır 117', () => {
     it('count > 0 olduğunda count badge render edilmeli ve onPress çalışmalı', () => {
       const mockHandleSelectSessionType = jest.fn();
-      
+
       mockUseTranscripts.mockReturnValue({
         state: {
           isLoading: false,

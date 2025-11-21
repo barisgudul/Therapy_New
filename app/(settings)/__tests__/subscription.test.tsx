@@ -240,7 +240,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
 
     it('updatingPlanId varken başka bir upgrade butonuna basılması engellenmelidir', async () => {
       // İlk render - hiçbir plan güncellenmiyor
-      const { getByTestId, rerender } = render(<SubscriptionScreen />);
+      const { getByTestId } = render(<SubscriptionScreen />);
 
       // Plus planına upgrade başlat
       const plusUpgradeButton = getByTestId('upgrade-button-plus-2');
@@ -321,7 +321,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('onError çağrılınca error toast ve console.error çağrılır', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       const { getByTestId } = render(<SubscriptionScreen />);
 
@@ -347,7 +347,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('onError farklı hata mesajlarıyla çağrılabilir', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
       const { getByTestId } = render(<SubscriptionScreen />);
 
@@ -388,7 +388,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('onSettled her zaman çağrılır - başarısız upgrade sonrası', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
       const { getByTestId } = render(<SubscriptionScreen />);
 
       const upgradeButton = getByTestId('upgrade-button-premium-3');
@@ -417,7 +417,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       // Close button Ionicons name="close" olan TouchableOpacity
       // Tüm TouchableOpacity'leri bul
       const touchables = UNSAFE_root.findAllByType(require('react-native').TouchableOpacity);
-      
+
       // Close butonunu bul (header'da, close ikonu içeren)
       const closeButton = touchables.find(t => {
         try {
@@ -429,7 +429,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       });
 
       expect(closeButton).toBeTruthy();
-      
+
       // Butona bas
       fireEvent.press(closeButton!);
 
@@ -498,7 +498,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       } as any);
 
       const { getByText } = render(<SubscriptionScreen />);
-      
+
       expect(getByText('Premium')).toBeTruthy();
     });
 
@@ -510,7 +510,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       } as any);
 
       const { getByText } = render(<SubscriptionScreen />);
-      
+
       expect(getByText('+Plus')).toBeTruthy();
     });
 
@@ -522,7 +522,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       } as any);
 
       const { getByText } = render(<SubscriptionScreen />);
-      
+
       expect(getByText('Free')).toBeTruthy();
     });
   });
@@ -554,11 +554,11 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       fireEvent.press(plusUpgradeButton);
 
       expect(mockMutate).toHaveBeenCalledTimes(1);
-      
+
       // İlk upgrade'i tamamla
       const firstCall = mockMutate.mock.calls[0];
       const firstCallbacks = firstCall[1];
-      
+
       await waitFor(() => {
         firstCallbacks.onSuccess();
         firstCallbacks.onSettled();
@@ -605,7 +605,7 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
       // Premium kartını kontrol et
       const premiumCard = getByTestId('plan-card-premium-3');
       expect(premiumCard).toBeTruthy();
-      
+
       // Premium kartında plan bilgileri var mı?
       expect(getByText('Premium')).toBeTruthy();
       expect(getByText('199')).toBeTruthy();
@@ -696,8 +696,8 @@ describe('SubscriptionScreen - Gerçek Davranış Testleri', () => {
     });
 
     it('Senaryo 3: Upgrade sırasında hata olur, kullanıcı tekrar dener', async () => {
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-      
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
+
       const { getByTestId } = render(<SubscriptionScreen />);
 
       // İlk upgrade denemesi

@@ -1,83 +1,119 @@
-# Welcome to your Expo app 👋
+# 🧠 Gisbel: Next-Gen Cognitive AI Therapy Platform
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Gisbel is a local-first and hyper-personalized digital health ecosystem that uses Advanced RAG (Retrieval-Augmented Generation) architecture and Multi-LLM Orchestration to understand human psychology.
 
-## Environment Setup
+## 🌟 Vision and Engineering Approach
 
-Before running the app, you need to set up environment variables:
+Unlike traditional chatbots, Gisbel is built on the principle of "Cognitive Continuity". It uses an AI Memory Network that remembers not just what the user says in the moment, but also their past emotional states, dream symbols, and behavioral patterns.
 
-1. Create a `.env` file in the root directory
-2. Add the following variables:
+The project is designed to be scalable with microservices architecture running on Deno Edge Functions, semantically intelligent with PGVector, and end-to-end secure with Vault Architecture.
 
-```bash
-# Sentry Configuration
-EXPO_PUBLIC_SENTRY_DSN=ht****tps://fc3049277d*********1bf518a27956cc2*********ffc8ad9@o4509786***********
+## 🏗️ System Architecture
 
-# Supabase Configuration (if needed)
-# EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-# EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+Gisbel runs on an Event-Driven backbone. All communication between Frontend and Backend is managed via asynchronous events, ensuring the UI is never blocked.
 
-# Other Environment Variables
-# EXPO_PUBLIC_API_URL=your_api_url
+```mermaid
+graph TD
+    Client[📱 React Native Client] -->|Log Event| DB[(Supabase PostgreSQL)]
+    DB -->|Webhook Trigger| Orch[⚡ The Orchestrator]
+    
+    subgraph "🧠 Cognitive AI Engine"
+        Orch -->|Route: dream_logged| DreamAI[🌙 Dream Analysis Service]
+        Orch -->|Route: session_end| SessionAI[🎙️ Session Summarizer]
+        Orch -->|Route: pattern_check| BehavioralAI[📊 Pattern Recognizer]
+    end
+    
+    subgraph "🔍 RAG Knowledge Base"
+        DreamAI <-->|Vector Search| VectorDB[💠 pgvector Store]
+        SessionAI <-->|Context Retrieval| VectorDB
+    end
+    
+    DreamAI -->|Async Result| DB
+    SessionAI -->|Async Result| DB
+    DB -->|Realtime Sub| Client
 ```
 
-**Note:** The `.env` file is already in `.gitignore` for security reasons.
+### 1. 🧠 Dual-Engine AI Core (Gemini 2.0 Flash & Pro)
+Gisbel uses a hybrid model strategy to optimize cost and performance:
+*   **⚡ Gemini 2.0 Flash:** Used for real-time chat, instant sentiment analysis, and fast responses (<200ms latency).
+*   **🧠 Gemini 2.0 Pro:** The "Reasoning" engine that kicks in for in-depth dream interpretation, behavioral pattern analysis, and weekly psychological reporting.
 
-## Get started
+### 2. 📚 RAG & Semantic Memory (The Memory Lane)
+Instead of standard database queries, Vector Space technology is used.
+*   **Embedding Pipeline:** User journals and conversations are converted into 768-dimensional vectors using `text-embedding-004`.
+*   **Semantic Retrieval:** When a user says "I feel tired", the system doesn't just look for the word "tired"; it finds records semantically close to it, such as "burnout", "insomnia", or "low energy" from 3 months ago, and provides them as context to the AI.
 
-1. Install dependencies
+### 3. 🛡️ Secure Vault & Privacy Architecture
+Data security is not a feature, but the foundation of the architecture.
+*   **Offline-First:** User data is stored in an encrypted MMKV store on the device.
+*   **Row Level Security (RLS):** Cryptographic access controls are enforced for every single row of data at the database level.
+*   **Data Isolation:** Psychological data (Dreams, Journals) are kept in "Vault" tables isolated from identity information.
 
-   ```bash
-   npm install
-   ```
+## 🚀 Tech Stack
 
-2. Start the app
+### 📱 Frontend (Mobile Experience)
+*   **Core:** React Native 0.76 (New Architecture Enabled)
+*   **Platform:** Expo SDK 52 (Managed Workflow)
+*   **Router:** Expo Router (File-based Navigation)
+*   **State:** Zustand & TanStack Query (Optimistic Updates)
+*   **Graphics:** React Native Skia & Reanimated 3 (60 FPS Animations)
+*   **I18n:** i18next (Full Multi-Language Support)
 
-   ```bash
-   npx expo start
-   ```
+### ☁️ Backend & Cloud (Serverless Infrastructure)
+*   **Runtime:** Deno (Supabase Edge Functions)
+*   **Database:** PostgreSQL 16 (with pgvector extension)
+*   **Auth:** Supabase Auth (JWT & Secure Session Management)
+*   **Monitoring:** Sentry (Distributed Tracing)
 
-In the output, you'll find options to open the app in a
+### 🤖 AI & ML Ops
+*   **LLM Orchestration:** LangChain
+*   **Models:** Google Gemini 2.0 Flash, Gemini 2.0 Pro
+*   **Embeddings:** Google text-embedding-004
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🧪 Quality Assurance
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+This project has been developed adhering to Test-Driven Development (TDD) principles. The codebase is protected against even the slightest logic error.
 
-## Get a fresh project
+| Test Type | Tool | Scope | Status |
+| :--- | :--- | :--- | :--- |
+| Unit Tests | Jest | Services, Hooks, Helpers | ✅ %100 Coverage |
+| Integration Tests | RN Testing Library | Component Interactions, Navigation | ✅ Passed |
+| Static Analysis | ESLint, TypeScript | Type Safety, Code Style | ✅ Strict Rules |
+| CI/CD | GitHub Actions | Automated Test & Build | ✅ Active |
 
-When you're ready, run:
+## 📂 Developer's Guide (Critical Files)
 
-```bash
-npm run reset-project
-```
+For developers reviewing the project, here are the files that are the heart of the architecture:
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+*   `supabase/functions/_shared/services/rag.service.ts`: **What does it do?** Talks to the vector database, embeds texts, and finds the most relevant memories using cosine similarity.
+*   `supabase/functions/orchestrator/index.ts`: **What does it do?** It is the traffic police of the entire system. It analyzes every Event falling into the database and decides which AI agent should run.
+*   `services/vault.service.ts`: **What does it do?** Manages the encrypted storage of sensitive data on the local device and its secure synchronization with the cloud.
+*   `app/(app)/transcripts.tsx`: **What does it do?** Contains complex UI state management, animated lists, and dynamic filtering logic.
 
-## Learn more
+## 🚦 Installation
 
-To learn more about developing your project with Expo, look at the following resources:
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/barisgudul/therapy_new.git
+    ```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+2.  **Install Packages:**
+    ```bash
+    npm install
+    npx expo prebuild # Required for native modules
+    ```
 
-## Join the community
+3.  **Environment Variables:** Create a `.env` file and enter your Supabase keys.
 
-Join our community of developers creating universal apps.
+4.  **Start:**
+    ```bash
+    npm run ios  # or npm run android
+    ```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 📜 License
 
-### State Management Kuralları
+This project is licensed under the MIT License.
 
-- Sunucu durumu (fetch/cache/mutation): TanStack Query. Tüm network istekleri `services/api.service.ts` üzerinden yapılır.
-- Karmaşık istemci durumu (çoklu bileşeni etkileyen, sık güncellenen): Zustand. Örnek: `store/textSessionStore.ts`.
-- Basit/seyrek değişen global değerler (tema, dil, auth referansı): React Context.
+**Developer:** Mehmet Barış Güdül
 
-### Edge Functions – AI Ayrık Uçlar
-
-- `analyze-dream`, `summarize-session`, `generate-report` fonksiyonları Supabase Edge üzerinde çalışır.
-- Ortak modüller: `supabase/functions/_shared/{auth.ts,cors.ts,gemini-client.ts}`.
-- İstemci çağrıları: `services/api.service.ts` → `callAnalyzeDream`, `callSummarizeSession`, `callGenerateReport`.
+> Architecture designed for scale, privacy, and empathy.

@@ -271,7 +271,7 @@ describe("ProfileScreen - ADAM GİBİ TESTLER 💪", () => {
             fireEvent.changeText(nicknameInput, "Test İsim");
 
             const saveButton = screen.getByText("settings.profile.save_button");
-            
+
             // İlk deneme - hata alacak
             fireEvent.press(saveButton);
 
@@ -303,7 +303,7 @@ describe("ProfileScreen - ADAM GİBİ TESTLER 💪", () => {
             const path = require("path");
             const profilePath = path.join(__dirname, "../profile.tsx");
             const content = fs.readFileSync(profilePath, "utf8");
-            
+
             // Validation kodunun varlığını doğrula (Satır 243-248)
             expect(content).toContain("!localProfile.nickname.trim()");
             expect(content).toContain("toast_name_required");
@@ -343,7 +343,7 @@ describe("ProfileScreen - ADAM GİBİ TESTLER 💪", () => {
                 error: null,
             } as any);
 
-            const { UNSAFE_root: _UNSAFE_root } = render(<ProfileScreen />);
+            const { UNSAFE_root } = render(<ProfileScreen />);
 
             // ActivityIndicator'ın render edildiğini kontrol et
             const indicators = UNSAFE_root.findAllByType(
@@ -370,7 +370,7 @@ describe("ProfileScreen - ADAM GİBİ TESTLER 💪", () => {
                 isPending: true, // Saving...
             } as any);
 
-            const { UNSAFE_root: _UNSAFE_root } = render(<ProfileScreen />);
+            const { UNSAFE_root } = render(<ProfileScreen />);
 
             // ActivityIndicator'ın save button içinde olduğunu kontrol et
             const indicators = UNSAFE_root.findAllByType(
@@ -392,7 +392,7 @@ describe("ProfileScreen - ADAM GİBİ TESTLER 💪", () => {
         });
 
         it("Geri butonu router.back() fonksiyonunu çağırmalıdır", () => {
-            const { UNSAFE_root: _UNSAFE_root } = render(<ProfileScreen />);
+            const { UNSAFE_root } = render(<ProfileScreen />);
 
             // Ionicons'u bul (geri butonu)
             const ionicons = UNSAFE_root.findAllByType("Ionicons");
@@ -481,7 +481,7 @@ describe("ProfileScreen - ADAM GİBİ TESTLER 💪", () => {
                 push: mockPush,
             } as any);
 
-            const { UNSAFE_root: _UNSAFE_root } = render(<ProfileScreen />);
+            render(<ProfileScreen />);
 
             // FeaturedCard içindeki Pressable'ı bul
             const planText = screen.getByText("settings.profile.plan_current Free");
