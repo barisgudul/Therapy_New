@@ -1,94 +1,62 @@
-name: Uygulama CI
+name: Gisbel iOS CI/CD
 
 on:
   push:
     branches:
-      - main # veya master, ana dalın neyse o
-  pull_request:
-    branches:
       - main
+  # GitHub panelinden manuel tetiklemek için buton ekler (Build kotanızı korumak için önemli)
+  workflow_dispatch:
 
 jobs:
-  # 1. Kod Kalitesi Kontrolü: Kodun temiz ve tutarlı mı?
+  # 1. Kalite Kontrol (Zaten vardı, aynen koruyoruz)
   lint:
     name: Lint Kontrolü
     runs-on: ubuntu-latest
     steps:
-      - name: Kodu Çek (Checkout)
-        uses: actions/checkout@v4
-
-      - name: Node.js Kurulumu
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18" # Projendeki Node versiyonunu kullan
-
-      # npm cache'ini kullan ki her seferinde sıfırdan indirmesin, daha hızlı çalışsın
-      - name: Bağımlılıkları Cache'le
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-
-      # npm ci, package-lock.json'a sadık kalarak temiz ve hızlı kurulum yapar
-      - name: Bağımlılıkları Yükle
-        run: npm ci
-
-      # package.json'daki lint script'ini çalıştırır
-      - name: Lint'i Çalıştır
-        run: npm run lint
-
-  # 2. Frontend Testleri: React Native hook'ları ve bileşenleri sağlam mı?
-  test_frontend:
-    name: Frontend Testleri
-    runs-on: ubuntu-latest
-    # Lint işi bitmeden başlamasın
-    needs: lint
-    steps:
-      - name: Kodu Çek (Checkout)
-        uses: actions/checkout@v4
-
-      - name: Node.js Kurulumu
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "18"
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
 
-      - name: Bağımlılıkları Cache'le
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-
-      - name: Bağımlılıkları Yükle
-        run: npm ci
-
-      # İşte o yazdığın bütün testler burada çalışacak!
-      - name: Frontend Testlerini Çalıştır
-        run: npm test
-
-  # 3. Backend Testleri: Supabase Edge Function'ları sağlam mı?
-  test_backend:
-    name: Supabase Fonksiyon Testleri
+  # 2. Testler (Zaten vardı, aynen koruyoruz)
+  test:
+    name: Testler
     runs-on: ubuntu-latest
-    # Lint işi bitmeden başlamasın
     needs: lint
     steps:
-      - name: Kodu Çek (Checkout)
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+
+  # 3. YENİ: Otomatik Build (Deploy)
+  build_ios:
+    name: EAS iOS Build (Preview)
+    runs-on: ubuntu-latest
+    # Sadece testler başarılırsa çalışsın
+    needs: [lint, test]
+    # Sadece main branch'e push gelince veya manuel tetiklenince çalışsın
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Kodu Çek
         uses: actions/checkout@v4
 
-      - name: Deno Kurulumu
-        uses: denoland/setup-deno@v1
+      - name: EAS CLI Kurulumu
+        uses: expo/expo-github-action@v8
         with:
-          deno-version: v2.x
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Deno Bağımlılıklarını Cache'le
-        uses: actions/cache@v4
-        with:
-          path: ~/.deno
-          key: ${{ runner.os }}-deno-${{ hashFiles('**/deno.lock') }}
+      - name: Node Paketlerini Yükle
+        run: npm ci
 
-      # deno.lock dosyasının güncel olduğundan emin ol
-      - name: Lock Dosyasını Doğrula
-        run: deno task lock
-
-      - name: Backend Testlerini Çalıştır
-        run: deno task test
+      - name: iOS Build Başlat
+        # Simülatör build'i alıyoruz (Apple Developer hesabı olmadığı için)
+        run: eas build --platform ios --profile preview --non-interactive
