@@ -1,6 +1,14 @@
 // app.config.js - YENİDEN MARKALANMIŞ VE TEMİZLENMİŞ VERSİYON
 import process from "node:process";
 
+// The @sentry/react-native/expo config plugin adds an Xcode/Gradle build phase
+// that runs `sentry-cli` to upload source maps — which fails the build unless a
+// Sentry org + project are configured. Only wire it when they are; the runtime
+// `Sentry.init()` in utils/sentry.ts works independently and no-ops without a DSN.
+const sentryConfigured = Boolean(
+  process.env.SENTRY_ORG && process.env.SENTRY_PROJECT,
+);
+
 export default {
   expo: {
     name: 'Gisbel',                                 // DEĞİŞTİ
@@ -54,15 +62,15 @@ export default {
           // (96x96, white silhouette on transparent) — see launch checklist.
         },
       ],
-      [
-        '@sentry/react-native/expo',
-        {
-          organization: process.env.SENTRY_ORG,
-          project: process.env.SENTRY_PROJECT,
-          // Source map upload only runs when SENTRY_AUTH_TOKEN is present in the
-          // build environment; otherwise this is a harmless no-op.
-        },
-      ],
+      ...(sentryConfigured
+        ? [[
+            '@sentry/react-native/expo',
+            {
+              organization: process.env.SENTRY_ORG,
+              project: process.env.SENTRY_PROJECT,
+            },
+          ]]
+        : []),
     ],
 
     experiments: {
