@@ -61,29 +61,42 @@ flow, README) is done on the `prod-readiness` branch.
 
 ## 4. Supabase (production project `ijtcqbxagcdgfxrgamis`)
 
+**Already applied to prod via MCP (2026-09-02):**
+- [x] `match_memories` RAG migrations (recency + hybrid + `search_path` fix).
+      This also **fixed a latent bug**: RAG memory retrieval was silently
+      returning nothing because the `<=>` operator (in the `extensions` schema)
+      was unresolvable under `search_path=public`.
+- [x] `match_documents` `search_path` fixed (same latent bug; note the table
+      `memory_embeddings` it references still does not exist on prod — separate
+      pre-existing issue if that path is used).
+- [x] `revenuecat-webhook` deployed with `verify_jwt = false` (fail-closed:
+      returns 401 until the secret below is set).
+- [x] RLS enabled on `public.background_jobs` (was a security-advisor ERROR).
+- [x] Security + performance advisors reviewed — see §4 notes below.
+
+**Still to do (mostly dashboard):**
 - [ ] Create a personal access token → `SUPABASE_ACCESS_TOKEN` GitHub secret;
       set `SUPABASE_PROJECT_REF=ijtcqbxagcdgfxrgamis` GitHub secret.
-- [ ] **Take a full database backup** (`supabase db dump ...`) stored outside the
-      repo before touching migrations.
-- [ ] Schema reconciliation (RISK — do interactively, not via CI):
-      - `supabase link --project-ref ijtcqbxagcdgfxrgamis`
-      - `supabase db diff --linked --schema public` to compare the live schema
-        with `supabase/migrations/20251103115540_remote_schema.sql` (that dump
-        came from the *staging* project).
-      - If they match: replace the baseline with a fresh `supabase db pull`.
-      - If they diverge: generate a corrective migration; do **not** push the
-        old dump.
-      - `supabase migration list --linked` — check whether
-        `20260617000000_rag_brain_recency` / `20260617000001_rag_brain_hybrid`
-        are applied; if not, review the SQL (index creation can lock) and
-        `db push` in a low-traffic window.
-- [ ] Edge Function secrets: `SENTRY_DSN`, `APP_ENV=production`,
-      `REVENUECAT_WEBHOOK_SECRET`, and the AI provider API keys.
+- [ ] **Edge Function secrets** (Dashboard → Edge Functions → Secrets):
+      `REVENUECAT_WEBHOOK_SECRET` (random string, also goes in the RC webhook
+      header), `SENTRY_DSN`, `APP_ENV=production`, and the AI provider API keys.
+      Until `REVENUECAT_WEBHOOK_SECRET` is set, the webhook rejects everything.
+- [ ] **Redeploy the ~20 repo edge functions** from the branch — do this
+      interactively with logs open, NOT via CI. Prod currently has ~37 functions
+      (lots of legacy drift) and the branch's `_shared/*` changed significantly
+      (crisis-resources, config, rag.service, orchestration). `supabase functions
+      deploy` only pushes the 20 in the repo and won't prune the rest.
 - [ ] Production Auth: redirect URLs, Google/Apple OAuth config, `gisbel://`
-      deep link, email confirmations if desired.
-- [ ] `supabase functions deploy` (the `revenuecat-webhook` block in
-      `config.toml` now sets `verify_jwt = false`).
-- [ ] Decide the fate of the old `xnicudjkfmxsmyxbemur` project.
+      deep link, email confirmations if desired. Enable leaked-password
+      protection (advisor WARN).
+- [ ] Upgrade Postgres (`supabase-postgres-17.4.1.054` has security patches
+      available — advisor WARN).
+- [ ] Broader security cleanup (advisor WARN, pre-existing, not blocking): many
+      `SECURITY DEFINER` functions are `anon`/`authenticated`-executable via
+      `/rpc/` — notably `assign_plan_to_user` (a user could self-assign a plan).
+      Revoke EXECUTE from `anon`/`authenticated` on the internal ones.
+- [ ] Decide the fate of the old `xnicudjkfmxsmyxbemur` (Gisbel-staging) project.
+- [ ] Take a routine backup before the function redeploy.
 
 ## 5. Sentry
 
