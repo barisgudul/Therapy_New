@@ -347,7 +347,6 @@
     "manage_subscription": "Abo verwalten",
     "paywall_error": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
   },
-
   "dream": {
     "index": {
       "header_title": "Traum-Tagebuch",
@@ -379,10 +378,18 @@
       "header_untitled": "Analyse ohne Titel"
     },
     "components": {
-      "summary": { "title": "Zusammenfassung" },
-      "themes": { "title": "Hauptthemen" },
-      "interpretation": { "title": "Tiefgehende Interpretation" },
-      "cross": { "title": "Echos aus der Vergangenheit" },
+      "summary": {
+        "title": "Zusammenfassung"
+      },
+      "themes": {
+        "title": "Hauptthemen"
+      },
+      "interpretation": {
+        "title": "Tiefgehende Interpretation"
+      },
+      "cross": {
+        "title": "Echos aus der Vergangenheit"
+      },
       "feedback": {
         "title": "Feedback",
         "question": "Fandest du diese Analyse und die Verbindungen hilfreich?",
@@ -400,7 +407,9 @@
         "toast_save_error_title": "Fehler",
         "toast_save_error_body": "Tiefenanalyse-Ergebnis konnte nicht gespeichert werden."
       },
-      "errorState": { "back": "Zurück" },
+      "errorState": {
+        "back": "Zurück"
+      },
       "undoToast": {
         "title": "Traum gelöscht",
         "subtitle": "Aktion kann rückgängig gemacht werden.",
@@ -512,6 +521,23 @@
       "premium_subtitle": "Du genießt alle Privilegien",
       "free_label": "Schalte dein Potenzial frei",
       "free_subtitle": "Erhalte unbegrenzten Zugang zu allen Funktionen"
+    },
+    "account": {
+      "delete_title": "Konto löschen",
+      "delete_body": "Dies löscht dein Gisbel-Konto und alles darin dauerhaft:",
+      "delete_items": [
+        "Deine Reflexionen und Tagebucheinträge",
+        "Deine Traumnotizen und Analysen",
+        "Deine Sitzungsprotokolle",
+        "Dein KI-Gedächtnis und Profil",
+        "Deine Abo-Verknüpfung (Verlängerungen separat im App-Store kündigen)"
+      ],
+      "delete_grace": "Die Löschung wird nach einer kurzen Karenzzeit geplant. Du kannst sie in dieser Zeit durch erneutes Anmelden abbrechen.",
+      "delete_confirm_checkbox": "Mir ist bewusst, dass dies nach der Karenzzeit nicht rückgängig gemacht werden kann, und ich möchte mein Konto löschen.",
+      "delete_confirm_cta": "Mein Konto löschen",
+      "delete_done_title": "Konto zur Löschung vorgemerkt",
+      "delete_done_body": "Dein Konto und deine Daten werden nach der Karenzzeit entfernt. Melde dich vorher erneut an, um abzubrechen.",
+      "delete_error_network": "Server nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut."
     }
   },
   "about": {
@@ -588,12 +614,20 @@
       "voice": {
         "title": "Sprachchat",
         "description": "Teile deine Gedanken per Stimme. Die KI kann dir helfen, emotionale Hinweise in deinem Ton zu erkennen.",
-        "features": ["Echtzeit-Feedback", "Natürlicher Fluss", "Raum für verbales Denken"]
+        "features": [
+          "Echtzeit-Feedback",
+          "Natürlicher Fluss",
+          "Raum für verbales Denken"
+        ]
       },
       "text": {
         "title": "Textchat",
         "description": "Erkunde deine Gedanken und Gefühle beim Schreiben. Die KI hilft dir, Muster und Themen in deinen Texten zu erkennen.",
-        "features": ["Asynchrone Kommunikation", "Tiefere Reflexion", "Dauerhafte Aufzeichnungen"]
+        "features": [
+          "Asynchrone Kommunikation",
+          "Tiefere Reflexion",
+          "Dauerhafte Aufzeichnungen"
+        ]
       }
     }
   },
@@ -606,8 +640,7 @@
     "premium_description": "Diese Funktion ist exklusiv für unsere Premium- oder +Plus-Mitglieder, um deine Reise voll zu unterstützen.",
     "limit_description": "Wechsle zu Premium, um diese Funktion weiter zu erkunden und alle Vorteile zu genießen.",
     "view_plans": "Pläne ansehen"
-  }
-  ,
+  },
   "transcripts": {
     "flow": {
       "count": "{{count}} Unterhaltung(en) gefunden",

@@ -1,4 +1,3 @@
-
 {
   "common": {
     "stepCounter": "Adım {{step}} / {{total}}",
@@ -348,7 +347,6 @@
     "manage_subscription": "Aboneliği yönet",
     "paywall_error": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
   },
-
   "dream": {
     "index": {
       "header_title": "Rüya Günlüğü",
@@ -380,10 +378,18 @@
       "header_untitled": "Başlıksız Analiz"
     },
     "components": {
-      "summary": { "title": "Genel Özet" },
-      "themes": { "title": "Ana Temalar" },
-      "interpretation": { "title": "Derinlemesine Yorum" },
-      "cross": { "title": "Geçmişten Gelen Yankılar" },
+      "summary": {
+        "title": "Genel Özet"
+      },
+      "themes": {
+        "title": "Ana Temalar"
+      },
+      "interpretation": {
+        "title": "Derinlemesine Yorum"
+      },
+      "cross": {
+        "title": "Geçmişten Gelen Yankılar"
+      },
       "feedback": {
         "title": "Geri Bildirim",
         "question": "Bu analizi ve kurulan bağlantıları faydalı buldun mu?",
@@ -401,7 +407,9 @@
         "toast_save_error_title": "Hata",
         "toast_save_error_body": "Derin analiz sonucu kaydedilemedi."
       },
-      "errorState": { "back": "Geri Dön" },
+      "errorState": {
+        "back": "Geri Dön"
+      },
       "undoToast": {
         "title": "Rüya Silindi",
         "subtitle": "İşlem geri alınabilir.",
@@ -513,9 +521,25 @@
       "premium_subtitle": "Tüm ayrıcalıklardan yararlanıyorsun",
       "free_label": "Potansiyelinin Kilidini Aç",
       "free_subtitle": "Tüm özelliklere sınırsız erişimle tanış"
+    },
+    "account": {
+      "delete_title": "Hesabı sil",
+      "delete_body": "Bu işlem Gisbel hesabını ve içindeki her şeyi kalıcı olarak siler:",
+      "delete_items": [
+        "Yansımaların ve günlük kayıtların",
+        "Rüya notların ve analizlerin",
+        "Seans dökümlerin",
+        "Yapay zeka hafızan ve profilin",
+        "Abonelik bağlantın (yenilemeleri uygulama mağazandan ayrıca iptal et)"
+      ],
+      "delete_grace": "Silme, kısa bir bekleme süresinden sonra planlanır. Bu süre içinde tekrar giriş yaparak iptal edebilirsin.",
+      "delete_confirm_checkbox": "Bekleme süresinden sonra bunun geri alınamayacağını anlıyorum ve hesabımı silmek istiyorum.",
+      "delete_confirm_cta": "Hesabımı sil",
+      "delete_done_title": "Hesap silinmek üzere sıraya alındı",
+      "delete_done_body": "Hesabın ve verilerin bekleme süresinden sonra kaldırılacak. İptal etmek için o zamana kadar tekrar giriş yap.",
+      "delete_error_network": "Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene."
     }
-  }
-  ,
+  },
   "about": {
     "header_title": "Gisbel nedir?",
     "intro": {
@@ -567,8 +591,7 @@
         "description": "Sohbet geçmişin, günlüklerin ve rüya analizlerin tek yerde; ilerlemeni izle."
       }
     }
-  }
-  ,
+  },
   "text_session": {
     "header_title": "Sohbet",
     "welcome_title": "İçini Dökmeye Hazır Mısın?",
@@ -591,12 +614,20 @@
       "voice": {
         "title": "Sesli Sohbet",
         "description": "Düşüncelerini sesli olarak paylaş. Yapay zeka, ses tonundaki duygusal ipuçlarını anlamana yardımcı olabilir.",
-        "features": ["Anlık Geri Bildirim", "Doğal Akış", "Sesli Düşünme Alanı"]
+        "features": [
+          "Anlık Geri Bildirim",
+          "Doğal Akış",
+          "Sesli Düşünme Alanı"
+        ]
       },
       "text": {
         "title": "Yazılı Sohbet",
         "description": "Düşüncelerini ve hissettiklerini yazarak keşfet. Yapay zeka, yazdıklarındaki kalıpları ve temaları görmene yardımcı olur.",
-        "features": ["Asenkron İletişim", "Derinlemesine Düşünme", "Kalıcı Kayıtlar"]
+        "features": [
+          "Asenkron İletişim",
+          "Derinlemesine Düşünme",
+          "Kalıcı Kayıtlar"
+        ]
       }
     }
   },

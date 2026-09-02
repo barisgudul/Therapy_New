@@ -347,7 +347,6 @@
     "manage_subscription": "Manage subscription",
     "paywall_error": "Something went wrong. Please try again."
   },
-
   "dream": {
     "index": {
       "header_title": "Dream Journal",
@@ -379,10 +378,18 @@
       "header_untitled": "Untitled Analysis"
     },
     "components": {
-      "summary": { "title": "Summary" },
-      "themes": { "title": "Key Themes" },
-      "interpretation": { "title": "In-depth Interpretation" },
-      "cross": { "title": "Echoes from the Past" },
+      "summary": {
+        "title": "Summary"
+      },
+      "themes": {
+        "title": "Key Themes"
+      },
+      "interpretation": {
+        "title": "In-depth Interpretation"
+      },
+      "cross": {
+        "title": "Echoes from the Past"
+      },
       "feedback": {
         "title": "Feedback",
         "question": "Did you find this analysis and connections useful?",
@@ -400,7 +407,9 @@
         "toast_save_error_title": "Error",
         "toast_save_error_body": "Deep analysis result could not be saved."
       },
-      "errorState": { "back": "Go Back" },
+      "errorState": {
+        "back": "Go Back"
+      },
       "undoToast": {
         "title": "Dream Deleted",
         "subtitle": "This action can be undone.",
@@ -512,9 +521,25 @@
       "premium_subtitle": "You are enjoying all the privileges",
       "free_label": "Unlock Your Potential",
       "free_subtitle": "Get unlimited access to all features"
+    },
+    "account": {
+      "delete_title": "Delete account",
+      "delete_body": "This permanently deletes your Gisbel account and everything in it:",
+      "delete_items": [
+        "Your reflections and journal entries",
+        "Your dream notes and analyses",
+        "Your session transcripts",
+        "Your AI memory and profile",
+        "Your subscription link (cancel renewals in your app store separately)"
+      ],
+      "delete_grace": "Deletion is scheduled after a short grace period. You can cancel it during that time by signing back in.",
+      "delete_confirm_checkbox": "I understand this cannot be undone after the grace period, and I want to delete my account.",
+      "delete_confirm_cta": "Delete my account",
+      "delete_done_title": "Account scheduled for deletion",
+      "delete_done_body": "Your account and data will be removed after the grace period. Sign in again before then to cancel.",
+      "delete_error_network": "Could not reach the server. Check your internet connection and try again."
     }
-  }
-  ,
+  },
   "about": {
     "header_title": "What is Gisbel?",
     "intro": {
@@ -566,8 +591,7 @@
         "description": "Chats, journals, and dream analyses in one place; track your growth."
       }
     }
-  }
-  ,
+  },
   "text_session": {
     "header_title": "Chat",
     "welcome_title": "Ready to Share What's Inside?",
@@ -590,12 +614,20 @@
       "voice": {
         "title": "Voice Chat",
         "description": "Share your thoughts by voice. AI can help you notice emotional cues in your tone.",
-        "features": ["Real-time Feedback", "Natural Flow", "Space for Verbal Thinking"]
+        "features": [
+          "Real-time Feedback",
+          "Natural Flow",
+          "Space for Verbal Thinking"
+        ]
       },
       "text": {
         "title": "Text Chat",
         "description": "Explore your thoughts and feelings by writing. AI helps you see patterns and themes in what you write.",
-        "features": ["Asynchronous Communication", "Deeper Reflection", "Persistent Records"]
+        "features": [
+          "Asynchronous Communication",
+          "Deeper Reflection",
+          "Persistent Records"
+        ]
       }
     }
   },
@@ -608,8 +640,7 @@
     "premium_description": "This feature is exclusive to our Premium or +Plus members to fully support your journey.",
     "limit_description": "Upgrade to Premium to keep exploring this feature and enjoy all privileges.",
     "view_plans": "View Plans"
-  }
-  ,
+  },
   "transcripts": {
     "flow": {
       "count": "{{count}} conversation(s) found",

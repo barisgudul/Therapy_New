@@ -11,13 +11,13 @@ import {
     StyleSheet,
     Text,
     View,
-    ActivityIndicator,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/Auth.tsx";
 import { FeaturedCard } from "../../components/settings/FeaturedCard";
 import { SettingsCard } from "../../components/settings/SettingsCard";
 import { useSettings } from "../../hooks/useSettings";
+import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
 import { useSubscription } from "../../hooks/useSubscription";
 import { useRevenueCat } from "../../hooks/useRevenueCat";
 
@@ -92,7 +92,14 @@ export default function SettingsScreen() {
 
     // ARTIK GÜVENLİ: AuthProvider hazır olmadan bu kod zaten çalışmayacak.
     const { user } = useAuth();
-    const { isResetting, handleSignOut, handleResetData } = useSettings();
+    const {
+        isResetting,
+        isDeleteModalOpen,
+        handleSignOut,
+        openDeleteModal,
+        closeDeleteModal,
+        confirmDelete,
+    } = useSettings();
     const { planName } = useSubscription();
     const { presentCustomerCenter } = useRevenueCat();
 
@@ -175,32 +182,23 @@ export default function SettingsScreen() {
                                 {t('settings.main.dangerZone_title')}
                             </Text>
                         </View>
-                        {isResetting
-                            ? (
-                                <View style={styles.loadingWrapper}>
-                                    <ActivityIndicator color="#475569" />
-                                </View>
-                            )
-                            : (
-                                <Pressable
-                                    onPress={handleResetData}
-                                    style={(
-                                        { pressed },
-                                    ) => [
-                                        styles.destructiveButton,
-                                        pressed && styles.cardPressed,
-                                    ]}
-                                >
-                                    <Text style={styles.destructiveButtonText}>
-                                        {t('settings.main.dangerZone_resetData')}
-                                    </Text>
-                                    <Ionicons
-                                        name="trash-outline"
-                                        size={20}
-                                        color="#BE123C"
-                                    />
-                                </Pressable>
-                            )}
+                        <Pressable
+                            onPress={openDeleteModal}
+                            style={({ pressed }) => [
+                                styles.destructiveButton,
+                                pressed && styles.cardPressed,
+                            ]}
+                            testID="delete-account-button"
+                        >
+                            <Text style={styles.destructiveButtonText}>
+                                {t('settings.account.delete_title')}
+                            </Text>
+                            <Ionicons
+                                name="trash-outline"
+                                size={20}
+                                color="#BE123C"
+                            />
+                        </Pressable>
                         <Pressable
                             onPress={handleSignOut}
                             style={(
@@ -226,6 +224,13 @@ export default function SettingsScreen() {
                     </View>
                 </ScrollView>
             </SafeAreaView>
+
+            <ConfirmDeleteModal
+                isVisible={isDeleteModalOpen}
+                isDeleting={isResetting}
+                onCancel={closeDeleteModal}
+                onConfirm={confirmDelete}
+            />
         </LinearGradient>
     );
 }
@@ -332,7 +337,6 @@ const styles = StyleSheet.create({
         marginTop: 40,
     },
     footerText: { fontSize: 14, color: "#94A3B8" },
-    loadingWrapper: { alignItems: "center", padding: 16 },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
