@@ -2,6 +2,7 @@
 
 import { supabase } from "../utils/supabase";
 import { PlanName } from "../store/subscriptionStore";
+import { getCurrentPlanFromRevenueCat } from "./revenuecat.service";
 
 // =================================================================
 // TİPLER
@@ -71,6 +72,14 @@ export async function getCurrentSubscription(): Promise<
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
 
+    // RevenueCat entitlements are the client source of truth for the tier.
+    // (The server RPC below still governs feature *limits* via check_feature_usage.)
+    const rcPlan = await getCurrentPlanFromRevenueCat();
+    if (rcPlan) {
+        return { plan_id: rcPlan, name: rcPlan };
+    }
+
+    // Fallback: RevenueCat unavailable (Expo Go, no key, tests) -> Supabase RPC.
     // Bu RPC, aktif planı veya yoksa 'Free' plan bilgilerini döner.
     const { data, error } = await supabase.rpc(
         "get_user_current_subscription",

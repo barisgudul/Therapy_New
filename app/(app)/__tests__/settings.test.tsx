@@ -7,6 +7,16 @@ import SettingsScreen from '../settings';
 // Mock'lar
 jest.mock('../../../context/Auth');
 jest.mock('../../../hooks/useSettings');
+jest.mock('../../../hooks/useSubscription', () => ({
+  useSubscription: () => ({ planName: 'Free', isPremium: false, isLoading: false }),
+}));
+jest.mock('../../../hooks/useRevenueCat', () => ({
+  useRevenueCat: () => ({
+    presentCustomerCenter: jest.fn(),
+    presentPaywall: jest.fn(),
+    restore: jest.fn(),
+  }),
+}));
 jest.mock('../../../components/settings/FeaturedCard');
 jest.mock('../../../components/settings/SettingsCard');
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));

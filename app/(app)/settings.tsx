@@ -18,6 +18,8 @@ import { useAuth } from "../../context/Auth.tsx";
 import { FeaturedCard } from "../../components/settings/FeaturedCard";
 import { SettingsCard } from "../../components/settings/SettingsCard";
 import { useSettings } from "../../hooks/useSettings";
+import { useSubscription } from "../../hooks/useSubscription";
+import { useRevenueCat } from "../../hooks/useRevenueCat";
 
 // === YENİ COMPONENT: DİL SEÇİCİ ===
 const LanguageSelector = () => {
@@ -65,6 +67,8 @@ export default function SettingsScreen() {
     // ARTIK GÜVENLİ: AuthProvider hazır olmadan bu kod zaten çalışmayacak.
     const { user } = useAuth();
     const { isResetting, handleSignOut, handleResetData } = useSettings();
+    const { planName } = useSubscription();
+    const { presentCustomerCenter } = useRevenueCat();
 
     return (
         <LinearGradient
@@ -107,6 +111,22 @@ export default function SettingsScreen() {
                     <LanguageSelector />
 
                     <FeaturedCard />
+
+                    {planName !== "Free" && (
+                        <Pressable
+                            onPress={presentCustomerCenter}
+                            style={({ pressed }) => [
+                                styles.manageSubscription,
+                                pressed && styles.cardPressed,
+                            ]}
+                        >
+                            <Ionicons name="card-outline" size={22} color="#1E293B" />
+                            <Text style={styles.manageSubscriptionText}>
+                                {t("subscription.manage_subscription")}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                        </Pressable>
+                    )}
 
                     <View style={styles.destructiveZone}>
                         <View style={styles.destructiveHeader}>
@@ -216,6 +236,23 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 16,
         gap: 16,
+    },
+    manageSubscription: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 20,
+        padding: 18,
+        marginTop: 16,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+    },
+    manageSubscriptionText: {
+        flex: 1,
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#1E293B",
     },
 
     destructiveZone: {

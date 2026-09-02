@@ -18,6 +18,8 @@ import {
   useFeatureAccess,
   useSubscription,
 } from '../hooks/useSubscription';
+import { useRevenueCat } from '../hooks/useRevenueCat';
+import { ENTITLEMENTS } from '../constants/revenuecat';
 import { UsageStats } from '../services/subscription.service';
 import { useTranslation } from 'react-i18next';
 
@@ -40,11 +42,13 @@ export function PremiumGate({
   fallback,
   onUpgrade,
 }: PremiumGateProps) {
-  const router = useRouter();
   const { isPremium, isLoading: subscriptionLoading } = useSubscription();
   const featureAccess = useFeatureAccess(featureType!);
+  const { presentPaywall } = useRevenueCat();
 
-  const handleUpgrade = onUpgrade ?? (() => router.push('/subscription'));
+  // Both the "premium only" and "limit reached" prompts upsell Premium (`gisbel`).
+  const handleUpgrade =
+    onUpgrade ?? (() => presentPaywall(ENTITLEMENTS.premium));
 
   // 1. Yükleme Durumu
   if (subscriptionLoading || (featureType && featureAccess.isLoading)) {

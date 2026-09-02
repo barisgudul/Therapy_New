@@ -8,6 +8,16 @@ import * as SubscriptionHooks from '../../hooks/useSubscription';
 // Hook'ları içeren modülün tamamını mock'luyoruz
 jest.mock('../../hooks/useSubscription');
 
+// RevenueCat aksiyon hook'u — paywall'u aç
+const mockPresentPaywall = jest.fn();
+jest.mock('../../hooks/useRevenueCat', () => ({
+  useRevenueCat: () => ({
+    presentPaywall: mockPresentPaywall,
+    presentCustomerCenter: jest.fn(),
+    restore: jest.fn(),
+  }),
+}));
+
 // useRouter mock'u
 const mockRouter = {
   push: jest.fn(),

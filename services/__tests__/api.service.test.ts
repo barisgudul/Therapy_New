@@ -7,7 +7,6 @@ import {
     getLatestAnalysisReport,
     incrementFeatureUsage,
     logEvent,
-    triggerBehavioralAnalysis,
     updateUserVault,
 } from "../api.service";
 
@@ -312,57 +311,6 @@ describe("api.service", () => {
 
             expect(result.data).toBeNull();
             expect(result.error).toBeNull();
-        });
-    });
-
-    describe("triggerBehavioralAnalysis", () => {
-        it("Doğru parametrelerle Supabase Function'ı invoke etmeli", async () => {
-            const mockData = { analysis: "completed", patterns: [] };
-            (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
-                data: mockData,
-                error: null,
-            });
-
-            const result = await triggerBehavioralAnalysis(7);
-
-            expect(mockedSupabase.functions.invoke).toHaveBeenCalledWith(
-                "analyze-behavioral-patterns",
-                {
-                    body: { periodDays: 7 },
-                },
-            );
-            expect(result.data).toEqual(mockData);
-            expect(result.error).toBeNull();
-        });
-
-        it("Function hatası durumunda apiCall'a hata geçirmeli", async () => {
-            (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
-                data: null,
-                error: { message: "Function hatası" },
-            });
-            mockedGetErrorMessage.mockReturnValue("Function hatası");
-
-            const result = await triggerBehavioralAnalysis(7);
-
-            expect(result.data).toBeNull();
-            expect(result.error).toBe("Function hatası");
-        });
-
-        it("Farklı period değerleriyle çalışmalı", async () => {
-            const mockData = { analysis: "completed" };
-            (mockedSupabase.functions.invoke as jest.Mock).mockResolvedValue({
-                data: mockData,
-                error: null,
-            });
-
-            await triggerBehavioralAnalysis(30);
-
-            expect(mockedSupabase.functions.invoke).toHaveBeenCalledWith(
-                "analyze-behavioral-patterns",
-                {
-                    body: { periodDays: 30 },
-                },
-            );
         });
     });
 
