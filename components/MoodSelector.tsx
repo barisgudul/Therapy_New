@@ -32,7 +32,7 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
     const progress = useSharedValue(3);
     const scale = useSharedValue(1);
     const opacity = useSharedValue(0);
-    const intervalRef = useRef<number | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         opacity.value = withTiming(1, { duration: 800 });
