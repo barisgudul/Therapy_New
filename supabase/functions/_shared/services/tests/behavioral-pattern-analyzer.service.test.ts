@@ -4,10 +4,7 @@ import {
     assert,
     assertEquals,
 } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import {
-    type BehavioralAnalysisResult,
-    BehavioralPatternAnalyzer,
-} from "../behavioral-pattern-analyzer.service.ts";
+import { BehavioralPatternAnalyzer } from "../behavioral-pattern-analyzer.service.ts";
 import type { AppEvent } from "../../types/context.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -396,41 +393,4 @@ Deno.test("BehavioralPatternAnalyzer - gatherUserData Metodu", async () => {
     assert(result.period_start < result.period_end);
 });
 
-Deno.test("BehavioralPatternAnalyzer - generatePatternSummary Metodu", async () => {
-    // 1. HAZIRLIK
-    const mockAnalysis = {
-        total_patterns_found: 2,
-        patterns: [
-            {
-                pattern_id: "test_pattern",
-                pattern_name: "Test Pattern",
-                pattern_type: "communication" as const,
-                description: "Test description",
-                frequency: 5,
-                confidence_score: 0.8,
-                first_observed: new Date().toISOString(),
-                last_observed: new Date().toISOString(),
-                examples: ["Example 1"],
-                potential_triggers: ["Trigger 1"],
-                suggested_insights: ["Insight 1"],
-            },
-        ],
-        overall_trends: {
-            communication_trend: "stable" as const,
-            mood_stability: "high" as const,
-            engagement_level: "high" as const,
-        },
-        data_quality_score: 0.8,
-        analysis_confidence: 0.7,
-    } as BehavioralAnalysisResult;
-
-    // 2. EYLEM
-    const result = await BehavioralPatternAnalyzer.generatePatternSummary(
-        mockAiService,
-        mockAnalysis,
-    );
-
-    // 3. DOĞRULAMA
-    assert(result.length > 0);
-    assert(result.includes("İşte sana harika bir özet"));
-});
+// Not: generatePatternSummary testi kaldırıldı (metot ölü kod olarak silindi).

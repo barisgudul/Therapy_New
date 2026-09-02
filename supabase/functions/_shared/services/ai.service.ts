@@ -2,7 +2,7 @@
 
 import { ApiError } from "../errors.ts";
 import { VaultData } from "../types/context.ts"; // VaultData tipini import et
-import { LLM_LIMITS } from "../config.ts";
+import { config, LLM_LIMITS } from "../config.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Bu fonksiyonu bu dosyanın içine taşıdık.
@@ -375,7 +375,7 @@ REGELN:
     const responseText = await invokeGemini(
         dependencies.supabase,
         prompt,
-        "gemini-1.5-pro",
+        config.AI_MODELS.ADVANCED, // config'ten (hardcoded gemini-1.5-pro kaldırıldı)
         {
             responseMimeType: "application/json",
             temperature: 0.7,
@@ -406,6 +406,111 @@ REGELN:
         },
         derivedData: { readMinutes: 1, headingsCount: 1 },
     };
+}
+
+// Tahmin (predicted_outcomes) üretimi
+// Eskiden predicted_outcomes tablosuna HİÇ yazılmıyordu; rüya/rapor prompt'larındaki
+// "tahminler" bölümü daima boştu. Bu fonksiyon, rapor üretimi sırasında kullanıcının
+// son dönem anılarından kısa, eyleme dönük tahminler üretir.
+export interface PredictionDraft {
+    prediction_type: string;
+    title: string;
+    description: string;
+    probability_score: number; // 0.0 - 1.0
+    time_horizon_hours: number;
+    suggested_action?: string;
+}
+
+export async function generatePredictions(
+    dependencies: { supabase: SupabaseClient },
+    vault: VaultData,
+    memories: ProcessedMemory[],
+    language?: string,
+): Promise<PredictionDraft[]> {
+    const lang = ["tr", "en", "de"].includes(String(language))
+        ? String(language)
+        : "en";
+
+    if (!memories || memories.length === 0) return [];
+
+    const formattedMemories = memories
+        .slice(0, 20)
+        .map((m) => {
+            const sentiment =
+                (m.sentiment_data?.dominant_emotion as string | undefined) ??
+                    "";
+            return `- [${sentiment}] ${String(m.content).slice(0, 160)}`;
+        })
+        .join("\n");
+
+    const langHint: Record<string, string> = {
+        tr: "Tüm metinleri Türkçe yaz.",
+        en: "Write all text in English.",
+        de: "Schreibe alle Texte auf Deutsch.",
+    };
+
+    const goal = vault?.profile?.therapyGoals
+        ? `\nKULLANICININ HEDEFİ: ${String(vault.profile.therapyGoals)}`
+        : "";
+
+    const prompt = `${langHint[lang]}
+GÖREV: Aşağıdaki anılardan ve kullanıcının hedefinden yola çıkarak 1-3 KISA, nazik ve
+eyleme dönük "tahmin" üret. Kesin hüküm verme; olasılık ve destekleyici ton kullan. Tıbbi teşhis yok.
+${goal}
+
+ANILAR:
+${formattedMemories}
+
+SADECE şu JSON'ı döndür:
+{
+  "predictions": [
+    {
+      "prediction_type": "mood | behavior | theme",
+      "title": "Kısa başlık",
+      "description": "1-2 cümle, destekleyici",
+      "probability_score": 0.6,
+      "time_horizon_hours": 168,
+      "suggested_action": "Küçük, uygulanabilir bir öneri"
+    }
+  ]
+}`;
+
+    try {
+        const raw = await invokeGemini(
+            dependencies.supabase,
+            prompt,
+            config.AI_MODELS.FAST,
+            {
+                responseMimeType: "application/json",
+                temperature: 0.6,
+                maxOutputTokens: LLM_LIMITS.AI_ANALYSIS,
+            },
+        );
+        const parsed = JSON.parse(raw) as { predictions?: PredictionDraft[] };
+        const list = Array.isArray(parsed?.predictions)
+            ? parsed.predictions
+            : [];
+        // Güvenli normalizasyon + sınırlama
+        return list.slice(0, 3).map((p) => ({
+            prediction_type: String(p.prediction_type ?? "theme").slice(0, 40),
+            title: String(p.title ?? "").slice(0, 120),
+            description: String(p.description ?? "").slice(0, 500),
+            probability_score: Math.max(
+                0,
+                Math.min(1, Number(p.probability_score) || 0.5),
+            ),
+            time_horizon_hours: Math.max(
+                1,
+                Math.min(8760, Math.round(Number(p.time_horizon_hours) || 168)),
+            ),
+            suggested_action: p.suggested_action
+                ? String(p.suggested_action).slice(0, 300)
+                : undefined,
+        })).filter((p) => p.title && p.description);
+    } catch (e) {
+        console.warn("[generatePredictions] Tahmin üretimi başarısız:", e);
+        return [];
+    }
 }
 
 // Embedding helper - API Gateway üstünden Gemini Embedding çağrısı

@@ -6,7 +6,10 @@ import { assertAndConsumeQuota } from "../_shared/quota.ts";
 
 // BURASI ÇOK ÖNEMLİ: O karmaşık beyin servislerini BURADA import edeceksin.
 // Frontend'in bu dosyalardan haberi bile olmayacak.
-import { generateElegantReport } from "../_shared/services/ai.service.ts";
+import {
+  generateElegantReport,
+  generatePredictions,
+} from "../_shared/services/ai.service.ts";
 import { getUserVault } from "../_shared/services/vault.service.ts"; // Bunu import et
 import { logRagInvocation } from "../_shared/utils/logging.service.ts";
 
@@ -209,6 +212,44 @@ async function handleCreateAnalysisReport(req: Request): Promise<Response> {
       throw new Error(
         `Rapor üretildi ancak kaydedilemedi: ${insertError.message}`,
       );
+    }
+
+    // 4.b TAHMİN ÜRETİMİ: predicted_outcomes'a yaz (eskiden hiç üretilmiyordu).
+    // Başarısız olsa bile rapor akışını bozma.
+    try {
+      const predictions = await generatePredictions(
+        { supabase: supabaseAdmin },
+        vault || {},
+        memories || [],
+        language,
+      );
+      if (predictions.length > 0) {
+        const nowMs = Date.now();
+        const rows = predictions.map((p) => ({
+          user_id: user.id,
+          prediction_type: p.prediction_type,
+          title: p.title,
+          description: p.description,
+          probability_score: p.probability_score,
+          time_horizon_hours: p.time_horizon_hours,
+          suggested_action: p.suggested_action ?? null,
+          trigger_reason: "report",
+          expires_at: new Date(
+            nowMs + p.time_horizon_hours * 60 * 60 * 1000,
+          ).toISOString(),
+        }));
+        const { error: predInsertError } = await supabaseAdmin
+          .from("predicted_outcomes")
+          .insert(rows);
+        if (predInsertError) {
+          console.warn(
+            "[Report-API] Tahmin kaydı uyarısı:",
+            predInsertError.message,
+          );
+        }
+      }
+    } catch (predErr) {
+      console.warn("[Report-API] Tahmin üretimi atlandı:", predErr);
     }
 
     // 5. BAŞARILI SONUÇ: JSON veriyi gönder.

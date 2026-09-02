@@ -94,7 +94,7 @@ serve(async (req: Request) => {
     try {
       const { data: safetyData, error: safetyError } = await supabase.functions
         .invoke("safety-guard", {
-          body: { text: JSON.stringify(payload) },
+          body: { text: JSON.stringify(payload), language },
         });
 
       if (safetyError) {

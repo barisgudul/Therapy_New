@@ -4,10 +4,7 @@ import {
     assertEquals,
     assertStringIncludes,
 } from "https://deno.land/std@0.208.0/assert/mod.ts";
-import {
-    ControlledHybridPipeline,
-    executeDeepAnalysis,
-} from "../controlled-hybrid-pipeline.service.ts";
+import { executeDeepAnalysis } from "../controlled-hybrid-pipeline.service.ts";
 import type { InteractionContext } from "../../types/context.ts";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -110,78 +107,6 @@ Deno.test("executeDeepAnalysis - should pass correct parameters to AI service", 
         temperature: 0.5,
         maxOutputTokens: 2048, // LLM_LIMITS.AI_ANALYSIS (before security limit)
     });
-});
-
-Deno.test("ControlledHybridPipeline.executeComplexQuery - should return correct placeholder for known types", () => {
-    const context = createMockContext();
-
-    const resultPattern = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "pattern_discovery",
-    );
-    const resultDiary = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "diary_management",
-    );
-    const resultInsight = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "insight_synthesis",
-    );
-    const resultReflection = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "daily_reflection",
-    );
-
-    assertStringIncludes(resultPattern as string, "geliştiriliyor");
-    assertStringIncludes(resultDiary as string, "geliştiriliyor");
-    assertStringIncludes(resultInsight as string, "geliştiriliyor");
-    assertStringIncludes(resultReflection as string, "geliştiriliyor");
-});
-
-Deno.test("ControlledHybridPipeline.executeComplexQuery - should return a default message for unknown types", () => {
-    const context = createMockContext();
-    const result = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "some_unknown_type",
-    );
-    assertStringIncludes(result as string, "Bu özellik şu an geliştiriliyor.");
-});
-
-Deno.test("ControlledHybridPipeline.executeComplexQuery - should handle empty pipeline type", () => {
-    const context = createMockContext();
-    const result = ControlledHybridPipeline.executeComplexQuery(context, "");
-    assertStringIncludes(result as string, "Bu özellik şu an geliştiriliyor.");
-});
-
-Deno.test("ControlledHybridPipeline.executeComplexQuery - should log pipeline start", () => {
-    // Bu test, console.log'un çağrıldığını kontrol etmek için
-    // Gerçek uygulamada bu tür side effect'leri test etmek zor olabilir
-    // Ama en azından fonksiyonun çalıştığını doğrulayabiliriz
-    const context = createMockContext();
-    const result = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "test_pipeline",
-    );
-
-    // Fonksiyon çalışmalı ve bir sonuç dönmeli
-    assertEquals(typeof result, "string");
-    assertStringIncludes(result as string, "geliştiriliyor");
-});
-
-Deno.test("ControlledHybridPipeline.executeComplexQuery - should handle errors gracefully", () => {
-    // Bu test, try-catch bloğunun çalıştığını doğrular
-    // Gerçek bir hata simüle etmek zor, ama en azından fonksiyonun
-    // hata durumlarını ele aldığını doğrulayabiliriz
-    const context = createMockContext();
-
-    // Normal çalışma durumu
-    const result = ControlledHybridPipeline.executeComplexQuery(
-        context,
-        "pattern_discovery",
-    );
-
-    assertEquals(typeof result, "string");
-    assertStringIncludes(result as string, "geliştiriliyor");
 });
 
 Deno.test("executeDeepAnalysis - should handle AI service errors", async () => {

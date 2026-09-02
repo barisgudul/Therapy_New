@@ -1,6 +1,8 @@
 // supabase/functions/safety-guard/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { getCrisisPayload } from "../_shared/crisis-resources.ts";
+import { config } from "../_shared/config.ts";
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
@@ -26,7 +28,7 @@ async function classifyTextForSafety(text: string): Promise<string> {
     const fromEnv = Deno.env.get("CLASSIFIER_MODEL");
     const candidates = [
       ...(fromEnv ? [fromEnv] : []),
-      "gemini-1.5-flash",
+      config.AI_MODELS.CLASSIFIER,
       // Bazı projelerde -002 erişim izni olmayabilir; 001'e düş
       "gemini-1.5-flash-001",
       // Son çare olarak pro
@@ -126,7 +128,7 @@ serve(async (req: Request) => {
 
   try {
     const body = await req.json();
-    const { text } = body;
+    const { text, language } = body;
 
     if (typeof text !== "string") {
       return new Response(
@@ -141,17 +143,14 @@ serve(async (req: Request) => {
     // Güvenlik sınıflandırması yap
     const safetyLevel = await classifyTextForSafety(text);
 
-    // level_3_high_alert durumunda hata döndür
+    // level_3_high_alert: AI sohbetine devam etmek yerine ŞEFKATLİ yönlendirme +
+    // gerçek acil yardım kaynakları döndür (dile özel, tamamlanmış mesaj).
     if (safetyLevel === "level_3_high_alert") {
       console.warn(
-        `🚨 GÜVENLİK İHLALİ: Safety Guard'da '${safetyLevel}' seviyesinde riskli içerik engellendi.`,
+        `🚨 KRİZ: Safety Guard'da '${safetyLevel}' tespit edildi, kullanıcı kriz kaynaklarına yönlendiriliyor.`,
       );
       return new Response(
-        JSON.stringify({
-          error:
-            "Okuduklarım beni endişelendirdi ve güvende olman benim için çok önemli...",
-          code: "SECURITY_VIOLATION_HIGH_RISK",
-        }),
+        JSON.stringify(getCrisisPayload(language)),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },

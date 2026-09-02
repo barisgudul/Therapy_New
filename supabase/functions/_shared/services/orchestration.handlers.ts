@@ -20,6 +20,7 @@ import * as DiaryPrompts from "../prompts/diary.prompt.ts";
 import * as RagService from "./rag.service.ts";
 import { logRagInvocation } from "../utils/logging.service.ts";
 import * as DreamService from "./dream.service.ts";
+import { getSatisfactionSignal } from "./feedback.service.ts";
 
 // --- BAĞIMLILIK PAKETİ TİPİ ---
 // Tüm handler'ların ihtiyaç duyduğu her şeyi burada topluyoruz.
@@ -213,6 +214,7 @@ export async function handleDailyReflection(
       ragService,
       userId,
       todayNote,
+      todayMood, // hibrit RAG için duygu sinyali
     );
   logger.info("DailyReflection", "Bağlam oluşturuldu.");
 
@@ -488,8 +490,8 @@ export async function handleDiaryEntry(
     context.userId,
     userInput,
     {
-      threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
-      count: config.RAG_PARAMS.DEFAULT.COUNT,
+      threshold: config.RAG_PARAMS.DEFAULT.threshold,
+      count: config.RAG_PARAMS.DEFAULT.count,
     },
   );
   const ragForPrompt = (retrievedMemories || [])
@@ -588,6 +590,7 @@ export async function handleDiaryEntry(
   };
 
   let aiResponse = continueMsgByLang[lang] || continueMsgByLang.en;
+  let diaryMemoryContent = userInput;
   if (shouldFinish) {
     // Kısa kapanış
     const conclPrompt = DiaryPrompts.getDiaryConclusionPrompt(
@@ -610,8 +613,58 @@ export async function handleDiaryEntry(
         userInput,
       );
       const summary = safeParseJsonBlock<{ summary?: string }>(rawC)?.summary;
-      if (summary) aiResponse = summary;
+      if (summary) {
+        aiResponse = summary;
+        diaryMemoryContent = summary;
+      }
     } catch { /* sessizce geç */ }
+
+    // KALICI HAFIZA: Günlük tamamlandığında bir event + cognitive_memory yaz.
+    // Böylece günlük girişleri RAG'a girer (eskiden hiç yazılmıyordu).
+    try {
+      const { data: diaryEvent, error: diaryEventError } = await supabaseClient
+        .from("events")
+        .upsert({
+          user_id: context.userId,
+          transaction_id: context.transactionId,
+          type: "diary_entry",
+          timestamp: new Date().toISOString(),
+          data: {
+            userInput,
+            summary: diaryMemoryContent,
+            conversationId: conversationId || context.transactionId,
+            language: lang,
+          },
+        }, { onConflict: "user_id,transaction_id" })
+        .select("id, created_at")
+        .single();
+
+      if (diaryEventError) {
+        throw new Error(diaryEventError.message);
+      }
+
+      const { error: diaryMemoryError } = await supabaseClient.functions.invoke(
+        "process-memory",
+        {
+          body: {
+            source_event_id: diaryEvent.id,
+            user_id: context.userId,
+            content: diaryMemoryContent,
+            event_time: diaryEvent.created_at,
+            event_type: "diary_entry",
+            transaction_id: context.transactionId,
+          },
+        },
+      );
+      if (diaryMemoryError) throw new Error(diaryMemoryError.message);
+    } catch (memErr) {
+      // Hafıza yazımı başarısız olsa bile kullanıcıya yanıt dönmeye devam et.
+      context.logger.error(
+        "DiaryEntry",
+        "Günlük hafıza yazımı başarısız",
+        memErr,
+      );
+    }
   }
 
   return {
@@ -813,6 +866,9 @@ GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsa
     ? String(language)
     : "en";
 
+  // GERİ BESLEME: Son AI kararları düşük memnuniyet aldıysa yaklaşımı değiştir.
+  const satisfaction = await getSatisfactionSignal(supabaseClient, userId);
+
   const masterPrompt = Prompts.generateTextSessionPrompt({
     userDossier,
     pastContext: ragForPrompt,
@@ -822,6 +878,7 @@ GÖREV: Kullanıcı "Sohbet Et" butonuna bastı. Ona doğal, samimi ve bağlamsa
     userLooksBored,
     styleMode,
     activityContext,
+    selfCorrect: satisfaction.lowSatisfaction,
   }, lang);
 
   // 5. YAPAY ZEKAYI ÇAĞIR (GÜVENLİ FALLBACK İLE)

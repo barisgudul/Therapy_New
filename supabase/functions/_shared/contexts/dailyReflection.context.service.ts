@@ -76,7 +76,15 @@ export async function buildDailyReflectionContext(
   ragService: typeof RagService,
   userId: string,
   todayNote: string,
+  todayMood?: string,
 ) {
+  // HİBRİT RAG: mood biliniyorsa, depolanan sentiment_embedding ile aynı metin
+  // biçiminde ("Duygusal Profil: {...}") bir duygu sorgusu kur. match_memories
+  // bunu content + sentiment harmanında kullanır (mood yoksa content+recency).
+  const sentimentQuery = todayMood
+    ? `Duygusal Profil: ${JSON.stringify({ dominant_emotion: todayMood })}`
+    : undefined;
+
   const [dossier, retrievedMemories] = await Promise.all([
     prepareDailyReflectionDossier(supabaseClient, userId),
     ragService.retrieveContext(
@@ -89,6 +97,7 @@ export async function buildDailyReflectionContext(
       {
         threshold: config.RAG_PARAMS.DAILY_REFLECTION.threshold,
         count: config.RAG_PARAMS.DAILY_REFLECTION.count,
+        sentimentQuery,
       },
     ),
   ]);

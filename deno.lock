@@ -9689,6 +9689,8 @@
         "npm:react-native-markdown-display@^7.0.2",
         "npm:react-native-modal-datetime-picker@18",
         "npm:react-native-modal@^14.0.0-rc.1",
+        "npm:react-native-purchases-ui@^10.8.1",
+        "npm:react-native-purchases@^10.8.1",
         "npm:react-native-reanimated@~3.17.4",
         "npm:react-native-safe-area-context@5.4.0",
         "npm:react-native-screens@~4.11.1",
