@@ -24,7 +24,7 @@ CREATE OR REPLACE FUNCTION public.match_memories(
 )
  RETURNS TABLE(id uuid, content text, event_time timestamp with time zone, similarity double precision)
  LANGUAGE plpgsql
- SET search_path TO 'public'
+ SET search_path TO 'public', 'extensions'
 AS $function$
 DECLARE
   half_life_days CONSTANT double precision := 45.0;

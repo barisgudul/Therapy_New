@@ -1,20 +1,13 @@
--- RAG BEYNİ: HİBRİT skorlama (content + sentiment + recency)
+-- RAG BEYNİ: `<=>` operatörü çözümleme düzeltmesi
 --
--- Sorun: cognitive_memories 3 embedding tutuyor (content/sentiment/stylometry) ama
--- yalnızca content_embedding sorgulanıyordu. sentiment_embedding ölü yatırımdı.
+-- pgvector `extensions` şemasında kurulu; `SET search_path TO 'public'` tek başına
+-- fonksiyon çalışma zamanında `<=>` operatörünü bulamıyordu → match_memories
+-- sessizce boş dönüyordu (RAG hafıza getirimi fiilen kapalıydı). search_path'e
+-- 'extensions' eklenir. Aynı gizli hata match_documents'te de vardı.
 --
--- Çözüm: match_memories'e OPSİYONEL `query_sentiment_embedding` parametresi eklenir.
---   - NULL ise (varsayılan): davranış 20260617000000 (recency) ile BİREBİR aynı kalır
---     (sentiment_sim, content_sim'e düşer; ağırlık etkisizleşir). Tam geriye uyumlu.
---   - Verilirse: sıralama skoru content + sentiment benzerliğini harmanlar, recency korunur.
--- `similarity` çıktısı HÂLÂ saf content benzerliğidir (downstream smartFilterMemories
--- eşikleri 0.85/0.7/0.65 anlamını korur). Yalnızca SIRALAMA hibritleşir.
---
--- İmza değiştiği için CREATE OR REPLACE yetmez; önce DROP gerekir.
-
-DROP FUNCTION IF EXISTS public.match_memories(
-  extensions.vector, double precision, integer, uuid, timestamp with time zone
-);
+-- Not: 20260902102758/102812 dosyaları artık search_path'i düzeltilmiş halde
+-- tutuyor; bu dosya prod migration geçmişiyle birebir eşleşsin diye korunur ve
+-- taze bir veritabanında da güvenli (idempotent CREATE OR REPLACE).
 
 CREATE OR REPLACE FUNCTION public.match_memories(
   query_embedding extensions.vector,
@@ -27,7 +20,7 @@ CREATE OR REPLACE FUNCTION public.match_memories(
 )
  RETURNS TABLE(id uuid, content text, event_time timestamp with time zone, similarity double precision)
  LANGUAGE plpgsql
- SET search_path TO 'public'
+ SET search_path TO 'public', 'extensions'
 AS $function$
 DECLARE
   half_life_days CONSTANT double precision := 45.0;
@@ -38,7 +31,6 @@ BEGIN
     cm.id,
     cm.content,
     cm.event_time,
-    -- Downstream uyumluluğu için: saf içerik benzerliği döner
     (1 - (cm.content_embedding <=> query_embedding)) AS similarity
   FROM
     cognitive_memories AS cm
@@ -49,9 +41,7 @@ BEGIN
   ORDER BY
     (
       (
-        -- içerik benzerliği ağırlıklı
         (1 - (cm.content_embedding <=> query_embedding)) * (1 - sentiment_weight)
-        -- + duygu benzerliği (yoksa içerik benzerliğine düşer -> ağırlık etkisiz)
         + COALESCE(
             CASE
               WHEN query_sentiment_embedding IS NOT NULL
@@ -62,7 +52,6 @@ BEGIN
             (1 - (cm.content_embedding <=> query_embedding))
           ) * sentiment_weight
       )
-      -- recency harmanı (güncel anılar nazikçe öne çıkar)
       * (
           (1 - recency_influence)
           + recency_influence
@@ -78,8 +67,36 @@ END;
 $function$
 ;
 
--- DROP + CREATE loses the previous grants; restore them to match the old function.
 GRANT EXECUTE ON FUNCTION public.match_memories(
   extensions.vector, double precision, integer, uuid, timestamp with time zone,
   extensions.vector, double precision
 ) TO anon, authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.match_documents(
+  query_embedding extensions.vector,
+  match_count integer,
+  filter jsonb
+)
+ RETURNS TABLE(id bigint, content text, metadata jsonb, similarity double precision)
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'extensions'
+AS $function$
+#variable_conflict use_variable
+BEGIN
+  RETURN QUERY
+  SELECT
+    mem.id,
+    mem.content,
+    mem.metadata,
+    1 - (mem.embedding <=> query_embedding) AS similarity
+  FROM
+    memory_embeddings AS mem
+  WHERE
+    mem.user_id = (filter->>'user_id')::uuid
+  ORDER BY
+    similarity DESC
+  LIMIT
+    match_count;
+END;
+$function$
+;
