@@ -9,6 +9,26 @@
     "call_button": "Call",
     "close": "Close"
   },
+  "legal": {
+    "close": "Close",
+    "doc_title": {
+      "privacy": "Privacy Policy",
+      "terms": "Terms of Service",
+      "disclaimer": "Health Disclaimer"
+    },
+    "settings_section": "Legal",
+    "crisis_resources": "Crisis resources",
+    "banner": {
+      "text": "Gisbel is a wellness companion, not medical or therapy advice. Tap to learn more.",
+      "a11y": "Open the health disclaimer"
+    },
+    "consent": {
+      "title": "Before you continue",
+      "body": "Gisbel is an AI wellness companion — not therapy, not medical advice, and not a substitute for professional care. Please review and accept the documents below.",
+      "checkbox": "I have read and accept the Privacy Policy, Terms of Service and Health Disclaimer, and I understand Gisbel is not a medical service.",
+      "accept": "I agree and continue"
+    }
+  },
   "error": {
     "fallback_title": "Oops, Something Went Wrong",
     "fallback_message": "An unexpected error occurred. Our team has been notified. Please try again.",
@@ -102,7 +122,8 @@
     "hero_subtitle_big": "If you're ready for your first free analysis, let's get started.",
     "cta_analysis": "Start My Analysis",
     "free_badge": "First analysis free",
-    "have_account": "I have an account"
+    "have_account": "I have an account",
+    "legal_prefix": "By continuing you agree to our "
   },
   "softwall": {
     "title": "Your analysis will illuminate your potential.",
@@ -159,7 +180,10 @@
     "unexpected_error": "An unexpected error occurred.",
     "creating_account": "Creating account...",
     "unknown_error": "An unknown error occurred.",
-    "sending_link": "Sending link..."
+    "sending_link": "Sending link...",
+    "consent_checkbox": "I accept the Privacy Policy, Terms of Service and Health Disclaimer, and understand Gisbel is not a medical service.",
+    "consent_links": "Read: Privacy · Terms · Disclaimer",
+    "error_consent_required": "Please accept the terms to continue."
   },
   "analysis": {
     "title": "Deep Analysis",

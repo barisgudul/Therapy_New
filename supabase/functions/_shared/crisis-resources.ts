@@ -73,9 +73,11 @@ const BUNDLES: Record<Lang, {
 };
 
 export function getCrisisPayload(language?: string): CrisisPayload {
-  const lang: Lang = (["tr", "en", "de"] as const).includes(language as Lang)
-    ? (language as Lang)
-    : "tr";
+  // Normalize e.g. "en-US" -> "en"; fall back to English for anything unknown.
+  const short = (language ?? "").split("-")[0].toLowerCase();
+  const lang: Lang = (["tr", "en", "de"] as const).includes(short as Lang)
+    ? (short as Lang)
+    : "en";
   const b = BUNDLES[lang];
   return {
     error: b.message,

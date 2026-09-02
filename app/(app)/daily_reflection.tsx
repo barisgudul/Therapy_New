@@ -25,6 +25,7 @@ import { useDailyReflection } from "../../hooks/useDailyReflection";
 import { styles } from "../../styles/dailyWrite.styles";
 import { interpolateColor } from "../../utils/color.utils";
 import { useTranslation } from "react-i18next";
+import { DisclaimerBanner } from "../../components/shared/DisclaimerBanner";
 
 
 
@@ -138,6 +139,8 @@ export default function DailyReflectionScreen() {
       <Animated.View style={[styles.light, styles.light2, { transform: state.light2.getTranslateTransform() }]} />
 
       <GradientHeader text={t('daily_reflection.header_title')} colors={dynamicGradient} />
+
+      <DisclaimerBanner />
 
       <Animated.View style={[styles.container, state.fadeIn]}>
         <View style={styles.mainContent}>

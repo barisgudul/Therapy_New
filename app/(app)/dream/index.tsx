@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from "react-native-toast-message";
 import SkeletonCard from "../../../components/dream/SkeletonCard.tsx";
 import { COSMIC_COLORS } from "../../../constants/Colors";
+import { DisclaimerBanner } from "../../../components/shared/DisclaimerBanner";
 import { AppEvent, getDreamEvents } from "../../../services/event.service";
 import { supabase } from "../../../utils/supabase";
 import { useTranslation } from "react-i18next";
@@ -226,6 +227,9 @@ export default function DreamJournalScreen() {
             </Text>
           </View>
         </View>
+
+        <DisclaimerBanner tone="dark" />
+
 
         {/* Ana içerik alanı - kalan tüm alanı kaplar */}
         <View style={styles.contentContainer}>

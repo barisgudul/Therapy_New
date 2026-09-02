@@ -58,6 +58,32 @@ const LanguageSelector = () => {
     );
 };
 
+const LegalRow = ({
+    icon,
+    label,
+    onPress,
+    isLast,
+}: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    onPress: () => void;
+    isLast?: boolean;
+}) => (
+    <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+            styles.legalRow,
+            !isLast && styles.legalRowBorder,
+            pressed && styles.cardPressed,
+        ]}
+        accessibilityRole="link"
+    >
+        <Ionicons name={icon} size={20} color="#475569" />
+        <Text style={styles.legalRowLabel}>{label}</Text>
+        <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+    </Pressable>
+);
+
 // --- BÖLÜM 2: ANA AYARLAR EKRANI ---
 
 export default function SettingsScreen() {
@@ -109,6 +135,16 @@ export default function SettingsScreen() {
                     </View>
 
                     <LanguageSelector />
+
+                    <View style={styles.legalSection}>
+                        <Text style={styles.sectionTitle}>{t('legal.settings_section')}</Text>
+                        <View style={styles.legalCard}>
+                            <LegalRow icon="lock-closed-outline" label={t('legal.doc_title.privacy')} onPress={() => router.push('/(legal)/privacy')} />
+                            <LegalRow icon="document-text-outline" label={t('legal.doc_title.terms')} onPress={() => router.push('/(legal)/terms')} />
+                            <LegalRow icon="medkit-outline" label={t('legal.doc_title.disclaimer')} onPress={() => router.push('/(legal)/disclaimer')} />
+                            <LegalRow icon="alert-circle-outline" label={t('legal.crisis_resources')} onPress={() => router.push('/(legal)/disclaimer')} isLast />
+                        </View>
+                    </View>
 
                     <FeaturedCard />
 
@@ -310,6 +346,31 @@ const styles = StyleSheet.create({
         marginTop: 16,
         borderWidth: 1,
         borderColor: '#E2E8F0',
+    },
+    legalSection: { marginTop: 16 },
+    legalCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        overflow: "hidden",
+    },
+    legalRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 18,
+    },
+    legalRowBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: "#F1F5F9",
+    },
+    legalRowLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: "500",
+        color: "#334155",
     },
     languageButtons: {
         flexDirection: 'row',

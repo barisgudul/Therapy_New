@@ -66,6 +66,16 @@ export default function Primer() {
             <Pressable onPress={() => router.push("/login")} style={styles.buttonsSecondary} accessibilityRole="button">
               <Text style={styles.buttonsSecondaryText}>{t("primer.have_account")}</Text>
             </Pressable>
+            <Text style={styles.legalNote}>
+              {t("primer.legal_prefix")}
+              <Text style={styles.legalLink} onPress={() => router.push("/(legal)/privacy")}>
+                {t("legal.doc_title.privacy")}
+              </Text>
+              {" · "}
+              <Text style={styles.legalLink} onPress={() => router.push("/(legal)/terms")}>
+                {t("legal.doc_title.terms")}
+              </Text>
+            </Text>
           </View>
         </View>
       </SafeAreaView>
@@ -198,5 +208,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: -0.5,
     opacity: 0.8,
+  },
+  legalNote: {
+    textAlign: "center",
+    fontSize: 11,
+    lineHeight: 16,
+    color: "#94A3B8",
+    marginTop: 4,
+    paddingHorizontal: 8,
+  },
+  legalLink: {
+    color: Colors.light.tint,
+    fontWeight: "600",
   },
 });

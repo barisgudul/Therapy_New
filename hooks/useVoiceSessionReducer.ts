@@ -135,7 +135,10 @@ export function useVoiceSessionReducer(
                     const { data, error } = await supabase.functions.invoke(
                         "voice-session",
                         {
-                            body: { messages: state.messages },
+                            body: {
+                                messages: state.messages,
+                                language: i18n.language,
+                            },
                         },
                     );
 

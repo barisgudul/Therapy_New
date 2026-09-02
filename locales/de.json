@@ -9,6 +9,26 @@
     "call_button": "Anrufen",
     "close": "Schließen"
   },
+  "legal": {
+    "close": "Schließen",
+    "doc_title": {
+      "privacy": "Datenschutzerklärung",
+      "terms": "Nutzungsbedingungen",
+      "disclaimer": "Gesundheitlicher Haftungsausschluss"
+    },
+    "settings_section": "Rechtliches",
+    "crisis_resources": "Krisen-Ressourcen",
+    "banner": {
+      "text": "Gisbel ist ein Begleiter für Wohlbefinden, keine medizinische oder therapeutische Beratung. Zum Mehr erfahren tippen.",
+      "a11y": "Gesundheitlichen Haftungsausschluss öffnen"
+    },
+    "consent": {
+      "title": "Bevor du fortfährst",
+      "body": "Gisbel ist ein KI-Begleiter für Wohlbefinden – keine Therapie, keine medizinische Beratung und kein Ersatz für professionelle Versorgung. Bitte prüfe und akzeptiere die folgenden Dokumente.",
+      "checkbox": "Ich habe die Datenschutzerklärung, die Nutzungsbedingungen und den gesundheitlichen Haftungsausschluss gelesen und akzeptiere sie, und mir ist bewusst, dass Gisbel kein medizinischer Dienst ist.",
+      "accept": "Ich stimme zu und fahre fort"
+    }
+  },
   "error": {
     "fallback_title": "Hoppla, etwas ist schiefgelaufen",
     "fallback_message": "Ein unerwarteter Fehler ist aufgetreten. Unser Team wurde benachrichtigt. Bitte versuche es erneut.",
@@ -102,7 +122,8 @@
     "hero_subtitle_big": "Wenn Sie bereit für Ihre erste kostenlose Analyse sind, legen wir los.",
     "cta_analysis": "Meine Analyse starten",
     "free_badge": "Erste Analyse kostenlos",
-    "have_account": "Ich habe ein Konto"
+    "have_account": "Ich habe ein Konto",
+    "legal_prefix": "Mit dem Fortfahren stimmst du zu: "
   },
   "softwall": {
     "title": "Deine Analyse wird dein Potenzial erhellen.",
@@ -159,7 +180,10 @@
     "unexpected_error": "Ein unerwarteter Fehler ist aufgetreten.",
     "creating_account": "Konto wird erstellt...",
     "unknown_error": "Ein unbekannter Fehler ist aufgetreten.",
-    "sending_link": "Link wird gesendet..."
+    "sending_link": "Link wird gesendet...",
+    "consent_checkbox": "Ich akzeptiere die Datenschutzerklärung, die Nutzungsbedingungen und den gesundheitlichen Haftungsausschluss und verstehe, dass Gisbel kein medizinischer Dienst ist.",
+    "consent_links": "Lesen: Datenschutz · Bedingungen · Haftungsausschluss",
+    "error_consent_required": "Bitte akzeptiere die Bedingungen, um fortzufahren."
   },
   "analysis": {
     "title": "Tiefenanalyse",

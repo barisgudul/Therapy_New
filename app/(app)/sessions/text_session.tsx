@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { PremiumGate } from "../../../components/PremiumGate";
+import { DisclaimerBanner } from "../../../components/shared/DisclaimerBanner";
 import { Colors } from "../../../constants/Colors";
 import { useFeatureAccess } from "../../../hooks/useSubscription";
 import { useTextSessionReducer } from "../../../hooks";
@@ -97,6 +98,8 @@ const SessionUI = memo<SessionUIProps>(({
             <Text style={styles.headerTitle}>{t("text_session.header_title")}</Text>
             <View style={{ width: 44 }} />
           </View>
+
+          <DisclaimerBanner />
 
           <KeyboardAvoidingView
             style={styles.keyboardAvoidingView}

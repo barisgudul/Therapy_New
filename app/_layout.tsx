@@ -28,6 +28,7 @@ import { AuthProvider, useAuth } from "../context/Auth";
 import { LoadingProvider } from "../context/Loading";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 import { useOnboardingStore } from "../store/onboardingStore";
+import { hasCurrentConsent, useConsentStore } from "../store/consentStore";
 import { captureException, initSentry, wrap } from "../utils/sentry";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -69,6 +70,8 @@ function RootLayoutNav() {
   const pathname = usePathname();
   const recallEligibleAt = useOnboardingStore((s) => s.recallEligibleAt);
   const answersArray = useOnboardingStore((s) => s.answersArray);
+  const acceptedConsentVersion = useConsentStore((s) => s.acceptedVersion);
+  const consentHydrated = useConsentStore((s) => s._hydrated);
 
   const [fontsLoaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
@@ -78,6 +81,7 @@ function RootLayoutNav() {
   // Sadece session durumuna göre ana gruplar arasında yönlendirme yapacağız.
   const inAuthGroup = segments[0] === "(auth)";
   const inAppGroup = segments[0] === "(app)";
+  const inLegalGroup = segments[0] === "(legal)";
   const inAnalysisPage = segments.includes("analysis");
   const isOnAnalysisRoute = Boolean(pathname && pathname.includes("/(auth)/analysis"));
 
@@ -87,6 +91,18 @@ function RootLayoutNav() {
     // onu misafir akışına yönlendir.
     if (!session && inAppGroup) {
       router.replace("/(guest)/primer");
+      return;
+    }
+
+    // ONAY KAPISI: Giriş yapmış ama güncel yasal sürümü kabul etmemiş
+    // kullanıcıyı (OAuth kaydı, eski hesap, politika sürüm artışı) onay ekranına al.
+    if (
+      session &&
+      consentHydrated &&
+      !hasCurrentConsent(acceptedConsentVersion) &&
+      !inLegalGroup
+    ) {
+      router.replace("/(legal)/consent");
       return;
     }
 
@@ -106,7 +122,7 @@ function RootLayoutNav() {
       router.replace("/(guest)/recall");
       return;
     }
-  }, [session, inAuthGroup, inAppGroup, inAnalysisPage, isOnAnalysisRoute, router, recallEligibleAt, answersArray]);
+  }, [session, inAuthGroup, inAppGroup, inLegalGroup, inAnalysisPage, isOnAnalysisRoute, router, recallEligibleAt, answersArray, acceptedConsentVersion, consentHydrated]);
 
   // Bildirime tıklanınca ilgili ekrana yönlendir (deep-link).
   // Hem önplan/arkaplan yanıtını hem de uygulama kapalıyken açılışı (cold start) ele alır.

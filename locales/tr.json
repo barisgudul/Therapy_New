@@ -10,6 +10,26 @@
     "call_button": "Ara",
     "close": "Kapat"
   },
+  "legal": {
+    "close": "Kapat",
+    "doc_title": {
+      "privacy": "Gizlilik Politikası",
+      "terms": "Kullanım Şartları",
+      "disclaimer": "Sağlık Sorumluluk Reddi"
+    },
+    "settings_section": "Yasal",
+    "crisis_resources": "Kriz kaynakları",
+    "banner": {
+      "text": "Gisbel bir iyi oluş yoldaşıdır; tıbbi tavsiye veya terapi değildir. Ayrıntı için dokun.",
+      "a11y": "Sağlık sorumluluk reddini aç"
+    },
+    "consent": {
+      "title": "Devam etmeden önce",
+      "body": "Gisbel yapay zeka destekli bir iyi oluş yoldaşıdır — terapi değil, tıbbi tavsiye değil ve profesyonel bakımın yerine geçmez. Lütfen aşağıdaki belgeleri inceleyip kabul et.",
+      "checkbox": "Gizlilik Politikası'nı, Kullanım Şartları'nı ve Sağlık Sorumluluk Reddi'ni okudum ve kabul ediyorum; Gisbel'in tıbbi bir hizmet olmadığını anlıyorum.",
+      "accept": "Kabul ediyorum ve devam et"
+    }
+  },
   "error": {
     "fallback_title": "Eyvah, Bir Şeyler Ters Gitti",
     "fallback_message": "Beklenmedik bir hata oluştu. Ekibimiz bilgilendirildi. Lütfen tekrar deneyin.",
@@ -103,7 +123,8 @@
     "hero_subtitle_big": "İlk ücretsiz analizine hazırsan, başlayalım.",
     "cta_analysis": "Analizimi Başlat",
     "free_badge": "İlk analiz ücretsiz",
-    "have_account": "Hesabım var"
+    "have_account": "Hesabım var",
+    "legal_prefix": "Devam ederek şunları kabul edersin: "
   },
   "softwall": {
     "title": "Analizin, potansiyelini aydınlatacak.",
@@ -160,7 +181,10 @@
     "unexpected_error": "Beklenmedik bir hata oluştu.",
     "creating_account": "Hesap oluşturuluyor...",
     "unknown_error": "Bilinmeyen bir hata oluştu.",
-    "sending_link": "Link gönderiliyor..."
+    "sending_link": "Link gönderiliyor...",
+    "consent_checkbox": "Gizlilik Politikası'nı, Kullanım Şartları'nı ve Sağlık Sorumluluk Reddi'ni kabul ediyorum; Gisbel'in tıbbi bir hizmet olmadığını anlıyorum.",
+    "consent_links": "Oku: Gizlilik · Şartlar · Sorumluluk Reddi",
+    "error_consent_required": "Devam etmek için şartları kabul etmelisin."
   },
   "analysis": {
     "title": "Derin Analizin",

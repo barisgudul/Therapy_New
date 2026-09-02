@@ -81,6 +81,7 @@ jest.mock('../../../styles/auth', () => ({
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: 'tr', changeLanguage: jest.fn() },
   }),
 }));
 jest.mock('expo-router/', () => ({
@@ -210,6 +211,7 @@ describe('RegisterScreen', () => {
     
     fireEvent.changeText(emailInput, 'test@example.com');
     fireEvent.changeText(passwordInput, 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(continueButton);
 
     await waitFor(() => {
@@ -226,6 +228,7 @@ describe('RegisterScreen', () => {
     const passwordInput = screen.getByPlaceholderText('auth.password');
     fireEvent.changeText(emailInput, 'test@example.com');
     fireEvent.changeText(passwordInput, 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(screen.getByTestId('auth-button'));
 
     await waitFor(() => {
@@ -262,6 +265,7 @@ describe('RegisterScreen', () => {
     const passwordInput = screen.getByPlaceholderText('auth.password');
     fireEvent.changeText(emailInput, 'test@example.com');
     fireEvent.changeText(passwordInput, 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(screen.getByTestId('auth-button'));
 
     await waitFor(() => {
@@ -298,6 +302,7 @@ describe('RegisterScreen', () => {
     // 2. adıma geç
     fireEvent.changeText(screen.getByPlaceholderText('auth.email'), 'test@example.com');
     fireEvent.changeText(screen.getByPlaceholderText('auth.password'), 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(screen.getByTestId('auth-button'));
 
     await waitFor(() => {
@@ -327,6 +332,7 @@ describe('RegisterScreen', () => {
     // 2. adıma geç
     fireEvent.changeText(screen.getByPlaceholderText('auth.email'), 'test@example.com');
     fireEvent.changeText(screen.getByPlaceholderText('auth.password'), 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(screen.getByTestId('auth-button'));
 
     await waitFor(() => {
@@ -563,6 +569,7 @@ describe('RegisterScreen', () => {
     
     fireEvent.changeText(emailInput, 'test@example.com');
     fireEvent.changeText(passwordInput, 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(continueButton);
 
     await waitFor(() => {
@@ -604,6 +611,7 @@ describe('RegisterScreen', () => {
     
     fireEvent.changeText(emailInput, 'test@example.com');
     fireEvent.changeText(passwordInput, 'password123');
+    fireEvent.press(screen.getByTestId('register-consent'));
     fireEvent.press(continueButton);
 
     await waitFor(() => {
