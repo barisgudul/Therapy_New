@@ -5,6 +5,34 @@
     "continue": "Continue",
     "finishAndStart": "Finish and Start"
   },
+  "crisis": {
+    "call_button": "Call",
+    "close": "Close"
+  },
+  "error": {
+    "fallback_title": "Oops, Something Went Wrong",
+    "fallback_message": "An unexpected error occurred. Our team has been notified. Please try again.",
+    "retry": "Try Again"
+  },
+  "mood_selector": {
+    "instruction": "Press and hold to feel",
+    "a11y_label": "Mood selector"
+  },
+  "streak": {
+    "a11y_label": "{{count}}-day streak",
+    "label": "{{count}}-day streak",
+    "keep_going": "Keep your streak"
+  },
+  "notifications": {
+    "morning": {
+      "title": "Good morning!",
+      "body": "Don't forget to take care of yourself today."
+    },
+    "evening": {
+      "title": "How are you today?",
+      "body": "Want to express yourself in one sentence?"
+    }
+  },
   "ai_summary": {
     "header_title": "Personal Analysis",
     "welcome_title": "Welcome Back",
@@ -286,7 +314,13 @@
       "not_available": "Not Available",
       "weekly_quota": "weekly quota",
       "daily_quota": "daily quota"
-    }
+    },
+    "restore_button": "Restore",
+    "restore_ok": "Purchases restored.",
+    "restore_none": "No previous purchases found.",
+    "restore_error": "Couldn't restore purchases. Please try again.",
+    "manage_subscription": "Manage subscription",
+    "paywall_error": "Something went wrong. Please try again."
   },
 
   "dream": {

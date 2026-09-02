@@ -9,6 +9,7 @@ import "react-native-reanimated";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
+import * as Notifications from "expo-notifications";
 import { usePathname, useRouter, useSegments } from "expo-router/";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
@@ -20,10 +21,23 @@ import Toast, { BaseToastProps } from "react-native-toast-message";
 import { AppToast } from "../components/shared/AppToast";
 
 import UndoToast from "../components/dream/UndoToast";
+import { CrisisModal } from "../components/shared/CrisisModal";
 import { AuthProvider, useAuth } from "../context/Auth";
 import { LoadingProvider } from "../context/Loading";
+import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 import { useOnboardingStore } from "../store/onboardingStore";
 WebBrowser.maybeCompleteAuthSession();
+
+// Bildirim uygulama önplandayken de banner/ses olarak gösterilsin
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
 const queryClient = new QueryClient();
 
 // ESKİ VE YENİ DÜNYAYI BİRLEŞTİRİYORUZ
@@ -87,6 +101,35 @@ function RootLayoutNav() {
     }
   }, [session, inAuthGroup, inAppGroup, inAnalysisPage, isOnAnalysisRoute, router, recallEligibleAt, answersArray]);
 
+  // Bildirime tıklanınca ilgili ekrana yönlendir (deep-link).
+  // Hem önplan/arkaplan yanıtını hem de uygulama kapalıyken açılışı (cold start) ele alır.
+  React.useEffect(() => {
+    const routeFromData = (data: unknown) => {
+      const route = (data as { route?: unknown })?.route;
+      if (typeof route !== "string" || !route) return;
+      // Yalnızca giriş yapmış kullanıcıyı app ekranlarına yönlendir
+      if (!session) return;
+      try {
+        router.push(route as never);
+      } catch (e) {
+        console.warn("[notifications] yönlendirme başarısız:", e);
+      }
+    };
+
+    const sub = Notifications.addNotificationResponseReceivedListener(
+      (response) => routeFromData(response.notification.request.content.data),
+    );
+
+    // Cold start: uygulama bir bildirime tıklanarak açıldıysa
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        routeFromData(response.notification.request.content.data);
+      }
+    });
+
+    return () => sub.remove();
+  }, [session, router]);
+
   // Yükleme ekranı - Fontlar veya Auth hazır değilse bekle
   if (!fontsLoaded) {
     return (
@@ -115,12 +158,18 @@ export default function RootLayout() {
         <KeyboardProvider>
           <LoadingProvider>
             <AuthProvider>
-              <RootLayoutNav />
+              <RevenueCatProvider>
+                <RootLayoutNav />
+              </RevenueCatProvider>
             </AuthProvider>
           </LoadingProvider>
         </KeyboardProvider>
       </QueryClientProvider>
       
+      {/* Kriz (level_3_high_alert) ekranı — tüm AI gateway akışları için ortak.
+          Toast'tan SONRA gelir ki her zaman en üstte render edilsin. */}
+      <CrisisModal />
+
       <Toast config={toastConfig} />
     </View>
   );

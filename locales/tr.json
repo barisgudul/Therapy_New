@@ -6,6 +6,34 @@
     "continue": "Devam",
     "finishAndStart": "Tamamla ve Başla"
   },
+  "crisis": {
+    "call_button": "Ara",
+    "close": "Kapat"
+  },
+  "error": {
+    "fallback_title": "Eyvah, Bir Şeyler Ters Gitti",
+    "fallback_message": "Beklenmedik bir hata oluştu. Ekibimiz bilgilendirildi. Lütfen tekrar deneyin.",
+    "retry": "Tekrar Dene"
+  },
+  "mood_selector": {
+    "instruction": "Hissetmek için basılı tut",
+    "a11y_label": "Ruh hali seçici"
+  },
+  "streak": {
+    "a11y_label": "{{count}} günlük seri",
+    "label": "{{count}} günlük seri",
+    "keep_going": "Serini koru"
+  },
+  "notifications": {
+    "morning": {
+      "title": "Günaydın!",
+      "body": "Bugün kendine iyi bakmayı unutma."
+    },
+    "evening": {
+      "title": "Bugün nasılsın?",
+      "body": "1 cümleyle kendini ifade etmek ister misin?"
+    }
+  },
   "ai_summary": {
     "header_title": "Kişisel Analiz",
     "welcome_title": "Tekrar Hoş Geldin",
@@ -287,7 +315,13 @@
       "not_available": "Mevcut Değil",
       "weekly_quota": "haftalık hak",
       "daily_quota": "günlük hak"
-    }
+    },
+    "restore_button": "Geri Yükle",
+    "restore_ok": "Satın alımlar geri yüklendi.",
+    "restore_none": "Önceki bir satın alım bulunamadı.",
+    "restore_error": "Satın alımlar geri yüklenemedi. Lütfen tekrar deneyin.",
+    "manage_subscription": "Aboneliği yönet",
+    "paywall_error": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
   },
 
   "dream": {

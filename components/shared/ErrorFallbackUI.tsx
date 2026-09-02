@@ -1,5 +1,6 @@
 // components/shared/ErrorFallbackUI.tsx
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
@@ -8,19 +9,24 @@ interface ErrorFallbackUIProps {
   resetError: () => void;
 }
 
-export const ErrorFallbackUI: React.FC<ErrorFallbackUIProps> = ({ resetError }) => (
-  <View style={styles.container}>
-    <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
-    <Text style={styles.title}>Eyvah, Bir Şeyler Ters Gitti</Text>
-    <Text style={styles.message}>
-      Beklenmedik bir hata oluştu. Ekibimiz bilgilendirildi.
-      Lütfen tekrar deneyin.
-    </Text>
-    <TouchableOpacity style={styles.button} onPress={resetError}>
-      <Text style={styles.buttonText}>Tekrar Dene</Text>
-    </TouchableOpacity>
-  </View>
-);
+export const ErrorFallbackUI: React.FC<ErrorFallbackUIProps> = ({ resetError }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.container}>
+      <Ionicons name="alert-circle-outline" size={64} color="#EF4444" />
+      <Text style={styles.title}>{t('error.fallback_title')}</Text>
+      <Text style={styles.message}>{t('error.fallback_message')}</Text>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={resetError}
+        accessibilityRole="button"
+        accessibilityLabel={t('error.retry')}
+      >
+        <Text style={styles.buttonText}>{t('error.retry')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#FFF' },

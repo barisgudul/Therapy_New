@@ -22,6 +22,7 @@ import Toast from "react-native-toast-message";
 import { COSMIC_COLORS } from "../../../constants/Colors";
 import { useVault } from "../../../hooks/useVault";
 import { canUserAnalyzeDream } from "../../../services/event.service";
+import { maybeShowCrisis } from "../../../utils/crisis";
 import { supabase } from "../../../utils/supabase";
 import { useTranslation } from "react-i18next";
 import i18n from "../../../utils/i18n";
@@ -90,7 +91,12 @@ export default function AnalyzeDreamScreen() {
     },
 
     // HATA DURUMU: Gelen hatayı olduğu gibi basma, anlaşılır hale getir.
-    onError: (e: Error) => {
+    onError: async (e: Error) => {
+      // Kriz (yüksek risk) ise normal hata yerine ortak kriz ekranını göster.
+      if (await maybeShowCrisis(e)) {
+        setError(null);
+        return;
+      }
       setError(e.message || t("dream.analyze.toast_error_body"));
       if ((e.message || "").toLowerCase().includes("limit")) {
         Toast.show({ type: "info", text1: t("dream.analyze.toast_limit_title"), text2: e.message });

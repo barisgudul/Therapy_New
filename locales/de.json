@@ -5,6 +5,34 @@
     "continue": "Weiter",
     "finishAndStart": "Abschließen und starten"
   },
+  "crisis": {
+    "call_button": "Anrufen",
+    "close": "Schließen"
+  },
+  "error": {
+    "fallback_title": "Hoppla, etwas ist schiefgelaufen",
+    "fallback_message": "Ein unerwarteter Fehler ist aufgetreten. Unser Team wurde benachrichtigt. Bitte versuche es erneut.",
+    "retry": "Erneut versuchen"
+  },
+  "mood_selector": {
+    "instruction": "Gedrückt halten, um zu fühlen",
+    "a11y_label": "Stimmungsauswahl"
+  },
+  "streak": {
+    "a11y_label": "{{count}}-Tage-Serie",
+    "label": "{{count}}-Tage-Serie",
+    "keep_going": "Halte deine Serie"
+  },
+  "notifications": {
+    "morning": {
+      "title": "Guten Morgen!",
+      "body": "Vergiss nicht, heute gut auf dich zu achten."
+    },
+    "evening": {
+      "title": "Wie geht es dir heute?",
+      "body": "Möchtest du dich in einem Satz ausdrücken?"
+    }
+  },
   "ai_summary": {
     "header_title": "Persönliche Analyse",
     "welcome_title": "Willkommen zurück",
@@ -286,7 +314,13 @@
       "not_available": "Nicht verfügbar",
       "weekly_quota": "wöchentliche Quote",
       "daily_quota": "tägliches Kontingent"
-    }
+    },
+    "restore_button": "Wiederherstellen",
+    "restore_ok": "Käufe wiederhergestellt.",
+    "restore_none": "Keine früheren Käufe gefunden.",
+    "restore_error": "Käufe konnten nicht wiederhergestellt werden. Bitte versuche es erneut.",
+    "manage_subscription": "Abo verwalten",
+    "paywall_error": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
   },
 
   "dream": {

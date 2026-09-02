@@ -4,9 +4,11 @@ import { Animated } from "react-native";
 import { useRouter } from "expo-router/";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Notifications from "expo-notifications";
-import { useVault } from "./useVault";
+import { useUpdateVault, useVault } from "./useVault";
 import { supabase } from "../utils/supabase";
 import { useOnboardingStore } from "../store/onboardingStore";
+import i18n from "../utils/i18n";
+import { getEffectiveStreak, isMilestone, toDateKey } from "../utils/streak";
 
 export type ActiveModal =
     | null
@@ -19,8 +21,31 @@ const todayISO = () => new Date().toISOString().split("T")[0];
 export const useHomeScreen = () => {
     const router = useRouter();
     const { data: vault, isLoading: isVaultLoading } = useVault();
+    const { mutate: updateVault } = useUpdateVault();
     const [activeModal, setActiveModal] = useState<ActiveModal>(null);
     const queryClient = useQueryClient();
+
+    // --- SERİ (STREAK) HESABI ---
+    const today = todayISO();
+    const lastReflectionDate = vault?.metadata?.lastDailyReflectionDate as
+        | string
+        | undefined;
+    const storedStreak = Number(vault?.metadata?.dailyReflectionStreak ?? 0);
+    const streak = getEffectiveStreak(lastReflectionDate, today, storedStreak);
+    const reflectedToday = lastReflectionDate === today;
+
+    // Milestone (3,7,14...) bugün ulaşıldıysa ve daha önce kutlanmadıysa konfeti tetikle
+    const lastCelebrated = Number(vault?.metadata?.lastCelebratedStreak ?? 0);
+    const shouldCelebrate = reflectedToday && isMilestone(streak) &&
+        lastCelebrated !== streak;
+
+    const markCelebrated = () => {
+        if (!vault) return;
+        updateVault({
+            ...vault,
+            metadata: { ...vault.metadata, lastCelebratedStreak: streak },
+        });
+    };
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const [profileInsight, setProfileInsight] = useState<
         Record<string, string> | null
@@ -55,8 +80,8 @@ export const useHomeScreen = () => {
                 await Notifications.cancelAllScheduledNotificationsAsync();
                 await Notifications.scheduleNotificationAsync({
                     content: {
-                        title: "Günaydın!",
-                        body: "Bugün kendine iyi bakmayı unutma.",
+                        title: i18n.t("notifications.morning.title"),
+                        body: i18n.t("notifications.morning.body"),
                         data: { route: "/daily_reflection" },
                     },
                     trigger: {
@@ -67,8 +92,8 @@ export const useHomeScreen = () => {
                 });
                 await Notifications.scheduleNotificationAsync({
                     content: {
-                        title: "Bugün nasılsın?",
-                        body: "1 cümleyle kendini ifade etmek ister misin?",
+                        title: i18n.t("notifications.evening.title"),
+                        body: i18n.t("notifications.evening.body"),
                         data: { route: "/daily_reflection" },
                     },
                     trigger: {
@@ -96,6 +121,16 @@ export const useHomeScreen = () => {
 
     const handleDailyPress = () => {
         if (vault?.metadata?.lastDailyReflectionDate === todayISO()) {
+            setActiveModal("dailyMessage");
+            animateBg(true);
+        } else {
+            router.push("/daily_reflection" as const);
+        }
+    };
+
+    const handleStreakPress = () => {
+        // Bugün yapılmadıysa seriyi korumaya teşvik et; yapıldıysa günün mesajını göster
+        if (reflectedToday) {
             setActiveModal("dailyMessage");
             animateBg(true);
         } else {
@@ -157,6 +192,11 @@ export const useHomeScreen = () => {
         decisionLogId,
         isVaultLoading,
         onboardingInsight,
+        streak,
+        reflectedToday,
+        shouldCelebrate,
+        markCelebrated,
+        handleStreakPress,
         handleDailyPress,
         handleReportPress,
         handleSettingsPress,

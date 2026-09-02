@@ -3,18 +3,32 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
+import { StreakBadge } from "./StreakBadge";
 
 interface HomeHeaderProps {
   onSettingsPress: () => void;
+  streak?: number;
+  streakActiveToday?: boolean;
+  onStreakPress?: () => void;
 }
 
-export const HomeHeader: React.FC<HomeHeaderProps> = ({ onSettingsPress }) => {
+export const HomeHeader: React.FC<HomeHeaderProps> = ({
+  onSettingsPress,
+  streak = 0,
+  streakActiveToday = true,
+  onStreakPress,
+}) => {
   return (
     <View style={styles.topBar}>
       <Text style={styles.brand}>
         Gisbel<Text style={styles.dot}>.</Text>
       </Text>
       <View style={styles.topButtons}>
+        <StreakBadge
+          streak={streak}
+          activeToday={streakActiveToday}
+          onPress={onStreakPress}
+        />
         <TouchableOpacity
           testID="settings-button"
           onPress={onSettingsPress}

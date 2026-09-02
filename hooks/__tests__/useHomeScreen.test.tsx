@@ -13,6 +13,7 @@ jest.mock('../../store/onboardingStore');
 
 describe('useHomeScreen - Motor Testi', () => {
   const mockUseVault = jest.mocked(require('../useVault').useVault);
+  const mockUseUpdateVault = jest.mocked(require('../useVault').useUpdateVault);
   const mockUseRouter = jest.mocked(require('expo-router/').useRouter);
   const mockUseQueryClient = jest.mocked(require('@tanstack/react-query').useQueryClient);
   const mockNotifications = jest.mocked(require('expo-notifications'));
@@ -57,6 +58,9 @@ describe('useHomeScreen - Motor Testi', () => {
       data: null,
       isLoading: false,
     } as any);
+
+    // useUpdateVault mock (streak celebration writes go through this)
+    mockUseUpdateVault.mockReturnValue({ mutate: jest.fn() } as any);
   });
 
   describe('1. Initial State', () => {
@@ -165,11 +169,11 @@ describe('useHomeScreen - Motor Testi', () => {
         expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
       });
 
-      // Sabah 8 bildirimi
+      // Sabah 8 bildirimi (metinler i18n anahtarlarından gelir)
       expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith({
         content: {
-          title: 'Günaydın!',
-          body: 'Bugün kendine iyi bakmayı unutma.',
+          title: 'notifications.morning.title',
+          body: 'notifications.morning.body',
           data: { route: '/daily_reflection' },
         },
         trigger: {
@@ -182,8 +186,8 @@ describe('useHomeScreen - Motor Testi', () => {
       // Akşam 20 bildirimi
       expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith({
         content: {
-          title: 'Bugün nasılsın?',
-          body: '1 cümleyle kendini ifade etmek ister misin?',
+          title: 'notifications.evening.title',
+          body: 'notifications.evening.body',
           data: { route: '/daily_reflection' },
         },
         trigger: {
@@ -587,7 +591,7 @@ describe('useHomeScreen - Motor Testi', () => {
         isLoading: false,
       } as any);
 
-      rerender();
+      rerender(undefined);
 
       // Yeni mesaj görünmeli
       expect(result.current.dailyMessage).toBe('Yeni mesaj');

@@ -825,7 +825,7 @@ describe('AISummaryScreen - Gerçek Davranış Testleri', () => {
         order: jest.fn().mockResolvedValue({ data: [mockReport], error: null }),
       } as any);
 
-      const { getByTestId } = render(<AISummaryScreen />);
+      const { getByTestId, queryByTestId } = render(<AISummaryScreen />);
 
       await waitFor(() => {
         expect(getByTestId('report-card-report-1')).toBeTruthy();

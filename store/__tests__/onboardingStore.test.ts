@@ -1,10 +1,6 @@
 // store/__tests__/onboardingStore.test.ts
 import { act, renderHook } from "@testing-library/react-native";
-import {
-    AppMode,
-    useOnboardingAnswersObject,
-    useOnboardingStore,
-} from "../onboardingStore";
+import { AppMode, useOnboardingStore } from "../onboardingStore";
 
 describe("onboardingStore", () => {
     beforeEach(() => {
@@ -278,6 +274,15 @@ describe("onboardingStore", () => {
     });
 
     describe("useOnboardingAnswersObject", () => {
+        const answersObjectFromState = () =>
+            useOnboardingStore.getState().answersArray.reduce(
+                (acc, curr) => {
+                    acc[curr.question] = curr.answer;
+                    return acc;
+                },
+                {} as Record<string, string>,
+            );
+
         it("answersArray objeye dönüştürülmelidir", () => {
             const { result } = renderHook(() => useOnboardingStore());
 
@@ -286,18 +291,7 @@ describe("onboardingStore", () => {
                 result.current.setAnswer(2, "Soru 2", "Cevap 2");
             });
 
-            // Directly use the selector
-            const answersObject = useOnboardingAnswersObject.getState
-                ? useOnboardingAnswersObject.getState()
-                : useOnboardingStore.getState().answersArray.reduce(
-                    (acc, curr) => {
-                        acc[curr.question] = curr.answer;
-                        return acc;
-                    },
-                    {} as Record<string, string>,
-                );
-
-            expect(answersObject).toEqual({
+            expect(answersObjectFromState()).toEqual({
                 "Soru 1": "Cevap 1",
                 "Soru 2": "Cevap 2",
             });
@@ -310,13 +304,7 @@ describe("onboardingStore", () => {
                 result.current.reset();
             });
 
-            const answersObject = useOnboardingStore.getState().answersArray
-                .reduce((acc, curr) => {
-                    acc[curr.question] = curr.answer;
-                    return acc;
-                }, {} as Record<string, string>);
-
-            expect(answersObject).toEqual({});
+            expect(answersObjectFromState()).toEqual({});
         });
     });
 });

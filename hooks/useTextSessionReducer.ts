@@ -3,6 +3,7 @@ import { useCallback, useEffect, useReducer } from "react";
 import { Alert, BackHandler } from "react-native";
 import { supabase } from "../utils/supabase";
 import { getEventById } from "../services/event.service";
+import { maybeShowCrisis } from "../utils/crisis";
 import i18n from "../utils/i18n";
 
 export interface TextMessage {
@@ -459,8 +460,9 @@ export function useTextSessionReducer({
             );
 
             if (error) {
-                // Burada hatayı düzgün yakala
-                throw new Error(error.message);
+                // ÖNEMLİ: orijinal supabase hatasını fırlat — `error.context` (kriz
+                // gövdesi) korunmalı. `new Error(error.message)` bunu kaybederdi.
+                throw error;
             }
 
             // 3. Başarılı olursa, AI'ın cevabını ekle ve gönderilen mesajın durumunu güncelle.
@@ -473,6 +475,8 @@ export function useTextSessionReducer({
                 type: "MESSAGE_SENT_FAILURE",
                 payload: { messageId, error: "Mesaj gönderilemedi" },
             }); // <-- YENİ ACTION
+            // Kriz (yüksek risk) ise ortak kriz ekranını aç.
+            void maybeShowCrisis(error);
         } finally {
             dispatch({ type: "SET_TYPING", payload: false });
         }
