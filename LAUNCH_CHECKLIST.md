@@ -1,29 +1,37 @@
 # Gisbel — Launch Checklist
 
-Everything in this file is a **dashboard / account** step that has to be done by
-a human. The code side (tests, typecheck, dev-route guards, Sentry, notification
-permissions, EAS profiles, CI workflows, in-app legal + consent, delete-account
-flow, README) is done on the `prod-readiness` branch.
+Code side is **merged to `main`** and all gates are green
+(`npm run lint && npm run typecheck && npm test`, 133 suites).
+What remains are steps that need **your account credentials** or the
+**Apple Developer Program** membership.
+
+Status legend: [x] done · [ ] you · [~] blocked on Apple Developer account
 
 ---
 
-## 0. Merge the branch
+## 0. Merge the branch — [x] DONE
 
-- [ ] Review and merge `prod-readiness` into `main` (13 commits, all quality
-      gates green: `npm run lint && npm run typecheck && npm test`).
+`prod-readiness` merged into `main` (commit `fe5e517`), pushed.
 
 ---
 
 ## 1. Expo / EAS
 
-- [ ] `eas login` as `barisgudul`.
-- [ ] Create EAS **environment variables** for `production` (and `staging`):
-      - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-      - `EXPO_PUBLIC_RC_IOS_KEY`, `EXPO_PUBLIC_RC_ANDROID_KEY`
-      - `EXPO_PUBLIC_SENTRY_DSN`
-      (`EXPO_PUBLIC_ENV` and `EXPO_PUBLIC_SUPABASE_URL` are already in `eas.json`.)
-- [ ] Decide the staging Supabase project and fill `eas.json` → `build.staging.env`
-      (currently only the URL is set).
+- [ ] `eas login` as `barisgudul` (the local session expired — I could not run
+      the build). Then:
+      ```
+      eas build --profile preview --platform ios      # simulator, no Apple acct
+      # once you have the Apple Developer account:
+      eas build --profile production --platform ios
+      eas submit --profile production --platform ios
+      ```
+- [ ] Fill the real values into `eas.json` → `build.production.env` (or as EAS
+      environment variables):
+      - `EXPO_PUBLIC_RC_IOS_KEY` — RevenueCat → API keys → iOS app key
+        (`appl_…`), created only after the App Store Connect app is linked
+      - `EXPO_PUBLIC_SENTRY_DSN` — optional, from a Sentry RN project
+      (`EXPO_PUBLIC_ENV`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+      are already in `eas.json`.)
 - [ ] Confirm EAS build quota.
 - [ ] Provide the notification icon: `assets/images/notification-icon.png`
       (96×96, white opaque silhouette on transparent — no gradients). Then add
@@ -47,17 +55,21 @@ flow, README) is done on the `prod-readiness` branch.
 - [ ] Target audience 13+ (16+ in the EEA).
 - [ ] Privacy Policy URL (see §6) and account-deletion instructions URL.
 
-## 3. RevenueCat
+## 3. RevenueCat  (project "therapy" / `aaf13e81`)
 
-- [ ] Create the project and add the Android app.
-- [ ] Products / Entitlements: `gisbel` (Premium) and `plus` — must match
-      `constants/revenuecat.ts`.
-- [ ] Offerings: `default` and `plus` — must match `OFFERING_FOR_ENTITLEMENT`.
-- [ ] Configure a Paywall.
-- [ ] Public SDK keys → EAS environment variables (§1).
-- [ ] Set the webhook:
-      URL `https://ijtcqbxagcdgfxrgamis.functions.supabase.co/revenuecat-webhook`,
-      header `Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>`.
+- [x] Entitlements `gisbel` + `plus` — match `constants/revenuecat.ts`.
+- [x] Offerings `default` + `plus` — match `OFFERING_FOR_ENTITLEMENT`.
+- [x] Paywalls built + published for both offerings.
+- [x] **Webhook → Supabase configured and verified** (test event returned
+      HTTP 200, `{"ok":true,"skipped":"TEST"}`). URL
+      `https://ijtcqbxagcdgfxrgamis.functions.supabase.co/revenuecat-webhook`,
+      `Authorization: Bearer <secret>` where the secret matches the Supabase
+      `REVENUECAT_WEBHOOK_SECRET` (already set — §4).
+- [~] iOS app configuration — needs App Store Connect (Apple Developer account).
+      Once linked, RevenueCat generates the `appl_…` SDK key → §1.
+- [ ] Sandbox testers for pre-launch purchase testing.
+- [ ] Verify product IDs in the paywalls match the App Store Connect
+      subscription/IAP product IDs once those exist.
 
 ## 4. Supabase (production project `ijtcqbxagcdgfxrgamis`)
 
@@ -76,20 +88,17 @@ flow, README) is done on the `prod-readiness` branch.
       `verify_jwt = false`. All 19 pass a CORS/boot health check.
 - [x] Security + performance advisors reviewed — see remaining items below.
 
+- [x] **Edge Function secrets set:** `APP_ENV=production`,
+      `REVENUECAT_WEBHOOK_SECRET` (matches the RevenueCat webhook header).
+      `GEMINI_API_KEY` / `GCP_API_KEY` / `CORS_ORIGINS` were already set.
+- [x] **Privileged RPCs locked down** (migration `20260902110000`): `anon` /
+      `authenticated` can no longer execute `assign_plan_to_user` (no self-grant),
+      the `handle_new_user*` triggers, or the arbitrary-`user_uuid` helpers. Plan
+      changes now flow only through the RevenueCat webhook (service_role).
+
 **Still to do (dashboard / needs your input):**
-- [ ] **Set Edge Function secrets** (Dashboard → Project Settings → Edge
-      Functions → Secrets, or the CLI below). `GEMINI_API_KEY` / `GCP_API_KEY` /
-      `CORS_ORIGINS` are already set.
-      ```
-      supabase secrets set --project-ref ijtcqbxagcdgfxrgamis \
-        REVENUECAT_WEBHOOK_SECRET=62e1e6cbbf2927a29e41c8537723548d036f1e9cde1d6f37ae101f87acea7129 \
-        APP_ENV=production
-      # then (optional, when you have a Sentry project):
-      #   SENTRY_DSN=<your dsn>
-      ```
-      Use the **same** `REVENUECAT_WEBHOOK_SECRET` value as the
-      `Authorization: Bearer <value>` header in the RevenueCat webhook config.
-      Until it is set, `revenuecat-webhook` returns 401 for every call (safe).
+- [ ] `SENTRY_DSN` Edge Function secret (optional — backend Sentry no-ops
+      without it): `supabase secrets set SENTRY_DSN=<dsn> --project-ref ijtcqbxagcdgfxrgamis`
 - [ ] Create a personal access token → `SUPABASE_ACCESS_TOKEN` GitHub secret;
       set `SUPABASE_PROJECT_REF=ijtcqbxagcdgfxrgamis` GitHub secret.
 - [ ] Production Auth: redirect URLs, Google/Apple OAuth config, `gisbel://`
@@ -97,10 +106,12 @@ flow, README) is done on the `prod-readiness` branch.
       protection (advisor WARN).
 - [ ] Upgrade Postgres (`supabase-postgres-17.4.1.054` has security patches
       available — advisor WARN).
-- [ ] Broader security cleanup (advisor WARN, pre-existing, not blocking): many
-      `SECURITY DEFINER` functions are `anon`/`authenticated`-executable via
-      `/rpc/` — notably `assign_plan_to_user` (a user could self-assign a plan).
-      Revoke EXECUTE from `anon`/`authenticated` on the internal ones.
+- [ ] Remaining advisor WARNs (pre-existing, not blocking): a few more
+      `SECURITY DEFINER` helpers are still `authenticated`-executable
+      (`has_premium_access`, `get_active_prompt_by_name`, `increment_feature_usage`,
+      `submit_dream_feedback`, `submit_oracle_result`) — these are called by the
+      client legitimately; tighten with `auth.uid()` checks inside the functions
+      later. `pg_net` extension is in `public`.
 - [ ] Decide the fate of the old `xnicudjkfmxsmyxbemur` (Gisbel-staging) project.
 - [ ] `memory_embeddings` table is referenced by `match_documents` but doesn't
       exist on prod — investigate whether the LangChain doc-match path is used.
