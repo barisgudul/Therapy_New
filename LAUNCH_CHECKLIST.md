@@ -18,9 +18,15 @@ Status legend: [x] done · [ ] you · [~] blocked on Apple Developer account
 ## 1. Expo / EAS
 
 - [x] Logged in as `barisgudul`.
-- [x] **iOS preview (simulator) build started** — build #1,
-      `expo.dev/accounts/barisgudul/projects/therapynew/builds/2a7a4b47-d546-466d-bba1-8bb0d7e779cd`
-      — verifies RevenueCat + Sentry + expo-notifications compile under CNG.
+- [x] **iOS preview (simulator) build — PASSED**
+      (`builds/057040e6-8a87-4224-9acf-1db0441c89ff`). CNG prebuild, `pod install`
+      (RevenueCat + `@sentry/react-native` linked), JS bundle, and the full Xcode
+      build all succeeded. The production build should now work once you have the
+      Apple Developer credentials.
+      - First attempt failed only on the Sentry source-map upload step — fixed by
+        gating the `@sentry/react-native/expo` plugin on `SENTRY_ORG`+`SENTRY_PROJECT`.
+      - `expo doctor` has 4 non-blocking warnings (direct `@expo/metro-config`
+        dep, a minor version skew, RN-Directory "unmaintained" notes) — tidy later.
 - [x] `eas.json` env blocks trimmed to `EXPO_PUBLIC_ENV`; the Supabase vars come
       from **EAS environment variables** (already configured per environment).
 - [ ] **Clean up the EAS `preview` environment variables** — it currently has
