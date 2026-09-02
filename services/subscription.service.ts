@@ -1,7 +1,6 @@
 // services/subscription.service.ts
 
 import { supabase } from "../utils/supabase";
-import { PlanName } from "../store/subscriptionStore";
 import { getCurrentPlanFromRevenueCat } from "./revenuecat.service";
 
 // =================================================================
@@ -137,25 +136,6 @@ export async function getUsageStats(): Promise<UsageStats | null> {
     return stats as UsageStats;
 }
 
-/**
- * Kullanıcının planını DEĞİŞTİRİR. Ödeme olmadığı için direkt RPC çağıracağız.
- * Bunun için yeni bir RPC fonksiyonu yazmamız gerekiyor!
- */
-export async function updateUserPlan(
-    newPlanName: PlanName,
-): Promise<{ success: boolean }> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Kullanıcı bulunamadı.");
-
-    const { error } = await supabase.rpc("assign_plan_to_user", {
-        p_user_id: user.id,
-        p_plan_name: newPlanName,
-    });
-
-    if (error) {
-        console.error(`Plan değiştirme hatası: ${error.message}`);
-        throw error;
-    }
-
-    return { success: true };
-}
+// updateUserPlan() removed: plan changes are applied server-side by the
+// RevenueCat webhook (assign_plan_to_user via service_role). The RPC is no
+// longer executable by anon/authenticated.

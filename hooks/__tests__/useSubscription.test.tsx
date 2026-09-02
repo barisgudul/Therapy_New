@@ -1,5 +1,5 @@
 // hooks/__tests__/useSubscription.test.tsx
-import { renderHook, act, waitFor } from '@testing-library/react-native';
+import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import {
@@ -7,13 +7,11 @@ import {
   useSubscriptionPlans,
   useUsageStats,
   useFeatureAccess,
-  useUpdateSubscription,
 } from '../useSubscription';
 import {
   getAllPlans,
   getCurrentSubscription,
   getUsageStats,
-  updateUserPlan,
   type SubscriptionPlan,
   type UsageStats,
 } from '../../services/subscription.service';
@@ -23,7 +21,6 @@ jest.mock('../../services/subscription.service', () => ({
   getAllPlans: jest.fn(),
   getCurrentSubscription: jest.fn(),
   getUsageStats: jest.fn(),
-  updateUserPlan: jest.fn(),
 }));
 
 //----- TEST KURULUMU -----
@@ -41,7 +38,6 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 const mockedGetAllPlans = getAllPlans as jest.Mock;
 const mockedGetCurrentSubscription = getCurrentSubscription as jest.Mock;
 const mockedGetUsageStats = getUsageStats as jest.Mock;
-const mockedUpdateUserPlan = updateUserPlan as jest.Mock;
 
 // Shared mock data
 const mockUsageStats: UsageStats = {
@@ -89,7 +85,6 @@ describe('useSubscription Hook', () => {
     mockedGetCurrentSubscription.mockReset();
     mockedGetUsageStats.mockReset();
     mockedGetAllPlans.mockReset();
-    mockedUpdateUserPlan.mockReset();
     // QueryClient cache'ini temizle
     queryClient.clear();
   });
@@ -162,7 +157,6 @@ describe('useSubscriptionPlans Hook', () => {
     mockedGetAllPlans.mockReset();
     mockedGetCurrentSubscription.mockReset();
     mockedGetUsageStats.mockReset();
-    mockedUpdateUserPlan.mockReset();
     queryClient.clear();
   });
 
@@ -213,7 +207,6 @@ describe('useUsageStats Hook', () => {
     mockedGetUsageStats.mockReset();
     mockedGetCurrentSubscription.mockReset();
     mockedGetAllPlans.mockReset();
-    mockedUpdateUserPlan.mockReset();
     queryClient.clear();
   });
 
@@ -263,7 +256,6 @@ describe('useFeatureAccess Hook', () => {
     mockedGetUsageStats.mockReset();
     mockedGetCurrentSubscription.mockReset();
     mockedGetAllPlans.mockReset();
-    mockedUpdateUserPlan.mockReset();
     queryClient.clear();
   });
 
@@ -321,74 +313,5 @@ describe('useFeatureAccess Hook', () => {
 
     expect(result.current.isLoading).toBe(true);
     expect(result.current.can_use).toBe(false);
-  });
-});
-
-describe('useUpdateSubscription Hook', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockedUpdateUserPlan.mockReset();
-    mockedGetCurrentSubscription.mockReset();
-    mockedGetUsageStats.mockReset();
-    mockedGetAllPlans.mockReset();
-    queryClient.clear();
-  });
-
-  it('should update subscription successfully', async () => {
-    const newPlan = 'Premium';
-    mockedUpdateUserPlan.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useUpdateSubscription(), { wrapper });
-
-    await act(async () => {
-      result.current.mutate(newPlan);
-    });
-
-    expect(mockedUpdateUserPlan).toHaveBeenCalledWith(newPlan);
-
-    // Mutation başarılı olmalı
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
-  });
-
-  it('should handle update subscription error', async () => {
-    const mockError = new Error('Update failed');
-    mockedUpdateUserPlan.mockRejectedValue(mockError);
-
-    const { result } = renderHook(() => useUpdateSubscription(), { wrapper });
-
-    await act(async () => {
-      result.current.mutate('Premium');
-    });
-
-    expect(mockedUpdateUserPlan).toHaveBeenCalledWith('Premium');
-
-    // Mutation hata vermeli
-    await waitFor(() => {
-      expect(result.current.isError).toBe(true);
-    });
-  });
-
-  it('should handle multiple plan updates', async () => {
-    mockedUpdateUserPlan.mockResolvedValue(undefined);
-
-    const { result } = renderHook(() => useUpdateSubscription(), { wrapper });
-
-    // İlk update
-    await act(async () => {
-      result.current.mutate('Premium');
-    });
-
-    expect(mockedUpdateUserPlan).toHaveBeenCalledTimes(1);
-    expect(mockedUpdateUserPlan).toHaveBeenCalledWith('Premium');
-
-    // İkinci update
-    await act(async () => {
-      result.current.mutate('Free');
-    });
-
-    expect(mockedUpdateUserPlan).toHaveBeenCalledTimes(2);
-    expect(mockedUpdateUserPlan).toHaveBeenLastCalledWith('Free');
   });
 });

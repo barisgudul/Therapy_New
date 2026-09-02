@@ -1,15 +1,13 @@
 // hooks/useSubscription.ts
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   FeatureKey,
   getAllPlans,
   getCurrentSubscription,
   getUsageStats,
   SubscriptionPlan,
-  updateUserPlan,
   UsageStats,
 } from "../services/subscription.service";
-import { PlanName } from "../store/subscriptionStore";
 
 // React Query için anahtar (key) tanımları
 const queryKeys = {
@@ -75,21 +73,7 @@ export function useFeatureAccess(feature: FeatureKey) {
   return { ...access, ...queryInfo };
 }
 
-/**
- * Kullanıcının planını değiştirmek için kullanılan hook.
- */
-export function useUpdateSubscription() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (newPlan: PlanName) => updateUserPlan(newPlan),
-    onSuccess: () => { // onSettled yerine onSuccess kullan
-      queryClient.invalidateQueries({ queryKey: queryKeys.current });
-      queryClient.invalidateQueries({ queryKey: queryKeys.usage });
-    },
-    onError: () => { // Hata durumunda da invalidate et
-      queryClient.invalidateQueries({ queryKey: queryKeys.current });
-      queryClient.invalidateQueries({ queryKey: queryKeys.usage });
-    },
-  });
-}
+// Plan changes are driven server-side by the RevenueCat webhook
+// (revenuecat-webhook -> assign_plan_to_user via service_role). There is no
+// client-side plan mutation: assign_plan_to_user is no longer callable by
+// anon/authenticated.

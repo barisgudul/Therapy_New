@@ -5,7 +5,6 @@ import {
     getAllPlans,
     getCurrentSubscription,
     getUsageStats,
-    updateUserPlan,
 } from "../subscription.service";
 import { supabase } from "../../utils/supabase";
 import { getMockedSupabaseQuery } from "./supabase.mock";
@@ -214,41 +213,4 @@ describe("subscription.service", () => {
         });
     });
 
-    describe("updateUserPlan", () => {
-        it("Kullanıcı login ise doğru RPC'yi çağırmalı ve success dönmeli", async () => {
-            (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-                error: null,
-            });
-
-            const result = await updateUserPlan("Premium");
-
-            expect(result).toEqual({ success: true });
-            expect(mockedSupabase.rpc).toHaveBeenCalledWith(
-                "assign_plan_to_user",
-                {
-                    p_user_id: "test-user-id",
-                    p_plan_name: "Premium",
-                },
-            );
-        });
-
-        it("Kullanıcı login değilse hata fırlatmalı", async () => {
-            (mockedSupabase.auth.getUser as jest.Mock).mockResolvedValueOnce({
-                data: { user: null },
-            });
-
-            await expect(updateUserPlan("Premium")).rejects.toThrow(
-                "Kullanıcı bulunamadı.",
-            );
-        });
-
-        it("RPC hata verirse, o hatayı yukarı fırlatmalı", async () => {
-            const rpcError = new Error("Plan değiştirilemedi");
-            (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-                error: rpcError,
-            });
-
-            await expect(updateUserPlan("Premium")).rejects.toThrow(rpcError);
-        });
-    });
 });

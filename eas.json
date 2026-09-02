@@ -36,7 +36,11 @@
       },
       "env": {
         "EXPO_PUBLIC_ENV": "staging",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://xnicudjkfmxsmyxbemur.supabase.co"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://xnicudjkfmxsmyxbemur.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhuaWN1ZGprZm14c215eGJlbXVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxNDA3MDQsImV4cCI6MjA3NzcxNjcwNH0.kG0zDCwAIrC-SLWgGbgNk6GbB-vLkV8lovv02niUmDM",
+        "EXPO_PUBLIC_RC_IOS_KEY": "",
+        "EXPO_PUBLIC_RC_ANDROID_KEY": "",
+        "EXPO_PUBLIC_SENTRY_DSN": ""
       }
     },
     "production": {
@@ -48,7 +52,11 @@
       },
       "env": {
         "EXPO_PUBLIC_ENV": "production",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ijtcqbxagcdgfxrgamis.supabase.co"
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ijtcqbxagcdgfxrgamis.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqdGNxYnhhZ2NkZ2Z4cmdhbWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIxNTAyMDEsImV4cCI6MjA2NzcyNjIwMX0.LPZoZbbIkfN0IsZLA9DyD6Y8iydlhemUdcRmlr_Els0",
+        "EXPO_PUBLIC_RC_IOS_KEY": "",
+        "EXPO_PUBLIC_RC_ANDROID_KEY": "",
+        "EXPO_PUBLIC_SENTRY_DSN": ""
       }
     }
   },
@@ -58,6 +66,10 @@
         "serviceAccountKeyPath": "./credentials/play-service-account.json",
         "track": "internal",
         "releaseStatus": "draft"
+      },
+      "ios": {
+        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
       }
     }
   }
