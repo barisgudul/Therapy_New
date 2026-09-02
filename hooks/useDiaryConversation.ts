@@ -5,6 +5,7 @@ import Toast from "react-native-toast-message";
 import i18n from "../utils/i18n";
 import type { Message } from "../types/diary.types";
 import { getErrorMessage } from "../utils/errors";
+import { maybeShowCrisis } from "../utils/crisis";
 import { supabase } from "../utils/supabase";
 
 // ConversationResponse tipini burada tanımlayalım
@@ -69,12 +70,15 @@ export function useDiaryConversation() {
                 setCurrentQuestions(response.nextQuestions || []);
             }
         },
-        onError: (e: Error) =>
+        onError: async (e: Error) => {
+            // Kriz (yüksek risk) ise normal hata toast'u yerine kriz ekranını göster.
+            if (await maybeShowCrisis(e)) return;
             Toast.show({
                 type: "error",
                 text1: i18n.t("diary.toasts.ai_connect_error_title"),
                 text2: getErrorMessage(e),
-            }),
+            });
+        },
     });
 
     // --- KONTROL MERKEZİ (Handlers) ---

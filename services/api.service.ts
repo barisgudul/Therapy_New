@@ -106,19 +106,8 @@ export function callSummarizeSession(sessionText: string, language?: string) {
     return apiCall(promise);
 }
 
-export function callGenerateReport(days: number, language?: string) {
-    const promise = (async () => {
-        const { data, error } = await supabase.functions.invoke(
-            "generate-report",
-            {
-                body: { days, language },
-            },
-        );
-        if (error) throw new Error(error.message);
-        return typeof data === "string" ? JSON.parse(data) : data;
-    })();
-    return apiCall(promise);
-}
+// Not: callGenerateReport (kullanılmayan ikinci rapor üretici 'generate-report')
+// kaldırıldı. Uygulama 'create-analysis-report'u kullanıyor (bkz. ai_summary).
 
 // YENİ: En son kişisel raporu getirir
 export function getLatestAnalysisReport() {
@@ -141,25 +130,8 @@ export function getLatestAnalysisReport() {
     return apiCall(promise);
 }
 
-// YENİ: Behavioral pattern analizi tetikleme
-export function triggerBehavioralAnalysis(periodDays: number) {
-    const promise = (async () => {
-        const { data, error } = await supabase.functions.invoke(
-            "analyze-behavioral-patterns",
-            {
-                body: { periodDays },
-            },
-        );
-
-        if (error) {
-            throw new Error(error.message);
-        }
-
-        return data;
-    })();
-
-    return apiCall(promise);
-}
+// Not: triggerBehavioralAnalysis kaldırıldı (uygulamada çağrılmıyordu;
+// davranışsal analiz ReportDetailModal içinden doğrudan invoke ediliyor).
 
 // YENİ: Onboarding insight üretme
 export function generateOnboardingInsight(

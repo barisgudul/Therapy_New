@@ -5,10 +5,12 @@ import i18n from "../utils/i18n";
 import { useRouter } from "expo-router/";
 import { signOut } from "../utils/auth";
 import { supabase } from "../utils/supabase";
+import { useConsentStore } from "../store/consentStore";
 
 export const useSettings = () => {
     const router = useRouter();
     const [isResetting, setIsResetting] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     const handleSignOut = () => {
         Alert.alert(
@@ -30,10 +32,7 @@ export const useSettings = () => {
                             const errorMessage = error instanceof Error
                                 ? error.message
                                 : i18n.t("settings.password.error_unexpected");
-                            console.error(
-                                "Sign out error:",
-                                errorMessage,
-                            );
+                            console.error("Sign out error:", errorMessage);
                             Alert.alert(
                                 i18n.t("settings.security.alert_error"),
                                 errorMessage,
@@ -45,28 +44,35 @@ export const useSettings = () => {
         );
     };
 
-    const executeDataReset = async () => {
+    const openDeleteModal = () => setIsDeleteModalOpen(true);
+    const closeDeleteModal = () => {
+        if (!isResetting) setIsDeleteModalOpen(false);
+    };
+
+    /** Called by ConfirmDeleteModal once the user has explicitly confirmed. */
+    const confirmDelete = async () => {
         setIsResetting(true);
         try {
-            const { error } = await supabase.functions.invoke(
-                "reset-user-data",
-            );
+            const { error } = await supabase.functions.invoke("reset-user-data");
             if (error) throw error;
 
+            // Local consent is per-device; clear it so a re-signup re-consents.
+            useConsentStore.getState().reset();
+
+            setIsDeleteModalOpen(false);
             Alert.alert(
-                i18n.t("settings.main.dangerZone_title"),
-                i18n.t("settings.profile.error_loading"),
+                i18n.t("settings.account.delete_done_title"),
+                i18n.t("settings.account.delete_done_body"),
             );
             await signOut();
             router.replace("/login");
         } catch (err: unknown) {
-            console.error("Veri sıfırlama işlemi sırasında hata:", err);
+            console.error("Hesap silme işlemi sırasında hata:", err);
             let errorMessage = i18n.t("settings.password.error_unexpected");
 
             if (err instanceof Error) {
                 if (err.message === "Failed to fetch") {
-                    errorMessage =
-                        "İnternet bağlantınız kontrol edin. Sunucuya ulaşılamadı.";
+                    errorMessage = i18n.t("settings.account.delete_error_network");
                 } else if (
                     "details" in err &&
                     typeof (err as { details?: string }).details === "string"
@@ -84,65 +90,12 @@ export const useSettings = () => {
         }
     };
 
-    const handleResetData = () => {
-        const confirmationText = "tüm verilerimi sil"; // TODO: çok dillendirme istenirse locale'e alınabilir
-        Alert.alert(
-            i18n.t("settings.main.dangerZone_title"),
-            i18n.t("settings.profile.subtitle"),
-            [
-                {
-                    text: i18n.t("settings.security.alert_cancel"),
-                    style: "cancel",
-                },
-                {
-                    text: i18n.t("common.continue"),
-                    style: "destructive",
-                    onPress: () => {
-                        Alert.prompt(
-                            i18n.t("settings.main.dangerZone_title"),
-                            `Lütfen devam etmek için aşağıdaki kutucuğa "${confirmationText}" yazın.`,
-                            [
-                                {
-                                    text: i18n.t(
-                                        "settings.security.alert_cancel",
-                                    ),
-                                    style: "cancel",
-                                },
-                                {
-                                    text: i18n.t(
-                                        "settings.main.dangerZone_resetData",
-                                    ),
-                                    style: "destructive",
-                                    onPress: async (inputText) => {
-                                        if (
-                                            inputText?.toLowerCase() !==
-                                                confirmationText
-                                        ) {
-                                            Alert.alert(
-                                                i18n.t(
-                                                    "settings.profile.toast_error_title",
-                                                ),
-                                                i18n.t(
-                                                    "settings.profile.toast_error_body",
-                                                ),
-                                            );
-                                            return;
-                                        }
-                                        await executeDataReset();
-                                    },
-                                },
-                            ],
-                            "plain-text",
-                        );
-                    },
-                },
-            ],
-        );
-    };
-
     return {
         isResetting,
+        isDeleteModalOpen,
         handleSignOut,
-        handleResetData,
+        openDeleteModal,
+        closeDeleteModal,
+        confirmDelete,
     };
 };

@@ -1,0 +1,46 @@
+{
+  // App-scoped typecheck config used by `npm run typecheck` and CI.
+  // Excludes the Supabase edge functions (Deno runtime — separate `deno check`)
+  // and test files (checked at runtime by jest, not part of the ship gate).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["jest"]
+  },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "hooks/**/*.ts",
+    "hooks/**/*.tsx",
+    "services/**/*.ts",
+    "store/**/*.ts",
+    "providers/**/*.ts",
+    "providers/**/*.tsx",
+    "utils/**/*.ts",
+    "context/**/*.ts",
+    "context/**/*.tsx",
+    "constants/**/*.ts",
+    "schemas/**/*.ts",
+    "styles/**/*.ts",
+    "types/**/*.d.ts",
+    "types/**/*.ts",
+    "expo-env.d.ts",
+    "routes.d.ts",
+    "react-native-html-to-pdf.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "supabase",
+    "coverage",
+    "dist",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/tests/**",
+    "test/**"
+  ]
+}

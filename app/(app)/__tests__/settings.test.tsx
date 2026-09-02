@@ -7,6 +7,16 @@ import SettingsScreen from '../settings';
 // Mock'lar
 jest.mock('../../../context/Auth');
 jest.mock('../../../hooks/useSettings');
+jest.mock('../../../hooks/useSubscription', () => ({
+  useSubscription: () => ({ planName: 'Free', isPremium: false, isLoading: false }),
+}));
+jest.mock('../../../hooks/useRevenueCat', () => ({
+  useRevenueCat: () => ({
+    presentCustomerCenter: jest.fn(),
+    presentPaywall: jest.fn(),
+    restore: jest.fn(),
+  }),
+}));
 jest.mock('../../../components/settings/FeaturedCard');
 jest.mock('../../../components/settings/SettingsCard');
 jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
@@ -47,7 +57,10 @@ describe('SettingsScreen', () => {
     mockUseSettings.mockReturnValue({
       isResetting: false,
       handleSignOut: jest.fn(),
-      handleResetData: jest.fn(),
+      isDeleteModalOpen: false,
+      openDeleteModal: jest.fn(),
+      closeDeleteModal: jest.fn(),
+      confirmDelete: jest.fn(),
     });
 
     mockUseRouter.mockImplementation(() => ({
@@ -158,7 +171,10 @@ describe('SettingsScreen', () => {
     mockUseSettings.mockReturnValue({
       isResetting: true,
       handleSignOut: jest.fn(),
-      handleResetData: jest.fn(),
+      isDeleteModalOpen: false,
+      openDeleteModal: jest.fn(),
+      closeDeleteModal: jest.fn(),
+      confirmDelete: jest.fn(),
     });
 
     render(<SettingsScreen />);
@@ -219,7 +235,10 @@ describe('SettingsScreen', () => {
     mockUseSettings.mockReturnValue({
       isResetting: false,
       handleSignOut: mockHandleSignOut,
-      handleResetData: jest.fn(),
+      isDeleteModalOpen: false,
+      openDeleteModal: jest.fn(),
+      closeDeleteModal: jest.fn(),
+      confirmDelete: jest.fn(),
     });
 
     render(<SettingsScreen />);
@@ -230,21 +249,23 @@ describe('SettingsScreen', () => {
     expect(mockHandleSignOut).toHaveBeenCalledTimes(1);
   });
 
-  it('reset data butonuna basıldığında handleResetData çağrılmalıdır', () => {
-    const mockHandleResetData = jest.fn();
+  it('hesabı sil butonuna basıldığında openDeleteModal çağrılmalıdır', () => {
+    const mockOpenDeleteModal = jest.fn();
 
     mockUseSettings.mockReturnValue({
       isResetting: false,
+      isDeleteModalOpen: false,
       handleSignOut: jest.fn(),
-      handleResetData: mockHandleResetData,
+      openDeleteModal: mockOpenDeleteModal,
+      closeDeleteModal: jest.fn(),
+      confirmDelete: jest.fn(),
     });
 
     render(<SettingsScreen />);
 
-    const resetButton = screen.getByText('settings.main.dangerZone_resetData');
-    fireEvent.press(resetButton);
+    fireEvent.press(screen.getByTestId('delete-account-button'));
 
-    expect(mockHandleResetData).toHaveBeenCalledTimes(1);
+    expect(mockOpenDeleteModal).toHaveBeenCalledTimes(1);
   });
 
   it('pressed state butonlar için çalışmalıdır', () => {

@@ -188,6 +188,7 @@ describe('useVoiceSessionReducer - Karmaşık State Makinesi Testi', () => {
       await waitFor(() => {
         expect(mockSupabase.functions.invoke).toHaveBeenCalledWith('voice-session', {
           body: {
+            language: expect.any(String),
             messages: expect.arrayContaining([
               expect.objectContaining({
                 sender: 'user',

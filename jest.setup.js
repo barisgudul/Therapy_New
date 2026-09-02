@@ -15,6 +15,41 @@ global.console = {
     require('@react-native-async-storage/async-storage/jest/async-storage-mock')
   );
   
+  // RevenueCat SDK'yı mock'la (native modül — Jest'te yok)
+  jest.mock('react-native-purchases', () => ({
+    __esModule: true,
+    default: {
+      configure: jest.fn(),
+      isConfigured: jest.fn().mockResolvedValue(false),
+      setLogLevel: jest.fn(),
+      logIn: jest.fn().mockResolvedValue({ customerInfo: { entitlements: { active: {} } } }),
+      logOut: jest.fn().mockResolvedValue({ entitlements: { active: {} } }),
+      getCustomerInfo: jest.fn().mockResolvedValue({ entitlements: { active: {} } }),
+      getOfferings: jest.fn().mockResolvedValue({ current: null, all: {} }),
+      restorePurchases: jest.fn().mockResolvedValue({ entitlements: { active: {} } }),
+      addCustomerInfoUpdateListener: jest.fn(),
+      removeCustomerInfoUpdateListener: jest.fn(),
+    },
+    LOG_LEVEL: { VERBOSE: 'VERBOSE', ERROR: 'ERROR' },
+  }));
+
+  jest.mock('react-native-purchases-ui', () => ({
+    __esModule: true,
+    default: {
+      presentPaywall: jest.fn().mockResolvedValue('NOT_PRESENTED'),
+      presentPaywallIfNeeded: jest.fn().mockResolvedValue('NOT_PRESENTED'),
+      presentCustomerCenter: jest.fn().mockResolvedValue(undefined),
+      Paywall: () => null,
+    },
+    PAYWALL_RESULT: {
+      NOT_PRESENTED: 'NOT_PRESENTED',
+      ERROR: 'ERROR',
+      CANCELLED: 'CANCELLED',
+      PURCHASED: 'PURCHASED',
+      RESTORED: 'RESTORED',
+    },
+  }));
+
   // expo-localization'ı mock'la
   jest.mock('expo-localization', () => ({
     getLocales: () => [{ languageTag: 'en-US', languageCode: 'en', textDirection: 'ltr', regionCode: 'US' }],
@@ -227,12 +262,13 @@ jest.mock('i18next', () => ({
   language: 'tr',
 }));
 
-// Mock utils/i18n
-jest.mock('./utils/i18n', () => ({
-  initReactI18next: {
-    type: '3rdParty',
-    init: jest.fn(),
-  },
+// Mock @sentry/react-native (native module — not available under Jest)
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  wrap: (component) => component,
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  setUser: jest.fn(),
 }));
 
 // Mock expo-router

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dimensions, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
     Easing,
@@ -26,11 +27,12 @@ type MoodSelectorProps = {
 };
 
 export default function MoodSelector({ title, buttonText, onSave }: MoodSelectorProps) {
+    const { t } = useTranslation();
     const [moodIndex, setMoodIndex] = useState(3);
     const progress = useSharedValue(3);
     const scale = useSharedValue(1);
     const opacity = useSharedValue(0);
-    const intervalRef = useRef<number | null>(null);
+    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         opacity.value = withTiming(1, { duration: 800 });
@@ -104,10 +106,18 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
                     <Text style={styles.title}>{title}</Text>
                     <Text style={styles.moodLabel}>{MOOD_LEVELS[moodIndex]?.label || 'Nötr'}</Text>
                 </View>
-                <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} testID="mood-orb">
+                <Pressable
+                    onPressIn={handlePressIn}
+                    onPressOut={handlePressOut}
+                    testID="mood-orb"
+                    accessibilityRole="adjustable"
+                    accessibilityLabel={t('mood_selector.a11y_label')}
+                    accessibilityHint={t('mood_selector.instruction')}
+                    accessibilityValue={{ text: MOOD_LEVELS[moodIndex]?.label }}
+                >
                     <Animated.View style={[styles.orb, animatedOrbStyle]}>
-                        <LinearGradient 
-                          colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']} 
+                        <LinearGradient
+                          colors={['rgba(255,255,255,0.4)', 'rgba(255,255,255,0)']}
                           style={styles.orbHighlight}
                         />
                          <Animated.View style={[styles.textContainer, animatedTextContainerStyle]}>
@@ -115,7 +125,7 @@ export default function MoodSelector({ title, buttonText, onSave }: MoodSelector
                                  <Ionicons name="finger-print-outline" size={32} />
                              </Animated.Text>
                              <Animated.Text style={[styles.instructionText, animatedContentStyle]}>
-                                 Hissetmek için basılı tut
+                                 {t('mood_selector.instruction')}
                              </Animated.Text>
                         </Animated.View>
                     </Animated.View>

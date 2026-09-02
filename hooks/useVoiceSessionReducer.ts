@@ -3,6 +3,7 @@ import { useCallback, useEffect, useReducer } from "react";
 import { Alert, BackHandler } from "react-native";
 import { supabase } from "../utils/supabase";
 import { useVoiceSession } from "./useVoice"; // Mevcut ses hook'unu kullanacağız
+import i18n from "../utils/i18n";
 
 // 1. State ve Action Tiplerini Tanımla
 export interface VoiceMessage {
@@ -134,7 +135,10 @@ export function useVoiceSessionReducer(
                     const { data, error } = await supabase.functions.invoke(
                         "voice-session",
                         {
-                            body: { messages: state.messages },
+                            body: {
+                                messages: state.messages,
+                                language: i18n.language,
+                            },
                         },
                     );
 
@@ -214,6 +218,41 @@ export function useVoiceSessionReducer(
                     await supabase.functions.invoke("unified-ai-gateway", {
                         body: { eventPayload: sessionEndPayload },
                     });
+
+                    // KALICI HAFIZA: Sesli seansı da text_session gibi özetleyip
+                    // cognitive_memories'e yaz (eskiden sesli seanslar RAG'a girmiyordu).
+                    try {
+                        const { data: seInserted, error: seInsertErr } =
+                            await supabase
+                                .from("events")
+                                .insert({
+                                    user_id: user.id,
+                                    type: "session_end",
+                                    data: {
+                                        messageCount: state.messages.length,
+                                        modality: "voice",
+                                    },
+                                })
+                                .select("id")
+                                .single();
+                        if (seInsertErr) throw seInsertErr;
+
+                        await supabase.functions.invoke(
+                            "process-session-memory",
+                            {
+                                body: {
+                                    messages: state.messages.map((m) => ({
+                                        sender: m.sender,
+                                        text: m.text,
+                                    })),
+                                    eventId: seInserted.id,
+                                    language: i18n.language,
+                                },
+                            },
+                        );
+                    } catch (memErr) {
+                        console.error("Sesli seans hafıza yazımı hatası:", memErr);
+                    }
                 }
             } catch (err) {
                 console.error("Session end error:", err);

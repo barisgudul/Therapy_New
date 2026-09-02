@@ -47,7 +47,9 @@ app.config.local.js
 
 .env.local
 
+# EAS submit credentials (Play service account, ASC key, keystores)
+credentials/
 
-
+# Native projects — CNG regenerates these via `expo prebuild` / EAS Build
 ios
 android

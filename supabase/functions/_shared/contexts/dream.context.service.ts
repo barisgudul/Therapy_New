@@ -189,8 +189,8 @@ export async function getEnhancedDreamRagContext(
       userId,
       dreamText,
       {
-        threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
-        count: config.RAG_PARAMS.DEFAULT.COUNT,
+        threshold: config.RAG_PARAMS.DEFAULT.threshold,
+        count: config.RAG_PARAMS.DEFAULT.count,
       },
     );
     return retrievedMemories.map((c) => `- ${c.content}`).join("\n");

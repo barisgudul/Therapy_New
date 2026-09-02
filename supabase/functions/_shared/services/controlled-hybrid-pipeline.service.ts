@@ -34,30 +34,6 @@ Sadece JSON döndür: { "insight": "1-2 cümlelik içgörü" }`;
     return reply;
 }
 
-export class ControlledHybridPipeline {
-    /**
-     * 🧠 KARMAŞIK SORU İŞLEYİCİ
-     */
-    static executeComplexQuery(
-        _context: InteractionContext,
-        pipelineType: string,
-    ): unknown {
-        console.log(`[PIPELINE] 🎯 Pipeline başlatılıyor: ${pipelineType}`);
-
-        try {
-            // Diğer pipeline tipleri için yönlendirme / basit yanıt
-            const responses: Record<string, string> = {
-                "pattern_discovery": "Örüntü keşfi şu an geliştiriliyor.",
-                "insight_synthesis": "İçgörü sentezi şu an geliştiriliyor.",
-                "diary_management": "Günlük yönetimi şu an geliştiriliyor.",
-                "daily_reflection": "Günlük yansıma şu an geliştiriliyor.",
-            };
-
-            return responses[pipelineType] ||
-                "Bu özellik şu an geliştiriliyor.";
-        } catch (error) {
-            console.error(`[PIPELINE] ❌ Pipeline hatası:`, error);
-            throw new Error("Pipeline işlemi sırasında bir hata oluştu.");
-        }
-    }
-}
+// Not: Eski `ControlledHybridPipeline` sınıfı (kullanıcıya "şu an geliştiriliyor"
+// placeholder'ı döndüren ölü kod) kaldırıldı. Production yolu orchestrator/index.ts
+// içindeki eventHandlers'tır. ai_analysis intent'i doğrudan executeDeepAnalysis'a gider.

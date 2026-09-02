@@ -106,7 +106,7 @@ describe("subscriptionStore", () => {
             result.current.setPlanName("Premium");
         });
 
-        rerender();
+        rerender(undefined);
         const setPlanName2 = result.current.setPlanName;
 
         expect(setPlanName1).toBe(setPlanName2);

@@ -7,15 +7,16 @@ import { useHomeScreen } from '../useHomeScreen';
 jest.mock('../useVault');
 jest.mock('expo-router/');
 jest.mock('@tanstack/react-query');
-jest.mock('expo-notifications');
 jest.mock('../../utils/supabase');
 jest.mock('../../store/onboardingStore');
+jest.mock('../../utils/notifications');
 
 describe('useHomeScreen - Motor Testi', () => {
   const mockUseVault = jest.mocked(require('../useVault').useVault);
+  const mockUseUpdateVault = jest.mocked(require('../useVault').useUpdateVault);
   const mockUseRouter = jest.mocked(require('expo-router/').useRouter);
   const mockUseQueryClient = jest.mocked(require('@tanstack/react-query').useQueryClient);
-  const mockNotifications = jest.mocked(require('expo-notifications'));
+  const mockSyncDailyReminders = jest.mocked(require('../../utils/notifications').syncDailyReminders);
   const mockSupabase = jest.mocked(require('../../utils/supabase').supabase);
   const mockUseOnboardingStore = jest.mocked(require('../../store/onboardingStore').useOnboardingStore);
 
@@ -44,8 +45,7 @@ describe('useHomeScreen - Motor Testi', () => {
     mockUseOnboardingStore.mockImplementation((selector) => selector(mockStoreState));
 
     // Notifications mock
-    mockNotifications.cancelAllScheduledNotificationsAsync = jest.fn().mockResolvedValue(undefined);
-    mockNotifications.scheduleNotificationAsync = jest.fn().mockResolvedValue('notification-id');
+    mockSyncDailyReminders.mockResolvedValue(true);
 
     // Supabase mock
     mockSupabase.functions = {
@@ -57,6 +57,9 @@ describe('useHomeScreen - Motor Testi', () => {
       data: null,
       isLoading: false,
     } as any);
+
+    // useUpdateVault mock (streak celebration writes go through this)
+    mockUseUpdateVault.mockReturnValue({ mutate: jest.fn() } as any);
   });
 
   describe('1. Initial State', () => {
@@ -147,7 +150,7 @@ describe('useHomeScreen - Motor Testi', () => {
   });
 
   describe('3. Notification Scheduling', () => {
-    it('vault yüklendiğinde bildirimler zamanlanır', async () => {
+    it('vault yüklendiğinde hatırlatıcılar senkronlanır', async () => {
       mockUseVault.mockReturnValue({
         data: {
           metadata: {},
@@ -158,43 +161,11 @@ describe('useHomeScreen - Motor Testi', () => {
       renderHook(() => useHomeScreen());
 
       await waitFor(() => {
-        expect(mockNotifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
-      });
-
-      await waitFor(() => {
-        expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledTimes(2);
-      });
-
-      // Sabah 8 bildirimi
-      expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith({
-        content: {
-          title: 'Günaydın!',
-          body: 'Bugün kendine iyi bakmayı unutma.',
-          data: { route: '/daily_reflection' },
-        },
-        trigger: {
-          hour: 8,
-          minute: 0,
-          repeats: true,
-        },
-      });
-
-      // Akşam 20 bildirimi
-      expect(mockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith({
-        content: {
-          title: 'Bugün nasılsın?',
-          body: '1 cümleyle kendini ifade etmek ister misin?',
-          data: { route: '/daily_reflection' },
-        },
-        trigger: {
-          hour: 20,
-          minute: 0,
-          repeats: true,
-        },
+        expect(mockSyncDailyReminders).toHaveBeenCalled();
       });
     });
 
-    it('vault loading iken bildirimler zamanlanmaz', () => {
+    it('vault loading iken hatırlatıcılar senkronlanmaz', () => {
       mockUseVault.mockReturnValue({
         data: null,
         isLoading: true,
@@ -202,7 +173,7 @@ describe('useHomeScreen - Motor Testi', () => {
 
       renderHook(() => useHomeScreen());
 
-      expect(mockNotifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+      expect(mockSyncDailyReminders).not.toHaveBeenCalled();
     });
   });
 
@@ -587,7 +558,7 @@ describe('useHomeScreen - Motor Testi', () => {
         isLoading: false,
       } as any);
 
-      rerender();
+      rerender(undefined);
 
       // Yeni mesaj görünmeli
       expect(result.current.dailyMessage).toBe('Yeni mesaj');

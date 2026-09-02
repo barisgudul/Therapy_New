@@ -1,7 +1,7 @@
 // app/(auth)/register.tsx
 import { useRouter } from "expo-router/";
 import React, { useState } from "react";
-import { LayoutAnimation, Text, View, TouchableOpacity } from "react-native";
+import { LayoutAnimation, Pressable, StyleSheet, Text, View, TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from '@expo/vector-icons'; // Vektör ikonlar için
 import Animated, { FadeIn } from 'react-native-reanimated'; // Animasyon için
@@ -16,14 +16,18 @@ import { authScreenStyles as styles } from "../../styles/auth";
 import { signUpWithOnboardingData } from "../../utils/auth";
 import { logEvent } from "../../services/api.service";
 import { supabase } from "../../utils/supabase";
+import { LEGAL_VERSION } from "../../constants/legal";
+import { useConsentStore } from "../../store/consentStore";
 
 export default function RegisterScreen() {
     const router = useRouter();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { showLoading, hideLoading, isLoading } = useLoading();
+    const acceptConsent = useConsentStore((s) => s.accept);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [nickname, setNicknameLocal] = useState("");
+    const [consentChecked, setConsentChecked] = useState(false);
 
     // HATA STATE'İNİ AKILLANDIRIYORUZ
     const [error, setError] = useState<{ field: string; message: string } | null>(null);
@@ -114,6 +118,10 @@ export default function RegisterScreen() {
             setError({ field: 'password', message: t("auth.error_password_length") });
             return;
         }
+        if (!consentChecked) {
+            setError({ field: 'consent', message: t("auth.error_consent_required") });
+            return;
+        }
         changeStep(1);
     };
 
@@ -137,6 +145,9 @@ export default function RegisterScreen() {
                 setError({ field: 'general', message: signUpError });
             }
         } else if (user) {
+            // Kayıt formundaki onay kutusu işaretlendi (goToNextStep bunu zorunlu kılar);
+            // kabul edilen sürümü kaydet ki giriş-sonrası onay kapısı tekrar çıkmasın.
+            acceptConsent(LEGAL_VERSION, i18n.language);
             // resetOnboarding()'i BURADAN SİLİYORUZ.
             await logEvent({ type: "register_success", data: { source: "softwall" } });
 
@@ -188,6 +199,38 @@ export default function RegisterScreen() {
               </View>
             )}
 
+            {step === 0 && (
+              <View style={consentStyles.wrapper}>
+                <Pressable
+                  style={consentStyles.row}
+                  onPress={() => setConsentChecked((v) => !v)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: consentChecked }}
+                  testID="register-consent"
+                >
+                  <Ionicons
+                    name={consentChecked ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={consentChecked ? "#4338CA" : (error?.field === 'consent' ? "#DC2626" : "#94A3B8")}
+                  />
+                  <Text style={consentStyles.label}>{t("auth.consent_checkbox")}</Text>
+                </Pressable>
+                <View style={consentStyles.links}>
+                  <TouchableOpacity onPress={() => router.push("/(legal)/privacy")}>
+                    <Text style={consentStyles.link}>{t("legal.doc_title.privacy")}</Text>
+                  </TouchableOpacity>
+                  <Text style={consentStyles.linkSep}> · </Text>
+                  <TouchableOpacity onPress={() => router.push("/(legal)/terms")}>
+                    <Text style={consentStyles.link}>{t("legal.doc_title.terms")}</Text>
+                  </TouchableOpacity>
+                  <Text style={consentStyles.linkSep}> · </Text>
+                  <TouchableOpacity onPress={() => router.push("/(legal)/disclaimer")}>
+                    <Text style={consentStyles.link}>{t("legal.doc_title.disclaimer")}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
                 {/* YENİ VE MARKAYA UYGUN BUTON */}
                 <AuthButton
                     text={t(step === 0 ? 'auth.continue' : 'auth.create_account_cta')}
@@ -229,3 +272,12 @@ export default function RegisterScreen() {
         </AuthLayout>
     );
 }
+
+const consentStyles = StyleSheet.create({
+    wrapper: { marginTop: 4, marginBottom: 4 },
+    row: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    label: { flex: 1, fontSize: 12, lineHeight: 17, color: "#64748B" },
+    links: { flexDirection: "row", flexWrap: "wrap", marginTop: 6, marginLeft: 30 },
+    link: { fontSize: 12, fontWeight: "600", color: "#4338CA" },
+    linkSep: { fontSize: 12, color: "#94A3B8" },
+});

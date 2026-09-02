@@ -13,8 +13,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 // 🚀 FAZ 2: BEHAVIORAL PATTERN ANALYZER
 // "Unconscious Detection" yerine veri-temelli davranış analizi
 
-// AI_MODELS artık config.ts'den geliyor
-import { config } from "../config.ts";
+// Not: config importu kaldırıldı (yalnızca kaldırılan generatePatternSummary kullanıyordu).
 
 // ANALİZ SABİTLERİ
 const ANALYSIS_CONSTANTS = {
@@ -670,58 +669,6 @@ export class BehavioralPatternAnalyzer {
     };
   }
 
-  /**
-   * 📊 KALIP ÖZETİ OLUŞTURMA
-   */
-  static async generatePatternSummary(
-    aiService: {
-      invokeGemini: (
-        prompt: string,
-        model: string,
-        options?: { temperature?: number; maxOutputTokens?: number },
-      ) => Promise<string>;
-    },
-    analysis: BehavioralAnalysisResult,
-  ): Promise<string> {
-    if (analysis.total_patterns_found === 0) {
-      return "Henüz yeterli veri bulunmuyor. Daha fazla etkileşim sonrasında kalıp analizi yapılabilir.";
-    }
-
-    const prompt = `
-Sen bir davranış analisti olarak, aşağıdaki kalıp analizini kullanıcıya açıkla:
-
-### ANALİZ VERİLERİ ###
-- Toplam kalıp: ${analysis.total_patterns_found}
-- Veri kalitesi: ${(analysis.data_quality_score * 100).toFixed(0)}%
-- Analiz güvenilirliği: ${(analysis.analysis_confidence * 100).toFixed(0)}%
-
-### TESPİT EDİLEN KALIPLAR ###
-${
-      analysis.patterns.map((p) => `
-- ${p.pattern_name}: ${p.description}
-  Güven: ${(p.confidence_score * 100).toFixed(0)}%
-  Öneriler: ${p.suggested_insights.join(", ")}
-`).join("\n")
-    }
-
-### TRENDLER ###
-- İletişim trendi: ${analysis.overall_trends.communication_trend}
-- Mood stabilite: ${analysis.overall_trends.mood_stability}
-- Katılım seviyesi: ${analysis.overall_trends.engagement_level}
-
-GÖREV: Bu veriyi kullanıcıya nazik, destekleyici ve yapıcı bir dilde özetle. 
-Kesinlik belirtme, sadece gözlemlerden bahset. Umut verici ol.
-Maksimum 300 kelime.
-    `.trim();
-
-    try {
-      return await aiService.invokeGemini(prompt, config.AI_MODELS.FAST, {
-        temperature: 0.6,
-        maxOutputTokens: 400,
-      });
-    } catch (error) {
-      console.error("Pattern summary generation failed:", error);
-      return "Davranış kalıplarınız analiz edildi. Detaylar için sistem yöneticisine başvurun.";
-    }
-  }
+  // Not: generatePatternSummary kaldırıldı (hiçbir yerde çağrılmıyordu — ölü kod).
+  // Davranışsal analiz sonuçları ReportDetailModal'da doğrudan gösteriliyor.
 }

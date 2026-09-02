@@ -1,62 +1,60 @@
-name: Gisbel iOS CI/CD
+name: CI
 
 on:
   push:
-    branches:
-      - main
-  # GitHub panelinden manuel tetiklemek için buton ekler (Build kotanızı korumak için önemli)
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
-  # 1. Kalite Kontrol (Zaten vardı, aynen koruyoruz)
   lint:
-    name: Lint Kontrolü
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
       - run: npm ci
       - run: npm run lint
 
-  # 2. Testler (Zaten vardı, aynen koruyoruz)
-  test:
-    name: Testler
+  typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "18"
-          cache: 'npm'
+          node-version: "20"
+          cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run typecheck
 
-  # 3. YENİ: Otomatik Build (Deploy)
-  build_ios:
-    name: EAS iOS Build (Preview)
+  test:
+    name: Unit tests
     runs-on: ubuntu-latest
-    # Sadece testler başarılırsa çalışsın
-    needs: [lint, test]
-    # Sadece main branch'e push gelince veya manuel tetiklenince çalışsın
-    if: github.ref == 'refs/heads/main'
+    needs: lint
     steps:
-      - name: Kodu Çek
-        uses: actions/checkout@v4
-
-      - name: EAS CLI Kurulumu
-        uses: expo/expo-github-action@v8
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --ci
 
-      - name: Node Paketlerini Yükle
-        run: npm ci
-
-      - name: iOS Build Başlat
-        # Simülatör build'i alıyoruz (Apple Developer hesabı olmadığı için)
-        run: eas build --platform ios --profile preview --non-interactive
+  bundle:
+    name: Bundle (expo export)
+    runs-on: ubuntu-latest
+    needs: [typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      # Catches missing modules / config-plugin regressions without spending EAS build quota.
+      - run: npx expo export --platform android --output-dir /tmp/expo-export

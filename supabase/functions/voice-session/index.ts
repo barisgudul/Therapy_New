@@ -249,8 +249,8 @@ export async function handleVoiceSession(
         userId,
         enhancedQuery, // BURASI DEĞİŞTİ!
         {
-          threshold: config.RAG_PARAMS.DEFAULT.THRESHOLD,
-          count: config.RAG_PARAMS.DEFAULT.COUNT,
+          threshold: config.RAG_PARAMS.DEFAULT.threshold,
+          count: config.RAG_PARAMS.DEFAULT.count,
         },
       );
     }

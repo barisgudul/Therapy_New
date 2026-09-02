@@ -19,6 +19,8 @@ export const ActionButton: React.FC<ActionButtonProps> = ({ onPress, icon, text,
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={text}
       style={({ pressed }) => [
         styles.button,
         isSpecial && styles.specialButton,

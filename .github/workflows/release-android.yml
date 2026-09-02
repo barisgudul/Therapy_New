@@ -1,0 +1,41 @@
+name: Release Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: "Also submit the build to Google Play (internal track)"
+        type: boolean
+        default: false
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    name: EAS build (production)
+    runs-on: ubuntu-latest
+    # `production` should be a protected GitHub Environment (manual approval + secrets).
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+
+      # Tag pushes and manual runs without the submit flag: build only.
+      - name: Build (.aab)
+        if: ${{ github.event_name == 'push' || inputs.submit != true }}
+        run: eas build --platform android --profile production --non-interactive --no-wait
+
+      # Manual run with submit: build and auto-submit to the internal track.
+      - name: Build + submit (internal track)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.submit == true }}
+        run: eas build --platform android --profile production --non-interactive --auto-submit
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}

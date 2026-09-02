@@ -7,6 +7,7 @@ import {
   embedContentsBatch,
   invokeGemini,
 } from "../_shared/services/ai.service.ts";
+import { config } from "../_shared/config.ts";
 
 // Gelen isteğin neye benzemesi gerektiğini tanımlıyoruz.
 interface RequestBody {
@@ -85,7 +86,7 @@ async function handleProcessMemory(
       const rawAnalysis = await aiServices.invokeGemini(
         adminClient,
         analysisPrompt,
-        "gemini-1.5-flash",
+        config.AI_MODELS.FAST, // config'ten (hardcoded gemini-1.5-flash kaldırıldı)
         {
           responseMimeType: "application/json",
         },
@@ -120,24 +121,41 @@ async function handleProcessMemory(
     let contentEmbedding: number[] | null = null;
     let sentimentEmbedding: number[] | null = null;
     let stylometryEmbedding: number[] | null = null;
-    try {
-      const batchRes = await aiServices.embedContentsBatch(
-        adminClient,
-        batchTexts,
-        transaction_id,
-      );
-      if (batchRes.embeddings && batchRes.embeddings.length >= 3) {
-        [contentEmbedding, sentimentEmbedding, stylometryEmbedding] = batchRes
-          .embeddings as (number[] | null)[];
-      } else {
+    // Dayanıklılık: content embedding kritik (RAG görünürlüğü buna bağlı).
+    // Tek seferlik retry; ilk denemede content vektörü gelmezse bir kez daha dene.
+    const MAX_EMBED_ATTEMPTS = 2;
+    for (
+      let attempt = 1;
+      attempt <= MAX_EMBED_ATTEMPTS && !contentEmbedding;
+      attempt++
+    ) {
+      try {
+        const batchRes = await aiServices.embedContentsBatch(
+          adminClient,
+          batchTexts,
+          transaction_id,
+        );
+        if (batchRes.embeddings && batchRes.embeddings.length >= 3) {
+          [contentEmbedding, sentimentEmbedding, stylometryEmbedding] = batchRes
+            .embeddings as (number[] | null)[];
+        } else {
+          console.warn(
+            `[Process-Memory] Batch embedding eksik/boş (deneme ${attempt}/${MAX_EMBED_ATTEMPTS}).`,
+          );
+        }
+      } catch (e) {
         console.warn(
-          "[Process-Memory] Batch embedding sonuçları eksik/boş, null vektörlerle devam.",
+          `[Process-Memory] Embedding çağrısı başarısız (deneme ${attempt}/${MAX_EMBED_ATTEMPTS}).`,
+          e,
         );
       }
-    } catch (e) {
-      console.warn(
-        "[Process-Memory] Embedding çağrısı başarısız, null vektörlerle devam.",
-        e,
+    }
+    if (!contentEmbedding) {
+      // Bu anı RAG'da görünmez olacak; backfill için belirgin işaretle.
+      console.error(
+        `[Process-Memory][${
+          transaction_id ?? "no-tx"
+        }] content_embedding üretilemedi; anı RAG'da görünmeyecek (event=${source_event_id}). Backfill gerekebilir.`,
       );
     }
 
@@ -172,7 +190,57 @@ async function handleProcessMemory(
       }
     }
 
-    // TODO: FAZ 1.5 - Buradan user_vault ve user_traits de güncellenecek. Şimdilik bu kadar yeter.
+    // FAZ 1.5 — Kullanıcı DNA'sını (vault) evir: baskın duyguların rolling sayacı
+    // ve tekrar eden temalar. Böylece "beyin" zamanla kullanıcıyı tanır.
+    // Defensive: başarısız olsa bile hafıza yazımını/akışı bozma.
+    try {
+      const dominantEmotion =
+        (sentiment_analysis as { dominant_emotion?: string } | null)
+          ?.dominant_emotion;
+      if (dominantEmotion && typeof dominantEmotion === "string") {
+        const { data: vaultRow } = await adminClient
+          .from("user_vaults")
+          .select("vault_data")
+          .eq("user_id", user_id)
+          .maybeSingle();
+
+        const vaultData =
+          (vaultRow?.vault_data as Record<string, unknown> | null) ?? {};
+        const metadata =
+          (vaultData.metadata as Record<string, unknown> | undefined) ?? {};
+        const tally =
+          (metadata.emotionTally as Record<string, number> | undefined) ?? {};
+
+        const key = dominantEmotion.toLowerCase().slice(0, 40);
+        tally[key] = (Number(tally[key]) || 0) + 1;
+
+        const newVaultData = {
+          ...vaultData,
+          metadata: {
+            ...metadata,
+            emotionTally: tally,
+            lastMemoryAt: event_time,
+            lastDominantEmotion: dominantEmotion,
+          },
+        };
+
+        await adminClient
+          .from("user_vaults")
+          .upsert(
+            {
+              user_id,
+              vault_data: newVaultData,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id" },
+          );
+      }
+    } catch (vaultErr) {
+      console.warn(
+        "[Process-Memory] Vault DNA güncellemesi atlandı:",
+        getErrorMessage(vaultErr),
+      );
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

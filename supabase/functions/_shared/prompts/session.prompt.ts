@@ -11,6 +11,7 @@ interface PromptData {
   styleMode?: number;
   activityContext?: string; // New: recent activity summary
   continuityHints?: string[]; // New: conversation continuity hints
+  selfCorrect?: boolean; // Geri besleme: son yanıtlar düşük memnuniyet aldıysa yaklaşımı değiştir
 }
 
 // Generate continuity hints based on context
@@ -240,6 +241,7 @@ export function generateTextSessionPrompt(
     userLooksBored = false,
     styleMode = 0,
     activityContext = "",
+    selfCorrect = false,
   } = data;
 
   // Generate continuity hints for natural flow
@@ -290,6 +292,7 @@ export function generateTextSessionPrompt(
     (convType === "duygu_paylaşımı" || convType === "emotion_share")
       ? "EMOTIONAL"
       : null,
+    selfCorrect ? "SELF_CORRECT" : null,
   ].filter(Boolean).join(",");
 
   // Build the prompt with rich context
@@ -341,6 +344,7 @@ export function generateTextSessionPrompt(
         "NO_QUESTION: Eğer aktifse, soru sorma",
         "RE_ENGAGE: Eğer aktifse, konuyu ilginç bir yöne çevir",
         "EMOTIONAL: Eğer aktifse, duyguya odaklan, pratik çözümlerden kaçın",
+        "SELF_CORRECT: Eğer aktifse, son yanıtların kullanıcıya iyi gelmedi; tarzını belirgin biçimde değiştir, kalıpları tekrarlama, daha çok dinle ve daha az yönlendir",
         "ÇIKTI DİLİ: Yanıt dili Türkçe olmalı",
       ],
       examples: [
@@ -378,6 +382,7 @@ export function generateTextSessionPrompt(
         "NO_QUESTION: If active, do not ask a question",
         "RE_ENGAGE: If active, steer the topic in an engaging direction",
         "EMOTIONAL: If active, focus on feelings, avoid practical fixes",
+        "SELF_CORRECT: If active, your recent replies didn't land well; clearly change your style, avoid repeating patterns, listen more and steer less",
         "OUTPUT LANGUAGE: Response must be in English",
       ],
       examples: [
@@ -415,6 +420,7 @@ export function generateTextSessionPrompt(
         "NO_QUESTION: Wenn aktiv, keine Frage stellen",
         "RE_ENGAGE: Wenn aktiv, das Thema ansprechend weiterführen",
         "EMOTIONAL: Wenn aktiv, auf Gefühle fokussieren, praktische Lösungen vermeiden",
+        "SELF_CORRECT: Wenn aktiv, deine letzten Antworten kamen nicht gut an; ändere deinen Stil deutlich, wiederhole keine Muster, höre mehr zu und lenke weniger",
         "AUSGABESPRACHE: Antwort muss auf Deutsch sein",
       ],
       examples: [

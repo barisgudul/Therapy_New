@@ -5,6 +5,7 @@ export { useTranscripts } from "./useTranscripts";
 export { useDiary } from "./useDiary";
 export { useDailyReflection } from "./useDailyReflection";
 export { useSubscription } from "./useSubscription";
+export { useRevenueCat } from "./useRevenueCat";
 export { useVault } from "./useVault";
 export { useVoiceSession } from "./useVoice";
 export { useProtectedRoute } from "./useProtectedRoute";

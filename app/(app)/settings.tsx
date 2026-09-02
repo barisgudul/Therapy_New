@@ -11,13 +11,15 @@ import {
     StyleSheet,
     Text,
     View,
-    ActivityIndicator,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/Auth.tsx";
 import { FeaturedCard } from "../../components/settings/FeaturedCard";
 import { SettingsCard } from "../../components/settings/SettingsCard";
 import { useSettings } from "../../hooks/useSettings";
+import { ConfirmDeleteModal } from "../../components/shared/ConfirmDeleteModal";
+import { useSubscription } from "../../hooks/useSubscription";
+import { useRevenueCat } from "../../hooks/useRevenueCat";
 
 // === YENİ COMPONENT: DİL SEÇİCİ ===
 const LanguageSelector = () => {
@@ -56,6 +58,32 @@ const LanguageSelector = () => {
     );
 };
 
+const LegalRow = ({
+    icon,
+    label,
+    onPress,
+    isLast,
+}: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    onPress: () => void;
+    isLast?: boolean;
+}) => (
+    <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+            styles.legalRow,
+            !isLast && styles.legalRowBorder,
+            pressed && styles.cardPressed,
+        ]}
+        accessibilityRole="link"
+    >
+        <Ionicons name={icon} size={20} color="#475569" />
+        <Text style={styles.legalRowLabel}>{label}</Text>
+        <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+    </Pressable>
+);
+
 // --- BÖLÜM 2: ANA AYARLAR EKRANI ---
 
 export default function SettingsScreen() {
@@ -64,7 +92,16 @@ export default function SettingsScreen() {
 
     // ARTIK GÜVENLİ: AuthProvider hazır olmadan bu kod zaten çalışmayacak.
     const { user } = useAuth();
-    const { isResetting, handleSignOut, handleResetData } = useSettings();
+    const {
+        isResetting,
+        isDeleteModalOpen,
+        handleSignOut,
+        openDeleteModal,
+        closeDeleteModal,
+        confirmDelete,
+    } = useSettings();
+    const { planName } = useSubscription();
+    const { presentCustomerCenter } = useRevenueCat();
 
     return (
         <LinearGradient
@@ -106,7 +143,33 @@ export default function SettingsScreen() {
 
                     <LanguageSelector />
 
+                    <View style={styles.legalSection}>
+                        <Text style={styles.sectionTitle}>{t('legal.settings_section')}</Text>
+                        <View style={styles.legalCard}>
+                            <LegalRow icon="lock-closed-outline" label={t('legal.doc_title.privacy')} onPress={() => router.push('/(legal)/privacy')} />
+                            <LegalRow icon="document-text-outline" label={t('legal.doc_title.terms')} onPress={() => router.push('/(legal)/terms')} />
+                            <LegalRow icon="medkit-outline" label={t('legal.doc_title.disclaimer')} onPress={() => router.push('/(legal)/disclaimer')} />
+                            <LegalRow icon="alert-circle-outline" label={t('legal.crisis_resources')} onPress={() => router.push('/(legal)/disclaimer')} isLast />
+                        </View>
+                    </View>
+
                     <FeaturedCard />
+
+                    {planName !== "Free" && (
+                        <Pressable
+                            onPress={presentCustomerCenter}
+                            style={({ pressed }) => [
+                                styles.manageSubscription,
+                                pressed && styles.cardPressed,
+                            ]}
+                        >
+                            <Ionicons name="card-outline" size={22} color="#1E293B" />
+                            <Text style={styles.manageSubscriptionText}>
+                                {t("subscription.manage_subscription")}
+                            </Text>
+                            <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
+                        </Pressable>
+                    )}
 
                     <View style={styles.destructiveZone}>
                         <View style={styles.destructiveHeader}>
@@ -119,32 +182,23 @@ export default function SettingsScreen() {
                                 {t('settings.main.dangerZone_title')}
                             </Text>
                         </View>
-                        {isResetting
-                            ? (
-                                <View style={styles.loadingWrapper}>
-                                    <ActivityIndicator color="#475569" />
-                                </View>
-                            )
-                            : (
-                                <Pressable
-                                    onPress={handleResetData}
-                                    style={(
-                                        { pressed },
-                                    ) => [
-                                        styles.destructiveButton,
-                                        pressed && styles.cardPressed,
-                                    ]}
-                                >
-                                    <Text style={styles.destructiveButtonText}>
-                                        {t('settings.main.dangerZone_resetData')}
-                                    </Text>
-                                    <Ionicons
-                                        name="trash-outline"
-                                        size={20}
-                                        color="#BE123C"
-                                    />
-                                </Pressable>
-                            )}
+                        <Pressable
+                            onPress={openDeleteModal}
+                            style={({ pressed }) => [
+                                styles.destructiveButton,
+                                pressed && styles.cardPressed,
+                            ]}
+                            testID="delete-account-button"
+                        >
+                            <Text style={styles.destructiveButtonText}>
+                                {t('settings.account.delete_title')}
+                            </Text>
+                            <Ionicons
+                                name="trash-outline"
+                                size={20}
+                                color="#BE123C"
+                            />
+                        </Pressable>
                         <Pressable
                             onPress={handleSignOut}
                             style={(
@@ -170,6 +224,13 @@ export default function SettingsScreen() {
                     </View>
                 </ScrollView>
             </SafeAreaView>
+
+            <ConfirmDeleteModal
+                isVisible={isDeleteModalOpen}
+                isDeleting={isResetting}
+                onCancel={closeDeleteModal}
+                onConfirm={confirmDelete}
+            />
         </LinearGradient>
     );
 }
@@ -217,6 +278,23 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         gap: 16,
     },
+    manageSubscription: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 20,
+        padding: 18,
+        marginTop: 16,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+    },
+    manageSubscriptionText: {
+        flex: 1,
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#1E293B",
+    },
 
     destructiveZone: {
         backgroundColor: "#FFF1F2",
@@ -259,7 +337,6 @@ const styles = StyleSheet.create({
         marginTop: 40,
     },
     footerText: { fontSize: 14, color: "#94A3B8" },
-    loadingWrapper: { alignItems: "center", padding: 16 },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '600',
@@ -273,6 +350,31 @@ const styles = StyleSheet.create({
         marginTop: 16,
         borderWidth: 1,
         borderColor: '#E2E8F0',
+    },
+    legalSection: { marginTop: 16 },
+    legalCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: "#E2E8F0",
+        overflow: "hidden",
+    },
+    legalRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingVertical: 16,
+        paddingHorizontal: 18,
+    },
+    legalRowBorder: {
+        borderBottomWidth: 1,
+        borderBottomColor: "#F1F5F9",
+    },
+    legalRowLabel: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: "500",
+        color: "#334155",
     },
     languageButtons: {
         flexDirection: 'row',

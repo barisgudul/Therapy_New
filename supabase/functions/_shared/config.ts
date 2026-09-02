@@ -36,6 +36,17 @@ export const config = {
     // Bu, eski kodun kırılmasını engeller ama yeni kodda "FAST" kullanmalısın.
     INTENT: getEnv("AI_MODEL_FAST", "gemini-2.5-flash-lite"),
     RESPONSE: getEnv("AI_MODEL_FAST", "gemini-2.5-flash-lite"),
+
+    // Embedding modeli - TEK KAYNAK (api-gateway buradan/aynı env'den okur).
+    // DİKKAT: Bu değeri değiştirmek mevcut vektör uzayını GEÇERSİZ kılar
+    // (eski embedding'ler yeni model ile uyumsuz olur). Model değişimi yalnızca
+    // tüm cognitive_memories yeniden embed edilerek (backfill) yapılmalıdır.
+    EMBEDDING: getEnv("AI_MODEL_EMBEDDING", "embedding-001"),
+
+    // Güvenlik sınıflandırıcı modeli - safety-guard / api-gateway ilk aday olarak kullanır
+    // (erişim yoksa kendi yedek zincirlerine düşerler). Davranışı korumak için
+    // default mevcut model ile aynı bırakıldı.
+    CLASSIFIER: getEnv("AI_MODEL_CLASSIFIER", "gemini-1.5-flash"),
   },
 
   /**
@@ -53,11 +64,12 @@ export const config = {
       threshold: getEnvAsNumber("RAG_THRESHOLD_DREAM", 0.37),
       count: getEnvAsNumber("RAG_COUNT_DREAM", 9),
     },
-    // Eskiden kullandığın genel RAG_CONFIG'i koruyoruz ama
-    // artık daha spesifik olan üsttekileri kullanmalısın.
+    // Genel/varsayılan RAG ayarı. Casing artık diğerleriyle aynı (threshold/count).
+    // 0.75 pratikte neredeyse hiç eşleşme döndürmüyordu (kısa metinlerde cosine ~0.75
+    // nadirdir); 0.5'e indirildi. Recency artık SQL tarafında (match_memories) ele alınıyor.
     DEFAULT: {
-      THRESHOLD: getEnvAsNumber("RAG_THRESHOLD_DEFAULT", 0.75),
-      COUNT: getEnvAsNumber("RAG_COUNT_DEFAULT", 3),
+      threshold: getEnvAsNumber("RAG_THRESHOLD_DEFAULT", 0.5),
+      count: getEnvAsNumber("RAG_COUNT_DEFAULT", 3),
     },
   },
 
@@ -84,7 +96,8 @@ export const config = {
     // AI analiz ve raporlar için tavan
     AI_ANALYSIS: getEnvAsNumber("LLM_MAX_OUT_AI_ANALYSIS", 2048),
     // Text session yanıtları için tavan (warm start dahil)
-    TEXT_SESSION_RESPONSE: getEnvAsNumber("LLM_MAX_OUT_TEXT_SESSION", 128),
+    // 128 token Türkçe'de 1-2 cümleyi cümle ortasından kesebiliyordu; 256'ya çıkarıldı.
+    TEXT_SESSION_RESPONSE: getEnvAsNumber("LLM_MAX_OUT_TEXT_SESSION", 256),
     // Sohbet sonu özetleri için tavan (cognitive memories kaydı)
     SESSION_SUMMARY: getEnvAsNumber("LLM_MAX_OUT_SESSION_SUMMARY", 128),
     // Onboarding insight için tavan (DETAYLI VE DEĞERLİ)

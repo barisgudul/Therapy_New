@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../../constants/Colors";
 import { useDiaryContext } from "../../context/DiaryContext";
 import { useTranslation } from "react-i18next";
+import { DisclaimerBanner } from "../shared/DisclaimerBanner";
 
 export const WritingMode: React.FC = () => {
   const { state, handlers } = useDiaryContext();
@@ -18,6 +19,8 @@ export const WritingMode: React.FC = () => {
       <View style={styles.topBar}></View>
 
       <Text style={styles.headerTitle}>{t('diary.writing.new_entry')}</Text>
+
+      <DisclaimerBanner />
 
       <View style={styles.content}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>

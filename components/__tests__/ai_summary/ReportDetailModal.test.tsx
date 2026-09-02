@@ -1,13 +1,7 @@
 // components/__tests__/ai_summary/ReportDetailModal.test.tsx
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import ReportDetailModal from '../../ai_summary/ReportDetailModal';
-import { generatePdf } from '../../../utils/pdfGenerator';
-
-
-jest.mock('../../../utils/pdfGenerator', () => ({
-  generatePdf: jest.fn().mockResolvedValue(undefined),
-}));
 
 jest.mock('../../../utils/supabase', () => ({
   supabase: {
@@ -57,16 +51,6 @@ describe('ReportDetailModal', () => {
     expect(screen.getByText('Başlık')).toBeTruthy();
     expect(screen.getByText('Altın iplik')).toBeTruthy();
     expect(screen.getByText('Kör nokta')).toBeTruthy();
-  });
-
-  it('PDF export butonuna basınca generatePdf çağrılır', async () => {
-    render(
-      <ReportDetailModal isVisible={true} onClose={jest.fn()} activeSummary={baseSummary as any} selectedDays={7} />
-    );
-
-    const pdfDownloadText = screen.getByText('ai_summary.pdf_download');
-    fireEvent.press(pdfDownloadText);
-    await waitFor(() => expect(generatePdf).toHaveBeenCalled());
   });
 
   it('içgörüler görünür, meaningful ve invoke başarılıysa insight kartlarını gösterir', async () => {

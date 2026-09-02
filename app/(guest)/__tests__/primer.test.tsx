@@ -120,19 +120,6 @@ describe('Primer', () => {
     expect(mockReplace).toHaveBeenCalledWith('/(guest)/step1');
   });
 
-  it('DEV button render edilmeli (DEV mode)', () => {
-    // __DEV__ true olduğunda render edilmeli
-    const originalDEV = global.__DEV__;
-    global.__DEV__ = true;
-
-    render(<Primer />);
-
-    // DEV button varsa test et
-    global.__DEV__ = originalDEV;
-    
-    expect(mockUseRouter).toHaveBeenCalled();
-  });
-
   it('gradient colors doğru kullanılmalıdır', () => {
     render(<Primer />);
 

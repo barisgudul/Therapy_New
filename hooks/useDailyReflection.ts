@@ -13,10 +13,12 @@ import {
     isAppError,
     ValidationError,
 } from "../utils/errors";
+import { maybeShowCrisis } from "../utils/crisis";
 import { useFeatureAccess } from "./useSubscription";
 import { useUpdateVault, useVault } from "./useVault";
 import { supabase } from "../utils/supabase";
 import i18n from "../utils/i18n";
+import { computeNextStreak, toDateKey } from "../utils/streak";
 
 const { width, height } = Dimensions.get("window");
 
@@ -150,6 +152,11 @@ export function useDailyReflection() {
 
             // Supabase'den gelen yapısal hatayı DÜZGÜN YÖNET
             if (error) {
+                // Kriz (yüksek risk) ise normal hata akışı yerine kriz ekranını aç.
+                if (await maybeShowCrisis(error)) {
+                    setFeedbackVisible(false);
+                    return; // finally yine de setSaving(false) çalıştırır
+                }
                 // error.message içinde JSON string'i olabilir ama garanti değil
                 let parsedError;
                 try {
@@ -280,16 +287,29 @@ export function useDailyReflection() {
 
     function closeFeedback() {
         setFeedbackVisible(false);
-        const todayString = new Date().toISOString().split("T")[0];
+        const todayString = toDateKey();
 
         try {
             // Orchestrator zaten event'i ve hafızayı işledi. Sadece vault güncelle.
             if (vault) {
+                const prevLast = vault.metadata?.lastDailyReflectionDate as
+                    | string
+                    | undefined;
+                const prevStreak = Number(
+                    vault.metadata?.dailyReflectionStreak ?? 0,
+                );
+                const newStreak = computeNextStreak(
+                    prevLast,
+                    todayString,
+                    prevStreak,
+                );
+
                 const newVault = {
                     ...vault,
                     metadata: {
                         ...vault.metadata,
                         lastDailyReflectionDate: todayString,
+                        dailyReflectionStreak: newStreak,
                         dailyMessageContent: aiMessage,
                     },
                 };

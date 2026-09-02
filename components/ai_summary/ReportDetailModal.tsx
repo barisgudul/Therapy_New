@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { Colors } from "../../constants/Colors";
-import { generatePdf } from "../../utils/pdfGenerator";
 import { supabase } from "../../utils/supabase";
 import { AnalysisReport } from "../../types/analysis";
 import { useTranslation } from "react-i18next";
@@ -77,12 +76,6 @@ export default function ReportDetailModal({
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<number>(0);
-
-  const handleExportPDF = async () => {
-    if (!activeSummary) return;
-    // Artık tüm pis işi bu fonksiyon yapacak
-    await generatePdf(activeSummary);
-  };
 
   // YENİ KONTROL MEKANİZMASI
   const overviewLower = (activeSummary?.reportSections.overview || '').toLowerCase();
@@ -288,19 +281,6 @@ export default function ReportDetailModal({
 
                 {/* Alt Aksiyonlar */}
                 <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    onPress={handleExportPDF}
-                    style={styles.modalPrimaryAction}
-                  >
-                    <LinearGradient
-                      colors={["#F8FAFF", "#FFFFFF"]}
-                      style={styles.modalActionGradient}
-                    >
-                      <Ionicons name="download-outline" size={20} color={Colors.light.tint} />
-                      <Text style={[styles.modalActionText, { color: Colors.light.tint }]}>{t('ai_summary.pdf_download')}</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                  
                   <TouchableOpacity
                     style={styles.modalSecondaryAction}
                     onPress={() => {

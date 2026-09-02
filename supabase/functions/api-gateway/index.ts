@@ -1,6 +1,8 @@
 // supabase/functions/api-gateway/index.ts
 import { Sentry } from "../_shared/sentry.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { getCrisisPayload } from "../_shared/crisis-resources.ts";
+import { config } from "../_shared/config.ts";
 
 const GEMINI_API_KEY_FOR_GATEWAY = Deno.env.get("GEMINI_API_KEY");
 
@@ -49,7 +51,7 @@ async function classifyTextForSafety(text: string): Promise<string> {
     const fromEnv = Deno.env.get("CLASSIFIER_MODEL");
     const candidates = [
       ...(fromEnv ? [fromEnv] : []),
-      "gemini-1.5-flash",
+      config.AI_MODELS.CLASSIFIER,
       // Bazı projelerde -002 erişim izni olmayabilir; 001'e düş
       "gemini-1.5-flash-001",
       // Son çare olarak pro
@@ -222,14 +224,10 @@ export async function handleApiGateway(req: Request): Promise<Response> {
 
         if (safetyLevel === "level_3_high_alert") {
           console.warn(
-            `🚨 GÜVENLİK İHLALİ: API Gateway'de '${safetyLevel}' seviyesinde riskli içerik engellendi.`,
+            `🚨 KRİZ: API Gateway'de '${safetyLevel}' tespit edildi, kullanıcı kriz kaynaklarına yönlendiriliyor.`,
           );
           return new Response(
-            JSON.stringify({
-              error:
-                "Okuduklarım beni endişelendirdi ve güvende olman benim için çok önemli...",
-              code: "SECURITY_VIOLATION_HIGH_RISK",
-            }),
+            JSON.stringify(getCrisisPayload(payload?.language)),
             {
               status: 400,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -252,16 +250,20 @@ export async function handleApiGateway(req: Request): Promise<Response> {
       return key;
     };
 
+    // Embedding modeli artık TEK kaynaktan (env) okunur.
+    // DİKKAT: Değiştirmek mevcut vektör uzayını geçersiz kılar -> backfill gerekir.
+    const EMBEDDING_MODEL = Deno.env.get("AI_MODEL_EMBEDDING") ?? "embedding-001";
+
     const fetchEmbedSingle = async (text: string): Promise<number[]> => {
       const geminiApiKey = getGeminiApiKeyStrict();
       console.log(`[API-Gateway][${transactionId}] Single embedding request.`);
       const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${geminiApiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "models/embedding-001",
+            model: `models/${EMBEDDING_MODEL}`,
             content: { parts: [{ text }] },
           }),
         },
@@ -293,11 +295,11 @@ export async function handleApiGateway(req: Request): Promise<Response> {
           `[API-Gateway][${transactionId}] Batch embedding request started for ${texts.length} items.`,
         );
         const requests = texts.map((t) => ({
-          model: "models/embedding-001",
+          model: `models/${EMBEDDING_MODEL}`,
           content: { parts: [{ text: t }] },
         }));
         const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:batchEmbedContents?key=${geminiApiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:batchEmbedContents?key=${geminiApiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
