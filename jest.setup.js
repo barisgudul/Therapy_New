@@ -262,6 +262,15 @@ jest.mock('i18next', () => ({
   language: 'tr',
 }));
 
+// Mock @sentry/react-native (native module — not available under Jest)
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  wrap: (component) => component,
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  setUser: jest.fn(),
+}));
+
 // Mock expo-router
 jest.mock('expo-router', () => ({
   useRouter: jest.fn(() => ({

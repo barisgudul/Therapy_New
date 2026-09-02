@@ -20,13 +20,20 @@ import Toast, { BaseToastProps } from "react-native-toast-message";
 // Yeni AppToast'ımızı içeri al
 import { AppToast } from "../components/shared/AppToast";
 
+import ErrorBoundary from "react-native-error-boundary";
 import UndoToast from "../components/dream/UndoToast";
 import { CrisisModal } from "../components/shared/CrisisModal";
+import { ErrorFallbackUI } from "../components/shared/ErrorFallbackUI";
 import { AuthProvider, useAuth } from "../context/Auth";
 import { LoadingProvider } from "../context/Loading";
 import { RevenueCatProvider } from "../providers/RevenueCatProvider";
 import { useOnboardingStore } from "../store/onboardingStore";
+import { captureException, initSentry, wrap } from "../utils/sentry";
+
 WebBrowser.maybeCompleteAuthSession();
+
+// Crash/error reporting — no-op unless EXPO_PUBLIC_SENTRY_DSN is set.
+initSentry();
 
 // Bildirim uygulama önplandayken de banner/ses olarak gösterilsin
 Notifications.setNotificationHandler({
@@ -151,21 +158,26 @@ function RootLayoutNav() {
 // ======================================================================
 // UYGULAMANIN GİRİŞ NOKTASI (Provider'lar burada)
 // ======================================================================
-export default function RootLayout() {
+function RootLayout() {
   return (
     <View style={styles.container}>
-      <QueryClientProvider client={queryClient}>
-        <KeyboardProvider>
-          <LoadingProvider>
-            <AuthProvider>
-              <RevenueCatProvider>
-                <RootLayoutNav />
-              </RevenueCatProvider>
-            </AuthProvider>
-          </LoadingProvider>
-        </KeyboardProvider>
-      </QueryClientProvider>
-      
+      <ErrorBoundary
+        FallbackComponent={ErrorFallbackUI}
+        onError={(error) => captureException(error)}
+      >
+        <QueryClientProvider client={queryClient}>
+          <KeyboardProvider>
+            <LoadingProvider>
+              <AuthProvider>
+                <RevenueCatProvider>
+                  <RootLayoutNav />
+                </RevenueCatProvider>
+              </AuthProvider>
+            </LoadingProvider>
+          </KeyboardProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+
       {/* Kriz (level_3_high_alert) ekranı — tüm AI gateway akışları için ortak.
           Toast'tan SONRA gelir ki her zaman en üstte render edilsin. */}
       <CrisisModal />
@@ -174,6 +186,8 @@ export default function RootLayout() {
     </View>
   );
 }
+
+export default wrap(RootLayout);
 
 const styles = StyleSheet.create({
   container: {

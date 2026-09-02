@@ -46,6 +46,15 @@ export default {
       'expo-audio',
       'expo-localization',
       'expo-secure-store',
+      [
+        '@sentry/react-native/expo',
+        {
+          organization: process.env.SENTRY_ORG,
+          project: process.env.SENTRY_PROJECT,
+          // Source map upload only runs when SENTRY_AUTH_TOKEN is present in the
+          // build environment; otherwise this is a harmless no-op.
+        },
+      ],
     ],
 
     experiments: {
@@ -60,6 +69,8 @@ export default {
       EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       EXPO_PUBLIC_RC_IOS_KEY: process.env.EXPO_PUBLIC_RC_IOS_KEY,
       EXPO_PUBLIC_RC_ANDROID_KEY: process.env.EXPO_PUBLIC_RC_ANDROID_KEY,
+      EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
+      EXPO_PUBLIC_ENV: process.env.EXPO_PUBLIC_ENV,
     },
   },
 };

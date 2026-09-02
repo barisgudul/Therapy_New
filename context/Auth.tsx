@@ -6,6 +6,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { Alert, ActivityIndicator, View } from "react-native";
 // import { useVaultStore } from '../store/vaultStore'; // SİL
 import { supabase } from "../utils/supabase";
+import { setSentryUser } from "../utils/sentry";
 import * as Linking from 'expo-linking';
 
 // 1. CONTEXT TİPİNİ GENİŞLETİYORUZ
@@ -101,6 +102,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setSentryUser(session?.user?.id ?? null);
       if (session?.user) checkUserStatus(session.user);
       setAuthReady(true);
     });
@@ -111,6 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setSession(session);
         const currentUser = session?.user ?? null;
         setUser(currentUser);
+        setSentryUser(currentUser?.id ?? null);
         if (currentUser) {
           checkUserStatus(currentUser);
         } else {
