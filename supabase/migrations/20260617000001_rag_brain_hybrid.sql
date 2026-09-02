@@ -77,3 +77,9 @@ BEGIN
 END;
 $function$
 ;
+
+-- DROP + CREATE loses the previous grants; restore them to match the old function.
+GRANT EXECUTE ON FUNCTION public.match_memories(
+  extensions.vector, double precision, integer, uuid, timestamp with time zone,
+  extensions.vector, double precision
+) TO anon, authenticated, service_role;
