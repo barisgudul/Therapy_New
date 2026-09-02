@@ -32,7 +32,8 @@
     "evening": {
       "title": "Bugün nasılsın?",
       "body": "1 cümleyle kendini ifade etmek ister misin?"
-    }
+    },
+    "channel_name": "Günlük hatırlatıcılar"
   },
   "ai_summary": {
     "header_title": "Kişisel Analiz",

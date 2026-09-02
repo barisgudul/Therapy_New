@@ -31,7 +31,8 @@
     "evening": {
       "title": "Wie geht es dir heute?",
       "body": "Möchtest du dich in einem Satz ausdrücken?"
-    }
+    },
+    "channel_name": "Tägliche Erinnerungen"
   },
   "ai_summary": {
     "header_title": "Persönliche Analyse",

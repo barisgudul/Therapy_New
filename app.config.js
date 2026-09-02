@@ -47,6 +47,14 @@ export default {
       'expo-localization',
       'expo-secure-store',
       [
+        'expo-notifications',
+        {
+          color: '#5DA1D9',
+          // TODO: add `icon: './assets/images/notification-icon.png'`
+          // (96x96, white silhouette on transparent) — see launch checklist.
+        },
+      ],
+      [
         '@sentry/react-native/expo',
         {
           organization: process.env.SENTRY_ORG,

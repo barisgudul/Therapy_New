@@ -3,12 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { useRouter } from "expo-router/";
 import { useQueryClient } from "@tanstack/react-query";
-import * as Notifications from "expo-notifications";
 import { useUpdateVault, useVault } from "./useVault";
 import { supabase } from "../utils/supabase";
 import { useOnboardingStore } from "../store/onboardingStore";
-import i18n from "../utils/i18n";
-import { getEffectiveStreak, isMilestone, toDateKey } from "../utils/streak";
+import { getEffectiveStreak, isMilestone } from "../utils/streak";
+import { syncDailyReminders } from "../utils/notifications";
 
 export type ActiveModal =
     | null
@@ -73,36 +72,11 @@ export const useHomeScreen = () => {
         }
     }, [vault, storeInsight, setOnboardingInsight]);
 
-    // Bildirim yönetimi
+    // Bildirim yönetimi: vault hazır olduğunda izni iste ve günlük
+    // hatırlatıcıları (yeniden) kur. İzin reddedilirse sessizce hiçbir şey yapmaz.
     useEffect(() => {
         if (!isVaultLoading && vault) {
-            (async () => {
-                await Notifications.cancelAllScheduledNotificationsAsync();
-                await Notifications.scheduleNotificationAsync({
-                    content: {
-                        title: i18n.t("notifications.morning.title"),
-                        body: i18n.t("notifications.morning.body"),
-                        data: { route: "/daily_reflection" },
-                    },
-                    trigger: {
-                        hour: 8,
-                        minute: 0,
-                        repeats: true,
-                    } as Notifications.NotificationTriggerInput,
-                });
-                await Notifications.scheduleNotificationAsync({
-                    content: {
-                        title: i18n.t("notifications.evening.title"),
-                        body: i18n.t("notifications.evening.body"),
-                        data: { route: "/daily_reflection" },
-                    },
-                    trigger: {
-                        hour: 20,
-                        minute: 0,
-                        repeats: true,
-                    } as Notifications.NotificationTriggerInput,
-                });
-            })();
+            syncDailyReminders();
         }
     }, [isVaultLoading, vault]);
 

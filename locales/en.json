@@ -31,7 +31,8 @@
     "evening": {
       "title": "How are you today?",
       "body": "Want to express yourself in one sentence?"
-    }
+    },
+    "channel_name": "Daily reminders"
   },
   "ai_summary": {
     "header_title": "Personal Analysis",
