@@ -13,7 +13,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-type PlanName = "Free" | "+Plus" | "Premium";
+// DB plan names as stored in public.subscription_plans.name
+// (the client/UI label for PLUS is "+Plus", but the row is "Plus").
+type PlanName = "Free" | "Plus" | "Premium";
 
 const ENTITLEMENT_PREMIUM = "gisbel";
 const ENTITLEMENT_PLUS = "plus";
@@ -29,7 +31,7 @@ interface RevenueCatEvent {
 
 function resolvePlan(entitlementIds: readonly string[]): PlanName {
   if (entitlementIds.includes(ENTITLEMENT_PREMIUM)) return "Premium";
-  if (entitlementIds.includes(ENTITLEMENT_PLUS)) return "+Plus";
+  if (entitlementIds.includes(ENTITLEMENT_PLUS)) return "Plus";
   return "Free";
 }
 
