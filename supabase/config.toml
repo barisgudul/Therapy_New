@@ -1,6 +1,11 @@
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
-project_id = "xnicudjkfmxsmyxbemur"
+#
+# Production project ref. `supabase link` / `db push` / `functions deploy`
+# target this project. (Previously pointed at the staging ref
+# `xnicudjkfmxsmyxbemur`; see the launch checklist for the schema
+# reconciliation steps.)
+project_id = "ijtcqbxagcdgfxrgamis"
 
 [api]
 enabled = true
@@ -52,4 +57,15 @@ import_map = "./functions/reset-user-data/deno.json"
 [functions.cancel-deletion]
 verify_jwt = true
 import_map = "./functions/cancel-deletion/deno.json"
+
+# RevenueCat cannot present a Supabase user JWT — this webhook authenticates via a
+# shared secret (Authorization: Bearer <REVENUECAT_WEBHOOK_SECRET>) checked inside
+# the function. It MUST be deployed without JWT verification or entitlement sync
+# silently breaks.
+[functions.revenuecat-webhook]
+verify_jwt = false
+
+# All other edge functions use the default `verify_jwt = true`. They are invoked
+# either by a signed-in client (forwarding the user JWT) or by another function
+# using the service-role key, both of which satisfy JWT verification.
 
