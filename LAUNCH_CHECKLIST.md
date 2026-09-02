@@ -17,22 +17,34 @@ Status legend: [x] done · [ ] you · [~] blocked on Apple Developer account
 
 ## 1. Expo / EAS
 
-- [ ] `eas login` as `barisgudul` (the local session expired — I could not run
-      the build). Then:
+- [x] Logged in as `barisgudul`.
+- [x] **iOS preview (simulator) build started** — build #1,
+      `expo.dev/accounts/barisgudul/projects/therapynew/builds/2a7a4b47-d546-466d-bba1-8bb0d7e779cd`
+      — verifies RevenueCat + Sentry + expo-notifications compile under CNG.
+- [x] `eas.json` env blocks trimmed to `EXPO_PUBLIC_ENV`; the Supabase vars come
+      from **EAS environment variables** (already configured per environment).
+- [ ] **Clean up the EAS `preview` environment variables** — it currently has
+      *two* `EXPO_PUBLIC_SUPABASE_ANON_KEY` entries (one plain-text staging key,
+      one secret) and points at the paused `xnicudjkfmxsmyxbemur` project. Delete
+      the duplicates, keep one pointing where preview builds should talk to.
+- [ ] **Verify the EAS `production` environment** has the *prod*
+      (`ijtcqbxagcdgfxrgamis`) `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+      (they're stored as write-only secrets — can't be read back, so double-check
+      by value).
+- [ ] Add to the EAS `production` environment when available:
+      `EXPO_PUBLIC_RC_IOS_KEY` (RevenueCat → API keys → iOS `appl_…`, exists only
+      after the App Store Connect app is linked), optional `EXPO_PUBLIC_SENTRY_DSN`.
       ```
-      eas build --profile preview --platform ios      # simulator, no Apple acct
-      # once you have the Apple Developer account:
+      eas env:create --environment production --name EXPO_PUBLIC_RC_IOS_KEY --value appl_xxx
+      ```
+- [ ] Once you have the Apple Developer account:
+      ```
       eas build --profile production --platform ios
       eas submit --profile production --platform ios
       ```
-- [ ] Fill the real values into `eas.json` → `build.production.env` (or as EAS
-      environment variables):
-      - `EXPO_PUBLIC_RC_IOS_KEY` — RevenueCat → API keys → iOS app key
-        (`appl_…`), created only after the App Store Connect app is linked
-      - `EXPO_PUBLIC_SENTRY_DSN` — optional, from a Sentry RN project
-      (`EXPO_PUBLIC_ENV`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
-      are already in `eas.json`.)
-- [ ] Confirm EAS build quota.
+- [ ] `expo-updates` is not installed, so the `channel` in the build profiles is
+      inert (harmless). Add it later if you want OTA updates:
+      `npx expo install expo-updates && eas update:configure`.
 - [ ] Provide the notification icon: `assets/images/notification-icon.png`
       (96×96, white opaque silhouette on transparent — no gradients). Then add
       `icon: './assets/images/notification-icon.png'` back to the
